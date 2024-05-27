@@ -1,0 +1,455 @@
+import 'package:custom_rating_bar/custom_rating_bar.dart';
+import 'package:flutter/material.dart';
+import 'package:happy/classes/company.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:happy/widgets/mots_cles_emploi.dart';
+import 'package:palette_generator/palette_generator.dart';
+
+class DetailsEmploiPage extends StatefulWidget {
+  const DetailsEmploiPage({super.key});
+
+  @override
+  _DetailsEmploiPageState createState() => _DetailsEmploiPageState();
+}
+
+class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
+  Color? appBarColor = Colors.grey[400];
+  late PaletteGenerator paletteGenerator;
+
+  @override
+  void initState() {
+    super.initState();
+    _updatePalette();
+  }
+
+  Future<void> _updatePalette() async {
+    final imageProvider = NetworkImage(
+        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVHWZXfh6JF2m-fOZpEtxUEmD_gEsdUGkGYMYTUn3aeA&s');
+    paletteGenerator = await PaletteGenerator.fromImageProvider(imageProvider);
+    setState(() {
+      appBarColor = paletteGenerator.dominantColor?.color ?? Colors.grey[400];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+            border: Border.all(
+          width: 1,
+          color: const Color.fromARGB(143, 158, 158, 158),
+        )),
+        padding: EdgeInsets.only(
+          bottom: 30,
+          top: 15,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton(
+              onPressed: () {},
+              child: Text('Postuler',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  )),
+              style: ButtonStyle(
+                padding: MaterialStatePropertyAll(EdgeInsets.symmetric(
+                  horizontal: 100,
+                  vertical: 10,
+                )),
+                shape: MaterialStatePropertyAll(RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5))),
+                backgroundColor: MaterialStatePropertyAll(Colors.blue),
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: NestedScrollView(
+        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+          return <Widget>[
+            SliverAppBar(
+              floating: true,
+              elevation: 11,
+              centerTitle: true,
+              title: Container(
+                width: 110,
+                height: 30,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: const Color.fromARGB(115, 0, 0, 0),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Icon(
+                        Icons.calendar_month_outlined,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      Text(
+                        'Evènement',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+              ),
+              backgroundColor: appBarColor,
+              shadowColor: Colors.grey,
+              leading: IconButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  onPressed: () async {},
+                  icon: Icon(
+                    Icons.favorite,
+                    color: Colors.red,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {},
+                  icon: const Icon(
+                    Icons.share,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+              pinned: true,
+              expandedHeight: 200.0,
+              toolbarHeight: 40,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  decoration: const BoxDecoration(color: Colors.white),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 200,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Image.network(
+                              height: 200,
+                              colorBlendMode: BlendMode.colorBurn,
+                              color: Colors.black12,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVHWZXfh6JF2m-fOZpEtxUEmD_gEsdUGkGYMYTUn3aeA&s',
+                            ),
+                            Positioned(
+                              top: 150,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 20),
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: const Color.fromARGB(
+                                            255, 213, 213, 213),
+                                      ),
+                                      color: Colors.white,
+                                      borderRadius: const BorderRadius.all(
+                                        Radius.circular(10),
+                                      )),
+                                  height: 100,
+                                  width: 330,
+                                  child: const Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Développeur Full Stack',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.location_on_outlined,
+                                            size: 22,
+                                            color:
+                                                Color.fromARGB(255, 95, 95, 95),
+                                          ),
+                                          SizedBox(width: 10, height: 10),
+                                          Text('Douai')
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ];
+        },
+        body: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mots Clés',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Wrap(
+                  runSpacing: 5,
+                  spacing: 5,
+                  children: [
+                    MotsClesEmploi('CDD'),
+                    MotsClesEmploi('Télétravail'),
+                    MotsClesEmploi('Tickets Restaurant'),
+                    MotsClesEmploi('Tickets Restaurant'),
+                  ],
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Text(
+                  'Entreprise',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DetailsCompany(Company(
+                            id: '12',
+                            name: 'Be Happy',
+                            categories: 'Services aux entreprises',
+                            open: true,
+                            rating: 4,
+                            like: 2,
+                            ville: 'Marly',
+                            phone: '06 19 07 08 11')),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.5),
+                          spreadRadius: 0,
+                          blurRadius: 4,
+                          offset: Offset(0, 1), // changes position of shadow
+                        ),
+                      ],
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.all(
+                        Radius.circular(10),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: Colors.blue,
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundImage: NetworkImage(
+                                'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Be Happy',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                RatingBar.readOnly(
+                                  filledIcon: Icons.star,
+                                  size: 16,
+                                  filledColor: Colors.blue,
+                                  emptyIcon: Icons.star_border,
+                                  initialRating: 2,
+                                  maxRating: 5,
+                                ),
+                                const Text(
+                                  '(45 avis)',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                // Text(DateFormat('EEEE', 'FR_fr').format(DateTime.now()))
+                              ],
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          child: Container(
+                            padding: EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.rectangle,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Icon(Icons.message, color: Colors.white),
+                          ),
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: 20,
+                  width: 20,
+                ),
+                Text(
+                  'Description du poste',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Text(
+                  'Vous assistez le bureau détudes qui est en charge de la réalisation doffres pour nos clients BtoB.\n - Vérifier les dossiers et réaliser les fiches synthèse \n - Chercher les consommations du client Calculer le budget actuel \n - Bloquer les pricers Envoyer les dossiers en consultation Rédiger les contrats',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Text(
+                  'Profil recherché',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Text(
+                  'Vous disposez d’une très bonne organisation et rigueur ?\nVous aimez les chiffres et vous maitrisez l’outil Excel? \nVous avez l’esprit logique et vous aimez travailler en équipe?\nAlors n’hésitez plus ! Vous êtes la personne que nous recherchons !',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Text(
+                  'Pourquoi nous rejoindre ?',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Text(
+                  "Nous sommes une entreprise à taille humaine qui cherche à favoriser le bien-être de ses salariés. Nous avons des locaux agréables, des horaires attractifs, des tickets-restaurants, un parcours de formation pour chaque nouveau collaborateur, un CRM optimisé... et surtout, une équipe soudée où cohésion et bonne humeur sont de rigueur. Les missions vous intéressent ? Vous vous reconnaissez dans le profil recherché ? Vous avez envie d'en savoir plus ? Alors, n'hésitez plus et envoyez votre CV ! Aurore, notre responsable RH, sera ravie de vous contacter.",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Text(
+                  'Vos avantages',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(
+                  height: 10,
+                  width: 10,
+                ),
+                Text(
+                  '''Ce n'est pas tout ! Pour ta carrière, nous nous engageons à :
+
+VOIR : ton talent, ton énergie et ton potentiel. Et parce que tu es particulier-e, nous te proposerons un parcours personnalisé !SAVOIR : où tu en es dans ta carrière et acquérir sans cesse de nouvelles compétences. Grâce à Metaveo, des formations certifiantes sur mesure te seront proposées !
+
+PRÉVOIR : aujourd'hui n'est qu'un point de départ. Nous sommes investis dans ton avenir, notre objectif est de te faire atteindre le tien !
+
+Ton package Anaveo :
+- Poste à pourvoir en Mars 2024
+- Carte restaurant
+- Véhicule de fonction
+- Mutuelle d'entreprise
+- Prime de participation, Avantage avec notre CSE
+- Et surtout un coaching personnalisé de ta carrière au sein d'une superbe équipe
+
+Avant d'intégrer nos équipes tu auras :
+- Une première prise de contact par téléphone avec notre équipe recrutement
+- Réalisé un entretien au sein de notre agence avec ton futur Manager
+- Confirmé ton souhait d'intégrer Anaveo avec notre équipe RH''',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
