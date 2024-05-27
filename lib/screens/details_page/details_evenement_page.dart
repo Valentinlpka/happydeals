@@ -8,6 +8,7 @@ class DetailsEvenementPage extends StatefulWidget {
   const DetailsEvenementPage({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _DetailsEvenementPageState createState() => _DetailsEvenementPageState();
 }
 
@@ -22,7 +23,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
   }
 
   Future<void> _updatePalette() async {
-    final imageProvider = NetworkImage(
+    const imageProvider = NetworkImage(
         'https://www.fnacspectacles.com/obj/mam/france/71/3b/calogero-tickets_185463_1669374_1240x480.jpg');
     paletteGenerator = await PaletteGenerator.fromImageProvider(imageProvider);
     setState(() {
@@ -39,7 +40,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
           width: 1,
           color: const Color.fromARGB(143, 158, 158, 158),
         )),
-        padding: EdgeInsets.only(
+        padding: const EdgeInsets.only(
           bottom: 30,
           top: 15,
         ),
@@ -48,21 +49,21 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
           children: [
             TextButton(
               onPressed: () {},
-              child: Text('Acheter un ticket',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  )),
               style: ButtonStyle(
-                padding: MaterialStatePropertyAll(EdgeInsets.symmetric(
+                padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(
                   horizontal: 50,
                   vertical: 10,
                 )),
                 shape: MaterialStatePropertyAll(RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5))),
-                backgroundColor: MaterialStatePropertyAll(Colors.blue),
+                backgroundColor: const MaterialStatePropertyAll(Colors.blue),
               ),
+              child: const Text('Acheter un ticket',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  )),
             ),
           ],
         ),
@@ -116,7 +117,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
               actions: [
                 IconButton(
                   onPressed: () async {},
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.favorite,
                     color: Colors.red,
                   ),
@@ -249,52 +250,54 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
         },
         body: SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'A Propos',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Vibrez au rythme de Calogero lors de son incroyable tournée A.M.O.U.R Tour, une expérience musicale inoubliable.',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.normal,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Organisateur',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   decoration: BoxDecoration(
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.withOpacity(0.5),
                         spreadRadius: 0,
                         blurRadius: 4,
-                        offset: Offset(0, 1), // changes position of shadow
+                        offset:
+                            const Offset(0, 1), // changes position of shadow
                       ),
                     ],
                     color: Colors.white,
@@ -305,7 +308,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      CircleAvatar(
+                      const CircleAvatar(
                         radius: 22,
                         backgroundColor: Colors.blue,
                         child: CircleAvatar(
@@ -314,7 +317,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                               'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
                         ),
                       ),
-                      Column(
+                      const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -334,7 +337,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                 initialRating: 2,
                                 maxRating: 5,
                               ),
-                              const Text(
+                              Text(
                                 '(45 avis)',
                                 style: TextStyle(fontSize: 12),
                               ),
@@ -345,39 +348,39 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                       ),
                       InkWell(
                         child: Container(
-                          padding: EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: Colors.blue,
                             shape: BoxShape.rectangle,
                             borderRadius: BorderRadius.circular(5),
                           ),
-                          child: Icon(Icons.message, color: Colors.white),
+                          child: const Icon(Icons.message, color: Colors.white),
                         ),
                         onTap: () {},
                       ),
                     ],
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Localisation',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Container(
+                SizedBox(
                   height: 200,
                   child: FlutterMap(
                     mapController: MapController(),
-                    options: MapOptions(
+                    options: const MapOptions(
                       initialCenter:
                           LatLng(50.37714385986328, 3.4123148918151855),
                       initialZoom: 14,
@@ -391,8 +394,8 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                       MarkerLayer(
                         markers: [
                           Marker(
-                            point:
-                                LatLng(50.37714385986328, 3.4123148918151855),
+                            point: const LatLng(
+                                50.37714385986328, 3.4123148918151855),
                             width: 100,
                             height: 100,
                             child: Icon(

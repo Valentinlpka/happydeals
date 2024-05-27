@@ -69,7 +69,7 @@ class _RegisterState extends State<Register> {
                   );
                   if (message!.contains('Success') && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                      const SnackBar(
                         content: Text('Compte créer avec succès'),
                       ),
                     );

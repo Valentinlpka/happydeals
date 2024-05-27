@@ -9,6 +9,7 @@ class Favorite extends StatefulWidget {
   const Favorite({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _FavoriteState createState() => _FavoriteState();
 }
 
@@ -28,7 +29,6 @@ class _FavoriteState extends State<Favorite> {
   @override
   Widget build(BuildContext context) {
     final likedPost = Provider.of<Users>(context).likeList;
-    print(likedPost);
 
     return FutureBuilder<List<DocumentSnapshot>>(
       future: _getLikedPosts(likedPost),
@@ -52,7 +52,7 @@ class _FavoriteState extends State<Favorite> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  Text('Mes Likes'),
+                  const Text('Mes Likes'),
                   ListView(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),

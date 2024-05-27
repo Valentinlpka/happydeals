@@ -13,10 +13,10 @@ class HomeWithBottomNav extends StatefulWidget {
 class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
   @override
   Widget build(BuildContext context) {
-    int _currentIndex = 0;
+    int currentIndex = 0;
     setCurrentIndex(int index) {
       setState(() {
-        _currentIndex = index;
+        currentIndex = index;
       });
     }
 
@@ -39,7 +39,7 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
           ),
           SalomonBottomBar(
             itemPadding: const EdgeInsets.all(10),
-            currentIndex: _currentIndex,
+            currentIndex: currentIndex,
             onTap: (index) => setCurrentIndex(index),
             backgroundColor: Colors.transparent,
             unselectedItemColor: Colors.white,

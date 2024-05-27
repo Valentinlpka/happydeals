@@ -125,14 +125,14 @@ class _DetailsCompanyState extends State<DetailsCompany>
                           children: [
                             Text(
                               widget.company.name,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 28,
                               ),
                             ),
                             Text(
                               widget.company.categories,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 16,
                               ),
                             ),
@@ -260,7 +260,7 @@ class _DetailsCompanyState extends State<DetailsCompany>
                 itemCount: 5,
               ),
             ),
-            Center(child: Text('Coucou')),
+            const Center(child: Text('Coucou')),
             const Center(child: Text('Tab 3 Content')),
             const Center(child: Text('Tab 4 Content')),
             Column(

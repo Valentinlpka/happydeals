@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:happy/providers/companys.dart';
 import 'package:happy/widgets/buttons_categories.dart';
 import 'package:happy/widgets/search_bar_home.dart';
-import 'package:provider/provider.dart';
 
 class Annuaire extends StatelessWidget {
   const Annuaire({super.key});

@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:happy/screens/user_inofrmation.dart';
 import '../screens/annuaire_page.dart';
 import '../widgets/buttons_categories.dart';
-import '../widgets/concours_card.dart';
-import '../widgets/deals_express_card.dart';
-import '../widgets/emploi_card.dart';
-import '../widgets/evenement_card.dart';
 import '../widgets/search_bar_home.dart';
 
 class Home extends StatefulWidget {
@@ -125,7 +121,7 @@ class _HomeState extends State<Home> {
                 // const EvenementCard(),
                 // const ConcoursCard(),
                 // const EmploiCard(),
-                UserInformation(),
+                const UserInformation(),
               ],
             ),
           ),

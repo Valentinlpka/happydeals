@@ -9,6 +9,7 @@ class DetailsEmploiPage extends StatefulWidget {
   const DetailsEmploiPage({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _DetailsEmploiPageState createState() => _DetailsEmploiPageState();
 }
 
@@ -23,7 +24,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
   }
 
   Future<void> _updatePalette() async {
-    final imageProvider = NetworkImage(
+    const imageProvider = NetworkImage(
         'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVHWZXfh6JF2m-fOZpEtxUEmD_gEsdUGkGYMYTUn3aeA&s');
     paletteGenerator = await PaletteGenerator.fromImageProvider(imageProvider);
     setState(() {
@@ -40,7 +41,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
           width: 1,
           color: const Color.fromARGB(143, 158, 158, 158),
         )),
-        padding: EdgeInsets.only(
+        padding: const EdgeInsets.only(
           bottom: 30,
           top: 15,
         ),
@@ -49,21 +50,21 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
           children: [
             TextButton(
               onPressed: () {},
-              child: Text('Postuler',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  )),
               style: ButtonStyle(
-                padding: MaterialStatePropertyAll(EdgeInsets.symmetric(
+                padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(
                   horizontal: 100,
                   vertical: 10,
                 )),
                 shape: MaterialStatePropertyAll(RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5))),
-                backgroundColor: MaterialStatePropertyAll(Colors.blue),
+                backgroundColor: const MaterialStatePropertyAll(Colors.blue),
               ),
+              child: const Text('Postuler',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  )),
             ),
           ],
         ),
@@ -117,7 +118,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
               actions: [
                 IconButton(
                   onPressed: () async {},
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.favorite,
                     color: Colors.red,
                   ),
@@ -210,22 +211,22 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
         },
         body: SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Mots Clés',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Wrap(
+                const Wrap(
                   runSpacing: 5,
                   spacing: 5,
                   children: [
@@ -235,18 +236,18 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                     MotsClesEmploi('Tickets Restaurant'),
                   ],
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Entreprise',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
@@ -268,14 +269,16 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                     );
                   },
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     decoration: BoxDecoration(
                       boxShadow: [
                         BoxShadow(
                           color: Colors.grey.withOpacity(0.5),
                           spreadRadius: 0,
                           blurRadius: 4,
-                          offset: Offset(0, 1), // changes position of shadow
+                          offset:
+                              const Offset(0, 1), // changes position of shadow
                         ),
                       ],
                       color: Colors.white,
@@ -286,7 +289,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        CircleAvatar(
+                        const CircleAvatar(
                           radius: 22,
                           backgroundColor: Colors.blue,
                           child: CircleAvatar(
@@ -295,7 +298,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                                 'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
                           ),
                         ),
-                        Column(
+                        const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
@@ -315,7 +318,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                                   initialRating: 2,
                                   maxRating: 5,
                                 ),
-                                const Text(
+                                Text(
                                   '(45 avis)',
                                   style: TextStyle(fontSize: 12),
                                 ),
@@ -326,13 +329,14 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                         ),
                         InkWell(
                           child: Container(
-                            padding: EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: Colors.blue,
                               shape: BoxShape.rectangle,
                               borderRadius: BorderRadius.circular(5),
                             ),
-                            child: Icon(Icons.message, color: Colors.white),
+                            child:
+                                const Icon(Icons.message, color: Colors.white),
                           ),
                           onTap: () {},
                         ),
@@ -340,88 +344,88 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                     ),
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 20,
                   width: 20,
                 ),
-                Text(
+                const Text(
                   'Description du poste',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Vous assistez le bureau détudes qui est en charge de la réalisation doffres pour nos clients BtoB.\n - Vérifier les dossiers et réaliser les fiches synthèse \n - Chercher les consommations du client Calculer le budget actuel \n - Bloquer les pricers Envoyer les dossiers en consultation Rédiger les contrats',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.normal,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Profil recherché',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Vous disposez d’une très bonne organisation et rigueur ?\nVous aimez les chiffres et vous maitrisez l’outil Excel? \nVous avez l’esprit logique et vous aimez travailler en équipe?\nAlors n’hésitez plus ! Vous êtes la personne que nous recherchons !',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.normal,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Pourquoi nous rejoindre ?',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   "Nous sommes une entreprise à taille humaine qui cherche à favoriser le bien-être de ses salariés. Nous avons des locaux agréables, des horaires attractifs, des tickets-restaurants, un parcours de formation pour chaque nouveau collaborateur, un CRM optimisé... et surtout, une équipe soudée où cohésion et bonne humeur sont de rigueur. Les missions vous intéressent ? Vous vous reconnaissez dans le profil recherché ? Vous avez envie d'en savoir plus ? Alors, n'hésitez plus et envoyez votre CV ! Aurore, notre responsable RH, sera ravie de vous contacter.",
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.normal,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   'Vos avantages',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(
+                const SizedBox(
                   height: 10,
                   width: 10,
                 ),
-                Text(
+                const Text(
                   '''Ce n'est pas tout ! Pour ta carrière, nous nous engageons à :
 
 VOIR : ton talent, ton énergie et ton potentiel. Et parce que tu es particulier-e, nous te proposerons un parcours personnalisé !SAVOIR : où tu en es dans ta carrière et acquérir sans cesse de nouvelles compétences. Grâce à Metaveo, des formations certifiantes sur mesure te seront proposées !

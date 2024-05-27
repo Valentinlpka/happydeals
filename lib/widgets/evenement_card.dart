@@ -21,7 +21,7 @@ class EvenementCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => DetailsEvenementPage(),
+                  builder: (context) => const DetailsEvenementPage(),
                 ),
               );
             },

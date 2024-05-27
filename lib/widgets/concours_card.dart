@@ -21,7 +21,7 @@ class ConcoursCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => Home(),
+                  builder: (context) => const Home(),
                 ),
               );
             },

@@ -166,7 +166,7 @@ class CompanyCard extends StatelessWidget {
                         ),
                         child: Text(
                           company.open ? 'Ouvert' : 'Fermé',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
@@ -194,27 +194,27 @@ class CompanyCard extends StatelessWidget {
                   ),
                   Text(
                     company.categories,
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontSize: 14, color: Color.fromARGB(255, 85, 85, 85)),
                   ),
                   Row(
                     children: [
                       Text(
                         company.like.toString(),
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      Text("J'aime")
+                      const Text("J'aime")
                     ],
                   ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.phone,
                         size: 20,
                       ),
-                      Gap(5),
+                      const Gap(5),
                       Text(company.phone)
                     ],
                   )

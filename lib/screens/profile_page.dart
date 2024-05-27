@@ -1,35 +1,23 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 class ProfilePage extends StatelessWidget {
   ProfilePage({super.key});
 
   final user = FirebaseAuth.instance.currentUser!;
 
-  void RecupInfos() async {
-    final userData = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    print(userData.data()!['uid']);
-  }
-
-  void SignOut() {
+  void signOut() {
     FirebaseAuth.instance.signOut();
   }
 
   @override
   Widget build(BuildContext context) {
-    String imageUrl;
-    RecupInfos();
     return SafeArea(
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 46,
               backgroundColor: Colors.blueGrey,
               child: CircleAvatar(
@@ -39,12 +27,9 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
             Text(
-              'Valentin Lipka' +
-                  ' ' +
-                  user.email.toString() +
-                  user.displayName.toString(),
+              'Valentin Lipka ${user.email}${user.displayName}',
             ),
-            ElevatedButton(onPressed: SignOut, child: Text('Déconnexion'))
+            ElevatedButton(onPressed: signOut, child: const Text('Déconnexion'))
           ],
         ),
       ),

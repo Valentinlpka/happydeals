@@ -7,6 +7,7 @@ class UserInformation extends StatefulWidget {
   const UserInformation({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _UserInformationState createState() => _UserInformationState();
 }
 
