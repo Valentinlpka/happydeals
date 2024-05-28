@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:happy/screens/home_page.dart';
+import 'package:happy/screens/details_page/details_dealsexpress_page.dart';
 
 class DealsExpressCard extends StatelessWidget {
   const DealsExpressCard({super.key});
@@ -21,7 +21,7 @@ class DealsExpressCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const Home(),
+                  builder: (context) => const DetailsDealsExpress(),
                 ),
               );
             },

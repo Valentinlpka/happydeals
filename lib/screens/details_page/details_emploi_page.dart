@@ -77,7 +77,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
               elevation: 11,
               centerTitle: true,
               title: Container(
-                width: 110,
+                width: 130,
                 height: 30,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
@@ -94,7 +94,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                         size: 16,
                       ),
                       Text(
-                        'Evènement',
+                        "Offre d'emploi",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 14,
