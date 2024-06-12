@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
 class LikeProvider with ChangeNotifier {
+  final likeList = [];
   Future<void> handleLike(Post post, String currentUserId) async {
     final postRef = FirebaseFirestore.instance.collection('posts').doc(post.id);
     final userRef =
@@ -20,6 +21,8 @@ class LikeProvider with ChangeNotifier {
       final int likes = postSnapshot['likes'];
 
       if (likedBy.contains(currentUserId)) {
+        likeList.remove(currentUserId);
+
         likedBy.remove(currentUserId);
         transaction.update(postRef, {
           'likedBy': likedBy,
@@ -29,6 +32,7 @@ class LikeProvider with ChangeNotifier {
           'likedPosts': FieldValue.arrayRemove([post.id])
         });
       } else {
+        likeList.add(currentUserId);
         likedBy.add(currentUserId);
         transaction.update(postRef, {
           'likedBy': likedBy,

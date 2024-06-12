@@ -57,7 +57,9 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
   @override
   Widget build(BuildContext context) {
     final likeProvider = Provider.of<LikeProvider>(context);
-    final isLiked = widget.event.likedBy.contains(widget.currentUserId);
+    final isLiked =
+        context.watch<LikeProvider>().likeList.contains(widget.currentUserId);
+
     final formattedDate =
         DateFormat('dd/MM/yyyy à HH:mm').format(widget.event.eventDate);
 
