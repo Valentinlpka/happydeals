@@ -63,12 +63,17 @@ class _FavoriteState extends State<Favorite> {
                       return CompanyCard(Company(
                         id: document.id,
                         name: data['name'],
-                        categories: data['categorie'],
+                        categorie: data['categorie'],
                         open: true,
                         rating: 3,
                         like: 400,
                         ville: 'Va',
                         phone: data['phone'],
+                        logo: '',
+                        description: '',
+                        website: '',
+                        address: '',
+                        email: '',
                       ));
                     }).toList(),
                   ),

@@ -4,6 +4,7 @@ class DetailsDealsExpress extends StatefulWidget {
   const DetailsDealsExpress({Key? key}) : super(key: key);
 
   @override
+  // ignore: library_private_types_in_public_api
   _DetailsDealsExpressState createState() => _DetailsDealsExpressState();
 }
 
@@ -29,6 +30,65 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
+            pinned: true,
+            floating: true,
+            elevation: 11,
+            centerTitle: true,
+            title: Container(
+              width: 130,
+              height: 30,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: const Color.fromARGB(115, 0, 0, 0),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(
+                      Icons.calendar_month_outlined,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    Text(
+                      "Deals Express",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            ),
+            backgroundColor: Colors.blue,
+            shadowColor: Colors.grey,
+            leading: IconButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              icon: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+              ),
+            ),
+            actions: [
+              IconButton(
+                onPressed: () async {},
+                icon: const Icon(
+                  Icons.favorite,
+                  color: Colors.red,
+                ),
+              ),
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(
+                  Icons.share,
+                  color: Colors.white,
+                ),
+              ),
+            ],
             expandedHeight: 200,
             flexibleSpace: FlexibleSpaceBar(
               background: Image.network(
@@ -36,9 +96,23 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                 fit: BoxFit.cover,
               ),
             ),
-            backgroundColor: Colors.transparent,
-            floating: false,
-            pinned: true,
+          ),
+          SliverList(
+            delegate: SliverChildListDelegate([
+              Container(
+                height: 30,
+                color: Colors.blue,
+                child: const Center(
+                  child: Text(
+                    'Ce deal expire dans 2 jours !',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              )
+            ]),
           ),
           SliverList(
             delegate: SliverChildListDelegate([
@@ -102,7 +176,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                                 Row(
                                   children: [
                                     // Your rating widget here
-                                    const Text(
+                                    Text(
                                       '(45 avis)',
                                       style: TextStyle(fontSize: 12),
                                     ),
@@ -132,21 +206,50 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                   ],
                 ),
               ),
-              TabBar(
-                controller: _tabController,
-                tabs: [
-                  Tab(
-                    text: 'Informations',
+              Container(
+                color: Colors.transparent,
+                child: TabBar(
+                  labelPadding: EdgeInsets.zero,
+                  controller: _tabController,
+                  isScrollable: false,
+                  indicator: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.circular(5),
                   ),
-                  Tab(text: 'Avis'),
-                ],
+                  labelStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  unselectedLabelColor: Colors.black,
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.normal,
+                  ),
+                  tabs: const [
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.0,
+                      ),
+                      child: Tab(
+                        text: 'Informations',
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.0,
+                      ),
+                      child: Tab(
+                        text: 'Avis',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ]),
           ),
           SliverFillRemaining(
             child: TabBarView(
               controller: _tabController,
-              children: [
+              children: const [
                 SingleChildScrollView(
                   padding: EdgeInsets.all(16.0),
                   child: Text('Informations détaillées ici.'),

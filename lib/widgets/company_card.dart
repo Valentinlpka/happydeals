@@ -20,7 +20,10 @@ class CompanyCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetailsCompany(company),
+            builder: (context) => DetailsCompany(
+              company,
+              companyId: 'E8ivG6AyXg8W8mrBZksa',
+            ),
           ),
         );
       },
@@ -193,7 +196,7 @@ class CompanyCard extends StatelessWidget {
                     ],
                   ),
                   Text(
-                    company.categories,
+                    company.categorie,
                     style: const TextStyle(
                         fontSize: 14, color: Color.fromARGB(255, 85, 85, 85)),
                   ),

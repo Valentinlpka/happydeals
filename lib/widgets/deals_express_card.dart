@@ -1,11 +1,43 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/screens/details_page/details_dealsexpress_page.dart';
+import 'package:intl/intl.dart';
 
 class DealsExpressCard extends StatelessWidget {
-  const DealsExpressCard({super.key});
+  final ExpressDeal post;
+  final String companyName;
+  final String companyLogo;
+
+  const DealsExpressCard(
+      {super.key,
+      required this.post,
+      required this.companyName,
+      required this.companyLogo});
 
   @override
+  String formatDateTime(DateTime dateTime) {
+    final DateTime now = DateTime.now();
+    final DateFormat timeFormat = DateFormat('HH:mm');
+    final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+
+    if (dateTime.year == now.year &&
+        dateTime.month == now.month &&
+        dateTime.day == now.day) {
+      // Aujourd'hui
+      return 'aujourd\'hui à ${timeFormat.format(dateTime)}';
+    } else if (dateTime.year == now.year &&
+        dateTime.month == now.month &&
+        dateTime.day == now.day + 1) {
+      // Demain
+      return 'demain à ${timeFormat.format(dateTime)}';
+    } else {
+      // Autre jour
+      return '${dateFormat.format(dateTime)} à ${timeFormat.format(dateTime)}';
+    }
+  }
+
   Widget build(BuildContext context) {
     return Column(
       children: [
@@ -87,7 +119,7 @@ class DealsExpressCard extends StatelessWidget {
                           )
                         ],
                       ),
-                      const Row(
+                      Row(
                         children: [
                           Padding(
                             padding: EdgeInsets.only(right: 15.0),
@@ -96,8 +128,7 @@ class DealsExpressCard extends StatelessWidget {
                               backgroundColor: Colors.blueGrey,
                               child: CircleAvatar(
                                 radius: 24,
-                                backgroundImage: NetworkImage(
-                                    'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
+                                backgroundImage: NetworkImage(companyLogo),
                               ),
                             ),
                           ),
@@ -105,7 +136,7 @@ class DealsExpressCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "Be Happy",
+                                companyName,
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -132,12 +163,12 @@ class DealsExpressCard extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         children: [
                           Row(
                             children: [
                               Text(
-                                "Panier Gourmand",
+                                post.basketType,
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -148,7 +179,8 @@ class DealsExpressCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                "à récuperer aujourd'hui 16:00 - 18:00",
+                                "à récuperer " +
+                                    formatDateTime(post.pickupTime),
                                 style: TextStyle(
                                     fontSize: 14,
                                     color: Color.fromARGB(255, 85, 85, 85)),
@@ -258,26 +290,6 @@ class DealsExpressCard extends StatelessWidget {
             ),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.favorite_outline),
-                  Gap(5),
-                  Text('123'),
-                  Gap(20),
-                  Icon(Icons.comment_outlined),
-                  Gap(5),
-                  Text('12')
-                ],
-              ),
-              Icon(Icons.share_outlined)
-            ],
-          ),
-        )
       ],
     );
   }

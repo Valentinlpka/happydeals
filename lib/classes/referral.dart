@@ -1,61 +1,55 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
-class Event extends Post {
+class Referral extends Post {
   final String title;
-  final String category;
-  final DateTime eventDate;
-  final String city;
   final String description;
+  final String sponsorBenefit;
+  final String refereeBenefit;
   final String companyId;
-  final List<String> products;
-  final String photo;
+  final String image;
 
-  Event({
+  Referral({
     required String id,
     required DateTime timestamp,
     required String authorId,
     required this.title,
-    required this.category,
-    required this.eventDate,
-    required this.city,
     required this.description,
+    required this.sponsorBenefit,
+    required this.refereeBenefit,
     required this.companyId,
-    required this.products,
-    required this.photo,
+    required this.image,
     int views = 0,
-    int likes = 0,
+    int likesCount = 0,
     List<String> likedBy = const [],
     int commentsCount = 0,
     List<Comment> comments = const [],
   }) : super(
           id: id,
           timestamp: timestamp,
-          type: 'event',
+          type: 'referral',
           authorId: authorId,
           views: views,
-          likes: likes,
+          likes: likesCount,
           likedBy: likedBy,
           commentsCount: commentsCount,
           comments: comments,
         );
 
-  factory Event.fromDocument(DocumentSnapshot doc) {
+  factory Referral.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    return Event(
+    return Referral(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       authorId: data['authorId'],
       title: data['title'],
-      category: data['category'],
-      eventDate: (data['eventDate'] as Timestamp).toDate(),
-      city: data['city'],
       description: data['description'],
+      sponsorBenefit: data['sponsorBenefit'],
+      refereeBenefit: data['refereeBenefit'],
       companyId: data['companyId'],
-      products: List<String>.from(data['products']),
-      photo: data['photo'],
+      image: data['image'],
       views: data['views'] ?? 0,
-      likes: data['likes'] ?? 0,
+      likesCount: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)
@@ -70,13 +64,11 @@ class Event extends Post {
     final map = super.toMap();
     map.addAll({
       'title': title,
-      'category': category,
-      'eventDate': Timestamp.fromDate(eventDate),
-      'city': city,
       'description': description,
+      'sponsorBenefit': sponsorBenefit,
+      'refereeBenefit': refereeBenefit,
       'companyId': companyId,
-      'products': products,
-      'photo': photo,
+      'image': image,
     });
     return map;
   }

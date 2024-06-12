@@ -42,12 +42,17 @@ class _UserInformationState extends State<UserInformation> {
             return CompanyCard(Company(
               id: document.id,
               name: data['name'],
-              categories: data['categorie'],
+              categorie: data['categorie'],
               open: false,
               rating: 4,
               like: likeCount,
               ville: data['adress']['ville'],
               phone: data['phone'],
+              logo: '',
+              description: '',
+              website: '',
+              address: '',
+              email: '',
             ));
           }).toList(),
         );

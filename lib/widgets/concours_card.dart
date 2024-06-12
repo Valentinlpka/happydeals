@@ -169,26 +169,6 @@ class ConcoursCard extends StatelessWidget {
             ),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.favorite_outline),
-                  Gap(5),
-                  Text('123'),
-                  Gap(20),
-                  Icon(Icons.comment_outlined),
-                  Gap(5),
-                  Text('12')
-                ],
-              ),
-              Icon(Icons.share_outlined)
-            ],
-          ),
-        )
       ],
     );
   }

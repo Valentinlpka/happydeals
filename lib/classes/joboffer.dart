@@ -1,28 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
-class Event extends Post {
-  final String title;
-  final String category;
-  final DateTime eventDate;
+class JobOffer extends Post {
+  final String jobTitle;
   final String city;
   final String description;
+  final String missions;
+  final String profile;
+  final String benefits;
+  final String whyJoin;
+  final List<String> keywords;
   final String companyId;
-  final List<String> products;
-  final String photo;
 
-  Event({
+  JobOffer({
     required String id,
     required DateTime timestamp,
     required String authorId,
-    required this.title,
-    required this.category,
-    required this.eventDate,
+    required this.jobTitle,
     required this.city,
     required this.description,
+    required this.missions,
+    required this.profile,
+    required this.benefits,
+    required this.whyJoin,
+    required this.keywords,
     required this.companyId,
-    required this.products,
-    required this.photo,
     int views = 0,
     int likes = 0,
     List<String> likedBy = const [],
@@ -31,7 +33,7 @@ class Event extends Post {
   }) : super(
           id: id,
           timestamp: timestamp,
-          type: 'event',
+          type: 'job_offer',
           authorId: authorId,
           views: views,
           likes: likes,
@@ -40,20 +42,21 @@ class Event extends Post {
           comments: comments,
         );
 
-  factory Event.fromDocument(DocumentSnapshot doc) {
+  factory JobOffer.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    return Event(
+    return JobOffer(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       authorId: data['authorId'],
-      title: data['title'],
-      category: data['category'],
-      eventDate: (data['eventDate'] as Timestamp).toDate(),
+      jobTitle: data['job_title'],
       city: data['city'],
       description: data['description'],
+      missions: data['missions'],
+      profile: data['profile'],
+      benefits: data['benefits'],
+      whyJoin: data['why_join'],
+      keywords: List<String>.from(data['keywords']),
       companyId: data['companyId'],
-      products: List<String>.from(data['products']),
-      photo: data['photo'],
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
@@ -69,14 +72,15 @@ class Event extends Post {
   Map<String, dynamic> toMap() {
     final map = super.toMap();
     map.addAll({
-      'title': title,
-      'category': category,
-      'eventDate': Timestamp.fromDate(eventDate),
+      'job_title': jobTitle,
       'city': city,
       'description': description,
+      'missions': missions,
+      'profile': profile,
+      'benefits': benefits,
+      'why_join': whyJoin,
+      'keywords': keywords,
       'companyId': companyId,
-      'products': products,
-      'photo': photo,
     });
     return map;
   }

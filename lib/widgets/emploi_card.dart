@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:happy/classes/joboffer.dart';
 import 'package:happy/screens/details_page/details_emploi_page.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
-class EmploiCard extends StatelessWidget {
-  const EmploiCard({super.key});
+class JobOfferCard extends StatelessWidget {
+  final JobOffer post;
+  final String companyName;
+  final String companyLogo;
+
+  JobOfferCard(
+      {required this.post,
+      required this.companyName,
+      required this.companyLogo});
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +30,7 @@ class EmploiCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const DetailsEmploiPage(),
+                  builder: (context) => DetailsEmploiPage(post: post),
                 ),
               );
             },
@@ -92,7 +101,7 @@ class EmploiCard extends StatelessWidget {
                     children: [
                       Column(
                         children: [
-                          const Row(
+                          Row(
                             children: [
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -113,13 +122,13 @@ class EmploiCard extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Développeur Full Stack',
-                                        style: TextStyle(
+                                        post.jobTitle,
+                                        style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      Text('Be Happy - Douai')
+                                      Text('${companyName} - ${post.city}')
                                     ],
                                   )
                                 ],
@@ -128,68 +137,45 @@ class EmploiCard extends StatelessWidget {
                           ),
                           const Gap(10),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(5),
-                                  color: Colors.blue[600],
-                                ),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 15.0, vertical: 6),
-                                  child: Text(
-                                    'Front-End',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: post.keywords
+                                .map(
+                                  (keyword) => Row(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                          color: Colors.blue[600],
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 15.0, vertical: 6),
+                                          child: Text(
+                                            keyword,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height: 10,
+                                        width: 10,
+                                      )
+                                    ],
                                   ),
-                                ),
-                              ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(5),
-                                  color: Colors.blue[600],
-                                ),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 15.0, vertical: 6),
-                                  child: Text(
-                                    'Javascript',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(5),
-                                  color: Colors.blue[600],
-                                ),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 15.0, vertical: 6),
-                                  child: Text(
-                                    'HTML CSS',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                                )
+                                .toList(),
                           ),
                           const Gap(5),
                         ],
                       ),
-                      const Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('il y a 2 heures'),
+                          Text(timeago.format(post.timestamp, locale: 'fr')),
                           Text('1500€ / mois')
                         ],
                       )
@@ -200,26 +186,6 @@ class EmploiCard extends StatelessWidget {
             ),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.favorite_outline),
-                  Gap(5),
-                  Text('123'),
-                  Gap(20),
-                  Icon(Icons.comment_outlined),
-                  Gap(5),
-                  Text('12')
-                ],
-              ),
-              Icon(Icons.share_outlined)
-            ],
-          ),
-        )
       ],
     );
   }

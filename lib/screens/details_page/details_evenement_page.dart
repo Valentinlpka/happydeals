@@ -1,69 +1,99 @@
-import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:happy/providers/like_provider.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:happy/classes/event.dart';
+import 'package:happy/classes/company.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:provider/provider.dart';
 
 class DetailsEvenementPage extends StatefulWidget {
-  const DetailsEvenementPage({super.key});
+  final Event event;
+  final String currentUserId;
+
+  const DetailsEvenementPage({
+    required this.event,
+    Key? key,
+    required this.currentUserId,
+  }) : super(key: key);
 
   @override
-  // ignore: library_private_types_in_public_api
   _DetailsEvenementPageState createState() => _DetailsEvenementPageState();
 }
 
 class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
   Color? appBarColor = Colors.grey[400];
   late PaletteGenerator paletteGenerator;
+  late Future<Company> companyFuture;
 
   @override
   void initState() {
     super.initState();
     _updatePalette();
+    companyFuture = _fetchCompanyDetails(widget.event.companyId);
   }
 
   Future<void> _updatePalette() async {
-    const imageProvider = NetworkImage(
-        'https://www.fnacspectacles.com/obj/mam/france/71/3b/calogero-tickets_185463_1669374_1240x480.jpg');
-    paletteGenerator = await PaletteGenerator.fromImageProvider(imageProvider);
+    paletteGenerator = await PaletteGenerator.fromImageProvider(
+      NetworkImage(widget.event.photo),
+    );
     setState(() {
       appBarColor = paletteGenerator.dominantColor?.color ?? Colors.grey[400];
     });
   }
 
+  Future<Company> _fetchCompanyDetails(String companyId) async {
+    DocumentSnapshot doc = await FirebaseFirestore.instance
+        .collection('companys')
+        .doc(companyId)
+        .get();
+    return Company.fromDocument(doc);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final likeProvider = Provider.of<LikeProvider>(context);
+    final isLiked = widget.event.likedBy.contains(widget.currentUserId);
+    final formattedDate =
+        DateFormat('dd/MM/yyyy à HH:mm').format(widget.event.eventDate);
+
     return Scaffold(
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-            border: Border.all(
-          width: 1,
-          color: const Color.fromARGB(143, 158, 158, 158),
-        )),
-        padding: const EdgeInsets.only(
-          bottom: 30,
-          top: 15,
+          border: Border.all(
+            width: 1,
+            color: const Color.fromARGB(143, 158, 158, 158),
+          ),
         ),
+        padding: const EdgeInsets.only(bottom: 30, top: 15),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton(
               onPressed: () {},
               style: ButtonStyle(
-                padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(
-                  horizontal: 50,
-                  vertical: 10,
-                )),
-                shape: MaterialStatePropertyAll(RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5))),
+                padding: const MaterialStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 50, vertical: 10),
+                ),
+                shape: MaterialStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ),
                 backgroundColor: const MaterialStatePropertyAll(Colors.blue),
               ),
-              child: const Text('Acheter un ticket',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  )),
+              child: const Text(
+                'Acheter un ticket',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -98,7 +128,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                           color: Colors.white,
                           fontSize: 14,
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -115,12 +145,20 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                 ),
               ),
               actions: [
-                IconButton(
-                  onPressed: () async {},
-                  icon: const Icon(
-                    Icons.favorite,
-                    color: Colors.red,
-                  ),
+                Consumer<LikeProvider>(
+                  builder: (context, likeProvider, _) {
+                    return IconButton(
+                      icon: Icon(
+                        isLiked ? Icons.favorite : Icons.favorite_border,
+                        color: isLiked ? Colors.red : Colors.white,
+                      ),
+                      onPressed: () async {
+                        await likeProvider.handleLike(
+                            widget.event, widget.currentUserId);
+                        setState(() {}); // Force a rebuild to update the UI
+                      },
+                    );
+                  },
                 ),
                 IconButton(
                   onPressed: () {},
@@ -144,12 +182,12 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                           clipBehavior: Clip.none,
                           children: [
                             Image.network(
+                              widget.event.photo,
                               height: 200,
                               colorBlendMode: BlendMode.colorBurn,
                               color: Colors.black12,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              'https://www.fnacspectacles.com/obj/mam/france/71/3b/calogero-tickets_185463_1669374_1240x480.jpg',
                             ),
                             Positioned(
                               top: 150,
@@ -158,17 +196,22 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                 child: Container(
                                   padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: const Color.fromARGB(
-                                            255, 213, 213, 213),
+                                    border: Border.all(
+                                      color: const Color.fromARGB(
+                                        255,
+                                        213,
+                                        213,
+                                        213,
                                       ),
-                                      color: Colors.white,
-                                      borderRadius: const BorderRadius.all(
-                                        Radius.circular(10),
-                                      )),
+                                    ),
+                                    color: Colors.white,
+                                    borderRadius: const BorderRadius.all(
+                                      Radius.circular(10),
+                                    ),
+                                  ),
                                   height: 150,
                                   width: 330,
-                                  child: const Column(
+                                  child: Column(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
@@ -177,14 +220,14 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                             MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            'Concert Calogéro',
-                                            style: TextStyle(
+                                            widget.event.title,
+                                            style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 20,
                                             ),
                                           ),
                                           Row(
-                                            children: [
+                                            children: const [
                                               Text('dès '),
                                               Text(
                                                 '29,00 €',
@@ -199,45 +242,46 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                       ),
                                       Row(
                                         children: [
-                                          Icon(
+                                          const Icon(
                                             Icons.location_on_outlined,
                                             size: 22,
                                             color:
                                                 Color.fromARGB(255, 95, 95, 95),
                                           ),
-                                          SizedBox(width: 10, height: 10),
-                                          Text('Douai')
+                                          const SizedBox(width: 10, height: 10),
+                                          Text(widget.event.city),
                                         ],
                                       ),
                                       Row(
                                         children: [
-                                          Icon(
+                                          const Icon(
                                             Icons.calendar_today,
                                             size: 20,
                                             color:
                                                 Color.fromARGB(255, 95, 95, 95),
                                           ),
-                                          SizedBox(width: 10, height: 10),
-                                          Text('23 Avril 2024 - 19:00')
+                                          const SizedBox(width: 10, height: 10),
+                                          Text(
+                                              formattedDate), // Format appropriately
                                         ],
                                       ),
                                       Row(
                                         children: [
-                                          Icon(
+                                          const Icon(
                                             Icons.music_note,
                                             size: 22,
                                             color:
                                                 Color.fromARGB(255, 95, 95, 95),
                                           ),
-                                          SizedBox(width: 10, height: 10),
-                                          Text('Concert')
+                                          const SizedBox(width: 10, height: 10),
+                                          Text(widget.event.category),
                                         ],
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -248,170 +292,184 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
             ),
           ];
         },
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'A Propos',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                const Text(
-                  'Vibrez au rythme de Calogero lors de son incroyable tournée A.M.O.U.R Tour, une expérience musicale inoubliable.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                const Text(
-                  'Organisateur',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  decoration: BoxDecoration(
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.5),
-                        spreadRadius: 0,
-                        blurRadius: 4,
-                        offset:
-                            const Offset(0, 1), // changes position of shadow
+        body: FutureBuilder<Company>(
+          future: companyFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return const Center(
+                  child: Text(
+                      'Erreur de chargement des données de l\'entreprise'));
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: Text('Entreprise introuvable'));
+            }
+
+            Company company = snapshot.data!;
+
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'A Propos',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.all(
-                      Radius.circular(10),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      const CircleAvatar(
-                        radius: 22,
-                        backgroundColor: Colors.blue,
-                        child: CircleAvatar(
-                          radius: 20,
-                          backgroundImage: NetworkImage(
-                              'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
+                    const SizedBox(height: 10, width: 10),
+                    Text(
+                      widget.event.description,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                    const SizedBox(height: 10, width: 10),
+                    const Text(
+                      'Organisateur',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10, width: 10),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailsCompany(company,
+                                companyId: widget.event.companyId),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 8),
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.5),
+                              spreadRadius: 0,
+                              blurRadius: 4,
+                              offset: const Offset(
+                                  0, 1), // changes position of shadow
+                            ),
+                          ],
+                          color: Colors.white,
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(10),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            CircleAvatar(
+                              radius: 22,
+                              backgroundColor: Colors.blue,
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundImage: NetworkImage(company.logo),
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  company.name,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    RatingBar.readOnly(
+                                      filledIcon: Icons.star,
+                                      size: 16,
+                                      filledColor: Colors.blue,
+                                      emptyIcon: Icons.star_border,
+                                      initialRating: company.rating,
+                                      maxRating: 5,
+                                    ),
+                                    Text(
+                                      '12 avis)',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            InkWell(
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  shape: BoxShape.rectangle,
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: const Icon(Icons.message,
+                                    color: Colors.white),
+                              ),
+                              onTap: () {},
+                            ),
+                          ],
                         ),
                       ),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                    const SizedBox(height: 10, width: 10),
+                    const Text(
+                      'Localisation',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10, width: 10),
+                    SizedBox(
+                      height: 200,
+                      child: FlutterMap(
+                        mapController: MapController(),
+                        options: const MapOptions(
+                          initialCenter:
+                              LatLng(50.37714385986328, 3.4123148918151855),
+                          initialZoom: 14,
+                        ),
                         children: [
-                          Text(
-                            'Be Happy',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          TileLayer(
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            // Plenty of other options available!
                           ),
-                          Row(
-                            children: [
-                              RatingBar.readOnly(
-                                filledIcon: Icons.star,
-                                size: 16,
-                                filledColor: Colors.blue,
-                                emptyIcon: Icons.star_border,
-                                initialRating: 2,
-                                maxRating: 5,
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: const LatLng(
+                                    50.37714385986328, 3.4123148918151855),
+                                width: 100,
+                                height: 100,
+                                child: Icon(
+                                  Icons.location_on,
+                                  color: Colors.red[800],
+                                  size: 30,
+                                ),
                               ),
-                              Text(
-                                '(45 avis)',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              // Text(DateFormat('EEEE', 'FR_fr').format(DateTime.now()))
                             ],
                           ),
                         ],
                       ),
-                      InkWell(
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            shape: BoxShape.rectangle,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: const Icon(Icons.message, color: Colors.white),
-                        ),
-                        onTap: () {},
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                const Text(
-                  'Localisation',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                SizedBox(
-                  height: 200,
-                  child: FlutterMap(
-                    mapController: MapController(),
-                    options: const MapOptions(
-                      initialCenter:
-                          LatLng(50.37714385986328, 3.4123148918151855),
-                      initialZoom: 14,
                     ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        // Plenty of other options available!
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: const LatLng(
-                                50.37714385986328, 3.4123148918151855),
-                            width: 100,
-                            height: 100,
-                            child: Icon(
-                              Icons.location_on,
-                              color: Colors.red[800],
-                              size: 30,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

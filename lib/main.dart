@@ -1,11 +1,15 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/providers/like_provider.dart';
 import 'package:happy/providers/users.dart';
 import '../screens/auth/auth_page.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:timeago/timeago.dart' as timeago_fr;
 
 void main() async {
+  timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -27,6 +31,7 @@ class _MyAppState extends State<MyApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => Users()),
+        ChangeNotifierProvider(create: (_) => LikeProvider())
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

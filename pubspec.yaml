@@ -49,6 +49,7 @@ dependencies:
   flutter_map: ^6.1.0
   latlong2: ^0.9.1
   palette_generator: ^0.3.3+3
+  timeago: ^3.6.1
 
 dev_dependencies:
   flutter_test:

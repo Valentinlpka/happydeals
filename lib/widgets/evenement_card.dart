@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:happy/screens/details_page/details_evenement_page.dart';
+import 'package:happy/classes/event.dart';
+import 'package:intl/intl.dart';
 
 class EvenementCard extends StatelessWidget {
-  const EvenementCard({super.key});
+  final Event event;
+  final String currentUserId;
+
+  const EvenementCard(
+      {required this.event, Key? key, required this.currentUserId})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final formattedDate =
+        DateFormat('dd/MM/yyyy à HH:mm').format(event.eventDate);
     return Column(
       children: [
         Card(
@@ -21,7 +30,10 @@ class EvenementCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const DetailsEvenementPage(),
+                  builder: (context) => DetailsEvenementPage(
+                    event: event,
+                    currentUserId: currentUserId,
+                  ),
                 ),
               );
             },
@@ -37,11 +49,12 @@ class EvenementCard extends StatelessWidget {
                     ),
                     image: DecorationImage(
                       colorFilter: ColorFilter.mode(
-                          Colors.black.withOpacity(0.30), BlendMode.hue),
+                        Colors.black.withOpacity(0.30),
+                        BlendMode.hue,
+                      ),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
-                      image: const NetworkImage(
-                          "https://www.fnacspectacles.com/obj/mam/france/71/3b/calogero-tickets_185463_1669374_1240x480.jpg"),
+                      image: NetworkImage(event.photo),
                     ),
                   ),
                   height: 123,
@@ -80,7 +93,7 @@ class EvenementCard extends StatelessWidget {
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                       ),
-                                    )
+                                    ),
                                   ],
                                 ),
                               ),
@@ -102,13 +115,13 @@ class EvenementCard extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         children: [
                           Row(
                             children: [
                               Text(
-                                "Concert Calogéro",
-                                style: TextStyle(
+                                event.title,
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -118,16 +131,17 @@ class EvenementCard extends StatelessWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.calendar_today,
                                 size: 15,
                               ),
-                              Gap(5),
+                              const Gap(5),
                               Text(
-                                "23 Avril 2024 - 19:00",
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    color: Color.fromARGB(255, 85, 85, 85)),
+                                formattedDate,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color.fromARGB(255, 85, 85, 85),
+                                ),
                               ),
                             ],
                           ),
@@ -136,7 +150,7 @@ class EvenementCard extends StatelessWidget {
                       Divider(
                         color: Colors.grey[300],
                       ),
-                      const Row(
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -153,10 +167,10 @@ class EvenementCard extends StatelessWidget {
                                       'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
                                 ),
                               ),
-                              Gap(10),
+                              const Gap(10),
                               Text(
-                                "Be Happy",
-                                style: TextStyle(
+                                'Be Happy',
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,
                                 ),
@@ -167,23 +181,23 @@ class EvenementCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                "dès",
+                              const Text(
+                                'dès',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
                                 ),
                               ),
-                              Gap(5),
-                              Text(
-                                "29,00 €",
+                              const Gap(5),
+                              const Text(
+                                '29,00 €',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 20,
                                 ),
                               ),
                             ],
-                          )
+                          ),
                         ],
                       ),
                     ],
@@ -193,26 +207,6 @@ class EvenementCard extends StatelessWidget {
             ),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.favorite_outline),
-                  Gap(5),
-                  Text('123'),
-                  Gap(20),
-                  Icon(Icons.comment_outlined),
-                  Gap(5),
-                  Text('12')
-                ],
-              ),
-              Icon(Icons.share_outlined)
-            ],
-          ),
-        )
       ],
     );
   }

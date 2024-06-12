@@ -1,15 +1,17 @@
-import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:happy/classes/company.dart';
+import 'package:happy/classes/joboffer.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/mots_cles_emploi.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 class DetailsEmploiPage extends StatefulWidget {
-  const DetailsEmploiPage({super.key});
+  final JobOffer post;
+
+  const DetailsEmploiPage({required this.post, Key? key}) : super(key: key);
 
   @override
-  // ignore: library_private_types_in_public_api
   _DetailsEmploiPageState createState() => _DetailsEmploiPageState();
 }
 
@@ -169,29 +171,29 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                                       )),
                                   height: 100,
                                   width: 330,
-                                  child: const Column(
+                                  child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        'Développeur Full Stack',
-                                        style: TextStyle(
+                                        widget.post.jobTitle,
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 20,
                                         ),
                                       ),
                                       Row(
                                         children: [
-                                          Icon(
+                                          const Icon(
                                             Icons.location_on_outlined,
                                             size: 22,
                                             color:
                                                 Color.fromARGB(255, 95, 95, 95),
                                           ),
-                                          SizedBox(width: 10, height: 10),
-                                          Text('Douai')
+                                          const SizedBox(width: 10, height: 10),
+                                          Text(widget.post.city)
                                         ],
                                       ),
                                     ],
@@ -226,15 +228,12 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                   height: 10,
                   width: 10,
                 ),
-                const Wrap(
+                Wrap(
                   runSpacing: 5,
                   spacing: 5,
-                  children: [
-                    MotsClesEmploi('CDD'),
-                    MotsClesEmploi('Télétravail'),
-                    MotsClesEmploi('Tickets Restaurant'),
-                    MotsClesEmploi('Tickets Restaurant'),
-                  ],
+                  children: widget.post.keywords
+                      .map((keyword) => MotsClesEmploi(keyword))
+                      .toList(),
                 ),
                 const SizedBox(
                   height: 10,
@@ -256,15 +255,23 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => DetailsCompany(Company(
-                            id: '12',
-                            name: 'Be Happy',
-                            categories: 'Services aux entreprises',
-                            open: true,
-                            rating: 4,
-                            like: 2,
-                            ville: 'Marly',
-                            phone: '06 19 07 08 11')),
+                        builder: (context) => DetailsCompany(
+                          Company(
+                              id: widget.post.companyId,
+                              name: 'Be Happy',
+                              categorie: 'Services aux entreprises',
+                              open: true,
+                              rating: 4,
+                              like: 2,
+                              ville: 'Marly',
+                              phone: '06 19 07 08 11',
+                              logo: '',
+                              description: '',
+                              website: '',
+                              address: '',
+                              email: ''),
+                          companyId: '33',
+                        ),
                       ),
                     );
                   },
@@ -359,9 +366,9 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                   height: 10,
                   width: 10,
                 ),
-                const Text(
-                  'Vous assistez le bureau détudes qui est en charge de la réalisation doffres pour nos clients BtoB.\n - Vérifier les dossiers et réaliser les fiches synthèse \n - Chercher les consommations du client Calculer le budget actuel \n - Bloquer les pricers Envoyer les dossiers en consultation Rédiger les contrats',
-                  style: TextStyle(
+                Text(
+                  widget.post.description,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.normal,
                   ),
@@ -381,9 +388,9 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                   height: 10,
                   width: 10,
                 ),
-                const Text(
-                  'Vous disposez d’une très bonne organisation et rigueur ?\nVous aimez les chiffres et vous maitrisez l’outil Excel? \nVous avez l’esprit logique et vous aimez travailler en équipe?\nAlors n’hésitez plus ! Vous êtes la personne que nous recherchons !',
-                  style: TextStyle(
+                Text(
+                  widget.post.profile,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.normal,
                   ),
@@ -403,9 +410,9 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                   height: 10,
                   width: 10,
                 ),
-                const Text(
-                  "Nous sommes une entreprise à taille humaine qui cherche à favoriser le bien-être de ses salariés. Nous avons des locaux agréables, des horaires attractifs, des tickets-restaurants, un parcours de formation pour chaque nouveau collaborateur, un CRM optimisé... et surtout, une équipe soudée où cohésion et bonne humeur sont de rigueur. Les missions vous intéressent ? Vous vous reconnaissez dans le profil recherché ? Vous avez envie d'en savoir plus ? Alors, n'hésitez plus et envoyez votre CV ! Aurore, notre responsable RH, sera ravie de vous contacter.",
-                  style: TextStyle(
+                Text(
+                  widget.post.whyJoin,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.normal,
                   ),
@@ -425,26 +432,9 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                   height: 10,
                   width: 10,
                 ),
-                const Text(
-                  '''Ce n'est pas tout ! Pour ta carrière, nous nous engageons à :
-
-VOIR : ton talent, ton énergie et ton potentiel. Et parce que tu es particulier-e, nous te proposerons un parcours personnalisé !SAVOIR : où tu en es dans ta carrière et acquérir sans cesse de nouvelles compétences. Grâce à Metaveo, des formations certifiantes sur mesure te seront proposées !
-
-PRÉVOIR : aujourd'hui n'est qu'un point de départ. Nous sommes investis dans ton avenir, notre objectif est de te faire atteindre le tien !
-
-Ton package Anaveo :
-- Poste à pourvoir en Mars 2024
-- Carte restaurant
-- Véhicule de fonction
-- Mutuelle d'entreprise
-- Prime de participation, Avantage avec notre CSE
-- Et surtout un coaching personnalisé de ta carrière au sein d'une superbe équipe
-
-Avant d'intégrer nos équipes tu auras :
-- Une première prise de contact par téléphone avec notre équipe recrutement
-- Réalisé un entretien au sein de notre agence avec ton futur Manager
-- Confirmé ton souhait d'intégrer Anaveo avec notre équipe RH''',
-                  style: TextStyle(
+                Text(
+                  widget.post.benefits,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.normal,
                   ),
