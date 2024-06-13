@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/post.dart';
 
 class Users with ChangeNotifier {
-  String? userId;
+  String userId = "";
   final List<String> likeList = [];
 
   void login() {
@@ -19,17 +20,62 @@ class Users with ChangeNotifier {
       if (snapshot.exists) {
         final data = snapshot.data();
 
-        if (data != null && data['posts_liked'] != null) {
-          likeList.addAll(data['posts_liked'].cast<String>());
+        likeList.clear();
+
+        if (data != null && data['likedPosts'] != null) {
+          likeList.addAll(data['likedPosts'].cast<String>());
           notifyListeners();
+          print(likeList);
         }
       }
     });
   }
 
   void logout() {
-    userId = null;
+    userId = "";
     likeList.clear();
+  }
+
+  Future<void> handleLike(Post post) async {
+    final postRef = FirebaseFirestore.instance.collection('posts').doc(post.id);
+    final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final postSnapshot = await transaction.get(postRef);
+      final userSnapshot = await transaction.get(userRef);
+
+      if (!postSnapshot.exists || !userSnapshot.exists) {
+        throw Exception("Document does not exist!");
+      }
+
+      final List<String> likedBy = List<String>.from(postSnapshot['likedBy']);
+      final int likes = postSnapshot['likes'];
+
+      if (likedBy.contains(userId)) {
+        likeList.remove(post.id);
+
+        likedBy.remove(userId);
+        transaction.update(postRef, {
+          'likedBy': likedBy,
+          'likes': likes - 1,
+        });
+        transaction.update(userRef, {
+          'likedPosts': FieldValue.arrayRemove([post.id])
+        });
+      } else {
+        likeList.add(post.id);
+        likedBy.add(userId);
+        transaction.update(postRef, {
+          'likedBy': likedBy,
+          'likes': likes + 1,
+        });
+        transaction.update(userRef, {
+          'likedPosts': FieldValue.arrayUnion([post.id])
+        });
+      }
+    });
+
+    notifyListeners(); // Notify listeners after state change
   }
 
   Future<void> likePost(String postId) async {

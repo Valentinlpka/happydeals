@@ -1,5 +1,12 @@
+import 'package:accordion/accordion.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:happy/classes/dealexpress.dart';
+import 'package:happy/providers/like_provider.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:maps_launcher/maps_launcher.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DetailsDealsExpress extends StatefulWidget {
   final ExpressDeal post;
@@ -38,6 +45,9 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
 
   @override
   Widget build(BuildContext context) {
+    final isLiked =
+        context.watch<LikeProvider>().likeList.contains(widget.currentUserId);
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -87,11 +97,15 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
             ),
             actions: [
               IconButton(
-                onPressed: () async {},
-                icon: const Icon(
-                  Icons.favorite,
-                  color: Colors.red,
+                icon: Icon(
+                  isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: isLiked ? Colors.red : Colors.white,
                 ),
+                onPressed: () async {
+                  await Provider.of<LikeProvider>(context, listen: false)
+                      .handleLike(widget.post, widget.currentUserId);
+                  setState(() {}); // Force a rebuild to update the UI
+                },
               ),
               IconButton(
                 onPressed: () {},
@@ -222,9 +236,9 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                         const SizedBox(
                           width: 10,
                         ),
-                        Text(
+                        const Text(
                           "à récupérer aujourd'hui entre 12h00 - 18h00 ",
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 14, fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -323,14 +337,144 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
           SliverFillRemaining(
             child: TabBarView(
               controller: _tabController,
-              children: const [
+              children: [
                 SingleChildScrollView(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('Informations détaillées ici.'),
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Que contient ce panier ?',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 5,
+                        width: 5,
+                      ),
+                      Text(
+                        widget.post.content,
+                        softWrap: true,
+                        maxLines: null,
+                      ),
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                      ),
+                      const Text(
+                        'Questions fréquentes',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      Accordion(
+                          disableScrolling: true,
+                          paddingListTop: 5,
+                          paddingListBottom: 5,
+                          paddingListHorizontal: 0,
+                          headerBackgroundColor: Colors.white,
+                          rightIcon: const Icon(Icons.keyboard_arrow_down,
+                              color: Colors.black),
+                          flipRightIconIfOpen: true,
+                          headerBorderColor: Colors.grey[300],
+                          headerPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
+                          headerBorderWidth: 1,
+                          contentBorderWidth: 1,
+                          headerBorderRadius: 3,
+                          contentBorderColor: Colors.grey[300],
+                          children: [
+                            AccordionSection(
+                              header:
+                                  const Text('Que contient un panier surprise'),
+                              content: const Text(
+                                  '''Sur Happy Deals, les produits sont proposés à bas prix, mais en contrepartie… Surprise ! Les commerçants peuvent indiquer certains produits que vous pouvez retrouver dans votre panier mais sans certitude car ils ne peuvent pas prévoir leurs invendus.'''),
+                            ),
+                            AccordionSection(
+                              header: const Text(
+                                  'Mon panier peut-il contenir des produits périmés ?'),
+                              content: const Text(
+                                  '''Il faut distinguer la DLC et la DDM. La DLC est une date ferme, après cette date, le produit n’est plus consommable contrairement à la DDM qui elle, est une date indicative non contraignante, on peut donc vendre ces produits après la date.'''),
+                            ),
+                          ]),
+                      Text(
+                        'Localisation',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      SizedBox(
+                        height: 5,
+                      ),
+                      SizedBox(
+                        height: 200,
+                        child: FlutterMap(
+                          mapController: MapController(),
+                          options: const MapOptions(
+                            initialCenter:
+                                LatLng(50.37714385986328, 3.4123148918151855),
+                            initialZoom: 14,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              // Plenty of other options available!
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: const LatLng(
+                                      50.37714385986328, 3.4123148918151855),
+                                  width: 100,
+                                  height: 100,
+                                  child: Icon(
+                                    Icons.location_on,
+                                    color: Colors.red[800],
+                                    size: 30,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        height: 10,
+                      ),
+                      Center(
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              MapsLauncher.launchQuery('63 Rue jules mousseron'
+                                  '59282'
+                                  'Douchy les mines'),
+                          icon: Icon(Icons.navigation, color: Colors.white),
+                          label: Text('S\'y rendre',
+                              style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5), // Padding inside the button
+                            textStyle: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold), // Text style
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                SingleChildScrollView(
+                const SingleChildScrollView(
                   padding: EdgeInsets.all(16.0),
-                  child: Text('Avis des utilisateurs ici.'),
+                  child: Text('Avis \r\n des utilisateurs ici.'),
                 ),
               ],
             ),

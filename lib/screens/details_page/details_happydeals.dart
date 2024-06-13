@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:happy/classes/happydeal.dart';
+import 'package:happy/providers/users.dart';
 import 'package:happy/widgets/deal_product.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 
 class DetailsHappyDeals extends StatefulWidget {
   final HappyDeal happydeal;
@@ -44,6 +46,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
 
   @override
   Widget build(BuildContext context) {
+    final isLiked =
+        context.watch<Users>().likeList.contains(widget.happydeal.id);
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -92,12 +96,19 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
               ),
             ),
             actions: [
-              IconButton(
-                onPressed: () async {},
-                icon: const Icon(
-                  Icons.favorite,
-                  color: Colors.red,
-                ),
+              Consumer<Users>(
+                builder: (context, users, _) {
+                  return IconButton(
+                    icon: Icon(
+                      isLiked ? Icons.favorite : Icons.favorite_border,
+                      color: isLiked ? Colors.red : Colors.white,
+                    ),
+                    onPressed: () async {
+                      await users.handleLike(widget.happydeal);
+                      setState(() {}); // Force a rebuild to update the UI
+                    },
+                  );
+                },
               ),
               IconButton(
                 onPressed: () {},

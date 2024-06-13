@@ -1,9 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
 class LikeProvider with ChangeNotifier {
   final likeList = [];
+
   Future<void> handleLike(Post post, String currentUserId) async {
     final postRef = FirebaseFirestore.instance.collection('posts').doc(post.id);
     final userRef =

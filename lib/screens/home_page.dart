@@ -119,11 +119,12 @@ class _HomeState extends State<Home> {
                       return const Center(child: Text('No posts available'));
                     }
 
-                    return ListView(
+                    return ListView.builder(
                       shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children:
-                          snapshot.data!.docs.map((DocumentSnapshot document) {
+                      physics: const ClampingScrollPhysics(),
+                      itemCount: snapshot.data!.docs.length,
+                      itemBuilder: (context, index) {
+                        DocumentSnapshot document = snapshot.data!.docs[index];
                         Map<String, dynamic>? data =
                             document.data() as Map<String, dynamic>?;
 
@@ -155,7 +156,6 @@ class _HomeState extends State<Home> {
                             return const SizedBox.shrink();
                         }
 
-                        // Utilisation de companyId pour récupérer les données de l'entreprise associée
                         return FutureBuilder<DocumentSnapshot>(
                           future: FirebaseFirestore.instance
                               .collection('companys')
@@ -185,6 +185,7 @@ class _HomeState extends State<Home> {
                             }
 
                             return PostWidget(
+                              key: Key(document.id),
                               post: post,
                               companyCategorie: companyData['categorie'] ?? '',
                               companyName: companyData['name'] ?? 'Unknown',
@@ -196,7 +197,7 @@ class _HomeState extends State<Home> {
                             );
                           },
                         );
-                      }).toList(),
+                      },
                     );
                   },
                 ),

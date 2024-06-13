@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:happy/providers/like_provider.dart';
+import 'package:happy/providers/users.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -57,9 +57,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
 
   @override
   Widget build(BuildContext context) {
-    Provider.of<LikeProvider>(context);
-    final isLiked =
-        context.watch<LikeProvider>().likeList.contains(widget.currentUserId);
+    final isLiked = context.watch<Users>().likeList.contains(widget.event.id);
 
     final formattedDate =
         DateFormat('dd/MM/yyyy à HH:mm').format(widget.event.eventDate);
@@ -148,16 +146,15 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                 ),
               ),
               actions: [
-                Consumer<LikeProvider>(
-                  builder: (context, likeProvider, _) {
+                Consumer<Users>(
+                  builder: (context, users, _) {
                     return IconButton(
                       icon: Icon(
                         isLiked ? Icons.favorite : Icons.favorite_border,
                         color: isLiked ? Colors.red : Colors.white,
                       ),
                       onPressed: () async {
-                        await likeProvider.handleLike(
-                            widget.event, widget.currentUserId);
+                        await users.handleLike(widget.event);
                         setState(() {}); // Force a rebuild to update the UI
                       },
                     );
