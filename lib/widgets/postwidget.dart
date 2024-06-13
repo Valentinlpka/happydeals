@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
@@ -13,6 +12,7 @@ import 'package:happy/widgets/concours_card.dart';
 import 'package:happy/widgets/deals_express_card.dart';
 import 'package:happy/widgets/emploi_card.dart';
 import 'package:happy/widgets/evenement_card.dart';
+import 'package:happy/widgets/happy_deals_card.dart';
 import 'package:provider/provider.dart';
 
 class PostWidget extends StatelessWidget {
@@ -20,13 +20,16 @@ class PostWidget extends StatelessWidget {
   final String currentUserId;
   final VoidCallback onView;
   final String companyName;
+  final String companyCategorie;
   final String companyLogo;
 
-  PostWidget({
+  const PostWidget({
+    super.key,
     required this.post,
     required this.currentUserId,
     required this.onView,
     required this.companyName,
+    required this.companyCategorie,
     required this.companyLogo,
   });
 
@@ -41,17 +44,24 @@ class PostWidget extends StatelessWidget {
         companyLogo: companyLogo,
       );
     } else if (post is Contest) {
-      content = ConcoursCard();
+      content = const ConcoursCard();
     } else if (post is HappyDeal) {
-      content = ConcoursCard();
+      content = HappyDealsCard(
+        companyCategorie: companyCategorie,
+        post: post as HappyDeal,
+        currentUserId: currentUserId,
+        companyName: companyName,
+        companyLogo: companyLogo,
+      );
     } else if (post is ExpressDeal) {
       content = DealsExpressCard(
+        currentUserId: currentUserId,
         post: post as ExpressDeal,
         companyName: companyName,
         companyLogo: companyLogo,
       );
     } else if (post is Referral) {
-      content = ConcoursCard();
+      content = const ConcoursCard();
     } else if (post is Event) {
       content = EvenementCard(
         event: post as Event,

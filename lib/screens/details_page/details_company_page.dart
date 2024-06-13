@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:gap/gap.dart';
 import 'package:happy/classes/company.dart';
-import 'package:happy/widgets/deals_express_card.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/users.dart';
@@ -15,6 +14,7 @@ class DetailsCompany extends StatefulWidget {
       : super(key: key);
 
   @override
+  // ignore: library_private_types_in_public_api
   _DetailsCompanyState createState() => _DetailsCompanyState();
 }
 

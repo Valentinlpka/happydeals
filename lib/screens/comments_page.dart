@@ -6,12 +6,14 @@ class CommentScreen extends StatefulWidget {
   final Post post;
   final String currentUserId;
 
-  CommentScreen({
+  const CommentScreen({
+    super.key,
     required this.post,
     required this.currentUserId,
   });
 
   @override
+  // ignore: library_private_types_in_public_api
   _CommentScreenState createState() => _CommentScreenState();
 }
 
@@ -101,7 +103,7 @@ class _CommentScreenState extends State<CommentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Commentaires'),
+        title: const Text('Commentaires'),
       ),
       body: Column(
         children: [
@@ -124,7 +126,7 @@ class _CommentScreenState extends State<CommentScreen> {
                         ),
                       ),
                       title: Text(comment.username,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                           )),
                       subtitle: Column(
@@ -132,14 +134,14 @@ class _CommentScreenState extends State<CommentScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(comment.content,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 16,
                               )),
                           Text(
                               _timeAgo(
                                 comment.timestamp,
                               ),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
                               )),
                         ],
@@ -154,11 +156,11 @@ class _CommentScreenState extends State<CommentScreen> {
                                 }
                               },
                               itemBuilder: (context) => [
-                                PopupMenuItem(
+                                const PopupMenuItem(
                                   value: 'edit',
                                   child: Text('Modifier'),
                                 ),
-                                PopupMenuItem(
+                                const PopupMenuItem(
                                   value: 'delete',
                                   child: Text('Supprimer'),
                                 ),
@@ -189,7 +191,7 @@ class _CommentScreenState extends State<CommentScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.send),
+                    icon: const Icon(Icons.send),
                     onPressed: _addComment,
                   ),
                 ],
@@ -208,10 +210,10 @@ class _CommentScreenState extends State<CommentScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Modifier le commentaire'),
+          title: const Text('Modifier le commentaire'),
           content: TextField(
             controller: editController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: 'Modifier votre commentaire',
             ),
           ),
@@ -220,7 +222,7 @@ class _CommentScreenState extends State<CommentScreen> {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text('Annuler',
+              child: const Text('Annuler',
                   style: TextStyle(
                     color: Colors.red,
                   )),
@@ -232,7 +234,7 @@ class _CommentScreenState extends State<CommentScreen> {
                 });
                 Navigator.of(context).pop();
               },
-              child: Text('Enregistrer',
+              child: const Text('Enregistrer',
                   style: TextStyle(
                     color: Colors.green,
                   )),

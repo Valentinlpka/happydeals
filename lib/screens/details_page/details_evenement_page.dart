@@ -22,6 +22,7 @@ class DetailsEvenementPage extends StatefulWidget {
   }) : super(key: key);
 
   @override
+  // ignore: library_private_types_in_public_api
   _DetailsEvenementPageState createState() => _DetailsEvenementPageState();
 }
 
@@ -56,7 +57,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
 
   @override
   Widget build(BuildContext context) {
-    final likeProvider = Provider.of<LikeProvider>(context);
+    Provider.of<LikeProvider>(context);
     final isLiked =
         context.watch<LikeProvider>().likeList.contains(widget.currentUserId);
 
@@ -228,8 +229,8 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                               fontSize: 20,
                                             ),
                                           ),
-                                          Row(
-                                            children: const [
+                                          const Row(
+                                            children: [
                                               Text('dès '),
                                               Text(
                                                 '29,00 €',
@@ -400,9 +401,9 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                       initialRating: company.rating,
                                       maxRating: 5,
                                     ),
-                                    Text(
+                                    const Text(
                                       '12 avis)',
-                                      style: const TextStyle(fontSize: 12),
+                                      style: TextStyle(fontSize: 12),
                                     ),
                                   ],
                                 ),

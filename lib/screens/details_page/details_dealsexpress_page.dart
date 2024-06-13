@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:happy/classes/dealexpress.dart';
 
 class DetailsDealsExpress extends StatefulWidget {
-  const DetailsDealsExpress({Key? key}) : super(key: key);
+  final ExpressDeal post;
+  final String currentUserId;
+  final String companyName;
+  final String companyLogo;
+
+  const DetailsDealsExpress(
+      {Key? key,
+      required this.post,
+      required this.currentUserId,
+      required this.companyName,
+      required this.companyLogo})
+      : super(key: key);
 
   @override
   // ignore: library_private_types_in_public_api
@@ -99,121 +111,183 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
           ),
           SliverList(
             delegate: SliverChildListDelegate([
-              Container(
-                height: 30,
-                color: Colors.blue,
-                child: const Center(
-                  child: Text(
-                    'Ce deal expire dans 2 jours !',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              )
-            ]),
-          ),
-          SliverList(
-            delegate: SliverChildListDelegate([
               Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Entreprise',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    InkWell(
+                      onTap: () {},
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            radius: 27,
+                            backgroundColor: Colors.blue[700],
+                            child: CircleAvatar(
+                              radius: 25,
+                              backgroundImage: NetworkImage(widget.companyLogo),
+                            ),
+                          ),
+                          const SizedBox(
+                            height: 10,
+                            width: 10,
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.companyName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    color: Colors.blue[700],
+                                    child: const Icon(
+                                      Icons.star,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    height: 10,
+                                    width: 10,
+                                  ),
+                                  const Text(
+                                    '4,4',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    height: 5,
+                                    width: 5,
+                                  ),
+                                  // Your rating widget here
+                                  const Text(
+                                    '(45 avis)',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(
-                      height: 10,
-                      width: 10,
+                      height: 20,
                     ),
-                    InkWell(
-                      onTap: () {},
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 8),
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.5),
-                              spreadRadius: 0,
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                          color: Colors.white,
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.shopping_bag_outlined,
+                          color: Colors.blue[800],
+                          size: 25,
+                        ),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          widget.post.basketType,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            const CircleAvatar(
-                              radius: 22,
-                              backgroundColor: Colors.blue,
-                              child: CircleAvatar(
-                                radius: 20,
-                                backgroundImage: NetworkImage(
-                                    'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
-                              ),
-                            ),
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Be Happy',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Row(
-                                  children: [
-                                    // Your rating widget here
-                                    Text(
-                                      '(45 avis)',
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            InkWell(
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  shape: BoxShape.rectangle,
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                child: const Icon(Icons.message,
-                                    color: Colors.white),
-                              ),
-                              onTap: () {
-                                // Your onTap logic here
-                              },
-                            ),
-                          ],
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 10,
+                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          color: Colors.blue[700],
+                          child: const Icon(
+                            Icons.star,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
-                      ),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          "à récupérer aujourd'hui entre 12h00 - 18h00 ",
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 10,
+                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          color: Colors.blue[800],
+                          size: 25,
+                        ),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          widget.post.pickupTime.toString(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 10,
+                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          color: Colors.blue[800],
+                          size: 25,
+                        ),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        const Text(
+                          '59 Rue Maurice Boutton, 59135 Wallers',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+              Divider(color: Colors.grey[300]),
               Container(
+                height: 35,
                 color: Colors.transparent,
                 child: TabBar(
                   labelPadding: EdgeInsets.zero,
                   controller: _tabController,
                   isScrollable: false,
                   indicator: BoxDecoration(
-                    color: Colors.blue,
+                    color: Colors.blue[700],
                     borderRadius: BorderRadius.circular(5),
                   ),
                   labelStyle: const TextStyle(

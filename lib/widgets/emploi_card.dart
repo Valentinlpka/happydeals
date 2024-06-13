@@ -9,8 +9,9 @@ class JobOfferCard extends StatelessWidget {
   final String companyName;
   final String companyLogo;
 
-  JobOfferCard(
-      {required this.post,
+  const JobOfferCard(
+      {super.key,
+      required this.post,
       required this.companyName,
       required this.companyLogo});
 
@@ -106,7 +107,7 @@ class JobOfferCard extends StatelessWidget {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  CircleAvatar(
+                                  const CircleAvatar(
                                     radius: 30,
                                     backgroundColor: Colors.blue,
                                     child: CircleAvatar(
@@ -115,7 +116,7 @@ class JobOfferCard extends StatelessWidget {
                                           'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
                                     ),
                                   ),
-                                  Gap(20),
+                                  const Gap(20),
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.start,
                                     crossAxisAlignment:
@@ -128,7 +129,7 @@ class JobOfferCard extends StatelessWidget {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      Text('${companyName} - ${post.city}')
+                                      Text('$companyName - ${post.city}')
                                     ],
                                   )
                                 ],
@@ -160,7 +161,7 @@ class JobOfferCard extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      SizedBox(
+                                      const SizedBox(
                                         height: 10,
                                         width: 10,
                                       )
@@ -176,7 +177,7 @@ class JobOfferCard extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(timeago.format(post.timestamp, locale: 'fr')),
-                          Text('1500€ / mois')
+                          const Text('1500€ / mois')
                         ],
                       )
                     ],

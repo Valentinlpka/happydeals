@@ -150,7 +150,7 @@ class EvenementCard extends StatelessWidget {
                       Divider(
                         color: Colors.grey[300],
                       ),
-                      Row(
+                      const Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -167,10 +167,10 @@ class EvenementCard extends StatelessWidget {
                                       'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
                                 ),
                               ),
-                              const Gap(10),
+                              Gap(10),
                               Text(
                                 'Be Happy',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,
                                 ),
@@ -181,15 +181,15 @@ class EvenementCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Text(
+                              Text(
                                 'dès',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
                                 ),
                               ),
-                              const Gap(5),
-                              const Text(
+                              Gap(5),
+                              Text(
                                 '29,00 €',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,

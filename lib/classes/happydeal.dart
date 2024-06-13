@@ -1,10 +1,42 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
+class Deal {
+  final String name;
+  final num oldPrice;
+  final num newPrice;
+
+  Deal({
+    required this.name,
+    required this.oldPrice,
+    required this.newPrice,
+  });
+
+  int get discount {
+    return ((oldPrice - newPrice) / oldPrice * 100).toInt();
+  }
+
+  factory Deal.fromMap(Map<String, dynamic> data) {
+    return Deal(
+      name: data['name'],
+      oldPrice: data['oldPrice'],
+      newPrice: data['newPrice'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'oldPrice': oldPrice,
+      'newPrice': newPrice,
+    };
+  }
+}
+
 class HappyDeal extends Post {
   final String title;
   final String description;
-  final List<String> deals;
+  final List<Deal> deals;
   final DateTime startDate;
   final DateTime endDate;
   final String companyId;
@@ -46,7 +78,9 @@ class HappyDeal extends Post {
       authorId: data['authorId'],
       title: data['title'],
       description: data['description'],
-      deals: List<String>.from(data['deals']),
+      deals: (data['deals'] as List<dynamic>)
+          .map((dealData) => Deal.fromMap(dealData as Map<String, dynamic>))
+          .toList(),
       startDate: (data['startDate'] as Timestamp).toDate(),
       endDate: (data['endDate'] as Timestamp).toDate(),
       companyId: data['companyId'],
@@ -68,7 +102,7 @@ class HappyDeal extends Post {
     map.addAll({
       'title': title,
       'description': description,
-      'deals': deals,
+      'deals': deals.map((deal) => deal.toMap()).toList(),
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
       'companyId': companyId,

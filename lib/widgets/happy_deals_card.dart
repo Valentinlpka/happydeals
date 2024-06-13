@@ -1,41 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:happy/classes/dealexpress.dart';
-import 'package:happy/screens/details_page/details_dealsexpress_page.dart';
+import 'package:happy/classes/happydeal.dart';
+import 'package:happy/screens/details_page/details_happydeals.dart';
 import 'package:intl/intl.dart';
 
-class DealsExpressCard extends StatelessWidget {
-  final ExpressDeal post;
-  final String currentUserId;
+class HappyDealsCard extends StatelessWidget {
+  final HappyDeal post;
   final String companyName;
+  final String companyCategorie;
   final String companyLogo;
+  final String currentUserId;
 
-  const DealsExpressCard(
+  const HappyDealsCard(
       {super.key,
       required this.post,
       required this.companyName,
-      required this.companyLogo,
-      required this.currentUserId});
+      required this.currentUserId,
+      required this.companyCategorie,
+      required this.companyLogo});
 
   String formatDateTime(DateTime dateTime) {
-    final DateTime now = DateTime.now();
-    final DateFormat timeFormat = DateFormat('HH:mm');
-    final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
-
-    if (dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day) {
-      // Aujourd'hui
-      return 'aujourd\'hui à ${timeFormat.format(dateTime)}';
-    } else if (dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day + 1) {
-      // Demain
-      return 'demain à ${timeFormat.format(dateTime)}';
-    } else {
-      // Autre jour
-      return '${dateFormat.format(dateTime)} à ${timeFormat.format(dateTime)}';
-    }
+    return DateFormat('dd/mm/yyyy')
+        .format(dateTime); // Format comme "2024-06-13"
   }
 
   @override
@@ -54,11 +40,9 @@ class DealsExpressCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => DetailsDealsExpress(
-                    post: post,
+                  builder: (context) => DetailsHappyDeals(
+                    happydeal: post,
                     currentUserId: currentUserId,
-                    companyLogo: companyLogo,
-                    companyName: companyName,
                   ),
                 ),
               );
@@ -75,7 +59,8 @@ class DealsExpressCard extends StatelessWidget {
                     ),
                     image: DecorationImage(
                       colorFilter: ColorFilter.mode(
-                          Colors.black.withOpacity(0.80), BlendMode.hue),
+                          Colors.transparent.withOpacity(0.40),
+                          BlendMode.colorBurn),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
                       image: const NetworkImage(
@@ -108,7 +93,7 @@ class DealsExpressCard extends StatelessWidget {
                                     color: Colors.white,
                                   ),
                                   Text(
-                                    'Deals Express',
+                                    'Happy Deals',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -131,7 +116,7 @@ class DealsExpressCard extends StatelessWidget {
                             padding: const EdgeInsets.only(right: 15.0),
                             child: CircleAvatar(
                               radius: 26,
-                              backgroundColor: Colors.blueGrey,
+                              backgroundColor: Colors.blue,
                               child: CircleAvatar(
                                 radius: 24,
                                 backgroundImage: NetworkImage(companyLogo),
@@ -153,7 +138,7 @@ class DealsExpressCard extends StatelessWidget {
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w500),
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                           )
@@ -174,7 +159,7 @@ class DealsExpressCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                post.basketType,
+                                post.title,
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -185,7 +170,7 @@ class DealsExpressCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                "à récuperer ${formatDateTime(post.pickupTime)}",
+                                "Valable jusqu'au ${formatDateTime(post.endDate)}",
                                 style: const TextStyle(
                                     fontSize: 14,
                                     color: Color.fromARGB(255, 85, 85, 85)),
@@ -231,9 +216,9 @@ class DealsExpressCard extends StatelessWidget {
                                 ),
                               ),
                               const Gap(4),
-                              const Text(
-                                "Beauté",
-                                style: TextStyle(
+                              Text(
+                                companyCategorie,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,
                                 ),
@@ -252,17 +237,18 @@ class DealsExpressCard extends StatelessWidget {
                                         horizontal: 5),
                                     color: const Color.fromARGB(
                                         255, 231, 231, 231),
-                                    child: const Text('50% de réduction',
-                                        style: TextStyle(
+                                    child: Text(
+                                        "${post.deals[0].discount} % de réduction",
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                         )),
                                   ),
-                                  const Row(
+                                  Row(
                                     children: [
                                       Text(
-                                        "19,99 €",
-                                        style: TextStyle(
+                                        "${post.deals[0].oldPrice} €",
+                                        style: const TextStyle(
                                             letterSpacing: 1,
                                             decoration:
                                                 TextDecoration.lineThrough,
@@ -271,10 +257,10 @@ class DealsExpressCard extends StatelessWidget {
                                             color: Color.fromARGB(
                                                 255, 181, 11, 11)),
                                       ),
-                                      Gap(10),
+                                      const Gap(10),
                                       Text(
-                                        '9,99€',
-                                        style: TextStyle(
+                                        "${post.deals[0].newPrice} €",
+                                        style: const TextStyle(
                                           letterSpacing: 1,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,

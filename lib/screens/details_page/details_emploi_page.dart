@@ -12,6 +12,7 @@ class DetailsEmploiPage extends StatefulWidget {
   const DetailsEmploiPage({required this.post, Key? key}) : super(key: key);
 
   @override
+  // ignore: library_private_types_in_public_api
   _DetailsEmploiPageState createState() => _DetailsEmploiPageState();
 }
 

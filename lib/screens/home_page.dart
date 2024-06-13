@@ -16,6 +16,7 @@ class Home extends StatefulWidget {
   const Home({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _HomeState createState() => _HomeState();
 }
 
@@ -107,7 +108,6 @@ class _HomeState extends State<Home> {
                   builder: (BuildContext context,
                       AsyncSnapshot<QuerySnapshot> snapshot) {
                     if (snapshot.hasError) {
-                      print('Erreur: ${snapshot.error}');
                       return const Text('Something went wrong');
                     }
 
@@ -132,7 +132,6 @@ class _HomeState extends State<Home> {
                         }
 
                         Post post;
-                        print(data['type']);
                         switch (data['type']) {
                           case 'job_offer':
                             post = JobOffer.fromDocument(document);
@@ -170,7 +169,6 @@ class _HomeState extends State<Home> {
                                   child: CircularProgressIndicator());
                             }
                             if (companySnapshot.hasError) {
-                              print('Erreur: ${companySnapshot.error}');
                               return const Text('Error loading company data');
                             }
                             if (!companySnapshot.hasData ||
@@ -188,6 +186,7 @@ class _HomeState extends State<Home> {
 
                             return PostWidget(
                               post: post,
+                              companyCategorie: companyData['categorie'] ?? '',
                               companyName: companyData['name'] ?? 'Unknown',
                               companyLogo: companyData['logo'] ?? '',
                               currentUserId: currentUserId,
