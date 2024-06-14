@@ -25,7 +25,6 @@ class Users with ChangeNotifier {
         if (data != null && data['likedPosts'] != null) {
           likeList.addAll(data['likedPosts'].cast<String>());
           notifyListeners();
-          print(likeList);
         }
       }
     });
@@ -40,42 +39,61 @@ class Users with ChangeNotifier {
     final postRef = FirebaseFirestore.instance.collection('posts').doc(post.id);
     final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
 
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      final postSnapshot = await transaction.get(postRef);
-      final userSnapshot = await transaction.get(userRef);
+    // Mise à jour locale de l'état
+    if (likeList.contains(post.id)) {
+      likeList.remove(post.id);
 
-      if (!postSnapshot.exists || !userSnapshot.exists) {
-        throw Exception("Document does not exist!");
-      }
+      post.likes -= 1;
+    } else {
+      likeList.add(post.id);
+      post.likes += 1;
+    }
+    notifyListeners(); // Notifiez les listeners immédiatement
 
-      final List<String> likedBy = List<String>.from(postSnapshot['likedBy']);
-      final int likes = postSnapshot['likes'];
+    // Mettre à jour Firestore en arrière-plan
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final postSnapshot = await transaction.get(postRef);
+        final userSnapshot = await transaction.get(userRef);
 
-      if (likedBy.contains(userId)) {
+        if (!postSnapshot.exists || !userSnapshot.exists) {
+          throw Exception("Document does not exist!");
+        }
+
+        final List<String> likedBy = List<String>.from(postSnapshot['likedBy']);
+        final int likes = postSnapshot['likes'];
+
+        if (likedBy.contains(userId)) {
+          likedBy.remove(userId);
+          transaction.update(postRef, {
+            'likedBy': likedBy,
+            'likes': likes - 1,
+          });
+          transaction.update(userRef, {
+            'likedPosts': FieldValue.arrayRemove([post.id])
+          });
+        } else {
+          likedBy.add(userId);
+          transaction.update(postRef, {
+            'likedBy': likedBy,
+            'likes': likes + 1,
+          });
+          transaction.update(userRef, {
+            'likedPosts': FieldValue.arrayUnion([post.id])
+          });
+        }
+      });
+    } catch (e) {
+      // Si l'opération Firestore échoue, annuler la mise à jour locale
+      if (likeList.contains(post.id)) {
         likeList.remove(post.id);
-
-        likedBy.remove(userId);
-        transaction.update(postRef, {
-          'likedBy': likedBy,
-          'likes': likes - 1,
-        });
-        transaction.update(userRef, {
-          'likedPosts': FieldValue.arrayRemove([post.id])
-        });
+        post.likes -= 1;
       } else {
         likeList.add(post.id);
-        likedBy.add(userId);
-        transaction.update(postRef, {
-          'likedBy': likedBy,
-          'likes': likes + 1,
-        });
-        transaction.update(userRef, {
-          'likedPosts': FieldValue.arrayUnion([post.id])
-        });
+        post.likes += 1;
       }
-    });
-
-    notifyListeners(); // Notify listeners after state change
+      notifyListeners(); // Mettre à jour l'état après annulation
+    }
   }
 
   Future<void> likePost(String postId) async {

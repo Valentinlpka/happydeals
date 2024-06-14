@@ -81,7 +81,7 @@ class HappyDealsCard extends StatelessWidget {
                               padding: const EdgeInsets.only(
                                   top: 3, bottom: 3, right: 7, left: 5),
                               decoration: const BoxDecoration(
-                                color: Colors.blue,
+                                color: Colors.black54,
                               ),
                               child: const Row(
                                 mainAxisAlignment:
@@ -104,10 +104,6 @@ class HappyDealsCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const Icon(
-                            Icons.favorite,
-                            color: Colors.red,
-                          )
                         ],
                       ),
                       Row(

@@ -84,10 +84,6 @@ class JobOfferCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const Icon(
-                            Icons.favorite,
-                            color: Colors.red,
-                          )
                         ],
                       ),
                     ],

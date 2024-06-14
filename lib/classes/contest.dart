@@ -1,10 +1,34 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
+class Gift {
+  final String name;
+  final String imageUrl;
+
+  Gift({
+    required this.name,
+    required this.imageUrl,
+  });
+
+  factory Gift.fromMap(Map<String, dynamic> data) {
+    return Gift(
+      name: data['name'],
+      imageUrl: data['image'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'image': imageUrl,
+    };
+  }
+}
+
 class Contest extends Post {
   final String title;
   final String description;
-  final List<String> gifts;
+  final List<Gift> gifts;
   final String companyId;
   final String howToParticipate;
   final String conditions;
@@ -50,7 +74,9 @@ class Contest extends Post {
       authorId: data['authorId'],
       title: data['title'],
       description: data['description'],
-      gifts: List<String>.from(data['gifts']),
+      gifts: (data['gifts'] as List<dynamic>)
+          .map((giftsData) => Gift.fromMap(giftsData as Map<String, dynamic>))
+          .toList(),
       companyId: data['companyId'],
       howToParticipate: data['howToParticipate'],
       conditions: data['conditions'],

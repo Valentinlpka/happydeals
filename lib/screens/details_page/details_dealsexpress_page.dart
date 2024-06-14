@@ -6,7 +6,6 @@ import 'package:happy/providers/like_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class DetailsDealsExpress extends StatefulWidget {
   final ExpressDeal post;
@@ -404,14 +403,14 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                                   '''Il faut distinguer la DLC et la DDM. La DLC est une date ferme, après cette date, le produit n’est plus consommable contrairement à la DDM qui elle, est une date indicative non contraignante, on peut donc vendre ces produits après la date.'''),
                             ),
                           ]),
-                      Text(
+                      const Text(
                         'Localisation',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
                         ),
                       ),
-                      SizedBox(
+                      const SizedBox(
                         height: 5,
                       ),
                       SizedBox(
@@ -447,7 +446,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                           ],
                         ),
                       ),
-                      SizedBox(
+                      const SizedBox(
                         height: 10,
                       ),
                       Center(
@@ -456,14 +455,15 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                               MapsLauncher.launchQuery('63 Rue jules mousseron'
                                   '59282'
                                   'Douchy les mines'),
-                          icon: Icon(Icons.navigation, color: Colors.white),
-                          label: Text('S\'y rendre',
+                          icon:
+                              const Icon(Icons.navigation, color: Colors.white),
+                          label: const Text('S\'y rendre',
                               style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
                                 vertical: 5), // Padding inside the button
-                            textStyle: TextStyle(
+                            textStyle: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold), // Text style
                           ),

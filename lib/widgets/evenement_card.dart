@@ -99,10 +99,6 @@ class EvenementCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const Icon(
-                            Icons.favorite,
-                            color: Colors.red,
-                          )
                         ],
                       ),
                     ],

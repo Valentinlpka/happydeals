@@ -8,12 +8,14 @@ class Referral extends Post {
   final String refereeBenefit;
   final String companyId;
   final String image;
+  final DateTime dateFinal;
 
   Referral({
     required String id,
     required DateTime timestamp,
     required String authorId,
     required this.title,
+    required this.dateFinal,
     required this.description,
     required this.sponsorBenefit,
     required this.refereeBenefit,
@@ -48,6 +50,7 @@ class Referral extends Post {
       refereeBenefit: data['refereeBenefit'],
       companyId: data['companyId'],
       image: data['image'],
+      dateFinal: (data['date_final'] as Timestamp).toDate(),
       views: data['views'] ?? 0,
       likesCount: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
@@ -69,6 +72,7 @@ class Referral extends Post {
       'refereeBenefit': refereeBenefit,
       'companyId': companyId,
       'image': image,
+      'date_final': dateFinal,
     });
     return map;
   }

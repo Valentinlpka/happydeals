@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/login_or_register.dart';
-import 'package:happy/providers/like_provider.dart';
 import 'package:happy/screens/main_container.dart';
 import 'package:provider/provider.dart';
 

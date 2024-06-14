@@ -119,10 +119,6 @@ class DealsExpressCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const Icon(
-                            Icons.favorite,
-                            color: Colors.red,
-                          )
                         ],
                       ),
                       Row(
