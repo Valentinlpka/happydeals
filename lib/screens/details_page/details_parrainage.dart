@@ -313,7 +313,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DetailsCompany(company,
+                            builder: (context) => DetailsCompany(
                                 companyId: widget.referral.companyId),
                           ),
                         );

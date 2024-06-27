@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:happy/screens/favorite.dart';
+import 'package:happy/screens/favorite_page.dart';
 import 'package:happy/screens/home_page.dart';
 import 'package:happy/screens/notification_page.dart';
 import 'package:happy/screens/profile_page.dart';

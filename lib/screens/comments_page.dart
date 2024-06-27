@@ -176,7 +176,8 @@ class _CommentScreenState extends State<CommentScreen> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10.0),
-            child: SafeArea(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 20),
               child: Row(
                 children: [
                   Expanded(

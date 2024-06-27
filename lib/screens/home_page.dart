@@ -156,11 +156,11 @@ class _HomeState extends State<Home> {
                             return const SizedBox.shrink();
                         }
 
-                        return FutureBuilder<DocumentSnapshot>(
-                          future: FirebaseFirestore.instance
+                        return StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance
                               .collection('companys')
                               .doc(data['companyId'])
-                              .get(),
+                              .snapshots(),
                           builder: (BuildContext context,
                               AsyncSnapshot<DocumentSnapshot> companySnapshot) {
                             if (companySnapshot.connectionState ==

@@ -26,11 +26,28 @@ addSamplePosts() async {
   await posts.add(happydeal.toMap());
 }
 
+Future<void> updateCompanyOpeningHours() async {
+  const companyId = "E8ivG6AyXg8W8mrBZksa";
+  final openingHours = {
+    'monday': '08:00 - 18:00',
+    'tuesday': '08:00 - 18:00',
+    'wednesday': '08:00 - 18:00',
+    'thursday': '08:00 - 18:00',
+    'friday': '08:00 - 18:00',
+    'saturday': '10:00 - 14:00',
+    'sunday': 'Fermé',
+  };
+
+  final companyRef =
+      FirebaseFirestore.instance.collection('companys').doc(companyId);
+
+  await companyRef.update({'openingHours': openingHours});
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  addSamplePosts();
   runApp(const Search());
 
   // Ajouter des exemples de posts
@@ -49,7 +66,8 @@ class Search extends StatelessWidget {
         body: const Center(
           child: Column(
             children: [
-              ElevatedButton(onPressed: addSamplePosts, child: Text('BB')),
+              ElevatedButton(
+                  onPressed: updateCompanyOpeningHours, child: Text('BB')),
               Text('Check your Firestore database for sample posts.'),
             ],
           ),

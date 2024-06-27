@@ -14,8 +14,10 @@ class Company {
   final String website;
   final String address;
   final String email;
+  final Map<String, dynamic> openingHours;
 
   Company({
+    required this.openingHours,
     required this.id,
     required this.name,
     required this.categorie,
@@ -35,6 +37,7 @@ class Company {
   factory Company.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Company(
+      openingHours: data['openingHours'] ?? {},
       id: doc.id,
       name: data['name'] ?? '',
       categorie: data['categorie'] ?? '',

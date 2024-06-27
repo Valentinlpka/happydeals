@@ -20,8 +20,7 @@ class CompanyCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetailsCompany(
-              company,
+            builder: (context) => const DetailsCompany(
               companyId: 'E8ivG6AyXg8W8mrBZksa',
             ),
           ),

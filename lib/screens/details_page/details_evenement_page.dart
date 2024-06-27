@@ -344,7 +344,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DetailsCompany(company,
+                            builder: (context) => DetailsCompany(
                                 companyId: widget.event.companyId),
                           ),
                         );

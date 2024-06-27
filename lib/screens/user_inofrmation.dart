@@ -53,6 +53,7 @@ class _UserInformationState extends State<UserInformation> {
               website: '',
               address: '',
               email: '',
+              openingHours: {},
             ));
           }).toList(),
         );

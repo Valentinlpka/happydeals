@@ -39,18 +39,17 @@ class Users with ChangeNotifier {
     final postRef = FirebaseFirestore.instance.collection('posts').doc(post.id);
     final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
 
-    // Mise à jour locale de l'état
+    // Optimistically update the local state
     if (likeList.contains(post.id)) {
       likeList.remove(post.id);
-
       post.likes -= 1;
     } else {
       likeList.add(post.id);
       post.likes += 1;
     }
-    notifyListeners(); // Notifiez les listeners immédiatement
+    notifyListeners();
 
-    // Mettre à jour Firestore en arrière-plan
+    // Firestore update in the background
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final postSnapshot = await transaction.get(postRef);
@@ -84,7 +83,7 @@ class Users with ChangeNotifier {
         }
       });
     } catch (e) {
-      // Si l'opération Firestore échoue, annuler la mise à jour locale
+      // Revert the optimistic update if the Firestore transaction fails
       if (likeList.contains(post.id)) {
         likeList.remove(post.id);
         post.likes -= 1;
@@ -92,7 +91,7 @@ class Users with ChangeNotifier {
         likeList.add(post.id);
         post.likes += 1;
       }
-      notifyListeners(); // Mettre à jour l'état après annulation
+      notifyListeners();
     }
   }
 

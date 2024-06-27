@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
-import 'package:happy/classes/company.dart';
 import 'package:happy/classes/joboffer.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/mots_cles_emploi.dart';
 import 'package:palette_generator/palette_generator.dart';
 
@@ -252,30 +250,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                   width: 10,
                 ),
                 InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailsCompany(
-                          Company(
-                              id: widget.post.companyId,
-                              name: 'Be Happy',
-                              categorie: 'Services aux entreprises',
-                              open: true,
-                              rating: 4,
-                              like: 2,
-                              ville: 'Marly',
-                              phone: '06 19 07 08 11',
-                              logo: '',
-                              description: '',
-                              website: '',
-                              address: '',
-                              email: ''),
-                          companyId: '33',
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: () {},
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 8),

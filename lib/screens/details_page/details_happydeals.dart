@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/deal_product.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -154,7 +155,15 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     InkWell(
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailsCompany(
+                                companyId: widget.happydeal.companyId),
+                          ),
+                        );
+                      },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [

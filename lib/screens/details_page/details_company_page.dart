@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:gap/gap.dart';
 import 'package:happy/classes/company.dart';
+import 'package:happy/widgets/opening_hours_widget.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/users.dart';
@@ -10,8 +11,7 @@ import '../../providers/users.dart';
 class DetailsCompany extends StatefulWidget {
   final String companyId;
 
-  const DetailsCompany(Company company, {required this.companyId, Key? key})
-      : super(key: key);
+  const DetailsCompany({required this.companyId, Key? key}) : super(key: key);
 
   @override
   // ignore: library_private_types_in_public_api
@@ -104,7 +104,7 @@ class _DetailsCompanyState extends State<DetailsCompany>
                     ),
                   ],
                   pinned: true,
-                  expandedHeight: 650.0,
+                  expandedHeight: 620.0,
                   toolbarHeight: 40,
                   flexibleSpace: FlexibleSpaceBar(
                     background: Container(
@@ -245,75 +245,127 @@ class _DetailsCompanyState extends State<DetailsCompany>
                     ),
                   ),
                 ),
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _SliverAppBarDelegate(
-                    TabBar(
-                      labelPadding: const EdgeInsets.symmetric(horizontal: 20),
-                      isScrollable: true,
-                      indicatorColor: Colors.blue[600],
-                      labelColor: Colors.blue[600],
-                      labelStyle: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      unselectedLabelColor: Colors.black,
-                      controller: _tabController,
-                      tabs: const [
-                        Tab(text: 'Toutes les publications'),
-                        Tab(text: 'Deals'),
-                        Tab(text: 'Actions spéciales'),
-                        Tab(text: 'Chips'),
-                        Tab(text: 'Avis'),
-                      ],
-                    ),
-                  ),
-                ),
               ];
             },
-            body: TabBarView(
-              controller: _tabController,
+            body: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(1),
-                    itemBuilder: (context, index) {
-                      return const Column(
-                        children: [
-                          Gap(10),
-                        ],
-                      );
-                    },
-                    itemCount: 5,
+                SizedBox(
+                  height: 40,
+                  child: TabBar(
+                    padding: const EdgeInsets.only(top: 0),
+                    labelPadding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    indicator: BoxDecoration(
+                      color: Colors.blue[700],
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    labelStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    unselectedLabelColor: Colors.black,
+                    unselectedLabelStyle: const TextStyle(
+                      fontWeight: FontWeight.normal,
+                    ),
+                    tabs: const [
+                      Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 10.0, vertical: 0),
+                        child: Tab(text: 'Toutes les publications'),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10.0),
+                        child: Tab(text: 'Deals'),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10.0),
+                        child: Tab(text: 'Actions spéciales'),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10.0),
+                        child: Tab(text: 'A propos'),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10.0),
+                        child: Tab(text: 'Avis'),
+                      ),
+                    ],
                   ),
                 ),
-                const Center(child: Text('Coucou')),
-                const Center(child: Text('Tab 3 Content')),
-                const Center(child: Text('Tab 4 Content')),
-                Column(
-                  children: [
-                    Text(
-                      company.rating.toString(),
-                      style: const TextStyle(
-                        fontSize: 50,
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: TabBarView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    controller: _tabController,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(1),
+                          itemBuilder: (context, index) {
+                            return const Column(
+                              children: [
+                                Gap(10),
+                              ],
+                            );
+                          },
+                          itemCount: 5,
+                        ),
                       ),
-                    ),
-                    RatingBar.readOnly(
-                      alignment: Alignment.center,
-                      filledIcon: Icons.star,
-                      size: 20,
-                      filledColor: (Colors.yellow[600])!,
-                      emptyIcon: Icons.star_border,
-                      initialRating: company.rating,
-                      maxRating: 5,
-                    ),
-                    const Text('basé sur X avis'),
-                    ElevatedButton(
-                      onPressed: () => {},
-                      child: const Text('Publier un avis'),
-                    ),
-                  ],
+                      const Center(child: Text('Coucou')),
+                      const Center(child: Text('Tab 3 Content')),
+                      SingleChildScrollView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        child: Center(
+                            child: Padding(
+                          padding: const EdgeInsets.only(
+                              top: 10, left: 20, right: 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Autres éléments
+                              const SizedBox(height: 10),
+                              OpeningHoursWidget(
+                                  openingHours: company.openingHours),
+                              // Autres éléments
+                            ],
+                          ),
+                        )),
+                      ),
+                      SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 10.0),
+                          child: Column(
+                            children: [
+                              Text(
+                                company.rating.toString(),
+                                style: const TextStyle(
+                                  fontSize: 50,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              RatingBar.readOnly(
+                                alignment: Alignment.center,
+                                filledIcon: Icons.star,
+                                size: 20,
+                                filledColor: (Colors.yellow[600])!,
+                                emptyIcon: Icons.star_border,
+                                initialRating: company.rating,
+                                maxRating: 5,
+                              ),
+                              const Text('basé sur X avis'),
+                              ElevatedButton(
+                                onPressed: () => {},
+                                child: const Text('Publier un avis'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -324,6 +376,7 @@ class _DetailsCompanyState extends State<DetailsCompany>
   }
 }
 
+// ignore: unused_element
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar _tabBar;
 
