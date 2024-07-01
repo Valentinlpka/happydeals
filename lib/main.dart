@@ -1,6 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/providers/like_provider.dart';
 import 'package:happy/providers/users.dart';
 import '../screens/auth/auth_page.dart';
 import 'package:provider/provider.dart';
@@ -31,7 +30,6 @@ class _MyAppState extends State<MyApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => Users()),
-        ChangeNotifierProvider(create: (_) => LikeProvider())
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -43,7 +41,8 @@ class _MyAppState extends State<MyApp> {
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5)),
+                borderRadius: BorderRadius.circular(5),
+              ),
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 15),

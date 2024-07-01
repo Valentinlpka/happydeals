@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
+import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/widgets/opening_hours_widget.dart';
@@ -250,9 +250,9 @@ class _DetailsCompanyState extends State<DetailsCompany>
             body: Column(
               children: [
                 SizedBox(
-                  height: 40,
+                  height: 50,
                   child: TabBar(
-                    padding: const EdgeInsets.only(top: 0),
+                    padding: const EdgeInsets.only(top: 10),
                     labelPadding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                     controller: _tabController,

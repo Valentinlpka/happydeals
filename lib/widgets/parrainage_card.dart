@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:happy/classes/referral.dart';
 // ignore: unused_import
 import 'package:happy/screens/details_page/details_evenement_page.dart';
-import 'package:happy/classes/referral.dart';
 import 'package:happy/screens/details_page/details_parrainage.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class ParrainageCard extends StatelessWidget {
@@ -127,7 +128,7 @@ class ParrainageCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                post.title,
+                                capitalizeFirstLetter(post.title),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,

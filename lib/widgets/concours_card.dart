@@ -18,6 +18,13 @@ class ConcoursCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String capitalizeFirstLetter(String text) {
+      if (text.isEmpty) {
+        return text;
+      }
+      return text[0].toUpperCase() + text.substring(1);
+    }
+
     return Column(
       children: [
         Card(
@@ -51,7 +58,7 @@ class ConcoursCard extends StatelessWidget {
                     ),
                     image: DecorationImage(
                       colorFilter: ColorFilter.mode(
-                          Colors.black.withOpacity(0.20), BlendMode.colorBurn),
+                          Colors.black.withOpacity(0.20), BlendMode.srcOver),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
                       image: const NetworkImage(
@@ -106,7 +113,7 @@ class ConcoursCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   height: 150,
-                  child: const Column(
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Column(
@@ -114,15 +121,15 @@ class ConcoursCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                "Gagne tes Airpods Max",
-                                style: TextStyle(
+                                capitalizeFirstLetter(contest.title),
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
                           ),
-                          Row(
+                          const Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Icon(
@@ -138,12 +145,15 @@ class ConcoursCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          Gap(10),
+                          const Gap(10),
                           Text(
-                              'Très simple, il suffit d’être abonné à mon profil, ainsi qu’aimer le post.')
+                            contest.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          )
                         ],
                       ),
-                      Row(
+                      const Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [

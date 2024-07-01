@@ -1,7 +1,9 @@
 import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:provider/provider.dart';
+
 import '../classes/company.dart';
 import '../providers/users.dart';
 import '../screens/details_page/details_company_page.dart';
@@ -151,7 +153,7 @@ class CompanyCard extends StatelessWidget {
                         children: [
                           Text(
                             overflow: TextOverflow.ellipsis,
-                            company.name,
+                            capitalizeFirstLetter(company.name),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,

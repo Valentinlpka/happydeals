@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/screens/details_page/details_dealsexpress_page.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class DealsExpressCard extends StatelessWidget {
@@ -56,7 +57,6 @@ class DealsExpressCard extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (context) => DetailsDealsExpress(
                     post: post,
-                    currentUserId: currentUserId,
                     companyLogo: companyLogo,
                     companyName: companyName,
                   ),
@@ -170,7 +170,7 @@ class DealsExpressCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                post.basketType,
+                                capitalizeFirstLetter(post.basketType),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/screens/details_page/details_emploi_page.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class JobOfferCard extends StatelessWidget {
@@ -119,7 +120,7 @@ class JobOfferCard extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        post.jobTitle,
+                                        capitalizeFirstLetter(post.jobTitle),
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,

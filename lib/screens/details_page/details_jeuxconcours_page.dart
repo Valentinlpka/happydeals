@@ -1,12 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
+import 'package:flutter/material.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:happy/classes/company.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:provider/provider.dart';
 
 class DetailsJeuxConcoursPage extends StatefulWidget {
@@ -184,8 +185,8 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
                             Image.network(
                               widget.contest.giftPhoto,
                               height: 200,
-                              colorBlendMode: BlendMode.colorBurn,
-                              color: Colors.black12,
+                              colorBlendMode: BlendMode.srcOver,
+                              color: Colors.black.withOpacity(0.2),
                               width: double.infinity,
                               fit: BoxFit.cover,
                             ),
@@ -218,7 +219,8 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
                                             MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            widget.contest.title,
+                                            capitalizeFirstLetter(
+                                                widget.contest.title),
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 20,

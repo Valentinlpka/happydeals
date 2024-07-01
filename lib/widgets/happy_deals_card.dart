@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/screens/details_page/details_happydeals.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class HappyDealsCard extends StatelessWidget {
@@ -155,7 +156,7 @@ class HappyDealsCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                post.title,
+                                capitalizeFirstLetter(post.title),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,

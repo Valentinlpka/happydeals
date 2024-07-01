@@ -7,6 +7,7 @@ class ExpressDeal extends Post {
   final String content;
   final String companyId;
   final int basketCount;
+  final int price;
 
   ExpressDeal({
     required String id,
@@ -17,6 +18,7 @@ class ExpressDeal extends Post {
     required this.content,
     required this.companyId,
     required this.basketCount,
+    required this.price,
     int views = 0,
     int likes = 0,
     List<String> likedBy = const [],
@@ -45,6 +47,7 @@ class ExpressDeal extends Post {
       content: data['content'],
       companyId: data['companyId'],
       basketCount: data['basketCount'],
+      price: data['price'],
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
@@ -65,6 +68,7 @@ class ExpressDeal extends Post {
       'content': content,
       'companyId': companyId,
       'basketCount': basketCount,
+      'price': price,
     });
     return map;
   }

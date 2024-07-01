@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
+import 'package:flutter/material.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/providers/users.dart';
-import 'package:palette_generator/palette_generator.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:happy/classes/company.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 
 class DetailsParrainagePage extends StatefulWidget {
@@ -207,7 +208,8 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                                   width: 330,
                                   child: Center(
                                     child: Text(
-                                      widget.referral.title,
+                                      capitalizeFirstLetter(
+                                          widget.referral.title),
                                       softWrap: true,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(

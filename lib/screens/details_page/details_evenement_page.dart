@@ -1,14 +1,15 @@
-import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:happy/classes/company.dart';
+import 'package:happy/classes/event.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:happy/classes/event.dart';
-import 'package:happy/classes/company.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:provider/provider.dart';
 
 class DetailsEvenementPage extends StatefulWidget {
@@ -220,7 +221,8 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                             MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            widget.event.title,
+                                            capitalizeFirstLetter(
+                                                widget.event.title),
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 20,

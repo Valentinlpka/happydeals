@@ -26,7 +26,7 @@ class _MainContainerState extends State<MainContainer> {
     return Scaffold(
       body: [
         const Home(),
-        const Search(),
+        const SearchPage(),
         const Favorite(),
         const NotificationPage(),
         ProfilePage(),

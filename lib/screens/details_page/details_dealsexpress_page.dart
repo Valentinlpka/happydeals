@@ -1,23 +1,24 @@
 import 'package:accordion/accordion.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:happy/classes/dealexpress.dart';
-import 'package:happy/providers/like_provider.dart';
+import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:provider/provider.dart';
 
 class DetailsDealsExpress extends StatefulWidget {
   final ExpressDeal post;
-  final String currentUserId;
   final String companyName;
   final String companyLogo;
 
   const DetailsDealsExpress(
       {Key? key,
       required this.post,
-      required this.currentUserId,
       required this.companyName,
       required this.companyLogo})
       : super(key: key);
@@ -43,12 +44,65 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
     super.dispose();
   }
 
+  Future reserveDeal({
+    required String postId,
+    required int quantity,
+    required int price,
+    required DateTime pickupDate,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception("User not logged in");
+    }
+
+    final reservation = {
+      'buyerId': user.uid,
+      'postId': postId,
+      'quantity': quantity,
+      'price': price,
+      'pickupDate': pickupDate,
+      'timestamp': FieldValue.serverTimestamp(),
+    };
+
+    return await FirebaseFirestore.instance
+        .collection('reservations')
+        .add(reservation);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isLiked =
-        context.watch<LikeProvider>().likeList.contains(widget.currentUserId);
+    final isLiked = context.watch<Users>().likeList.contains(widget.post.id);
 
     return Scaffold(
+      bottomNavigationBar: ElevatedButton(
+        onPressed: () async {
+          try {
+            final reservationRef = await reserveDeal(
+              postId: widget.post.id,
+              quantity:
+                  1, // Vous pouvez obtenir cette valeur à partir d'un champ de saisie de l'utilisateur
+              price: widget.post.price, // Prix du post
+              pickupDate: DateTime.now().add(
+                  const Duration(days: 2)), // Exemple de date de récupération
+            );
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Réservation réussie!'),
+            ));
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    ReservationDetailsPage(reservationId: reservationRef.id),
+              ),
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Erreur lors de la réservation: $e'),
+            ));
+          }
+        },
+        child: const Text('Réserver'),
+      ),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -102,8 +156,8 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                   color: isLiked ? Colors.red : Colors.white,
                 ),
                 onPressed: () async {
-                  await Provider.of<LikeProvider>(context, listen: false)
-                      .handleLike(widget.post, widget.currentUserId);
+                  await Provider.of<Users>(context, listen: false)
+                      .handleLike(widget.post);
                   setState(() {}); // Force a rebuild to update the UI
                 },
               ),
@@ -267,6 +321,29 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                         ),
                         Text(
                           widget.post.pickupTime.toString(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 10,
+                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          color: Colors.blue[800],
+                          size: 25,
+                        ),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          "${widget.post.price} €",
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,

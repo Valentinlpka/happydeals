@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:custom_rating_bar/custom_rating_bar.dart';
+import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:happy/widgets/mots_cles_emploi.dart';
 import 'package:palette_generator/palette_generator.dart';
 
@@ -177,7 +178,8 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        widget.post.jobTitle,
+                                        capitalizeFirstLetter(
+                                            widget.post.jobTitle),
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 20,
