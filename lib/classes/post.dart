@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Post {
+  final String companyId;
   final String id;
   final DateTime timestamp;
   final String type;
-  final String authorId;
   int views;
   int likes;
   List<String> likedBy;
@@ -13,9 +13,9 @@ class Post {
 
   Post({
     required this.id,
+    required this.companyId,
     required this.timestamp,
     required this.type,
-    required this.authorId,
     this.views = 0,
     this.likes = 0,
     this.likedBy = const [],
@@ -27,10 +27,10 @@ class Post {
     final data = doc.data() as Map<String, dynamic>;
 
     return Post(
+      companyId: data['companyId'],
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       type: data['type'],
-      authorId: data['authorId'],
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
@@ -44,9 +44,10 @@ class Post {
 
   Map<String, dynamic> toMap() {
     return {
+      'companyId': companyId, // Ajoutez cette ligne
+
       'timestamp': Timestamp.fromDate(timestamp),
       'type': type,
-      'authorId': authorId,
       'views': views,
       'likes': likes,
       'likedBy': likedBy,

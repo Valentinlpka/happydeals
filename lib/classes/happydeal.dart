@@ -39,35 +39,25 @@ class HappyDeal extends Post {
   final List<Deal> deals;
   final DateTime startDate;
   final DateTime endDate;
-  final String companyId;
   final String photo;
 
   HappyDeal({
-    required String id,
-    required DateTime timestamp,
-    required String authorId,
+    required super.id,
+    required super.timestamp,
     required this.title,
     required this.description,
     required this.deals,
     required this.startDate,
     required this.endDate,
-    required this.companyId,
+    required super.companyId,
     required this.photo,
-    int views = 0,
-    int likes = 0,
-    List<String> likedBy = const [],
-    int commentsCount = 0,
-    List<Comment> comments = const [],
+    super.views,
+    super.likes,
+    super.likedBy,
+    super.commentsCount,
+    super.comments,
   }) : super(
-          id: id,
-          timestamp: timestamp,
           type: 'happy_deal',
-          authorId: authorId,
-          views: views,
-          likes: likes,
-          likedBy: likedBy,
-          commentsCount: commentsCount,
-          comments: comments,
         );
 
   factory HappyDeal.fromDocument(DocumentSnapshot doc) {
@@ -75,7 +65,6 @@ class HappyDeal extends Post {
     return HappyDeal(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      authorId: data['authorId'],
       title: data['title'],
       description: data['description'],
       deals: (data['deals'] as List<dynamic>)
@@ -105,8 +94,8 @@ class HappyDeal extends Post {
       'deals': deals.map((deal) => deal.toMap()).toList(),
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
-      'companyId': companyId,
       'photo': photo,
+      'companyId': companyId,
     });
     return map;
   }

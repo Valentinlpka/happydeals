@@ -1,13 +1,15 @@
+import 'dart:math';
+
 import 'package:accordion/accordion.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
+import 'package:happy/widgets/date_formatter.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:provider/provider.dart';
 
@@ -17,14 +19,12 @@ class DetailsDealsExpress extends StatefulWidget {
   final String companyLogo;
 
   const DetailsDealsExpress(
-      {Key? key,
+      {super.key,
       required this.post,
       required this.companyName,
-      required this.companyLogo})
-      : super(key: key);
+      required this.companyLogo});
 
   @override
-  // ignore: library_private_types_in_public_api
   _DetailsDealsExpressState createState() => _DetailsDealsExpressState();
 }
 
@@ -44,10 +44,15 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
     super.dispose();
   }
 
-  Future reserveDeal({
+  String generateValidationCode() {
+    return (100000 + Random().nextInt(900000)).toString();
+  }
+
+  Future<DocumentReference> reserveDeal({
     required String postId,
     required int quantity,
     required int price,
+    required String type,
     required DateTime pickupDate,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -55,39 +60,133 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
       throw Exception("User not logged in");
     }
 
+    final validationCode = generateValidationCode();
+
+    final postDoc =
+        await FirebaseFirestore.instance.collection('posts').doc(postId).get();
+    final companyId = postDoc.data()?['companyId'] as String?;
+    if (companyId == null) {
+      throw Exception("Company ID not found for this post");
+    }
+
+    final companyDoc = await FirebaseFirestore.instance
+        .collection('companys')
+        .doc(companyId)
+        .get();
+    final companyName = companyDoc.data()?['name'] as String? ?? 'Nom inconnu';
+
+    final adresse = companyDoc.data()?['adress']['adresse'] as String? ??
+        'Adresse inconnue';
+    final codePostal = companyDoc.data()?['adress']['code_postal'] as String? ??
+        'Code postal inconnu';
+    final ville =
+        companyDoc.data()?['adress']['ville'] as String? ?? 'Ville inconnue';
+    final pays =
+        companyDoc.data()?['adress']['pays'] as String? ?? 'Pays inconnu';
+    final companyAdress = '$adresse, $codePostal, $ville, $pays';
+
     final reservation = {
       'buyerId': user.uid,
+      'companyId': companyId,
+      'companyName': companyName,
+      'pickupAddress': companyAdress,
+      'basketType': type,
       'postId': postId,
       'quantity': quantity,
       'price': price,
       'pickupDate': pickupDate,
       'timestamp': FieldValue.serverTimestamp(),
+      'validationCode': validationCode,
+      'isValidated': false,
     };
+
+    // Mise à jour du nombre de paniers disponibles
+    final postRef = FirebaseFirestore.instance.collection('posts').doc(postId);
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final postSnapshot = await transaction.get(postRef);
+      if (!postSnapshot.exists) {
+        throw Exception("Le post n'existe pas");
+      }
+      final postData = postSnapshot.data();
+      if (postData == null) {
+        throw Exception("Les données du post sont invalides");
+      }
+      final currentAvailableBaskets = postData['availableBaskets'] as int? ?? 0;
+      if (currentAvailableBaskets < quantity) {
+        throw Exception("Pas assez de paniers disponibles");
+      }
+      transaction.update(
+          postRef, {'availableBaskets': currentAvailableBaskets - quantity});
+    });
 
     return await FirebaseFirestore.instance
         .collection('reservations')
         .add(reservation);
   }
 
+  void _showReservationSuccessDialog(String validationCode) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Réservation réussie'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Votre code de validation est :'),
+              const SizedBox(height: 10),
+              Text(
+                validationCode,
+                style:
+                    const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text('Présentez ce code au commerçant lors du retrait.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isLiked = context.watch<Users>().likeList.contains(widget.post.id);
+    final isLiked =
+        context.watch<UserModel>().likeList.contains(widget.post.id);
 
     return Scaffold(
       bottomNavigationBar: ElevatedButton(
         onPressed: () async {
           try {
             final reservationRef = await reserveDeal(
+              type: widget.post.basketType,
               postId: widget.post.id,
-              quantity:
-                  1, // Vous pouvez obtenir cette valeur à partir d'un champ de saisie de l'utilisateur
-              price: widget.post.price, // Prix du post
-              pickupDate: DateTime.now().add(
-                  const Duration(days: 2)), // Exemple de date de récupération
+              quantity: 1,
+              price: widget.post.price,
+              pickupDate: widget.post.pickupTime,
             );
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Réservation réussie!'),
-            ));
+
+            final reservationSnapshot = await reservationRef.get();
+            final reservationData =
+                reservationSnapshot.data() as Map<String, dynamic>?;
+            if (reservationData == null) {
+              throw Exception("Les données de réservation sont invalides");
+            }
+            final validationCode = reservationData['validationCode'] as String?;
+            if (validationCode == null) {
+              throw Exception("Le code de validation est manquant");
+            }
+
+            _showReservationSuccessDialog(validationCode);
+
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -111,7 +210,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
             elevation: 11,
             centerTitle: true,
             title: Container(
-              width: 130,
+              width: 150,
               height: 30,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
@@ -156,7 +255,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                   color: isLiked ? Colors.red : Colors.white,
                 ),
                 onPressed: () async {
-                  await Provider.of<Users>(context, listen: false)
+                  await Provider.of<UserModel>(context, listen: false)
                       .handleLike(widget.post);
                   setState(() {}); // Force a rebuild to update the UI
                 },
@@ -172,8 +271,10 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
             expandedHeight: 200,
             flexibleSpace: FlexibleSpaceBar(
               background: Image.network(
-                'https://previews.123rf.com/images/kzenon/kzenon1411/kzenon141101650/33752503-deux-femmes-dans-le-bien-%C3%AAtre-spa-de-d%C3%A9tente-dans-le-sauna-en-bois.jpg',
+                widget.companyLogo,
                 fit: BoxFit.cover,
+                color: Colors.black.withOpacity(0.30),
+                colorBlendMode: BlendMode.darken,
               ),
             ),
           ),
@@ -214,7 +315,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.companyName,
+                                capitalizeFirstLetter(widget.companyName),
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -298,10 +399,15 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                         const SizedBox(
                           width: 10,
                         ),
-                        const Text(
-                          "à récupérer aujourd'hui entre 12h00 - 18h00 ",
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.bold),
+                        const Expanded(
+                          child: Text(
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                            "à récupérer aujourd'hui entre 12h00 - 18h00 ",
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -320,7 +426,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                           width: 10,
                         ),
                         Text(
-                          widget.post.pickupTime.toString(),
+                          formatDateTime(widget.post.pickupTime),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -498,39 +604,6 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                       ),
                       const SizedBox(
                         height: 5,
-                      ),
-                      SizedBox(
-                        height: 200,
-                        child: FlutterMap(
-                          mapController: MapController(),
-                          options: const MapOptions(
-                            initialCenter:
-                                LatLng(50.37714385986328, 3.4123148918151855),
-                            initialZoom: 14,
-                          ),
-                          children: [
-                            TileLayer(
-                              urlTemplate:
-                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                              // Plenty of other options available!
-                            ),
-                            MarkerLayer(
-                              markers: [
-                                Marker(
-                                  point: const LatLng(
-                                      50.37714385986328, 3.4123148918151855),
-                                  width: 100,
-                                  height: 100,
-                                  child: Icon(
-                                    Icons.location_on,
-                                    color: Colors.red[800],
-                                    size: 30,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
                       ),
                       const SizedBox(
                         height: 10,

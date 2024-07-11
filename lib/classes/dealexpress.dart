@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
@@ -5,35 +7,27 @@ class ExpressDeal extends Post {
   final String basketType;
   final DateTime pickupTime;
   final String content;
-  final String companyId;
   final int basketCount;
   final int price;
+  int availableBaskets;
 
   ExpressDeal({
-    required String id,
-    required DateTime timestamp,
-    required String authorId,
+    required super.id,
+    required super.timestamp,
     required this.basketType,
     required this.pickupTime,
     required this.content,
-    required this.companyId,
+    required super.companyId,
     required this.basketCount,
     required this.price,
-    int views = 0,
-    int likes = 0,
-    List<String> likedBy = const [],
-    int commentsCount = 0,
-    List<Comment> comments = const [],
+    required this.availableBaskets,
+    super.views,
+    super.likes,
+    super.likedBy,
+    super.commentsCount,
+    super.comments,
   }) : super(
-          id: id,
-          timestamp: timestamp,
           type: 'express_deal',
-          authorId: authorId,
-          views: views,
-          likes: likes,
-          likedBy: likedBy,
-          commentsCount: commentsCount,
-          comments: comments,
         );
 
   factory ExpressDeal.fromDocument(DocumentSnapshot doc) {
@@ -41,7 +35,6 @@ class ExpressDeal extends Post {
     return ExpressDeal(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      authorId: data['authorId'],
       basketType: data['basketType'],
       pickupTime: (data['pickupTime'] as Timestamp).toDate(),
       content: data['content'],
@@ -50,6 +43,7 @@ class ExpressDeal extends Post {
       price: data['price'],
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
+      availableBaskets: data['basketCount'],
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)
@@ -66,10 +60,52 @@ class ExpressDeal extends Post {
       'basketType': basketType,
       'pickupTime': Timestamp.fromDate(pickupTime),
       'content': content,
-      'companyId': companyId,
       'basketCount': basketCount,
       'price': price,
     });
     return map;
+  }
+
+  Future<String?> reserve(String userId) async {
+    if (availableBaskets > 0) {
+      final reservationId =
+          FirebaseFirestore.instance.collection('reservations').doc().id;
+      final validationCode = generateValidationCode();
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final dealRef =
+            FirebaseFirestore.instance.collection('express_deals').doc(id);
+        final dealSnapshot = await transaction.get(dealRef);
+
+        if (dealSnapshot.data()!['availableBaskets'] > 0) {
+          transaction
+              .update(dealRef, {'availableBaskets': FieldValue.increment(-1)});
+
+          transaction.set(
+              FirebaseFirestore.instance
+                  .collection('reservations')
+                  .doc(reservationId),
+              {
+                'dealId': id,
+                'userId': userId,
+                'companyId': companyId,
+                'reservationTime': FieldValue.serverTimestamp(),
+                'validationCode': validationCode,
+                'isValidated': false,
+                'pickupTime': pickupTime,
+              });
+
+          availableBaskets--;
+          return validationCode;
+        }
+      });
+
+      return validationCode;
+    }
+    return null;
+  }
+
+  String generateValidationCode() {
+    return (100000 + Random().nextInt(900000)).toString();
   }
 }

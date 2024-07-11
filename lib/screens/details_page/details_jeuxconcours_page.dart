@@ -16,9 +16,9 @@ class DetailsJeuxConcoursPage extends StatefulWidget {
 
   const DetailsJeuxConcoursPage({
     required this.contest,
-    Key? key,
+    super.key,
     required this.currentUserId,
-  }) : super(key: key);
+  });
 
   @override
   // ignore: library_private_types_in_public_api
@@ -56,7 +56,8 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isLiked = context.watch<Users>().likeList.contains(widget.contest.id);
+    final isLiked =
+        context.watch<UserModel>().likeList.contains(widget.contest.id);
 
     final startFormattedDate =
         DateFormat('dd/MM/yyyy').format(widget.contest.startDate);
@@ -147,7 +148,7 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
                 ),
               ),
               actions: [
-                Consumer<Users>(
+                Consumer<UserModel>(
                   builder: (context, users, _) {
                     return IconButton(
                       icon: Icon(
@@ -407,7 +408,7 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  company.name,
+                                  capitalizeFirstLetter(company.name),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,

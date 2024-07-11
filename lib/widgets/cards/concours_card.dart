@@ -1,22 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:happy/classes/event.dart';
-import 'package:happy/screens/details_page/details_evenement_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
+import 'package:happy/classes/contest.dart';
+import 'package:happy/screens/details_page/details_jeuxconcours_page.dart';
 import 'package:intl/intl.dart';
 
-class EvenementCard extends StatelessWidget {
-  final Event event;
+class ConcoursCard extends StatelessWidget {
+  final Contest contest;
   final String currentUserId;
+  const ConcoursCard(
+      {super.key,
+      required this.contest,
+      required this.currentUserId,
+      required this.companyLogo,
+      required this.companyName});
 
-  const EvenementCard(
-      {required this.event, Key? key, required this.currentUserId})
-      : super(key: key);
+  final String companyLogo;
+  final String companyName;
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate =
-        DateFormat('dd/MM/yyyy à HH:mm').format(event.eventDate);
+    String formatDateTime(DateTime dateTime) {
+      return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
+    }
+
+    String capitalizeFirstLetter(String text) {
+      if (text.isEmpty) {
+        return text;
+      }
+      return text[0].toUpperCase() + text.substring(1);
+    }
+
     return Column(
       children: [
         Card(
@@ -31,8 +44,8 @@ class EvenementCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => DetailsEvenementPage(
-                    event: event,
+                  builder: (context) => DetailsJeuxConcoursPage(
+                    contest: contest,
                     currentUserId: currentUserId,
                   ),
                 ),
@@ -50,15 +63,14 @@ class EvenementCard extends StatelessWidget {
                     ),
                     image: DecorationImage(
                       colorFilter: ColorFilter.mode(
-                        Colors.black.withOpacity(0.20),
-                        BlendMode.srcOver,
-                      ),
+                          Colors.black.withOpacity(0.50), BlendMode.darken),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
-                      image: NetworkImage(event.photo),
+                      image: const NetworkImage(
+                          "https://store.storeimages.cdn-apple.com/4668/as-images.apple.com/is/airpods-max-select-silver-202011_FMT_WHH?wid=1200&hei=630&fmt=jpeg&qlt=95&.v=1604615276000"),
                     ),
                   ),
-                  height: 123,
+                  height: 110,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -69,34 +81,31 @@ class EvenementCard extends StatelessWidget {
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(15)),
                             child: Container(
-                              width: 110,
-                              height: 30,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                color: const Color.fromARGB(115, 0, 0, 0),
+                              padding: const EdgeInsets.only(
+                                  top: 3, bottom: 3, right: 7, left: 5),
+                              decoration: const BoxDecoration(
+                                color: Color.fromARGB(70, 0, 0, 0),
                               ),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 10.0, vertical: 5),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Icon(
-                                      Icons.calendar_month_outlined,
+                              child: const Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Icon(
+                                    Icons.event_note_outlined,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                  Gap(5),
+                                  Text(
+                                    'Jeux Concours',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                       color: Colors.white,
-                                      size: 16,
                                     ),
-                                    Text(
-                                      'Evènement',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -108,7 +117,7 @@ class EvenementCard extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
-                  height: 120,
+                  height: 150,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -117,7 +126,7 @@ class EvenementCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                capitalizeFirstLetter(event.title),
+                                capitalizeFirstLetter(contest.title),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -134,20 +143,22 @@ class EvenementCard extends StatelessWidget {
                               ),
                               const Gap(5),
                               Text(
-                                formattedDate,
+                                "${formatDateTime(contest.startDate)} -${formatDateTime(contest.endDate)}",
                                 style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color.fromARGB(255, 85, 85, 85),
-                                ),
+                                    fontSize: 14,
+                                    color: Color.fromARGB(255, 85, 85, 85)),
                               ),
                             ],
                           ),
+                          const Gap(10),
+                          Text(
+                            contest.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          )
                         ],
                       ),
-                      Divider(
-                        color: Colors.grey[300],
-                      ),
-                      const Row(
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -160,37 +171,15 @@ class EvenementCard extends StatelessWidget {
                                 backgroundColor: Colors.blue,
                                 child: CircleAvatar(
                                   radius: 14,
-                                  backgroundImage: NetworkImage(
-                                      'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
+                                  backgroundImage: NetworkImage(companyLogo),
                                 ),
                               ),
-                              Gap(10),
+                              const Gap(10),
                               Text(
-                                'Be Happy',
-                                style: TextStyle(
+                                capitalizeFirstLetter(companyName),
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'dès',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Gap(5),
-                              Text(
-                                '29,00 €',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 20,
                                 ),
                               ),
                             ],

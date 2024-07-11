@@ -8,7 +8,7 @@ import 'package:palette_generator/palette_generator.dart';
 class DetailsEmploiPage extends StatefulWidget {
   final JobOffer post;
 
-  const DetailsEmploiPage({required this.post, Key? key}) : super(key: key);
+  const DetailsEmploiPage({required this.post, super.key});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -79,8 +79,8 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
               elevation: 11,
               centerTitle: true,
               title: Container(
-                width: 130,
                 height: 30,
+                width: 150,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   color: const Color.fromARGB(115, 0, 0, 0),
@@ -145,60 +145,63 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                         height: 200,
                         child: Stack(
                           clipBehavior: Clip.none,
+                          alignment:
+                              Alignment.center, // Centrer le contenu du Stack
                           children: [
                             Image.network(
                               height: 200,
-                              colorBlendMode: BlendMode.colorBurn,
-                              color: Colors.black12,
                               width: double.infinity,
                               fit: BoxFit.cover,
+                              color: Colors.black.withOpacity(0.30),
+                              colorBlendMode: BlendMode.darken,
                               'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVHWZXfh6JF2m-fOZpEtxUEmD_gEsdUGkGYMYTUn3aeA&s',
                             ),
                             Positioned(
-                              top: 150,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 20),
-                                child: Container(
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: const Color.fromARGB(
-                                            255, 213, 213, 213),
-                                      ),
-                                      color: Colors.white,
-                                      borderRadius: const BorderRadius.all(
-                                        Radius.circular(10),
-                                      )),
-                                  height: 100,
-                                  width: 330,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        capitalizeFirstLetter(
-                                            widget.post.jobTitle),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 20,
-                                        ),
-                                      ),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.location_on_outlined,
-                                            size: 22,
-                                            color:
-                                                Color.fromARGB(255, 95, 95, 95),
-                                          ),
-                                          const SizedBox(width: 10, height: 10),
-                                          Text(widget.post.city)
-                                        ],
-                                      ),
-                                    ],
+                              bottom: -50, // Ajuster la position verticale
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: const Color.fromARGB(
+                                        255, 213, 213, 213),
                                   ),
+                                  color: Colors.white,
+                                  borderRadius: const BorderRadius.all(
+                                    Radius.circular(10),
+                                  ),
+                                ),
+                                width: MediaQuery.of(context).size.width *
+                                    0.9, // Ajuster la largeur en fonction de la taille de l'écran
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment
+                                      .center, // Centrer le contenu verticalement
+                                  children: [
+                                    Text(
+                                      capitalizeFirstLetter(
+                                          widget.post.jobTitle),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                      ),
+                                      textAlign:
+                                          TextAlign.center, // Centrer le texte
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment
+                                          .center, // Centrer le contenu horizontalement
+                                      children: [
+                                        const Icon(
+                                          Icons.location_on_outlined,
+                                          size: 22,
+                                          color:
+                                              Color.fromARGB(255, 95, 95, 95),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(widget.post.city)
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
                             )

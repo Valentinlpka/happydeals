@@ -1,88 +1,60 @@
 import 'package:flutter/material.dart';
-import '../../auth_service.dart';
+import 'package:happy/services/auth_service.dart';
 
-class Register extends StatefulWidget {
+class SignUpPage extends StatefulWidget {
   final Function()? onTap;
-  const Register({
-    Key? key,
-    this.onTap,
-  }) : super(key: key);
+
+  const SignUpPage({super.key, this.onTap});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _RegisterState createState() => _RegisterState();
+  _SignUpPageState createState() => _SignUpPageState();
 }
 
-class _RegisterState extends State<Register> {
+class _SignUpPageState extends State<SignUpPage> {
+  final AuthService _auth = AuthService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _usernameController = TextEditingController();
+
+  void _signUp() async {
+    String? result = await _auth.signUp(
+      email: _emailController.text,
+      password: _passwordController.text,
+    );
+
+    if (result == 'Success') {
+      Navigator.pushReplacementNamed(context, '/profile_completion');
+    } else {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(result!)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: MediaQuery.of(context).size.width / 2,
-                child: TextField(
-                  controller: _usernameController,
-                  decoration: const InputDecoration(hintText: 'Username'),
-                ),
-              ),
-              const SizedBox(
-                height: 30.0,
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width / 2,
-                child: TextField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(hintText: 'Email'),
-                ),
-              ),
-              const SizedBox(
-                height: 30.0,
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width / 2,
-                child: TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    hintText: 'Password',
-                  ),
-                ),
-              ),
-              const SizedBox(
-                height: 30.0,
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  final message = await AuthService().registration(
-                    username: _usernameController.text,
-                    email: _emailController.text,
-                    password: _passwordController.text,
-                  );
-                  if (message!.contains('Success') && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Compte créer avec succès'),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Create Account'),
-              ),
-              ElevatedButton(
-                onPressed: widget.onTap,
-                child: const Text('Me connecter'),
-              ),
-            ],
-          ),
+      appBar: AppBar(title: const Text('Inscription')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(labelText: 'Email'),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16.0),
+            TextField(
+              controller: _passwordController,
+              decoration: const InputDecoration(labelText: 'Mot de passe'),
+              obscureText: true,
+            ),
+            const SizedBox(height: 24.0),
+            ElevatedButton(
+              onPressed: _signUp,
+              child: const Text('S\'inscrire'),
+            ),
+          ],
         ),
       ),
     );

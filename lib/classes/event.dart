@@ -7,37 +7,27 @@ class Event extends Post {
   final DateTime eventDate;
   final String city;
   final String description;
-  final String companyId;
   final List<String> products;
   final String photo;
 
   Event({
-    required String id,
-    required DateTime timestamp,
-    required String authorId,
+    required super.id,
+    required super.timestamp,
     required this.title,
     required this.category,
     required this.eventDate,
     required this.city,
     required this.description,
-    required this.companyId,
+    required super.companyId,
     required this.products,
     required this.photo,
-    int views = 0,
-    int likes = 0,
-    List<String> likedBy = const [],
-    int commentsCount = 0,
-    List<Comment> comments = const [],
+    super.views,
+    super.likes,
+    super.likedBy,
+    super.commentsCount,
+    super.comments,
   }) : super(
-          id: id,
-          timestamp: timestamp,
           type: 'event',
-          authorId: authorId,
-          views: views,
-          likes: likes,
-          likedBy: likedBy,
-          commentsCount: commentsCount,
-          comments: comments,
         );
 
   factory Event.fromDocument(DocumentSnapshot doc) {
@@ -45,7 +35,6 @@ class Event extends Post {
     return Event(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      authorId: data['authorId'],
       title: data['title'],
       category: data['category'],
       eventDate: (data['eventDate'] as Timestamp).toDate(),
@@ -74,9 +63,9 @@ class Event extends Post {
       'eventDate': Timestamp.fromDate(eventDate),
       'city': city,
       'description': description,
-      'companyId': companyId,
       'products': products,
       'photo': photo,
+      'companyId': companyId,
     });
     return map;
   }

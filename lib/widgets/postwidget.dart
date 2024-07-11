@@ -8,12 +8,12 @@ import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/comments_page.dart';
-import 'package:happy/widgets/concours_card.dart';
-import 'package:happy/widgets/deals_express_card.dart';
-import 'package:happy/widgets/emploi_card.dart';
-import 'package:happy/widgets/evenement_card.dart';
-import 'package:happy/widgets/happy_deals_card.dart';
-import 'package:happy/widgets/parrainage_card.dart';
+import 'package:happy/widgets/cards/concours_card.dart';
+import 'package:happy/widgets/cards/deals_express_card.dart';
+import 'package:happy/widgets/cards/emploi_card.dart';
+import 'package:happy/widgets/cards/evenement_card.dart';
+import 'package:happy/widgets/cards/happy_deals_card.dart';
+import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:provider/provider.dart';
 
 class PostWidget extends StatefulWidget {
@@ -92,7 +92,7 @@ class _PostWidgetState extends State<PostWidget> {
         content,
         Column(
           children: [
-            Consumer<Users>(
+            Consumer<UserModel>(
               builder: (context, users, _) {
                 final isLiked = users.likeList.contains(widget.post.id);
                 return Row(
@@ -106,7 +106,7 @@ class _PostWidgetState extends State<PostWidget> {
                             color: isLiked ? Colors.red : null,
                           ),
                           onPressed: () async => await context
-                              .read<Users>()
+                              .read<UserModel>()
                               .handleLike(widget.post),
                         ),
                         Text('${widget.post.likes}'),

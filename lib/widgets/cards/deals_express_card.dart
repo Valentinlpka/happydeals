@@ -75,7 +75,8 @@ class DealsExpressCard extends StatelessWidget {
                     ),
                     image: DecorationImage(
                       colorFilter: ColorFilter.mode(
-                          Colors.black.withOpacity(0.80), BlendMode.hue),
+                          Colors.transparent.withOpacity(0.40),
+                          BlendMode.darken),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
                       image: const NetworkImage(
@@ -96,7 +97,7 @@ class DealsExpressCard extends StatelessWidget {
                               padding: const EdgeInsets.only(
                                   top: 3, bottom: 3, right: 7, left: 5),
                               decoration: const BoxDecoration(
-                                color: Colors.blue,
+                                color: Colors.black54,
                               ),
                               child: const Row(
                                 mainAxisAlignment:
@@ -138,7 +139,7 @@ class DealsExpressCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                companyName,
+                                capitalizeFirstLetter(companyName),
                                 style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -213,22 +214,6 @@ class DealsExpressCard extends StatelessWidget {
                               const Gap(4),
                               const Text(
                                 "4,4",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const Gap(4),
-                              const Text(
-                                "|",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const Gap(4),
-                              const Text(
-                                "Beauté",
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,

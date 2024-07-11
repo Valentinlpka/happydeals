@@ -1,34 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:happy/classes/referral.dart';
-// ignore: unused_import
+import 'package:happy/classes/event.dart';
 import 'package:happy/screens/details_page/details_evenement_page.dart';
-import 'package:happy/screens/details_page/details_parrainage.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
-class ParrainageCard extends StatelessWidget {
-  final Referral post;
+class EvenementCard extends StatelessWidget {
+  final Event event;
   final String currentUserId;
 
-  final String companyLogo;
-  final String companyName;
-
-  const ParrainageCard(
-      {required this.post,
-      Key? key,
-      required this.currentUserId,
-      required this.companyLogo,
-      required this.companyName})
-      : super(key: key);
+  const EvenementCard(
+      {required this.event, super.key, required this.currentUserId});
 
   @override
   Widget build(BuildContext context) {
-    String formatDateTime(DateTime dateTime) {
-      return DateFormat('dd/MM/yyyy')
-          .format(dateTime); // Format comme "2024-06-13"
-    }
-
+    final formattedDate =
+        DateFormat('dd/MM/yyyy à HH:mm').format(event.eventDate);
     return Column(
       children: [
         Card(
@@ -43,8 +30,8 @@ class ParrainageCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => DetailsParrainagePage(
-                    referral: post,
+                  builder: (context) => DetailsEvenementPage(
+                    event: event,
                     currentUserId: currentUserId,
                   ),
                 ),
@@ -62,15 +49,15 @@ class ParrainageCard extends StatelessWidget {
                     ),
                     image: DecorationImage(
                       colorFilter: ColorFilter.mode(
-                        Colors.black.withOpacity(0.30),
-                        BlendMode.hue,
+                        Colors.black.withOpacity(0.20),
+                        BlendMode.srcOver,
                       ),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
-                      image: NetworkImage(post.image),
+                      image: NetworkImage(event.photo),
                     ),
                   ),
-                  height: 80,
+                  height: 123,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -81,7 +68,6 @@ class ParrainageCard extends StatelessWidget {
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(15)),
                             child: Container(
-                              width: 110,
                               height: 30,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(20),
@@ -100,7 +86,7 @@ class ParrainageCard extends StatelessWidget {
                                       size: 16,
                                     ),
                                     Text(
-                                      'Parraiange',
+                                      'Evènement',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 14,
@@ -120,6 +106,7 @@ class ParrainageCard extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
+                  height: 120,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -128,7 +115,7 @@ class ParrainageCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                capitalizeFirstLetter(post.title),
+                                capitalizeFirstLetter(event.title),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -136,35 +123,29 @@ class ParrainageCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const Gap(5),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Icon(Icons.calendar_today, size: 15),
-                              const SizedBox(
-                                width: 5,
+                              const Icon(
+                                Icons.calendar_today,
+                                size: 15,
                               ),
+                              const Gap(5),
                               Text(
-                                "jusqu'au ${formatDateTime(post.dateFinal)}",
+                                formattedDate,
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Color.fromARGB(255, 85, 85, 85),
                                 ),
-                              )
+                              ),
                             ],
-                          ),
-                          const Gap(5),
-                          Text(
-                            post.description,
-                            style: const TextStyle(
-                              fontSize: 14,
-                            ),
                           ),
                         ],
                       ),
                       Divider(
                         color: Colors.grey[300],
                       ),
-                      Row(
+                      const Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -177,13 +158,14 @@ class ParrainageCard extends StatelessWidget {
                                 backgroundColor: Colors.blue,
                                 child: CircleAvatar(
                                   radius: 14,
-                                  backgroundImage: NetworkImage(companyLogo),
+                                  backgroundImage: NetworkImage(
+                                      'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
                                 ),
                               ),
-                              const Gap(10),
+                              Gap(10),
                               Text(
-                                companyName,
-                                style: const TextStyle(
+                                'Be Happy',
+                                style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,
                                 ),

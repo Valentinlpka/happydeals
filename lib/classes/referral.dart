@@ -6,36 +6,26 @@ class Referral extends Post {
   final String description;
   final String sponsorBenefit;
   final String refereeBenefit;
-  final String companyId;
   final String image;
   final DateTime dateFinal;
 
   Referral({
-    required String id,
-    required DateTime timestamp,
-    required String authorId,
+    required super.id,
+    required super.timestamp,
     required this.title,
     required this.dateFinal,
     required this.description,
     required this.sponsorBenefit,
     required this.refereeBenefit,
-    required this.companyId,
+    required super.companyId,
     required this.image,
-    int views = 0,
-    int likesCount = 0,
-    List<String> likedBy = const [],
-    int commentsCount = 0,
-    List<Comment> comments = const [],
+    super.views,
+    super.likes,
+    super.likedBy,
+    super.commentsCount,
+    super.comments,
   }) : super(
-          id: id,
-          timestamp: timestamp,
           type: 'referral',
-          authorId: authorId,
-          views: views,
-          likes: likesCount,
-          likedBy: likedBy,
-          commentsCount: commentsCount,
-          comments: comments,
         );
 
   factory Referral.fromDocument(DocumentSnapshot doc) {
@@ -43,7 +33,6 @@ class Referral extends Post {
     return Referral(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      authorId: data['authorId'],
       title: data['title'],
       description: data['description'],
       sponsorBenefit: data['sponsorBenefit'],
@@ -52,7 +41,7 @@ class Referral extends Post {
       image: data['image'],
       dateFinal: (data['date_final'] as Timestamp).toDate(),
       views: data['views'] ?? 0,
-      likesCount: data['likes'] ?? 0,
+      likes: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)
@@ -68,11 +57,11 @@ class Referral extends Post {
     map.addAll({
       'title': title,
       'description': description,
+      'companyId': companyId,
       'sponsorBenefit': sponsorBenefit,
       'refereeBenefit': refereeBenefit,
-      'companyId': companyId,
       'image': image,
-      'date_final': dateFinal,
+      'date_final': Timestamp.fromDate(dateFinal),
     });
     return map;
   }

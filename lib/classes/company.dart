@@ -11,6 +11,7 @@ class Company {
   final String phone;
   final String logo;
   final String description;
+  final String sellerId;
   final String website;
   final String address;
   final String email;
@@ -19,6 +20,7 @@ class Company {
   Company({
     required this.openingHours,
     required this.id,
+    required this.sellerId,
     required this.name,
     required this.categorie,
     required this.open,
@@ -51,6 +53,7 @@ class Company {
       website: data['website'] ?? '',
       address: data['address'] ?? '',
       email: data['email'] ?? '',
+      sellerId: data['sellerId'] ?? '',
     );
   }
 

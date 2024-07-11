@@ -1,9 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/screens/favorite_page.dart';
+import 'package:happy/screens/conversation_list.dart';
 import 'package:happy/screens/home_page.dart';
-import 'package:happy/screens/notification_page.dart';
 import 'package:happy/screens/profile_page.dart';
 import 'package:happy/screens/search_page.dart';
+import 'package:happy/screens/user_orders_page.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
 class MainContainer extends StatefulWidget {
@@ -23,18 +24,23 @@ class _MainContainerState extends State<MainContainer> {
 
   @override
   Widget build(BuildContext context) {
+    User? userId = FirebaseAuth.instance.currentUser;
+    String userUid = userId?.uid ?? "";
+    String currentUserId = userUid;
     return Scaffold(
       body: [
         const Home(),
         const SearchPage(),
-        const Favorite(),
-        const NotificationPage(),
-        ProfilePage(),
+        const UserOrdersPage(),
+        ConversationsListScreen(
+          userId: currentUserId,
+        ),
+        const ParametrePage(),
       ][_currentIndex],
       bottomNavigationBar: Stack(
         children: [
           Container(
-            height: 86,
+            height: 70,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,

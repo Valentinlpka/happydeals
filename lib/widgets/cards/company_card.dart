@@ -4,9 +4,9 @@ import 'package:gap/gap.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:provider/provider.dart';
 
-import '../classes/company.dart';
-import '../providers/users.dart';
-import '../screens/details_page/details_company_page.dart';
+import '../../classes/company.dart';
+import '../../providers/users.dart';
+import '../../screens/details_page/details_company_page.dart';
 
 class CompanyCard extends StatelessWidget {
   final Company company;
@@ -15,7 +15,8 @@ class CompanyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLiked = context.watch<Users>().likeList.contains(company.id);
+    final bool isLiked =
+        context.watch<UserModel>().likeList.contains(company.id);
 
     return InkWell(
       onTap: () {
@@ -97,11 +98,11 @@ class CompanyCard extends StatelessWidget {
                             onPressed: () async {
                               if (isLiked) {
                                 await context
-                                    .read<Users>()
+                                    .read<UserModel>()
                                     .unlikePost(company.id);
                               } else {
                                 await context
-                                    .read<Users>()
+                                    .read<UserModel>()
                                     .likePost(company.id);
                               }
                             },

@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
-import 'package:happy/widgets/company_card.dart';
+import 'package:happy/widgets/cards/company_card.dart';
 
 class UserInformation extends StatefulWidget {
   const UserInformation({super.key});
@@ -54,6 +54,7 @@ class _UserInformationState extends State<UserInformation> {
               address: '',
               email: '',
               openingHours: {},
+              sellerId: '',
             ));
           }).toList(),
         );

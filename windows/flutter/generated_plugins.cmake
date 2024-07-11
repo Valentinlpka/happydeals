@@ -8,7 +8,10 @@ list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_windows
   firebase_auth
   firebase_core
+  firebase_storage
+  geolocator_windows
   maps_launcher
+  platform_device_id_windows
   url_launcher_windows
 )
 

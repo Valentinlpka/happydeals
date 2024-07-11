@@ -29,7 +29,6 @@ class Contest extends Post {
   final String title;
   final String description;
   final List<Gift> gifts;
-  final String companyId;
   final String howToParticipate;
   final String conditions;
   final DateTime startDate;
@@ -37,33 +36,25 @@ class Contest extends Post {
   final String giftPhoto;
 
   Contest({
-    required String id,
-    required DateTime timestamp,
+    required super.id,
+    required super.timestamp,
     required String authorId,
     required this.title,
     required this.description,
     required this.gifts,
-    required this.companyId,
+    required super.companyId,
     required this.howToParticipate,
     required this.conditions,
     required this.startDate,
     required this.endDate,
     required this.giftPhoto,
-    int views = 0,
-    int likes = 0,
-    List<String> likedBy = const [],
-    int commentsCount = 0,
-    List<Comment> comments = const [],
+    super.views,
+    super.likes,
+    super.likedBy,
+    super.commentsCount,
+    super.comments,
   }) : super(
-          id: id,
-          timestamp: timestamp,
           type: 'contest',
-          authorId: authorId,
-          views: views,
-          likes: likes,
-          likedBy: likedBy,
-          commentsCount: commentsCount,
-          comments: comments,
         );
 
   factory Contest.fromDocument(DocumentSnapshot doc) {

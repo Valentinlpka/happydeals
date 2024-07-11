@@ -15,9 +15,9 @@ class DetailsParrainagePage extends StatefulWidget {
 
   const DetailsParrainagePage({
     required this.referral,
-    Key? key,
+    super.key,
     required this.currentUserId,
-  }) : super(key: key);
+  });
 
   @override
   // ignore: library_private_types_in_public_api
@@ -56,7 +56,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
   @override
   Widget build(BuildContext context) {
     final isLiked =
-        context.watch<Users>().likeList.contains(widget.referral.id);
+        context.watch<UserModel>().likeList.contains(widget.referral.id);
 
     return Scaffold(
       bottomNavigationBar: Container(
@@ -142,7 +142,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                 ),
               ),
               actions: [
-                Consumer<Users>(
+                Consumer<UserModel>(
                   builder: (context, users, _) {
                     return IconButton(
                       icon: Icon(

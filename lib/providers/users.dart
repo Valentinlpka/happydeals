@@ -3,36 +3,131 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/post.dart';
 
-class Users with ChangeNotifier {
+class UserModel with ChangeNotifier {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   String userId = "";
+  String _firstName = '';
+  String _lastName = '';
+  String _dailyQuote = '';
+  String _profileUrl = '';
   final List<String> likeList = [];
 
-  void login() {
+  String get firstName => _firstName;
+  String get lastName => _lastName;
+  String get dailyQuote => _dailyQuote;
+  String get profileUrl => _profileUrl;
+
+  set firstName(String value) {
+    _firstName = value;
+    notifyListeners();
+  }
+
+  set lastName(String value) {
+    _lastName = value;
+    notifyListeners();
+  }
+
+  set profileUrl(String value) {
+    _profileUrl = value;
+    notifyListeners();
+  }
+
+  Future<void> updateUserProfile(Map<String, dynamic> userData) async {
+    String uid = _auth.currentUser!.uid;
+    await _firestore.collection('users').doc(uid).update(userData);
+  }
+
+  Future<Map<String, dynamic>?> getCurrentUser() async {
+    String uid = _auth.currentUser!.uid;
+    DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+    return doc.data() as Map<String, dynamic>?;
+  }
+
+  Future<bool> isProfileComplete() async {
+    Map<String, dynamic>? userData = await getCurrentUser();
+    return userData?['isProfileComplete'] ?? false;
+  }
+
+  void updateUserData(
+      {String? firstName, String? lastName, String? profileUrl}) {
+    if (firstName != null) _firstName = firstName;
+    if (lastName != null) _lastName = lastName;
+    if (profileUrl != null) _profileUrl = profileUrl;
+    notifyListeners();
+  }
+
+  Future<void> loadUserData() async {
     if (FirebaseAuth.instance.currentUser != null) {
       userId = FirebaseAuth.instance.currentUser!.uid;
     }
 
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .get()
-        .then((snapshot) {
-      if (snapshot.exists) {
-        final data = snapshot.data();
+    try {
+      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      if (userSnapshot.exists) {
+        final data = userSnapshot.data() as Map<String, dynamic>;
+
+        _firstName = data['firstName'] ?? '';
+        _lastName = data['lastName'] ?? '';
+        _profileUrl = data['image_profile'] ?? '';
 
         likeList.clear();
-
-        if (data != null && data['likedPosts'] != null) {
+        if (data['likedPosts'] != null) {
           likeList.addAll(data['likedPosts'].cast<String>());
-          notifyListeners();
         }
+
+        await loadDailyQuote();
+
+        notifyListeners();
       }
-    });
+    } catch (e) {
+      print("Error loading user data: $e");
+    }
   }
 
-  void logout() {
+  void clearUserData() {
     userId = "";
+    _firstName = '';
+    _lastName = '';
+    _dailyQuote = '';
+    _profileUrl = '';
     likeList.clear();
+    notifyListeners();
+  }
+
+  Future<void> loadDailyQuote() async {
+    try {
+      QuerySnapshot quoteSnapshot = await FirebaseFirestore.instance
+          .collection('daily_quotes')
+          .where('date',
+              isEqualTo: DateTime.now().toIso8601String().split('T')[0])
+          .limit(1)
+          .get();
+
+      if (quoteSnapshot.docs.isNotEmpty) {
+        _dailyQuote = quoteSnapshot.docs.first['quote'];
+      } else {
+        QuerySnapshot randomQuoteSnapshot = await FirebaseFirestore.instance
+            .collection('daily_quotes')
+            .limit(1)
+            .get();
+
+        if (randomQuoteSnapshot.docs.isNotEmpty) {
+          _dailyQuote = randomQuoteSnapshot.docs.first['quote'];
+        } else {
+          _dailyQuote = "Aucune citation disponible pour aujourd'hui.";
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      print("Erreur lors du chargement de la citation quotidienne: $e");
+      _dailyQuote = "Impossible de charger la citation du jour.";
+      notifyListeners();
+    }
   }
 
   Future<void> handleLike(Post post) async {

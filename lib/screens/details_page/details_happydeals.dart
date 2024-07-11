@@ -12,13 +12,10 @@ import 'package:provider/provider.dart';
 class DetailsHappyDeals extends StatefulWidget {
   final HappyDeal happydeal;
 
-  final String currentUserId;
-
   const DetailsHappyDeals({
-    Key? key,
+    super.key,
     required this.happydeal,
-    required this.currentUserId,
-  }) : super(key: key);
+  });
 
   @override
   // ignore: library_private_types_in_public_api
@@ -42,14 +39,14 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
   }
 
   String formatDateTime(DateTime dateTime) {
-    return DateFormat('dd/mm/yyyy')
+    return DateFormat('dd/MM/yyyy', 'fr_FR')
         .format(dateTime); // Format comme "2024-06-13"
   }
 
   @override
   Widget build(BuildContext context) {
     final isLiked =
-        context.watch<Users>().likeList.contains(widget.happydeal.id);
+        context.watch<UserModel>().likeList.contains(widget.happydeal.id);
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -98,7 +95,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
               ),
             ),
             actions: [
-              Consumer<Users>(
+              Consumer<UserModel>(
                 builder: (context, users, _) {
                   return IconButton(
                     icon: Icon(
@@ -123,8 +120,10 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
             expandedHeight: 200,
             flexibleSpace: FlexibleSpaceBar(
               background: Image.network(
-                'https://previews.123rf.com/images/kzenon/kzenon1411/kzenon141101650/33752503-deux-femmes-dans-le-bien-%C3%AAtre-spa-de-d%C3%A9tente-dans-le-sauna-en-bois.jpg',
+                widget.happydeal.photo,
                 fit: BoxFit.cover,
+                color: Colors.black.withOpacity(0.30),
+                colorBlendMode: BlendMode.darken,
               ),
             ),
           ),

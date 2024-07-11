@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../auth_service.dart';
+import 'package:happy/providers/users.dart';
+import 'package:provider/provider.dart';
+
+import '../../services/auth_service.dart';
 
 class Login extends StatefulWidget {
   final Function()? onTap;
@@ -14,44 +17,58 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   bool _passwordVisible = false;
-
+  final AuthService _auth = AuthService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-// Fonction pour se connecteur a firebase
-
-  void signUserIn() async {
-    showDialog(
-        context: context,
-        builder: (context) {
-          return const Center(child: CircularProgressIndicator());
-        });
-
-    final message = await AuthService().login(
+  void _signIn() async {
+    final userModel = Provider.of<UserModel>(context, listen: false);
+    String? result = await _auth.signIn(
+      context: context,
       email: _emailController.text,
       password: _passwordController.text,
     );
-    if (mounted) {
-      if (message!.contains('Success')) {
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Colors.black87,
-            behavior: SnackBarBehavior.floating,
-            content: Text('Connexion réussi !'),
-          ),
-        );
+
+    if (result == 'Success') {
+      bool isComplete = await userModel.isProfileComplete();
+      if (isComplete) {
+        Navigator.pushReplacementNamed(context, '/home');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.black87,
-            behavior: SnackBarBehavior.floating,
-            content: Text(message),
-          ),
-        );
+        _showProfileCompletionDialog();
       }
-      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(result!)));
     }
+  }
+
+  void _showProfileCompletionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Compléter votre profil'),
+          content:
+              const Text('Voulez-vous compléter votre profil maintenant ?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Plus tard'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.pushReplacementNamed(context, '/home');
+              },
+            ),
+            TextButton(
+              child: const Text('Compléter'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.pushReplacementNamed(context, '/profile_completion');
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -122,7 +139,7 @@ class _LoginState extends State<Login> {
                       height: 240,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           const Padding(
                             padding: EdgeInsets.only(
@@ -138,6 +155,8 @@ class _LoginState extends State<Login> {
                           ),
                           Center(
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 SizedBox(
                                   height: 55,
@@ -148,7 +167,7 @@ class _LoginState extends State<Login> {
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
                                                 BorderRadius.circular(10))),
-                                    onPressed: signUserIn,
+                                    onPressed: _signIn,
                                     child: const Text(
                                       'Connexion',
                                       style: TextStyle(
@@ -186,24 +205,25 @@ class _LoginState extends State<Login> {
                               ],
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 14.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text(
-                                    " Vous n'avez pas encore de compte ? "),
-                                GestureDetector(
-                                  onTap: widget.onTap,
-                                  child: Text(
-                                    "Je m'inscris",
-                                    style: TextStyle(
-                                        color: Colors.blue[700],
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                )
-                              ],
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                  " Vous n'avez pas encore de compte ? "),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.pushReplacementNamed(
+                                      context, '/signup');
+                                },
+                                child: Text(
+                                  "Je m'inscris",
+                                  style: TextStyle(
+                                      color: Colors.blue[700],
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              )
+                            ],
                           )
                         ],
                       ),

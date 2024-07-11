@@ -18,9 +18,9 @@ class DetailsEvenementPage extends StatefulWidget {
 
   const DetailsEvenementPage({
     required this.event,
-    Key? key,
+    super.key,
     required this.currentUserId,
-  }) : super(key: key);
+  });
 
   @override
   // ignore: library_private_types_in_public_api
@@ -58,7 +58,8 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isLiked = context.watch<Users>().likeList.contains(widget.event.id);
+    final isLiked =
+        context.watch<UserModel>().likeList.contains(widget.event.id);
 
     final formattedDate =
         DateFormat('dd/MM/yyyy à HH:mm').format(widget.event.eventDate);
@@ -108,7 +109,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
               elevation: 11,
               centerTitle: true,
               title: Container(
-                width: 110,
+                width: 150,
                 height: 30,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
@@ -147,7 +148,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                 ),
               ),
               actions: [
-                Consumer<Users>(
+                Consumer<UserModel>(
                   builder: (context, users, _) {
                     return IconButton(
                       icon: Icon(
@@ -174,27 +175,31 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
               toolbarHeight: 40,
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
+                  alignment: Alignment.topCenter,
                   decoration: const BoxDecoration(color: Colors.white),
-                  child: Column(
+                  child: Stack(
+                    alignment: Alignment.topCenter,
                     children: [
                       SizedBox(
                         height: 200,
                         child: Stack(
+                          alignment: Alignment.center,
                           clipBehavior: Clip.none,
                           children: [
                             Image.network(
                               widget.event.photo,
                               height: 200,
-                              colorBlendMode: BlendMode.colorBurn,
-                              color: Colors.black12,
+                              color: Colors.black.withOpacity(0.30),
+                              colorBlendMode: BlendMode.darken,
                               width: double.infinity,
                               fit: BoxFit.cover,
                             ),
                             Positioned(
-                              top: 150,
+                              bottom: -75,
                               child: Padding(
                                 padding: const EdgeInsets.only(left: 20),
                                 child: Container(
+                                  alignment: Alignment.center,
                                   padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
                                     border: Border.all(
@@ -211,7 +216,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                     ),
                                   ),
                                   height: 150,
-                                  width: 330,
+                                  width: 350,
                                   child: Column(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
@@ -227,18 +232,6 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                               fontWeight: FontWeight.bold,
                                               fontSize: 20,
                                             ),
-                                          ),
-                                          const Row(
-                                            children: [
-                                              Text('dès '),
-                                              Text(
-                                                '29,00 €',
-                                                style: TextStyle(
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
                                           ),
                                         ],
                                       ),

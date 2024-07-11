@@ -1,28 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:happy/classes/contest.dart';
-import 'package:happy/screens/details_page/details_jeuxconcours_page.dart';
+import 'package:happy/classes/referral.dart';
+// ignore: unused_import
+import 'package:happy/screens/details_page/details_evenement_page.dart';
+import 'package:happy/screens/details_page/details_parrainage.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
+import 'package:intl/intl.dart';
 
-class ConcoursCard extends StatelessWidget {
-  final Contest contest;
+class ParrainageCard extends StatelessWidget {
+  final Referral post;
   final String currentUserId;
-  const ConcoursCard(
-      {super.key,
-      required this.contest,
-      required this.currentUserId,
-      required this.companyLogo,
-      required this.companyName});
 
   final String companyLogo;
   final String companyName;
 
+  const ParrainageCard(
+      {required this.post,
+      super.key,
+      required this.currentUserId,
+      required this.companyLogo,
+      required this.companyName});
+
   @override
   Widget build(BuildContext context) {
-    String capitalizeFirstLetter(String text) {
-      if (text.isEmpty) {
-        return text;
-      }
-      return text[0].toUpperCase() + text.substring(1);
+    String formatDateTime(DateTime dateTime) {
+      return DateFormat('dd/MM/yyyy')
+          .format(dateTime); // Format comme "2024-06-13"
     }
 
     return Column(
@@ -39,8 +42,8 @@ class ConcoursCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => DetailsJeuxConcoursPage(
-                    contest: contest,
+                  builder: (context) => DetailsParrainagePage(
+                    referral: post,
                     currentUserId: currentUserId,
                   ),
                 ),
@@ -58,14 +61,15 @@ class ConcoursCard extends StatelessWidget {
                     ),
                     image: DecorationImage(
                       colorFilter: ColorFilter.mode(
-                          Colors.black.withOpacity(0.20), BlendMode.srcOver),
+                        Colors.black.withOpacity(0.30),
+                        BlendMode.hue,
+                      ),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
-                      image: const NetworkImage(
-                          "https://store.storeimages.cdn-apple.com/4668/as-images.apple.com/is/airpods-max-select-silver-202011_FMT_WHH?wid=1200&hei=630&fmt=jpeg&qlt=95&.v=1604615276000"),
+                      image: NetworkImage(post.image),
                     ),
                   ),
-                  height: 110,
+                  height: 80,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -76,31 +80,33 @@ class ConcoursCard extends StatelessWidget {
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(15)),
                             child: Container(
-                              padding: const EdgeInsets.only(
-                                  top: 3, bottom: 3, right: 7, left: 5),
-                              decoration: const BoxDecoration(
-                                color: Color.fromARGB(70, 0, 0, 0),
+                              height: 30,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                color: const Color.fromARGB(115, 0, 0, 0),
                               ),
-                              child: const Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Icon(
-                                    Icons.event_note_outlined,
-                                    size: 18,
-                                    color: Colors.white,
-                                  ),
-                                  Gap(5),
-                                  Text(
-                                    'Jeux Concours',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 10.0, vertical: 5),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_month_outlined,
                                       color: Colors.white,
+                                      size: 16,
                                     ),
-                                  ),
-                                ],
+                                    Text(
+                                      'Parrainage',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -110,18 +116,19 @@ class ConcoursCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  width: double.infinity,
                   padding: const EdgeInsets.all(10),
-                  height: 150,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Column(
                         children: [
-                          Row(
+                          Column(
                             children: [
                               Text(
-                                capitalizeFirstLetter(contest.title),
+                                softWrap: true,
+                                capitalizeFirstLetter(post.title),
+                                overflow: TextOverflow.fade,
+                                maxLines: 2,
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -129,31 +136,35 @@ class ConcoursCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                          const Gap(5),
+                          Row(
                             children: [
-                              Icon(
-                                Icons.calendar_today,
-                                size: 15,
+                              const Icon(Icons.calendar_today, size: 15),
+                              const SizedBox(
+                                width: 5,
                               ),
-                              Gap(5),
                               Text(
-                                "23 Avril 2024 - 23 Mai 2024",
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    color: Color.fromARGB(255, 85, 85, 85)),
-                              ),
+                                "jusqu'au ${formatDateTime(post.dateFinal)}",
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color.fromARGB(255, 85, 85, 85),
+                                ),
+                              )
                             ],
                           ),
-                          const Gap(10),
+                          const Gap(5),
                           Text(
-                            contest.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          )
+                            post.description,
+                            style: const TextStyle(
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
-                      const Row(
+                      Divider(
+                        color: Colors.grey[300],
+                      ),
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -166,14 +177,13 @@ class ConcoursCard extends StatelessWidget {
                                 backgroundColor: Colors.blue,
                                 child: CircleAvatar(
                                   radius: 14,
-                                  backgroundImage: NetworkImage(
-                                      'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
+                                  backgroundImage: NetworkImage(companyLogo),
                                 ),
                               ),
-                              Gap(10),
+                              const Gap(10),
                               Text(
-                                "Be Happy",
-                                style: TextStyle(
+                                companyName,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,
                                 ),

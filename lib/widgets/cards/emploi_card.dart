@@ -59,9 +59,8 @@ class JobOfferCard extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.only(
                                   top: 3, bottom: 3, right: 7, left: 5),
-                              decoration: const BoxDecoration(
-                                color: Color.fromARGB(70, 0, 0, 0),
-                              ),
+                              decoration:
+                                  const BoxDecoration(color: Colors.black54),
                               child: const Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 mainAxisAlignment:
@@ -126,7 +125,8 @@ class JobOfferCard extends StatelessWidget {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      Text('$companyName - ${post.city}')
+                                      Text(
+                                          '${capitalizeFirstLetter(companyName)} - ${post.city}')
                                     ],
                                   )
                                 ],

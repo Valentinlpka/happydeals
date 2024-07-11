@@ -1,10 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/classes/login_or_register.dart';
+import 'package:happy/screens/auth/login_page.dart';
 import 'package:happy/screens/main_container.dart';
-import 'package:provider/provider.dart';
-
-import '../../providers/users.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -17,15 +14,19 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: StreamBuilder(
+      body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
-        builder: ((_, snapshot) {
+        builder: ((context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
           if (snapshot.hasData) {
-            context.read<Users>().login();
+            WidgetsBinding.instance.addPostFrameCallback((_) {});
             return const MainContainer();
           } else {
-            context.read<Users>().logout();
-            return const LoginOrRegisterPage();
+            WidgetsBinding.instance.addPostFrameCallback((_) {});
+            return const Login();
           }
         }),
       ),

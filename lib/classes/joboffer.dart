@@ -10,12 +10,10 @@ class JobOffer extends Post {
   final String benefits;
   final String whyJoin;
   final List<String> keywords;
-  final String companyId;
 
   JobOffer({
-    required String id,
-    required DateTime timestamp,
-    required String authorId,
+    required super.id,
+    required super.timestamp,
     required this.jobTitle,
     required this.city,
     required this.description,
@@ -24,22 +22,14 @@ class JobOffer extends Post {
     required this.benefits,
     required this.whyJoin,
     required this.keywords,
-    required this.companyId,
-    int views = 0,
-    int likes = 0,
-    List<String> likedBy = const [],
-    int commentsCount = 0,
-    List<Comment> comments = const [],
+    required super.companyId,
+    super.views,
+    super.likes,
+    super.likedBy,
+    super.commentsCount,
+    super.comments,
   }) : super(
-          id: id,
-          timestamp: timestamp,
           type: 'job_offer',
-          authorId: authorId,
-          views: views,
-          likes: likes,
-          likedBy: likedBy,
-          commentsCount: commentsCount,
-          comments: comments,
         );
 
   factory JobOffer.fromDocument(DocumentSnapshot doc) {
@@ -47,7 +37,6 @@ class JobOffer extends Post {
     return JobOffer(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      authorId: data['authorId'],
       jobTitle: data['job_title'],
       city: data['city'],
       description: data['description'],
