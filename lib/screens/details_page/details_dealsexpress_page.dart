@@ -484,44 +484,28 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                 ),
               ),
               Divider(color: Colors.grey[300]),
-              Container(
-                height: 35,
-                color: Colors.transparent,
-                child: TabBar(
-                  labelPadding: EdgeInsets.zero,
-                  controller: _tabController,
-                  isScrollable: false,
-                  indicator: BoxDecoration(
-                    color: Colors.blue[700],
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  labelStyle: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  unselectedLabelColor: Colors.black,
-                  unselectedLabelStyle: const TextStyle(
-                    fontWeight: FontWeight.normal,
-                  ),
-                  tabs: const [
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 20.0,
-                      ),
-                      child: Tab(
-                        text: 'Informations',
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 20.0,
-                      ),
-                      child: Tab(
-                        text: 'Avis',
-                      ),
-                    ),
-                  ],
+              TabBar(
+                labelPadding: EdgeInsets.zero,
+                controller: _tabController,
+                isScrollable: false,
+                labelStyle: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
+                dividerHeight: 0,
+                unselectedLabelColor: Colors.black,
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                ),
+                tabs: const [
+                  Tab(
+                    text: 'Informations',
+                  ),
+                  Tab(
+                    text: 'Avis',
+                  ),
+                ],
               ),
             ]),
           ),

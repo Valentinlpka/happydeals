@@ -44,7 +44,7 @@ class OrderService {
       totalPrice: data['totalPrice'].toDouble(),
       status: data['status'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
-      pickupAddress: '',
+      pickupAddress: data['pickupAddress'],
       pickupCode: data['pickupCode'],
     );
   }

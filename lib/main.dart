@@ -52,7 +52,6 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          fontFamily: 'Gilroy',
           focusColor: Colors.blue,
           primaryColorLight: Colors.blue,
           primaryColorDark: Colors.blue,

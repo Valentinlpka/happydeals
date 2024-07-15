@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/screens/cart_page.dart';
 import 'package:happy/screens/conversation_list.dart';
 import 'package:happy/screens/home_page.dart';
 import 'package:happy/screens/profile_page.dart';
@@ -36,6 +37,7 @@ class _MainContainerState extends State<MainContainer> {
           userId: currentUserId,
         ),
         const ParametrePage(),
+        const CartScreen(),
       ][_currentIndex],
       bottomNavigationBar: Stack(
         children: [
@@ -77,14 +79,19 @@ class _MainContainerState extends State<MainContainer> {
               ),
 
               SalomonBottomBarItem(
-                icon: const Icon(Icons.notifications_on_outlined),
-                title: const Text("Notifications"),
+                icon: const Icon(Icons.message_outlined),
+                title: const Text("Messages"),
                 selectedColor: Colors.white,
               ),
 
               SalomonBottomBarItem(
                 icon: const Icon(Icons.person_outline),
                 title: const Text("Profil"),
+                selectedColor: Colors.white,
+              ),
+              SalomonBottomBarItem(
+                icon: const Icon(Icons.shopping_bag_outlined),
+                title: const Text("Panier"),
                 selectedColor: Colors.white,
               ),
             ],

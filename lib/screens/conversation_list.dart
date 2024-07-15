@@ -9,10 +9,8 @@ import 'package:provider/provider.dart';
 class ConversationsListScreen extends StatelessWidget {
   final String userId;
 
-  const ConversationsListScreen({Key? key, required this.userId})
-      : super(key: key);
+  const ConversationsListScreen({super.key, required this.userId});
 
-  @override
   String formatRelativeTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
@@ -42,7 +40,10 @@ class ConversationsListScreen extends StatelessWidget {
     final conversationService = Provider.of<ConversationService>(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes conversations')),
+      appBar: AppBar(
+        title: const Text('Mes conversations'),
+        automaticallyImplyLeading: false,
+      ),
       body: StreamBuilder<List<Conversation>>(
         stream: conversationService.getUserConversations(userId),
         builder: (context, snapshot) {
@@ -101,8 +102,8 @@ class ConversationsListScreen extends StatelessWidget {
                   final userData =
                       userSnapshot.data!.data() as Map<String, dynamic>;
                   final String companyName =
-                      capitalizeFirstLetter(userData['name']) ?? '';
-                  final String profilePicUrl = userData['logo'] ?? '';
+                      capitalizeFirstLetter(userData['name']);
+                  final String profilePicUrl = userData['logo'];
 
                   return Card(
                     elevation: 1,

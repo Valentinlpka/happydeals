@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:happy/screens/cart_page.dart';
 import 'package:happy/screens/profilepage.dart';
+import 'package:happy/screens/user_order_page.dart';
 import 'package:happy/services/auth_service.dart';
 
 class ParametrePage extends StatelessWidget {
@@ -38,7 +38,8 @@ class ParametrePage extends StatelessWidget {
                   context, 'Mes achats', 'assets/images/mes_achats.png', () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const CartScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const UserOrdersPages()),
                 );
                 // Navigation vers l'écran Mes achats
               }),

@@ -13,6 +13,8 @@ class UserOrdersPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        actions: const [],
+        automaticallyImplyLeading: false,
         title: const Text('Mes commandes'),
       ),
       body: StreamBuilder<QuerySnapshot>(

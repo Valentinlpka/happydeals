@@ -11,7 +11,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_storage
   geolocator_windows
   maps_launcher
-  platform_device_id_windows
   url_launcher_windows
 )
 
