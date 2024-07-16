@@ -3,11 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:happy/classes/order.dart';
-import 'package:happy/screens/order_confirmation_page.dart';
+import 'package:happy/screens/shop/order_confirmation_page.dart';
 import 'package:provider/provider.dart';
 
-import '../services/cart_service.dart';
-import '../services/order_service.dart';
+import '../../services/cart_service.dart';
+import '../../services/order_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});

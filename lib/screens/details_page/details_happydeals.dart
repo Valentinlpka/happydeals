@@ -46,7 +46,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
   @override
   Widget build(BuildContext context) {
     final isLiked =
-        context.watch<UserModel>().likeList.contains(widget.happydeal.id);
+        context.watch<UserModel>().likedPosts.contains(widget.happydeal.id);
     return Scaffold(
       body: CustomScrollView(
         slivers: [

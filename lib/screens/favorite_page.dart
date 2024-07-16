@@ -26,7 +26,7 @@ class _FavoriteState extends State<Favorite> {
 
   @override
   Widget build(BuildContext context) {
-    final likedPost = Provider.of<UserModel>(context).likeList;
+    final likedPost = Provider.of<UserModel>(context).likedPosts;
 
     return FutureBuilder<List<DocumentSnapshot>>(
       future: _getLikedPosts(likedPost),

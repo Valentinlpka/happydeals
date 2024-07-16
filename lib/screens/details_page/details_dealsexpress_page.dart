@@ -160,7 +160,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
   @override
   Widget build(BuildContext context) {
     final isLiked =
-        context.watch<UserModel>().likeList.contains(widget.post.id);
+        context.watch<UserModel>().likedPosts.contains(widget.post.id);
 
     return Scaffold(
       bottomNavigationBar: ElevatedButton(

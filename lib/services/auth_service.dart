@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/auth/login_page.dart';
 import 'package:provider/provider.dart';
 
 class AuthService {
@@ -45,6 +46,11 @@ class AuthService {
   Future<void> signOut(BuildContext context) async {
     await _auth.signOut();
     Provider.of<UserModel>(context, listen: false).clearUserData();
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const Login()),
+      (Route<dynamic> route) => false,
+    );
   }
 
   User? get currentUser => _auth.currentUser;

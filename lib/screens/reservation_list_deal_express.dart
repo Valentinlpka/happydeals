@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
 import 'package:intl/intl.dart';
 
-class UserOrdersPage extends StatelessWidget {
-  const UserOrdersPage({super.key});
+class ReservationListDealExpress extends StatelessWidget {
+  const ReservationListDealExpress({super.key});
 
   @override
   Widget build(BuildContext context) {

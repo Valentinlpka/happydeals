@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/order.dart';
 
-import '../services/order_service.dart';
+import '../../services/order_service.dart';
 
 class OrderConfirmationScreen extends StatelessWidget {
   final String orderId;

@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/order.dart';
-import 'package:happy/screens/order_detail_page.dart';
+import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:intl/intl.dart';
 

@@ -94,7 +94,7 @@ class _PostWidgetState extends State<PostWidget> {
           children: [
             Consumer<UserModel>(
               builder: (context, users, _) {
-                final isLiked = users.likeList.contains(widget.post.id);
+                final isLiked = users.likedPosts.contains(widget.post.id);
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

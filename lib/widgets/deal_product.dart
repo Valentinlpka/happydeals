@@ -125,7 +125,4 @@ class DealProduct extends StatelessWidget {
       ),
     );
   }
-}//'${widget.happydeal.deals[0].name}'''
-// '${widget.happydeal.deals[0].oldPrice} €',
-// '${widget.happydeal.deals[0].newPrice} €'
-// '${widget.happydeal.deals[0].discount}% de réduction'
+}

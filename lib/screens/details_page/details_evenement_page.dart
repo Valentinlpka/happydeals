@@ -59,7 +59,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
   @override
   Widget build(BuildContext context) {
     final isLiked =
-        context.watch<UserModel>().likeList.contains(widget.event.id);
+        context.watch<UserModel>().likedPosts.contains(widget.event.id);
 
     final formattedDate =
         DateFormat('dd/MM/yyyy à HH:mm').format(widget.event.eventDate);
@@ -79,15 +79,15 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
             TextButton(
               onPressed: () {},
               style: ButtonStyle(
-                padding: const MaterialStatePropertyAll(
+                padding: const WidgetStatePropertyAll(
                   EdgeInsets.symmetric(horizontal: 50, vertical: 10),
                 ),
-                shape: MaterialStatePropertyAll(
+                shape: WidgetStatePropertyAll(
                   RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),
                   ),
                 ),
-                backgroundColor: const MaterialStatePropertyAll(Colors.blue),
+                backgroundColor: const WidgetStatePropertyAll(Colors.blue),
               ),
               child: const Text(
                 'Acheter un ticket',

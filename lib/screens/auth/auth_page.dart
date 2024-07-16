@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/providers/users.dart';
 import 'package:happy/screens/auth/login_page.dart';
 import 'package:happy/screens/main_container.dart';
+import 'package:provider/provider.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -22,10 +24,11 @@ class _AuthPageState extends State<AuthPage> {
           }
 
           if (snapshot.hasData) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {});
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Provider.of<UserModel>(context, listen: false).loadUserData();
+            });
             return const MainContainer();
           } else {
-            WidgetsBinding.instance.addPostFrameCallback((_) {});
             return const Login();
           }
         }),

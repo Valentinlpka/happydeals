@@ -57,7 +57,7 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
   @override
   Widget build(BuildContext context) {
     final isLiked =
-        context.watch<UserModel>().likeList.contains(widget.contest.id);
+        context.watch<UserModel>().likedPosts.contains(widget.contest.id);
 
     final startFormattedDate =
         DateFormat('dd/MM/yyyy').format(widget.contest.startDate);
@@ -79,15 +79,15 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
             TextButton(
               onPressed: () {},
               style: ButtonStyle(
-                padding: const MaterialStatePropertyAll(
+                padding: const WidgetStatePropertyAll(
                   EdgeInsets.symmetric(horizontal: 50, vertical: 10),
                 ),
-                shape: MaterialStatePropertyAll(
+                shape: WidgetStatePropertyAll(
                   RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),
                   ),
                 ),
-                backgroundColor: const MaterialStatePropertyAll(Colors.blue),
+                backgroundColor: const WidgetStatePropertyAll(Colors.blue),
               ),
               child: const Text(
                 'Participer au jeu',

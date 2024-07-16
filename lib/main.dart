@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:happy/providers/conversation_provider.dart';
+import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/auth/complete_profile.dart';
 import 'package:happy/screens/auth/login_page.dart';
 import 'package:happy/screens/auth/register_page.dart';
-import 'package:happy/screens/cart_page.dart';
 import 'package:happy/screens/main_container.dart';
+import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -46,6 +47,7 @@ class _MyAppState extends State<MyApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserModel()),
+        ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => ConversationService()),
         ChangeNotifierProvider(create: (ctx) => CartService()),
       ],
@@ -72,7 +74,7 @@ class _MyAppState extends State<MyApp> {
           appBarTheme: const AppBarTheme(surfaceTintColor: Colors.white),
           colorScheme: const ColorScheme.light(
               primary: Colors.blue,
-              background: Colors.white,
+              surface: Colors.white,
               surfaceTint: Colors.white),
           useMaterial3: true,
         ),

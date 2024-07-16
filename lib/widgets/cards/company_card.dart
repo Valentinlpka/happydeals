@@ -16,7 +16,7 @@ class CompanyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isLiked =
-        context.watch<UserModel>().likeList.contains(company.id);
+        context.watch<UserModel>().likedPosts.contains(company.id);
 
     return InkWell(
       onTap: () {
@@ -95,17 +95,7 @@ class CompanyCard extends StatelessWidget {
                             ),
                           ),
                           IconButton(
-                            onPressed: () async {
-                              if (isLiked) {
-                                await context
-                                    .read<UserModel>()
-                                    .unlikePost(company.id);
-                              } else {
-                                await context
-                                    .read<UserModel>()
-                                    .likePost(company.id);
-                              }
-                            },
+                            onPressed: () async {},
                             icon: isLiked
                                 ? const Icon(Icons.favorite)
                                 : const Icon(Icons.favorite_border),

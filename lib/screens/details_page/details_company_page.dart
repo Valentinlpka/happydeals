@@ -7,8 +7,8 @@ import 'package:happy/classes/company.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
-import 'package:happy/screens/product_card.dart';
 import 'package:happy/services/product_service.dart';
+import 'package:happy/widgets/cards/product_card.dart';
 import 'package:happy/widgets/opening_hours_widget.dart';
 import 'package:provider/provider.dart';
 
@@ -66,7 +66,7 @@ class _DetailsCompanyState extends State<DetailsCompany>
   @override
   Widget build(BuildContext context) {
     final userModel = Provider.of<UserModel>(context);
-    final bool isLiked = userModel.likeList.contains(widget.companyId);
+    final bool isLiked = userModel.likedPosts.contains(widget.companyId);
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
     return Scaffold(

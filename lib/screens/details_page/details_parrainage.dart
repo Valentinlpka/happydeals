@@ -56,7 +56,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
   @override
   Widget build(BuildContext context) {
     final isLiked =
-        context.watch<UserModel>().likeList.contains(widget.referral.id);
+        context.watch<UserModel>().likedPosts.contains(widget.referral.id);
 
     return Scaffold(
       bottomNavigationBar: Container(
@@ -73,15 +73,15 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
             TextButton(
               onPressed: () {},
               style: ButtonStyle(
-                padding: const MaterialStatePropertyAll(
+                padding: const WidgetStatePropertyAll(
                   EdgeInsets.symmetric(horizontal: 50, vertical: 10),
                 ),
-                shape: MaterialStatePropertyAll(
+                shape: WidgetStatePropertyAll(
                   RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),
                   ),
                 ),
-                backgroundColor: const MaterialStatePropertyAll(Colors.blue),
+                backgroundColor: const WidgetStatePropertyAll(Colors.blue),
               ),
               child: const Text(
                 'Je parraine ! ',

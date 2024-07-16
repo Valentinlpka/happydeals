@@ -11,7 +11,7 @@ class UserModel with ChangeNotifier {
   String _lastName = '';
   String _dailyQuote = '';
   String _profileUrl = '';
-  final List<String> likeList = [];
+  final List<String> likedPosts = [];
 
   String get firstName => _firstName;
   String get lastName => _lastName;
@@ -36,6 +36,7 @@ class UserModel with ChangeNotifier {
   Future<void> updateUserProfile(Map<String, dynamic> userData) async {
     String uid = _auth.currentUser!.uid;
     await _firestore.collection('users').doc(uid).update(userData);
+    await loadUserData(); // Reload user data after update
   }
 
   Future<Map<String, dynamic>?> getCurrentUser() async {
@@ -49,24 +50,14 @@ class UserModel with ChangeNotifier {
     return userData?['isProfileComplete'] ?? false;
   }
 
-  void updateUserData(
-      {String? firstName, String? lastName, String? profileUrl}) {
-    if (firstName != null) _firstName = firstName;
-    if (lastName != null) _lastName = lastName;
-    if (profileUrl != null) _profileUrl = profileUrl;
-    notifyListeners();
-  }
-
   Future<void> loadUserData() async {
-    if (FirebaseAuth.instance.currentUser != null) {
-      userId = FirebaseAuth.instance.currentUser!.uid;
+    if (_auth.currentUser != null) {
+      userId = _auth.currentUser!.uid;
     }
 
     try {
-      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      DocumentSnapshot userSnapshot =
+          await _firestore.collection('users').doc(userId).get();
 
       if (userSnapshot.exists) {
         final data = userSnapshot.data() as Map<String, dynamic>;
@@ -75,9 +66,9 @@ class UserModel with ChangeNotifier {
         _lastName = data['lastName'] ?? '';
         _profileUrl = data['image_profile'] ?? '';
 
-        likeList.clear();
+        likedPosts.clear();
         if (data['likedPosts'] != null) {
-          likeList.addAll(data['likedPosts'].cast<String>());
+          likedPosts.addAll(List<String>.from(data['likedPosts']));
         }
 
         await loadDailyQuote();
@@ -95,13 +86,13 @@ class UserModel with ChangeNotifier {
     _lastName = '';
     _dailyQuote = '';
     _profileUrl = '';
-    likeList.clear();
+    likedPosts.clear();
     notifyListeners();
   }
 
   Future<void> loadDailyQuote() async {
     try {
-      QuerySnapshot quoteSnapshot = await FirebaseFirestore.instance
+      QuerySnapshot quoteSnapshot = await _firestore
           .collection('daily_quotes')
           .where('date',
               isEqualTo: DateTime.now().toIso8601String().split('T')[0])
@@ -111,10 +102,8 @@ class UserModel with ChangeNotifier {
       if (quoteSnapshot.docs.isNotEmpty) {
         _dailyQuote = quoteSnapshot.docs.first['quote'];
       } else {
-        QuerySnapshot randomQuoteSnapshot = await FirebaseFirestore.instance
-            .collection('daily_quotes')
-            .limit(1)
-            .get();
+        QuerySnapshot randomQuoteSnapshot =
+            await _firestore.collection('daily_quotes').limit(1).get();
 
         if (randomQuoteSnapshot.docs.isNotEmpty) {
           _dailyQuote = randomQuoteSnapshot.docs.first['quote'];
@@ -131,22 +120,22 @@ class UserModel with ChangeNotifier {
   }
 
   Future<void> handleLike(Post post) async {
-    final postRef = FirebaseFirestore.instance.collection('posts').doc(post.id);
-    final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
+    final postRef = _firestore.collection('posts').doc(post.id);
+    final userRef = _firestore.collection('users').doc(userId);
 
     // Optimistically update the local state
-    if (likeList.contains(post.id)) {
-      likeList.remove(post.id);
+    if (likedPosts.contains(post.id)) {
+      likedPosts.remove(post.id);
       post.likes -= 1;
     } else {
-      likeList.add(post.id);
+      likedPosts.add(post.id);
       post.likes += 1;
     }
     notifyListeners();
 
     // Firestore update in the background
     try {
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
+      await _firestore.runTransaction((transaction) async {
         final postSnapshot = await transaction.get(postRef);
         final userSnapshot = await transaction.get(userRef);
 
@@ -179,55 +168,15 @@ class UserModel with ChangeNotifier {
       });
     } catch (e) {
       // Revert the optimistic update if the Firestore transaction fails
-      if (likeList.contains(post.id)) {
-        likeList.remove(post.id);
+      if (likedPosts.contains(post.id)) {
+        likedPosts.remove(post.id);
         post.likes -= 1;
       } else {
-        likeList.add(post.id);
+        likedPosts.add(post.id);
         post.likes += 1;
       }
       notifyListeners();
-    }
-  }
-
-  Future<void> likePost(String postId) async {
-    likeList.add(postId);
-    notifyListeners();
-
-    try {
-      // Ajouter le like dans la collection "Utilisateurs"
-      await FirebaseFirestore.instance.collection('users').doc(userId).set({
-        'posts_liked': FieldValue.arrayUnion([postId]),
-      }, SetOptions(merge: true));
-
-      // Ajouter le like dans la collection "Posts"
-      await FirebaseFirestore.instance.collection('companys').doc(postId).set({
-        'liked_by': FieldValue.arrayUnion([userId]),
-      }, SetOptions(merge: true));
-    } catch (e) {
-      likeList.remove(postId);
-      notifyListeners();
-    }
-  }
-
-  Future<void> unlikePost(String postId) async {
-    likeList.remove(postId);
-    notifyListeners();
-
-    try {
-      // Ajouter le like dans la collection "Utilisateurs"
-      await FirebaseFirestore.instance.collection('users').doc(userId).set({
-        'posts_liked': FieldValue.arrayRemove([postId]),
-      }, SetOptions(merge: true));
-
-      // Ajouter le like dans la collection "Posts"
-      await FirebaseFirestore.instance.collection('companys').doc(postId).set({
-        'liked_by': FieldValue.arrayRemove([userId]),
-      }, SetOptions(merge: true));
-      notifyListeners();
-    } catch (e) {
-      likeList.add(postId);
-      notifyListeners();
+      print("Error handling like: $e");
     }
   }
 }

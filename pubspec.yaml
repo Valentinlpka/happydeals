@@ -62,6 +62,7 @@ dependencies:
   flutter_stripe: ^10.2.0
   http: ^1.2.1
   cloud_functions: ^5.0.3
+  image_cropper: ^7.1.0
 
 dev_dependencies:
   flutter_test:
