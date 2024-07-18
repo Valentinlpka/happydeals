@@ -41,14 +41,19 @@ class PostWidget extends StatefulWidget {
 class _PostWidgetState extends State<PostWidget> {
   @override
   Widget build(BuildContext context) {
+    print(
+        'Building PostWidget for post ${widget.post.id} of type ${widget.post.runtimeType}');
+
     Widget content;
     if (widget.post is JobOffer) {
+      print('Rendering JobOfferCard');
       content = JobOfferCard(
         post: widget.post as JobOffer,
         companyName: widget.companyName,
         companyLogo: widget.companyLogo,
       );
     } else if (widget.post is Contest) {
+      print('Rendering ConcoursCard');
       content = ConcoursCard(
         contest: widget.post as Contest,
         currentUserId: widget.currentUserId,
@@ -56,6 +61,7 @@ class _PostWidgetState extends State<PostWidget> {
         companyLogo: widget.companyLogo,
       );
     } else if (widget.post is HappyDeal) {
+      print('Rendering HappyDealsCard');
       content = HappyDealsCard(
         companyCategorie: widget.companyCategorie,
         post: widget.post as HappyDeal,
@@ -64,6 +70,7 @@ class _PostWidgetState extends State<PostWidget> {
         companyLogo: widget.companyLogo,
       );
     } else if (widget.post is ExpressDeal) {
+      print('Rendering DealsExpressCard');
       content = DealsExpressCard(
         currentUserId: widget.currentUserId,
         post: widget.post as ExpressDeal,
@@ -71,6 +78,7 @@ class _PostWidgetState extends State<PostWidget> {
         companyLogo: widget.companyLogo,
       );
     } else if (widget.post is Referral) {
+      print('Rendering ParrainageCard');
       content = ParrainageCard(
         companyName: widget.companyName,
         currentUserId: widget.currentUserId,
@@ -78,12 +86,27 @@ class _PostWidgetState extends State<PostWidget> {
         companyLogo: widget.companyLogo,
       );
     } else if (widget.post is Event) {
+      print('Rendering EvenementCard');
       content = EvenementCard(
         event: widget.post as Event,
         currentUserId: widget.currentUserId,
       );
     } else {
-      content = const Text('Unsupported post type');
+      print('Unsupported post type: ${widget.post.runtimeType}');
+      content = Card(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Unsupported post type: ${widget.post.runtimeType}'),
+              Text('Post ID: ${widget.post.id}'),
+              Text('Company: ${widget.companyName}'),
+              Text('Category: ${widget.companyCategorie}'),
+            ],
+          ),
+        ),
+      );
     }
 
     return Column(

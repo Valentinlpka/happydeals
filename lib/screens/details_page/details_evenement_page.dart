@@ -339,8 +339,8 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DetailsCompany(
-                                companyId: widget.event.companyId),
+                            builder: (context) => DetailsEntreprise(
+                                entrepriseId: widget.event.companyId),
                           ),
                         );
                       },
@@ -383,17 +383,17 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                Row(
+                                const Row(
                                   children: [
                                     RatingBar.readOnly(
                                       filledIcon: Icons.star,
                                       size: 16,
                                       filledColor: Colors.blue,
                                       emptyIcon: Icons.star_border,
-                                      initialRating: company.rating,
+                                      initialRating: 2,
                                       maxRating: 5,
                                     ),
-                                    const Text(
+                                    Text(
                                       '12 avis)',
                                       style: TextStyle(fontSize: 12),
                                     ),

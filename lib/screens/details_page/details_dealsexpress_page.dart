@@ -291,8 +291,8 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DetailsCompany(
-                                companyId: widget.post.companyId),
+                            builder: (context) => DetailsEntreprise(
+                                entrepriseId: widget.post.companyId),
                           ),
                         );
                       },

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_places_flutter/model/prediction.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
@@ -31,6 +32,69 @@ class HomeProvider extends ChangeNotifier {
 
   // Durée de validité du cache (en minutes)
   static const int _cacheDuration = 15;
+
+  Future<List<Company>> fetchCompanies(
+      DocumentSnapshot? pageKey, int pageSize) async {
+    if (_currentPosition == null) {
+      print('Position actuelle non disponible');
+      return [];
+    }
+
+    final query = FirebaseFirestore.instance
+        .collection('companys')
+        .orderBy('name') // Vous pouvez changer l'ordre si nécessaire
+        .limit(pageSize);
+
+    final snapshot = pageKey == null
+        ? await query.get()
+        : await query.startAfterDocument(pageKey).get();
+
+    List<Company> companiesInRange = [];
+
+    for (var doc in snapshot.docs) {
+      Company company = Company.fromDocument(doc);
+
+      if (await _isCompanyWithinRadius(company)) {
+        companiesInRange.add(company);
+      }
+
+      if (companiesInRange.length >= pageSize) {
+        break;
+      }
+    }
+
+    print("Nombre d'entreprises trouvées : ${companiesInRange.length}");
+    return companiesInRange;
+  }
+
+  Future<bool> _isCompanyWithinRadius(Company company) async {
+    if (_currentPosition == null) return false;
+
+    try {
+      String companyAddress =
+          '${company.adress.adresse}, ${company.adress.codePostal}, ${company.adress.ville}, France';
+
+      List<Location> locations = await locationFromAddress(companyAddress);
+      if (locations.isEmpty) return false;
+
+      Location companyLocation = locations.first;
+      double distance = Geolocator.distanceBetween(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        companyLocation.latitude,
+        companyLocation.longitude,
+      );
+
+      bool isWithinRadius = distance / 1000 <= _selectedRadius;
+      print(
+          "Distance to company ${company.name}: ${distance / 1000} km, Within radius: $isWithinRadius");
+      return isWithinRadius;
+    } catch (e) {
+      print(
+          "Erreur lors de la vérification de la distance pour l'entreprise ${company.name}: $e");
+      return false;
+    }
+  }
 
   // Nouvelle méthode pour mettre à jour la localisation à partir d'une prédiction
   Future<void> updateLocationFromPrediction(Prediction prediction) async {

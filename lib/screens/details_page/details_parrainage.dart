@@ -315,8 +315,8 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DetailsCompany(
-                                companyId: widget.referral.companyId),
+                            builder: (context) => DetailsEntreprise(
+                                entrepriseId: widget.referral.companyId),
                           ),
                         );
                       },
@@ -366,7 +366,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                                       size: 16,
                                       filledColor: Colors.blue,
                                       emptyIcon: Icons.star_border,
-                                      initialRating: company.rating,
+                                      initialRating: company.averageRating,
                                       maxRating: 5,
                                     ),
                                     const Text(

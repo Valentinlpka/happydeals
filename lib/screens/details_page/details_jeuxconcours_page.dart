@@ -370,8 +370,8 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DetailsCompany(
-                                companyId: widget.contest.companyId),
+                            builder: (context) => DetailsEntreprise(
+                                entrepriseId: widget.contest.companyId),
                           ),
                         );
                       },
@@ -421,7 +421,7 @@ class _DetailsEvenementPageState extends State<DetailsJeuxConcoursPage> {
                                       size: 16,
                                       filledColor: Colors.blue,
                                       emptyIcon: Icons.star_border,
-                                      initialRating: company.rating,
+                                      initialRating: company.averageRating,
                                       maxRating: 5,
                                     ),
                                     const Text(

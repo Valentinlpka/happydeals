@@ -3,9 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +25,12 @@ class _HomeState extends State<Home> {
   final TextEditingController _searchController = TextEditingController();
   final PagingController<DocumentSnapshot?, Map<String, dynamic>>
       _pagingController = PagingController(firstPageKey: null);
+
+  final PagingController<DocumentSnapshot?, Company>
+      _companiesPagingController = PagingController(firstPageKey: null);
+
   static const _pageSize = 10;
+  bool _showCompanies = false;
 
   @override
   void initState() {
@@ -32,13 +39,38 @@ class _HomeState extends State<Home> {
       Provider.of<HomeProvider>(context, listen: false).loadSavedLocation();
     });
     _pagingController.addPageRequestListener(_fetchPage);
+    _companiesPagingController.addPageRequestListener(_fetchCompanyPage);
   }
 
   @override
   void dispose() {
     _pagingController.dispose();
     _searchController.dispose();
+    _companiesPagingController.dispose();
+
     super.dispose();
+  }
+
+  Future<void> _fetchCompanyPage(DocumentSnapshot? pageKey) async {
+    try {
+      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+      final newCompanies =
+          await homeProvider.fetchCompanies(pageKey, _pageSize);
+
+      final isLastPage = newCompanies.length < _pageSize;
+      if (isLastPage) {
+        _companiesPagingController.appendLastPage(newCompanies);
+      } else {
+        final lastCompanyId = newCompanies.last.id;
+        final nextPageKey = await FirebaseFirestore.instance
+            .collection('companys')
+            .doc(lastCompanyId)
+            .get();
+        _companiesPagingController.appendPage(newCompanies, nextPageKey);
+      }
+    } catch (error) {
+      _companiesPagingController.error = error;
+    }
   }
 
   Future<void> _fetchPage(DocumentSnapshot? pageKey) async {
@@ -82,15 +114,68 @@ class _HomeState extends State<Home> {
                         _buildHeader(),
                         _buildSearchBar(homeProvider),
                         _buildRadiusSelector(homeProvider),
+                        _buildCategoryButtons(),
                       ],
                     ),
                   ),
-                  _buildPostList(),
+                  _showCompanies ? _buildCompanyList() : _buildPostList(),
                 ],
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildCompanyList() {
+    return PagedSliverList<DocumentSnapshot?, Company>(
+      pagingController: _companiesPagingController,
+      builderDelegate: PagedChildBuilderDelegate<Company>(
+        noItemsFoundIndicatorBuilder: (_) => const Center(
+          child: Text(
+            'Aucune entreprise trouvée à proximité',
+            textAlign: TextAlign.center,
+          ),
+        ),
+        itemBuilder: (context, company, index) {
+          return CompanyCard(company);
+        },
+      ),
+    );
+  }
+
+  Widget _buildCategoryButtons() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildCategoryButton("Posts", !_showCompanies),
+            _buildCategoryButton("Entreprises", _showCompanies),
+            // Ajoutez d'autres boutons de catégorie ici si nécessaire
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryButton(String title, bool isSelected) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: ElevatedButton(
+        onPressed: () {
+          setState(() {
+            _showCompanies = title == "Entreprises";
+          });
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+              isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
+          foregroundColor: isSelected ? Colors.white : Colors.black,
+        ),
+        child: Text(title),
       ),
     );
   }
@@ -134,11 +219,15 @@ class _HomeState extends State<Home> {
 
   Widget _buildSearchBar(HomeProvider homeProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16.0,
+      ),
       child: GooglePlaceAutoCompleteTextField(
         textEditingController: homeProvider.addressController,
         googleAPIKey: "AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc",
         inputDecoration: const InputDecoration(
+          alignLabelWithHint: true,
+          contentPadding: EdgeInsets.all(11),
           hintText: "Rechercher une ville",
           prefixIcon: Icon(Icons.location_on),
           border: InputBorder.none,
@@ -146,12 +235,15 @@ class _HomeState extends State<Home> {
         debounceTime: 800,
         countries: const ["fr"],
         isLatLngRequired: true,
+        containerHorizontalPadding: 5,
+        containerVerticalPadding: 5,
         getPlaceDetailWithLatLng: (Prediction prediction) {
           homeProvider.updateLocationFromPrediction(prediction);
           _pagingController.refresh();
         },
         itemClick: (Prediction prediction) {
-          homeProvider.addressController.text = prediction.description ?? "";
+          homeProvider.addressController.text =
+              prediction.description ?? "Rien";
           homeProvider.addressController.selection = TextSelection.fromPosition(
               TextPosition(offset: homeProvider.addressController.text.length));
         },

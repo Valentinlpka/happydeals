@@ -4,74 +4,102 @@ class Company {
   final String id;
   final String name;
   final String categorie;
-  final bool open;
-  final double rating;
-  final int like;
-  final String ville;
-  final String phone;
-  final String logo;
+  final String cover;
   final String description;
-  final String sellerId;
-  final String website;
-  final String address;
   final String email;
+  final int like;
+  final String logo;
+  final String phone;
+  final String sellerId;
+  final Address adress;
   final Map<String, dynamic> openingHours;
+  final double averageRating;
+  final int numberOfReviews;
 
   Company({
-    required this.openingHours,
     required this.id,
-    required this.sellerId,
     required this.name,
     required this.categorie,
-    required this.open,
-    required this.rating,
-    required this.like,
-    required this.ville,
-    required this.phone,
-    required this.logo,
+    required this.cover,
     required this.description,
-    required this.website,
-    required this.address,
     required this.email,
+    required this.like,
+    required this.logo,
+    required this.phone,
+    required this.sellerId,
+    required this.adress,
+    required this.openingHours,
+    this.averageRating = 0.0,
+    this.numberOfReviews = 0,
   });
 
-  // Méthode pour convertir un document Firestore en objet Company
   factory Company.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Company(
-      openingHours: data['openingHours'] ?? {},
       id: doc.id,
       name: data['name'] ?? '',
       categorie: data['categorie'] ?? '',
-      open: data['open'] ?? false,
-      rating: data['rating']?.toDouble() ?? 0.0,
-      like: data['like'] ?? 0,
-      ville: data['ville'] ?? '',
-      phone: data['phone'] ?? '',
-      logo: data['logo'] ?? '',
+      cover: data['cover'] ?? '',
       description: data['description'] ?? '',
-      website: data['website'] ?? '',
-      address: data['address'] ?? '',
       email: data['email'] ?? '',
+      like: data['like'] ?? 0,
+      logo: data['logo'] ?? '',
+      phone: data['phone'] ?? '',
       sellerId: data['sellerId'] ?? '',
+      adress: Address.fromMap(data['adress'] ?? {}),
+      openingHours: Map<String, String>.from(data['openingHours'] ?? {}),
+      averageRating: (data['averageRating'] ?? 0.0).toDouble(),
+      numberOfReviews: data['numberOfReviews'] ?? 0,
     );
   }
 
-  // Méthode pour convertir un objet Company en map pour Firestore
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'categorie': categorie,
-      'open': open,
-      'rating': rating,
-      'like': like,
-      'ville': ville,
-      'phone': phone,
-      'logo': logo,
+      'cover': cover,
       'description': description,
-      'website': website,
-      'address': address,
       'email': email,
+      'like': like,
+      'logo': logo,
+      'phone': phone,
+      'sellerId': sellerId,
+      'adress': adress.toMap(),
+      'openingHours': openingHours,
+      'averageRating': averageRating,
+      'numberOfReviews': numberOfReviews,
+    };
+  }
+}
+
+class Address {
+  final String adresse;
+  final String codePostal;
+  final String pays;
+  final String ville;
+
+  Address({
+    required this.adresse,
+    required this.codePostal,
+    required this.pays,
+    required this.ville,
+  });
+
+  factory Address.fromMap(Map<String, dynamic> map) {
+    return Address(
+      adresse: map['adresse'] ?? '',
+      codePostal: map['code_postal'] ?? '',
+      pays: map['pays'] ?? '',
+      ville: map['ville'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'adresse': adresse,
+      'code_postal': codePostal,
+      'pays': pays,
+      'ville': ville,
     };
   }
 }

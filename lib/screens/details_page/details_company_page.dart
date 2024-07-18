@@ -1,126 +1,388 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:happy/classes/company.dart';
-import 'package:happy/classes/product.dart';
+import 'package:happy/classes/contest.dart';
+import 'package:happy/classes/dealexpress.dart';
+import 'package:happy/classes/event.dart';
+import 'package:happy/classes/happydeal.dart';
+import 'package:happy/classes/joboffer.dart';
+import 'package:happy/classes/post.dart';
+import 'package:happy/classes/referral.dart';
+import 'package:happy/providers/company_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
-import 'package:happy/services/product_service.dart';
-import 'package:happy/widgets/cards/product_card.dart';
+import 'package:happy/screens/shop/product_grid.dart';
+import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:happy/widgets/opening_hours_widget.dart';
+import 'package:happy/widgets/postwidget.dart';
+import 'package:happy/widgets/review_list.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../../providers/users.dart';
+class DetailsEntreprise extends StatefulWidget {
+  final String entrepriseId;
 
-class DetailsCompany extends StatefulWidget {
-  final String companyId;
-
-  const DetailsCompany({required this.companyId, super.key});
+  const DetailsEntreprise({super.key, required this.entrepriseId});
 
   @override
-  _DetailsCompanyState createState() => _DetailsCompanyState();
+  _DetailsEntrepriseState createState() => _DetailsEntrepriseState();
 }
 
-class _DetailsCompanyState extends State<DetailsCompany>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  late Future<Map<String, dynamic>> _companyDataFuture;
+class _DetailsEntrepriseState extends State<DetailsEntreprise> {
+  late Future<Company> _entrepriseFuture;
+  late PagingController<DocumentSnapshot?, Map<String, dynamic>>
+      _pagingController;
+  String _currentTab = 'Toutes les publications';
+  static const _pageSize = 10;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
-    _companyDataFuture = _getCompanyDataAndProducts();
+    _entrepriseFuture = _fetchEntrepriseData();
+    _pagingController = PagingController(firstPageKey: null);
+    _pagingController.addPageRequestListener(_fetchPage);
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _pagingController.dispose();
     super.dispose();
   }
 
-  Future<Map<String, dynamic>> _getCompanyDataAndProducts() async {
-    final companyDoc = await FirebaseFirestore.instance
+  Future<Company> _fetchEntrepriseData() async {
+    final doc = await FirebaseFirestore.instance
         .collection('companys')
-        .doc(widget.companyId)
+        .doc(widget.entrepriseId)
         .get();
-    final company = Company.fromDocument(companyDoc);
+    return Company.fromDocument(doc);
+  }
 
-    final productsSnapshot = await FirebaseFirestore.instance
-        .collection('products')
-        .where('sellerId', isEqualTo: company.sellerId)
+  Post? _createPostFromDocument(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final String type = data['type'] ?? 'unknown';
+
+    try {
+      switch (type) {
+        case 'job_offer':
+          return JobOffer.fromDocument(doc);
+        case 'contest':
+          return Contest.fromDocument(doc);
+        case 'happy_deal':
+          return HappyDeal.fromDocument(doc);
+        case 'express_deal':
+          return ExpressDeal.fromDocument(doc);
+        case 'referral':
+          return Referral.fromDocument(doc);
+        case 'event':
+          return Event.fromDocument(doc);
+        default:
+          print("Type de post non supporté: $type pour le document ${doc.id}");
+          return null;
+      }
+    } catch (e) {
+      print("Erreur lors de la création du post de type $type: $e");
+      return null;
+    }
+  }
+
+  Future<void> _fetchPage(DocumentSnapshot? pageKey) async {
+    try {
+      print(_getPostType(_currentTab));
+      Query query = FirebaseFirestore.instance
+          .collection('posts')
+          .where('companyId', isEqualTo: widget.entrepriseId)
+          .orderBy('timestamp', descending: true)
+          .limit(_pageSize);
+
+      if (_currentTab != 'Toutes les publications' &&
+          _currentTab != 'Boutique') {
+        query = query.where('type', isEqualTo: _getPostType(_currentTab));
+      }
+
+      if (pageKey != null) {
+        query = query.startAfterDocument(pageKey);
+      }
+
+      final querySnapshot = await query.get();
+      final List<Map<String, dynamic>> newPosts = [];
+
+      for (var doc in querySnapshot.docs) {
+        final post = _createPostFromDocument(doc);
+        if (post != null) {
+          final companyData = await _getCompanyData(post.companyId);
+          newPosts.add({
+            'post': post,
+            'company': companyData,
+          });
+        }
+      }
+
+      final isLastPage = newPosts.length < _pageSize;
+      if (isLastPage) {
+        _pagingController.appendLastPage(newPosts);
+      } else {
+        final lastDocument = querySnapshot.docs.last;
+        _pagingController.appendPage(newPosts, lastDocument);
+      }
+    } catch (error) {
+      _pagingController.error = error;
+    }
+  }
+
+  String _getPostType(String tab) {
+    switch (tab) {
+      case 'Happy Deals':
+        return 'happy_deal';
+      case 'Évenement':
+        return 'event';
+      case 'Deal Express':
+        return 'express_deal';
+      case "Offres d'emploi":
+        return 'job_offer';
+      case 'Happy Deal':
+        return 'happy_deal';
+      case 'Parrainage':
+        return 'referral';
+      case 'Jeux concours':
+        return 'contest';
+      default:
+        return '';
+    }
+  }
+
+  Future<Map<String, dynamic>> _getCompanyData(String companyId) async {
+    DocumentSnapshot companyDoc = await FirebaseFirestore.instance
+        .collection('companys')
+        .doc(companyId)
         .get();
-
-    final products = productsSnapshot.docs
-        .map((doc) => Product.fromMap(doc.data(), doc.id))
-        .toList();
-
-    return {
-      'company': company,
-      'products': products,
-    };
+    return companyDoc.data() as Map<String, dynamic>;
   }
 
   @override
   Widget build(BuildContext context) {
-    final userModel = Provider.of<UserModel>(context);
-    final bool isLiked = userModel.likedPosts.contains(widget.companyId);
-    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+    return ChangeNotifierProvider(
+      create: (_) => CompanyLikeService(FirebaseAuth.instance.currentUser!.uid),
+      child: Scaffold(
+        body: FutureBuilder<Company>(
+          future: _entrepriseFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Center(
+                  child: Text(
+                      'Erreur: ${snapshot.error ?? "Entreprise non trouvée"}'));
+            }
 
-    return Scaffold(
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _companyDataFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Erreur: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: Text('Données introuvables'));
-          }
-
-          final company = snapshot.data!['company'] as Company;
-          final products = snapshot.data!['products'] as List<Product>;
-
-          return NestedScrollView(
-            headerSliverBuilder:
-                (BuildContext context, bool innerBoxIsScrolled) {
-              return <Widget>[
-                SliverAppBar(
-                  floating: true,
-                  pinned: true,
-                  expandedHeight: 620.0,
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: _buildCompanyHeader(
-                        company, isLiked, userModel, currentUserId),
-                  ),
-                  bottom: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    tabs: const [
-                      Tab(text: 'Toutes les publications'),
-                      Tab(text: 'Deals'),
-                      Tab(text: 'Actions spéciales'),
-                      Tab(text: 'A propos'),
-                      Tab(text: 'Avis'),
-                    ],
-                  ),
-                ),
-              ];
-            },
-            body: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPublicationsTab(),
-                _buildDealsTab(),
-                _buildProductsTab(products, company.sellerId),
-                _buildAboutTab(company),
-                _buildReviewsTab(company),
+            final entreprise = snapshot.data!;
+            return CustomScrollView(
+              slivers: [
+                _buildSliverAppBar(entreprise),
+                SliverToBoxAdapter(child: _buildCompanyInfo(entreprise)),
+                SliverToBoxAdapter(child: _buildActionButtons(entreprise)),
+                SliverToBoxAdapter(child: _buildTabBar()),
+                SliverFillRemaining(child: _buildTabContent(entreprise)),
               ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ... (autres méthodes inchangées)
+
+  Widget _buildSliverAppBar(Company entreprise) {
+    return SliverAppBar(
+      expandedHeight: 200.0,
+      floating: false,
+      pinned: true,
+      flexibleSpace: FlexibleSpaceBar(
+        title: Text(entreprise.name),
+        background: CachedNetworkImage(
+          imageUrl: entreprise.cover,
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          'Toutes les publications',
+          'Boutique',
+          'Happy Deals',
+          'Évenement',
+          'Jeux concours',
+          'Deal Express',
+          "Offres d'emploi",
+          'Parrainage',
+          'Avis',
+          'À Propos'
+        ].map((tab) => _buildTab(tab)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildTab(String tabName) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: _currentTab == tabName
+                ? [const Color(0xFF3476B2), const Color(0xFF0B7FE9)]
+                : [Colors.transparent, Colors.transparent],
+            stops: const [0.0, 1.0],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _currentTab = tabName;
+              _pagingController.refresh();
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            shadowColor: Colors.transparent,
+            backgroundColor: Colors.transparent,
+          ),
+          child: Text(
+            tabName,
+            style: TextStyle(
+                color: _currentTab == tabName ? Colors.white : Colors.black),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompanyInfo(Company entreprise) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundImage: CachedNetworkImageProvider(entreprise.logo),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      capitalizeFirstLetter(entreprise.name),
+                      style: Theme.of(context).textTheme.headlineLarge,
+                    ),
+                    Text(capitalizeFirstLetter(entreprise.categorie)),
+                    Text('${entreprise.like} J\'aime'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(entreprise.description),
+          const SizedBox(height: 8),
+          _buildInfoTile(Icons.language, 'google.fr'),
+          _buildInfoTile(Icons.location_on,
+              "${entreprise.adress.adresse} ${entreprise.adress.codePostal} ${entreprise.adress.ville}"),
+          _buildInfoTile(Icons.phone, entreprise.phone),
+          _buildInfoTile(Icons.email, entreprise.email),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoTile(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: InkWell(
+        onTap: () async {
+          String url;
+          if (icon == Icons.phone) {
+            url = 'tel:$text';
+          } else if (icon == Icons.email) {
+            url = 'mailto:$text';
+          } else if (icon == Icons.language) {
+            url = text.startsWith('http') ? text : 'https://$text';
+          } else {
+            url = 'https://www.google.com/maps/search/?api=1&query=$text';
+          }
+          if (await canLaunch(url)) {
+            await launch(url);
+          }
+        },
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.grey),
+            const SizedBox(width: 8),
+            Text(text,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent(Company entreprise) {
+    switch (_currentTab) {
+      case 'Avis':
+        return ReviewList(companyId: widget.entrepriseId);
+      case 'À Propos':
+        return _buildAboutTab(entreprise);
+      case 'Boutique':
+        return ProductGrid(sellerId: entreprise.sellerId);
+      default:
+        return _buildPostList();
+    }
+  }
+
+  Widget _buildPostList() {
+    return PagedListView<DocumentSnapshot?, Map<String, dynamic>>(
+      pagingController: _pagingController,
+      physics: const NeverScrollableScrollPhysics(),
+      builderDelegate: PagedChildBuilderDelegate<Map<String, dynamic>>(
+        noItemsFoundIndicatorBuilder: (_) => const Center(
+          child: Text('Aucun post trouvé', textAlign: TextAlign.center),
+        ),
+        itemBuilder: (context, postData, index) {
+          print('Building post at index $index');
+          final post = postData['post'] as Post;
+          final companyData = postData['company'] as Map<String, dynamic>;
+
+          print('Post ID: ${post.id}');
+          print('Post Type: ${post.type}');
+          print('Company: ${companyData['name']}');
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15.0),
+            child: PostWidget(
+              key: ValueKey(post.id),
+              post: post,
+              companyCategorie: companyData['categorie'] ?? '',
+              companyName: companyData['name'] ?? '',
+              companyLogo: companyData['logo'] ?? '',
+              currentUserId: FirebaseAuth.instance.currentUser!.uid,
+              onView: () {
+                // Logique d'affichage
+              },
             ),
           );
         },
@@ -128,102 +390,18 @@ class _DetailsCompanyState extends State<DetailsCompany>
     );
   }
 
-  Widget _buildCompanyHeader(Company company, bool isLiked, UserModel userModel,
-      String currentUserId) {
-    return Column(
+  Widget _buildAboutTab(Company entreprise) {
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
       children: [
-        _buildHeaderImage(company),
-        Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(company.name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 28)),
-              Text(company.categorie, style: const TextStyle(fontSize: 16)),
-              const Gap(10),
-              Text("${company.like} J'aime"),
-              Text(company.description,
-                  style: const TextStyle(fontWeight: FontWeight.w300)),
-              const Gap(10),
-              _buildCompanyInfo(company),
-              const Gap(10),
-              _buildActionButtons(company, isLiked, userModel, currentUserId),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeaderImage(Company company) {
-    return SizedBox(
-      height: 250,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Image.network(
-            'https://example.com/header_image.jpg',
-            height: 250,
-            width: double.infinity,
-            fit: BoxFit.cover,
-          ),
-          Positioned(
-            bottom: -30,
-            left: 20,
-            child: CircleAvatar(
-              radius: 56,
-              backgroundColor: Colors.blue,
-              child: CircleAvatar(
-                radius: 52,
-                backgroundImage: NetworkImage(company.logo),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompanyInfo(Company company) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildInfoRow(Icons.open_in_browser_outlined, company.website),
-        _buildInfoRow(Icons.location_on_outlined, company.address),
-        _buildInfoRow(Icons.phone, company.phone),
-        _buildInfoRow(Icons.email_outlined, company.email),
-      ],
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon),
-        const Gap(5),
-        Text(text),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons(Company company, bool isLiked, UserModel userModel,
-      String currentUserId) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey[300], foregroundColor: Colors.black),
-          onPressed: () {},
-          child:
-              const Text("Suivre l'entreprise", style: TextStyle(fontSize: 14)),
-        ),
-        ElevatedButton(
-          onPressed: () => _startConversation(context, company, currentUserId),
-          child: const Text('Envoyer un message'),
-        ),
+        Text('Description', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        Text(entreprise.description),
+        const SizedBox(height: 16),
+        Text('Horaires d\'ouverture',
+            style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        OpeningHoursWidget(openingHours: entreprise.openingHours)
       ],
     );
   }
@@ -245,100 +423,39 @@ class _DetailsCompanyState extends State<DetailsCompany>
     );
   }
 
-  Widget _buildPublicationsTab() {
-    return const Center(child: Text('Toutes les publications'));
-  }
-
-  Widget _buildDealsTab() {
-    return const Center(child: Text('Deals'));
-  }
-
-  Widget _buildProductsTab(List<Product> products, String sellerId) {
-    print(sellerId);
-    final ProductService productService = ProductService();
-    return FutureBuilder<List<Product>>(
-      future: productService.getProductsForSeller(sellerId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Erreur: ${snapshot.error}'));
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          print(snapshot.data);
-          return const Center(child: Text('Aucun produit trouvé'));
-        }
-
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.75,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
+  Widget _buildActionButtons(Company entreprise) {
+    return Consumer<CompanyLikeService>(
+      builder: (context, companyLikeService, child) {
+        final isLiked = companyLikeService.isCompanyLiked(entreprise.id);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final updatedCompany =
+                        await companyLikeService.handleLike(entreprise);
+                    setState(() {
+                      _entrepriseFuture = Future.value(updatedCompany);
+                    });
+                  },
+                  child: Text(isLiked ? 'Aimé' : 'Aimer l\'entreprise'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _startConversation(context, entreprise,
+                      FirebaseAuth.instance.currentUser!.uid),
+                  child: const Text('Envoyer un message'),
+                ),
+              ),
+            ],
           ),
-          itemCount: snapshot.data!.length,
-          itemBuilder: (context, index) {
-            Product product = snapshot.data![index];
-            return ProductCard(product: product);
-          },
         );
       },
     );
   }
-
-  Widget _buildAboutTab(Company company) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Horaires d\'ouverture',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Gap(10),
-            OpeningHoursWidget(openingHours: company.openingHours),
-            const Gap(20),
-            const Text('À propos de nous',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Gap(10),
-            Text(company.description),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReviewsTab(Company company) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            Text(
-              company.rating.toString(),
-              style: const TextStyle(fontSize: 50, fontWeight: FontWeight.bold),
-            ),
-            RatingBar.readOnly(
-              filledIcon: Icons.star,
-              emptyIcon: Icons.star_border,
-              initialRating: company.rating,
-              maxRating: 5,
-              size: 20,
-              filledColor: Colors.yellow,
-            ),
-            const Text('basé sur X avis'),
-            ElevatedButton(
-              onPressed: () {
-                // Ajoutez ici la logique pour publier un avis
-              },
-              child: const Text('Publier un avis'),
-            ),
-            // Ajoutez ici une liste des avis existants
-          ],
-        ),
-      ),
-    );
-  }
+  // ... (autres méthodes inchangées)
 }

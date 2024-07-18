@@ -159,8 +159,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DetailsCompany(
-                                companyId: widget.happydeal.companyId),
+                            builder: (context) => DetailsEntreprise(
+                                entrepriseId: widget.happydeal.companyId),
                           ),
                         );
                       },

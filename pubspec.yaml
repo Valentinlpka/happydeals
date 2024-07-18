@@ -63,6 +63,7 @@ dependencies:
   http: ^1.2.1
   cloud_functions: ^5.0.3
   image_cropper: ^7.1.0
+  cached_network_image: ^3.3.1
 
 dev_dependencies:
   flutter_test:
