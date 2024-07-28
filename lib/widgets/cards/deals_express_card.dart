@@ -79,8 +79,7 @@ class DealsExpressCard extends StatelessWidget {
                           BlendMode.darken),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
-                      image: const NetworkImage(
-                          "https://cap.img.pmdstatic.net/fit/https.3A.2F.2Fi.2Epmdstatic.2Enet.2Fcap.2F2023.2F02.2F03.2F2591eacf-2c18-4a13-9091-bf4683c6fd56.2Ejpeg/1200x630/quality/80/le-stade-de-france-pourrait-etre-vendu-par-letat-1462050.jpg"),
+                      image: NetworkImage(companyLogo),
                     ),
                   ),
                   height: 123,

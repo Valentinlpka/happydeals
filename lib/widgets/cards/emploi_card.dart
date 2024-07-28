@@ -32,7 +32,11 @@ class JobOfferCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => DetailsEmploiPage(post: post),
+                  builder: (context) => DetailsEmploiPage(
+                    post: post,
+                    companyName: companyName,
+                    companyLogo: companyLogo,
+                  ),
                 ),
               );
             },

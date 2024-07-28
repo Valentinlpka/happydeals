@@ -1,389 +1,297 @@
-import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
+import 'package:happy/providers/users.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
-import 'package:happy/widgets/mots_cles_emploi.dart';
-import 'package:palette_generator/palette_generator.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class DetailsEmploiPage extends StatefulWidget {
   final JobOffer post;
+  final String companyName;
+  final String companyLogo;
 
-  const DetailsEmploiPage({required this.post, super.key});
+  const DetailsEmploiPage({
+    super.key,
+    required this.post,
+    required this.companyName,
+    required this.companyLogo,
+  });
 
   @override
-  // ignore: library_private_types_in_public_api
   _DetailsEmploiPageState createState() => _DetailsEmploiPageState();
 }
 
-class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
-  Color? appBarColor = Colors.grey[400];
-  late PaletteGenerator paletteGenerator;
+class _DetailsEmploiPageState extends State<DetailsEmploiPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _updatePalette();
+    _tabController = TabController(length: 2, vsync: this);
   }
 
-  Future<void> _updatePalette() async {
-    const imageProvider = NetworkImage(
-        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVHWZXfh6JF2m-fOZpEtxUEmD_gEsdUGkGYMYTUn3aeA&s');
-    paletteGenerator = await PaletteGenerator.fromImageProvider(imageProvider);
-    setState(() {
-      appBarColor = paletteGenerator.dominantColor?.color ?? Colors.grey[400];
-    });
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  String formatDate(DateTime date) {
+    return DateFormat('dd/MM/yyyy').format(date);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLiked =
+        context.watch<UserModel>().likedPosts.contains(widget.post.id);
+
     return Scaffold(
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-            border: Border.all(
-          width: 1,
-          color: const Color.fromARGB(143, 158, 158, 158),
-        )),
-        padding: const EdgeInsets.only(
-          bottom: 30,
-          top: 15,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextButton(
-              onPressed: () {},
+        bottomNavigationBar: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
               style: ButtonStyle(
-                padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(
-                  horizontal: 100,
-                  vertical: 10,
-                )),
-                shape: MaterialStatePropertyAll(RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5))),
-                backgroundColor: const MaterialStatePropertyAll(Colors.blue),
+                backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
               ),
-              child: const Text('Postuler',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  )),
+              onPressed: () {
+                // Implement apply functionality
+              },
+              child: const Text('Postuler'),
             ),
-          ],
+          ),
         ),
-      ),
-      body: NestedScrollView(
-        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
-          return <Widget>[
-            SliverAppBar(
-              floating: true,
-              elevation: 11,
-              centerTitle: true,
-              title: Container(
-                height: 30,
-                width: 150,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: const Color.fromARGB(115, 0, 0, 0),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Icon(
-                        Icons.calendar_month_outlined,
+        body: CustomScrollView(slivers: [
+          SliverAppBar(
+            pinned: true,
+            floating: true,
+            elevation: 11,
+            centerTitle: true,
+            title: Container(
+              width: 150,
+              height: 30,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: const Color.fromARGB(115, 0, 0, 0),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(
+                      Icons.work_outline,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    Text(
+                      "Offre d'emploi",
+                      style: TextStyle(
                         color: Colors.white,
-                        size: 16,
+                        fontSize: 14,
                       ),
-                      Text(
-                        "Offre d'emploi",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
-                      )
-                    ],
-                  ),
+                    )
+                  ],
                 ),
               ),
-              backgroundColor: appBarColor,
-              shadowColor: Colors.grey,
-              leading: IconButton(
-                onPressed: () {
-                  Navigator.pop(context);
+            ),
+            backgroundColor: Colors.blue,
+            shadowColor: Colors.grey,
+            leading: IconButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              icon: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(
+                  isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: isLiked ? Colors.red : Colors.white,
+                ),
+                onPressed: () async {
+                  await Provider.of<UserModel>(context, listen: false)
+                      .handleLike(widget.post);
+                  setState(() {});
                 },
+              ),
+              IconButton(
+                onPressed: () {},
                 icon: const Icon(
-                  Icons.arrow_back_ios_new,
+                  Icons.share,
                   color: Colors.white,
                 ),
               ),
-              actions: [
-                IconButton(
-                  onPressed: () async {},
-                  icon: const Icon(
-                    Icons.favorite,
-                    color: Colors.red,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    Icons.share,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-              pinned: true,
-              expandedHeight: 200.0,
-              toolbarHeight: 40,
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  decoration: const BoxDecoration(color: Colors.white),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 200,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          alignment:
-                              Alignment.center, // Centrer le contenu du Stack
-                          children: [
-                            Image.network(
-                              height: 200,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              color: Colors.black.withOpacity(0.30),
-                              colorBlendMode: BlendMode.darken,
-                              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVHWZXfh6JF2m-fOZpEtxUEmD_gEsdUGkGYMYTUn3aeA&s',
-                            ),
-                            Positioned(
-                              bottom: -50, // Ajuster la position verticale
-                              child: Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: const Color.fromARGB(
-                                        255, 213, 213, 213),
-                                  ),
-                                  color: Colors.white,
-                                  borderRadius: const BorderRadius.all(
-                                    Radius.circular(10),
-                                  ),
-                                ),
-                                width: MediaQuery.of(context).size.width *
-                                    0.9, // Ajuster la largeur en fonction de la taille de l'écran
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment
-                                      .center, // Centrer le contenu verticalement
-                                  children: [
-                                    Text(
-                                      capitalizeFirstLetter(
-                                          widget.post.jobTitle),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 20,
-                                      ),
-                                      textAlign:
-                                          TextAlign.center, // Centrer le texte
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment
-                                          .center, // Centrer le contenu horizontalement
-                                      children: [
-                                        const Icon(
-                                          Icons.location_on_outlined,
-                                          size: 22,
-                                          color:
-                                              Color.fromARGB(255, 95, 95, 95),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(widget.post.city)
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+            ],
+            expandedHeight: 200,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Image.network(
+                widget.companyLogo,
+                fit: BoxFit.cover,
+                color: Colors.black.withOpacity(0.30),
+                colorBlendMode: BlendMode.darken,
               ),
             ),
-          ];
-        },
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
+          ),
+          SliverList(
+            delegate: SliverChildListDelegate([
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      capitalizeFirstLetter(widget.post.jobTitle),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(Icons.business, color: Colors.blue[800], size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          capitalizeFirstLetter(widget.companyName),
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(Icons.location_on,
+                            color: Colors.blue[800], size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          widget.post.city,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today,
+                            color: Colors.blue[800], size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          "Publié le ${formatDate(widget.post.timestamp)}",
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Divider(color: Colors.grey[300]),
+            ]),
+          ),
+          SliverFillRemaining(
+              child: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Mots Clés',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                Wrap(
-                  runSpacing: 5,
-                  spacing: 5,
-                  children: widget.post.keywords
-                      .map((keyword) => MotsClesEmploi(keyword))
-                      .toList(),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                const Text(
                   'Entreprise',
                   style: TextStyle(
-                    fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
+                const SizedBox(height: 10),
                 InkWell(
-                  onTap: () {},
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.5),
-                          spreadRadius: 0,
-                          blurRadius: 4,
-                          offset:
-                              const Offset(0, 1), // changes position of shadow
-                        ),
-                      ],
-                      color: Colors.white,
-                      borderRadius: const BorderRadius.all(
-                        Radius.circular(10),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DetailsEntreprise(
+                            entrepriseId: widget.post.companyId),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        const CircleAvatar(
-                          radius: 22,
-                          backgroundColor: Colors.blue,
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundImage: NetworkImage(
-                                'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
-                          ),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 27,
+                        backgroundColor: Colors.blue[700],
+                        child: CircleAvatar(
+                          radius: 25,
+                          backgroundImage: NetworkImage(widget.companyLogo),
                         ),
-                        const Column(
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Be Happy',
-                              style: TextStyle(
-                                fontSize: 14,
+                              capitalizeFirstLetter(widget.companyName),
+                              style: const TextStyle(
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Row(
-                              children: [
-                                RatingBar.readOnly(
-                                  filledIcon: Icons.star,
-                                  size: 16,
-                                  filledColor: Colors.blue,
-                                  emptyIcon: Icons.star_border,
-                                  initialRating: 2,
-                                  maxRating: 5,
-                                ),
-                                Text(
-                                  '(45 avis)',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                                // Text(DateFormat('EEEE', 'FR_fr').format(DateTime.now()))
-                              ],
-                            ),
+                            Text(widget.post.jobTitle),
                           ],
                         ),
-                        InkWell(
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              shape: BoxShape.rectangle,
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child:
-                                const Icon(Icons.message, color: Colors.white),
-                          ),
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(
-                  height: 20,
-                  width: 20,
-                ),
+                const SizedBox(height: 20),
                 const Text(
                   'Description du poste',
                   style: TextStyle(
-                    fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                Text(
-                  widget.post.description,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
+                const SizedBox(height: 10),
+                Text(widget.post.description),
+                const SizedBox(height: 20),
                 const Text(
                   'Profil recherché',
                   style: TextStyle(
-                    fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                Text(
-                  widget.post.profile,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.normal,
+                const SizedBox(height: 10),
+                Text(widget.post.profile),
+                const SizedBox(height: 20),
+                const Text(
+                  'Compétences requises',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.post.keywords
+                      .map((keyword) => Chip(
+                            label: Text(keyword),
+                            backgroundColor: Colors.blue.withOpacity(0.1),
+                          ))
+                      .toList(),
                 ),
+                const SizedBox(height: 10),
                 const Text(
                   'Pourquoi nous rejoindre ?',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -393,19 +301,15 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                 ),
                 Text(
                   widget.post.whyJoin,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.normal,
-                  ),
                 ),
                 const SizedBox(
-                  height: 10,
+                  height: 20,
                   width: 10,
                 ),
                 const Text(
                   'Vos avantages',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -415,16 +319,14 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                 ),
                 Text(
                   widget.post.benefits,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.normal,
-                  ),
+                ),
+                const SizedBox(
+                  height: 10,
+                  width: 10,
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
+          ))
+        ]));
   }
 }

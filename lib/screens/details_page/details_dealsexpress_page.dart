@@ -9,7 +9,7 @@ import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
-import 'package:happy/widgets/date_formatter.dart';
+import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:provider/provider.dart';
 
@@ -157,6 +157,27 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
     );
   }
 
+  String formatDateTime(DateTime dateTime) {
+    final DateTime now = DateTime.now();
+    final DateFormat timeFormat = DateFormat('HH:mm');
+    final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+
+    if (dateTime.year == now.year &&
+        dateTime.month == now.month &&
+        dateTime.day == now.day) {
+      // Aujourd'hui
+      return 'aujourd\'hui à ${timeFormat.format(dateTime)}';
+    } else if (dateTime.year == now.year &&
+        dateTime.month == now.month &&
+        dateTime.day == now.day + 1) {
+      // Demain
+      return 'demain à ${timeFormat.format(dateTime)}';
+    } else {
+      // Autre jour
+      return 'le ${dateFormat.format(dateTime)} à ${timeFormat.format(dateTime)}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLiked =
@@ -286,81 +307,6 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DetailsEntreprise(
-                                entrepriseId: widget.post.companyId),
-                          ),
-                        );
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 27,
-                            backgroundColor: Colors.blue[700],
-                            child: CircleAvatar(
-                              radius: 25,
-                              backgroundImage: NetworkImage(widget.companyLogo),
-                            ),
-                          ),
-                          const SizedBox(
-                            height: 10,
-                            width: 10,
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                capitalizeFirstLetter(widget.companyName),
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(3),
-                                    color: Colors.blue[700],
-                                    child: const Icon(
-                                      Icons.star,
-                                      size: 14,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(
-                                    height: 10,
-                                    width: 10,
-                                  ),
-                                  const Text(
-                                    '4,4',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(
-                                    height: 5,
-                                    width: 5,
-                                  ),
-                                  // Your rating widget here
-                                  const Text(
-                                    '(45 avis)',
-                                    style: TextStyle(fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 20,
-                    ),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -387,25 +333,21 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          color: Colors.blue[700],
-                          child: const Icon(
-                            Icons.star,
-                            color: Colors.white,
-                            size: 20,
-                          ),
+                        Icon(
+                          Icons.access_time,
+                          color: Colors.blue[800],
+                          size: 25,
                         ),
                         const SizedBox(
                           width: 10,
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             softWrap: false,
                             overflow: TextOverflow.ellipsis,
                             maxLines: 2,
-                            "à récupérer aujourd'hui entre 12h00 - 18h00 ",
-                            style: TextStyle(
+                            "à récuperer ${formatDateTime(widget.post.pickupTime)}",
+                            style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -418,30 +360,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.access_time,
-                          color: Colors.blue[800],
-                          size: 25,
-                        ),
-                        const SizedBox(
-                          width: 10,
-                        ),
-                        Text(
-                          formatDateTime(widget.post.pickupTime),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(
-                      height: 10,
-                    ),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.access_time,
+                          Icons.euro_outlined,
                           color: Colors.blue[800],
                           size: 25,
                         ),
@@ -520,6 +439,94 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        'Entreprise',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 5,
+                        width: 5,
+                      ),
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DetailsEntreprise(
+                                  entrepriseId: widget.post.companyId),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              radius: 27,
+                              backgroundColor: Colors.blue[700],
+                              child: CircleAvatar(
+                                radius: 25,
+                                backgroundImage:
+                                    NetworkImage(widget.companyLogo),
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 10,
+                              width: 10,
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  capitalizeFirstLetter(widget.companyName),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(3),
+                                      color: Colors.blue[700],
+                                      child: const Icon(
+                                        Icons.star,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: 10,
+                                      width: 10,
+                                    ),
+                                    const Text(
+                                      '4,4',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: 5,
+                                      width: 5,
+                                    ),
+                                    // Your rating widget here
+                                    const Text(
+                                      '(45 avis)',
+                                      style: TextStyle(fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                      ),
                       const Text(
                         'Que contient ce panier ?',
                         style: TextStyle(

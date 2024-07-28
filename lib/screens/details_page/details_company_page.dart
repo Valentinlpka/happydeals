@@ -201,10 +201,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
       expandedHeight: 200.0,
       floating: false,
       pinned: true,
+      primary: true,
       flexibleSpace: FlexibleSpaceBar(
-        title: Text(entreprise.name),
         background: CachedNetworkImage(
           imageUrl: entreprise.cover,
+          colorBlendMode: BlendMode.darken,
+          color: Colors.black.withOpacity(0.20),
           fit: BoxFit.cover,
         ),
       ),
@@ -233,7 +235,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
 
   Widget _buildTab(String tabName) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 10.0),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
@@ -277,8 +279,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
           Row(
             children: [
               CircleAvatar(
-                radius: 40,
-                backgroundImage: CachedNetworkImageProvider(entreprise.logo),
+                radius: 42,
+                backgroundColor: Colors.blue,
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundImage: CachedNetworkImageProvider(entreprise.logo),
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -287,7 +293,10 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
                   children: [
                     Text(
                       capitalizeFirstLetter(entreprise.name),
-                      style: Theme.of(context).textTheme.headlineLarge,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 28,
+                      ),
                     ),
                     Text(capitalizeFirstLetter(entreprise.categorie)),
                     Text('${entreprise.like} J\'aime'),
@@ -428,27 +437,57 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
       builder: (context, companyLikeService, child) {
         final isLiked = companyLikeService.isCompanyLiked(entreprise.id);
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
           child: Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final updatedCompany =
-                        await companyLikeService.handleLike(entreprise);
-                    setState(() {
-                      _entrepriseFuture = Future.value(updatedCompany);
-                    });
-                  },
-                  child: Text(isLiked ? 'Aimé' : 'Aimer l\'entreprise'),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+                      stops: [0.0, 1.0],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      shadowColor: Colors.transparent,
+                      backgroundColor: Colors.transparent,
+                    ),
+                    onPressed: () async {
+                      final updatedCompany =
+                          await companyLikeService.handleLike(entreprise);
+                      setState(() {
+                        _entrepriseFuture = Future.value(updatedCompany);
+                      });
+                    },
+                    child: Text(isLiked ? 'Aimé' : 'Aimer l\'entreprise'),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () => _startConversation(context, entreprise,
-                      FirebaseAuth.instance.currentUser!.uid),
-                  child: const Text('Envoyer un message'),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+                      stops: [0.0, 1.0],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () => _startConversation(context, entreprise,
+                        FirebaseAuth.instance.currentUser!.uid),
+                    style: ElevatedButton.styleFrom(
+                      shadowColor: Colors.transparent,
+                      backgroundColor: Colors.transparent,
+                    ),
+                    child: const Text('Envoyer un message'),
+                  ),
                 ),
               ),
             ],

@@ -194,7 +194,7 @@ class CompanyCard extends StatelessWidget {
             ],
           ),
           Text(
-            company.categorie,
+            capitalizeFirstLetter(company.categorie),
             style: const TextStyle(
                 fontSize: 14, color: Color.fromARGB(255, 85, 85, 85)),
           ),
