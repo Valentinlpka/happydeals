@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/conversation_list.dart';
 import 'package:happy/screens/home_page.dart';
-import 'package:happy/screens/reservation_list_deal_express.dart';
+import 'package:happy/screens/liked_post_page.dart';
 import 'package:happy/screens/search_page.dart';
 import 'package:happy/screens/settings_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
@@ -38,7 +38,7 @@ class _MainContainerState extends State<MainContainer> {
       case 1:
         return const SearchPage();
       case 2:
-        return const ReservationListDealExpress();
+        return const LikedPostsPage();
       case 3:
         return ConversationsListScreen(userId: currentUserId);
       case 4:
@@ -57,7 +57,7 @@ class _MainContainerState extends State<MainContainer> {
       bottomNavigationBar: Stack(
         children: [
           Container(
-            height: 70,
+            height: 90,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,

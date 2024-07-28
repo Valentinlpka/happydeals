@@ -286,16 +286,19 @@ class _HomeState extends State<Home> {
         itemBuilder: (context, postData, index) {
           final post = postData['post'] as Post;
           final companyData = postData['company'] as Map<String, dynamic>;
-          return PostWidget(
-            key: ValueKey(post.id),
-            post: post,
-            companyCategorie: companyData['categorie'] ?? '',
-            companyName: companyData['name'] ?? '',
-            companyLogo: companyData['logo'] ?? '',
-            currentUserId: currentUserId,
-            onView: () {
-              // Logique d'affichage
-            },
+          return Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: PostWidget(
+              key: ValueKey(post.id),
+              post: post,
+              companyCategorie: companyData['categorie'] ?? '',
+              companyName: companyData['name'] ?? '',
+              companyLogo: companyData['logo'] ?? '',
+              currentUserId: currentUserId,
+              onView: () {
+                // Logique d'affichage
+              },
+            ),
           );
         },
       ),
