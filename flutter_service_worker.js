@@ -3,7 +3,7 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"assets/NOTICES": "b9dc5fdfb48b05893a44d5f4bdf63b35",
+const RESOURCES = {"assets/NOTICES": "58ac5d2aecd8ece3dab76efd35be328a",
 "assets/AssetManifest.bin.json": "5cb62f1d6136ac28a3f9da11d0b6e1ae",
 "assets/FontManifest.json": "fd92e909e6df1ad8e759ca911a074cfd",
 "assets/assets/images/mes_reservations.png": "3a99fd53d5f16e2085ffbebd97ab3e5a",
@@ -34,8 +34,8 @@ const RESOURCES = {"assets/NOTICES": "b9dc5fdfb48b05893a44d5f4bdf63b35",
 "canvaskit/chromium/canvaskit.wasm": "399e2344480862e2dfa26f12fa5891d7",
 "canvaskit/chromium/canvaskit.js": "901bb9e28fac643b7da75ecfd3339f3f",
 "canvaskit/chromium/canvaskit.js.symbols": "ee7e331f7f5bbf5ec937737542112372",
-"flutter_bootstrap.js": "6e609454c3c5d4cfa39ba898a6070a08",
-"main.dart.js": "c7376eab60b51206fd0f44d634a21683",
+"flutter_bootstrap.js": "bb2c76bc125a7468d1bca7dae4d387a1",
+"main.dart.js": "27ad1e84c01ae8f660468b082748620c",
 "icons/Icon-maskable-512.png": "301a7604d45b3e739efc881eb04896ea",
 "icons/Icon-maskable-192.png": "c457ef57daa1d16f64b27b786ec2ea3c",
 "icons/Icon-512.png": "96e752610906ba2a93c65f8abe1645f1",
