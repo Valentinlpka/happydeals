@@ -110148,7 +110148,7 @@ s=q}while(true)switch(s){case 0:e="https://cors-anywhere.herokuapp.com/https://m
 q=3
 g=t.N
 s=6
-return A.k(A.b42(A.fc(e,0,null),A.a8(["Origin","http://localhost"],g,g)),$async$ww)
+return A.k(A.b42(A.fc(e,0,null),A.a8(["Origin","https://valentinlpka.github.io/happydeals/#/home"],g,g)),$async$ww)
 case 6:n=c
 s=n.b===200?7:8
 break
