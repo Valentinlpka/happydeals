@@ -33,6 +33,7 @@ class ReviewList extends StatelessWidget {
             snapshot.data!.docs.map((doc) => Review.fromDocument(doc)).toList();
 
         return ListView.builder(
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           itemCount: reviews.length,
           itemBuilder: (context, index) {

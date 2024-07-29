@@ -7,6 +7,7 @@ class Product {
   final double price;
   final List<String> imageUrl;
   final String sellerId;
+  final String entrepriseId;
   final int stock;
   final bool isActive;
 
@@ -17,6 +18,7 @@ class Product {
     required this.price,
     required this.imageUrl,
     required this.sellerId,
+    required this.entrepriseId,
     required this.stock,
     required this.isActive,
   });
@@ -29,6 +31,7 @@ class Product {
       price: (map['price'] ?? 0).toDouble(),
       imageUrl: List<String>.from(map['images'] ?? []),
       sellerId: map['merchantId'] ?? '',
+      entrepriseId: map['sellerId'] ?? '',
       stock: map['stock'] ?? 0,
       isActive: map['isActive'] ?? false,
     );
@@ -43,6 +46,7 @@ class Product {
       price: (data['price'] ?? 0).toDouble(),
       imageUrl: List<String>.from(data['images'] ?? []),
       sellerId: data['merchantId'] ?? '',
+      entrepriseId: data['sellerId'] ?? '',
       stock: data['stock'] ?? 0,
       isActive: data['isActive'] ?? false,
     );
@@ -60,6 +64,7 @@ class Product {
       'price': price,
       'images': imageUrl,
       'merchantId': sellerId,
+      'entrepriseId': entrepriseId,
       'stock': stock,
       'isActive': isActive,
     };

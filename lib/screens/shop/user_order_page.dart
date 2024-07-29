@@ -50,14 +50,6 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
             const Text('Mes commandes', style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.black),
-            onPressed: () {
-              // Implémentez la recherche de commandes ici
-            },
-          ),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -95,7 +87,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       child: InkWell(
         onTap: () {
           Navigator.push(
@@ -162,26 +154,32 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
 
   Widget _buildStatusChip(String status) {
     Color color;
+    String text;
     switch (status) {
-      case 'payée':
+      case 'paid':
+        text = "Payé";
         color = Colors.blue;
         break;
       case 'en préparation':
+        text = "En préparation";
         color = Colors.orange;
         break;
       case 'prête à être retirée':
+        text = "Prête à être retirée";
         color = Colors.green;
         break;
       case 'terminée':
+        text = "Terminée";
         color = Colors.grey;
         break;
       default:
+        text = "Default";
         color = Colors.grey;
     }
 
     return Chip(
       label: Text(
-        status,
+        text,
         style: const TextStyle(color: Colors.white, fontSize: 12),
       ),
       backgroundColor: color,

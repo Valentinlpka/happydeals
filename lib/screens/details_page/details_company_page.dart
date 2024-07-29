@@ -13,12 +13,11 @@ import 'package:happy/classes/referral.dart';
 import 'package:happy/providers/company_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
-import 'package:happy/screens/shop/product_grid.dart';
+import 'package:happy/screens/shop/product_list.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:happy/widgets/opening_hours_widget.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/review_list.dart';
-import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -33,23 +32,26 @@ class DetailsEntreprise extends StatefulWidget {
 
 class _DetailsEntrepriseState extends State<DetailsEntreprise> {
   late Future<Company> _entrepriseFuture;
-  late PagingController<DocumentSnapshot?, Map<String, dynamic>>
-      _pagingController;
+  late Future<List<Map<String, dynamic>>> _postsFuture;
   String _currentTab = 'Toutes les publications';
-  static const _pageSize = 10;
+  final List<String> _tabs = [
+    'Toutes les publications',
+    'Boutique',
+    'Happy Deals',
+    'Évenement',
+    'Jeux concours',
+    'Deal Express',
+    "Offres d'emploi",
+    'Parrainage',
+    'Avis',
+    'À Propos'
+  ];
 
   @override
   void initState() {
     super.initState();
     _entrepriseFuture = _fetchEntrepriseData();
-    _pagingController = PagingController(firstPageKey: null);
-    _pagingController.addPageRequestListener(_fetchPage);
-  }
-
-  @override
-  void dispose() {
-    _pagingController.dispose();
-    super.dispose();
+    _postsFuture = _fetchAllPosts();
   }
 
   Future<Company> _fetchEntrepriseData() async {
@@ -58,6 +60,26 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
         .doc(widget.entrepriseId)
         .get();
     return Company.fromDocument(doc);
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchAllPosts() async {
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('posts')
+        .where('companyId', isEqualTo: widget.entrepriseId)
+        .orderBy('timestamp', descending: true)
+        .get();
+
+    print("Nombre de documents trouvés : ${querySnapshot.docs.length}");
+
+    List<Map<String, dynamic>> posts = [];
+    for (var doc in querySnapshot.docs) {
+      final post = _createPostFromDocument(doc);
+      if (post != null) {
+        final companyData = await _getCompanyData(post.companyId);
+        posts.add({'post': post, 'company': companyData});
+      }
+    }
+    return posts;
   }
 
   Post? _createPostFromDocument(DocumentSnapshot doc) {
@@ -85,71 +107,6 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
     } catch (e) {
       print("Erreur lors de la création du post de type $type: $e");
       return null;
-    }
-  }
-
-  Future<void> _fetchPage(DocumentSnapshot? pageKey) async {
-    try {
-      print(_getPostType(_currentTab));
-      Query query = FirebaseFirestore.instance
-          .collection('posts')
-          .where('companyId', isEqualTo: widget.entrepriseId)
-          .orderBy('timestamp', descending: true)
-          .limit(_pageSize);
-
-      if (_currentTab != 'Toutes les publications' &&
-          _currentTab != 'Boutique') {
-        query = query.where('type', isEqualTo: _getPostType(_currentTab));
-      }
-
-      if (pageKey != null) {
-        query = query.startAfterDocument(pageKey);
-      }
-
-      final querySnapshot = await query.get();
-      final List<Map<String, dynamic>> newPosts = [];
-
-      for (var doc in querySnapshot.docs) {
-        final post = _createPostFromDocument(doc);
-        if (post != null) {
-          final companyData = await _getCompanyData(post.companyId);
-          newPosts.add({
-            'post': post,
-            'company': companyData,
-          });
-        }
-      }
-
-      final isLastPage = newPosts.length < _pageSize;
-      if (isLastPage) {
-        _pagingController.appendLastPage(newPosts);
-      } else {
-        final lastDocument = querySnapshot.docs.last;
-        _pagingController.appendPage(newPosts, lastDocument);
-      }
-    } catch (error) {
-      _pagingController.error = error;
-    }
-  }
-
-  String _getPostType(String tab) {
-    switch (tab) {
-      case 'Happy Deals':
-        return 'happy_deal';
-      case 'Évenement':
-        return 'event';
-      case 'Deal Express':
-        return 'express_deal';
-      case "Offres d'emploi":
-        return 'job_offer';
-      case 'Happy Deal':
-        return 'happy_deal';
-      case 'Parrainage':
-        return 'referral';
-      case 'Jeux concours':
-        return 'contest';
-      default:
-        return '';
     }
   }
 
@@ -194,20 +151,17 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
     );
   }
 
-  // ... (autres méthodes inchangées)
-
   Widget _buildSliverAppBar(Company entreprise) {
     return SliverAppBar(
       expandedHeight: 200.0,
       floating: false,
       pinned: true,
-      primary: true,
       flexibleSpace: FlexibleSpaceBar(
         background: CachedNetworkImage(
           imageUrl: entreprise.cover,
-          colorBlendMode: BlendMode.darken,
-          color: Colors.black.withOpacity(0.20),
           fit: BoxFit.cover,
+          colorBlendMode: BlendMode.darken,
+          color: Colors.black.withOpacity(0.2),
         ),
       ),
     );
@@ -217,27 +171,20 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: [
-          'Toutes les publications',
-          'Boutique',
-          'Happy Deals',
-          'Évenement',
-          'Jeux concours',
-          'Deal Express',
-          "Offres d'emploi",
-          'Parrainage',
-          'Avis',
-          'À Propos'
-        ].map((tab) => _buildTab(tab)).toList(),
+        children: _tabs.map((tab) => _buildTab(tab)).toList(),
       ),
     );
   }
 
   Widget _buildTab(String tabName) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      padding: const EdgeInsets.only(
+        left: 10.0,
+        right: 10,
+        top: 10,
+      ),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
+        height: 35,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: _currentTab == tabName
@@ -250,20 +197,16 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
           borderRadius: BorderRadius.circular(5),
         ),
         child: ElevatedButton(
-          onPressed: () {
-            setState(() {
-              _currentTab = tabName;
-              _pagingController.refresh();
-            });
-          },
+          onPressed: () => setState(() => _currentTab = tabName),
           style: ElevatedButton.styleFrom(
-            shadowColor: Colors.transparent,
             backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
           ),
           child: Text(
             tabName,
             style: TextStyle(
-                color: _currentTab == tabName ? Colors.white : Colors.black),
+              color: _currentTab == tabName ? Colors.white : Colors.black,
+            ),
           ),
         ),
       ),
@@ -272,7 +215,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
 
   Widget _buildCompanyInfo(Company entreprise) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(15.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -333,17 +276,23 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
           } else {
             url = 'https://www.google.com/maps/search/?api=1&query=$text';
           }
-          if (await canLaunch(url)) {
-            await launch(url);
+          if (await canLaunchUrl(Uri.parse(url))) {
+            launchUrl(Uri.parse(url));
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Impossible d\'ouvrir $url')),
+            );
           }
         },
         child: Row(
           children: [
             Icon(icon, size: 16, color: Colors.grey),
             const SizedBox(width: 8),
-            Text(text,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.grey)),
+            Expanded(
+              child: Text(text,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.grey)),
+            ),
           ],
         ),
       ),
@@ -357,32 +306,42 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
       case 'À Propos':
         return _buildAboutTab(entreprise);
       case 'Boutique':
-        return ProductGrid(sellerId: entreprise.sellerId);
+        return ProductList(sellerId: entreprise.sellerId);
       default:
-        return _buildPostList();
+        return _buildFilteredPostList();
     }
   }
 
-  Widget _buildPostList() {
-    return PagedListView<DocumentSnapshot?, Map<String, dynamic>>(
-      pagingController: _pagingController,
-      physics: const NeverScrollableScrollPhysics(),
-      builderDelegate: PagedChildBuilderDelegate<Map<String, dynamic>>(
-        noItemsFoundIndicatorBuilder: (_) => const Center(
-          child: Text('Aucun post trouvé', textAlign: TextAlign.center),
-        ),
-        itemBuilder: (context, postData, index) {
-          print('Building post at index $index');
-          final post = postData['post'] as Post;
-          final companyData = postData['company'] as Map<String, dynamic>;
+  Widget _buildFilteredPostList() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _postsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Center(
+              child: Text('Erreur: ${snapshot.error ?? "Aucun post trouvé"}'));
+        }
 
-          print('Post ID: ${post.id}');
-          print('Post Type: ${post.type}');
-          print('Company: ${companyData['name']}');
+        final allPosts = snapshot.data!;
+        final filteredPosts = _currentTab == 'Toutes les publications'
+            ? allPosts
+            : allPosts
+                .where((postData) =>
+                    (postData['post'] as Post).type ==
+                    _getPostType(_currentTab))
+                .toList();
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15.0),
-            child: PostWidget(
+        return ListView.builder(
+          padding: const EdgeInsets.all(10),
+          itemCount: filteredPosts.length,
+          itemBuilder: (context, index) {
+            final postData = filteredPosts[index];
+            final post = postData['post'] as Post;
+            final companyData = postData['company'] as Map<String, dynamic>;
+
+            return PostWidget(
               key: ValueKey(post.id),
               post: post,
               companyCategorie: companyData['categorie'] ?? '',
@@ -392,43 +351,39 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
               onView: () {
                 // Logique d'affichage
               },
-            ),
-          );
-        },
-      ),
+            );
+          },
+        );
+      },
     );
+  }
+
+  String _getPostType(String tab) {
+    final typeMap = {
+      'Happy Deals': 'happy_deal',
+      'Évenement': 'event',
+      'Deal Express': 'express_deal',
+      "Offres d'emploi": 'job_offer',
+      'Parrainage': 'referral',
+      'Jeux concours': 'contest',
+    };
+    return typeMap[tab] ?? '';
   }
 
   Widget _buildAboutTab(Company entreprise) {
     return ListView(
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16.0),
       children: [
-        Text('Description', style: Theme.of(context).textTheme.headlineMedium),
+        Text('Description', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
         Text(entreprise.description),
         const SizedBox(height: 16),
         Text('Horaires d\'ouverture',
-            style: Theme.of(context).textTheme.headlineMedium),
+            style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
         OpeningHoursWidget(openingHours: entreprise.openingHours)
       ],
-    );
-  }
-
-  void _startConversation(
-      BuildContext context, Company company, String currentUserId) async {
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
-    final String conversationId = await conversationService
-        .getOrCreateConversation(currentUserId, company.id);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ConversationDetailScreen(
-          otherUserName: company.name,
-          conversationId: conversationId,
-        ),
-      ),
     );
   }
 
@@ -437,7 +392,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
       builder: (context, companyLikeService, child) {
         final isLiked = companyLikeService.isCompanyLiked(entreprise.id);
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 0),
           child: Row(
             children: [
               Expanded(
@@ -453,8 +408,8 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
                   ),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      shadowColor: Colors.transparent,
                       backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
                     ),
                     onPressed: () async {
                       final updatedCompany =
@@ -480,12 +435,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                    ),
                     onPressed: () => _startConversation(context, entreprise,
                         FirebaseAuth.instance.currentUser!.uid),
-                    style: ElevatedButton.styleFrom(
-                      shadowColor: Colors.transparent,
-                      backgroundColor: Colors.transparent,
-                    ),
                     child: const Text('Envoyer un message'),
                   ),
                 ),
@@ -496,5 +451,21 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
       },
     );
   }
-  // ... (autres méthodes inchangées)
+
+  void _startConversation(
+      BuildContext context, Company company, String currentUserId) async {
+    final conversationService =
+        Provider.of<ConversationService>(context, listen: false);
+    final String conversationId = await conversationService
+        .getOrCreateConversation(currentUserId, company.id);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ConversationDetailScreen(
+          otherUserName: company.name,
+          conversationId: conversationId,
+        ),
+      ),
+    );
+  }
 }

@@ -29,7 +29,7 @@ class _HomeState extends State<Home> {
   final PagingController<DocumentSnapshot?, Company>
       _companiesPagingController = PagingController(firstPageKey: null);
 
-  static const _pageSize = 10;
+  static const _pageSize = 30;
   bool _showCompanies = false;
 
   @override
@@ -113,7 +113,6 @@ class _HomeState extends State<Home> {
                       children: [
                         _buildHeader(),
                         _buildSearchBar(homeProvider),
-                        _buildRadiusSelector(homeProvider),
                         _buildCategoryButtons(),
                       ],
                     ),
@@ -197,14 +196,14 @@ class _HomeState extends State<Home> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Salut ${usersProvider.firstName}!",
+                      "Salut ${usersProvider.firstName} !",
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     Text(
                       usersProvider.dailyQuote,
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                      maxLines: 2,
+                      style: const TextStyle(color: Colors.grey),
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/screens/profile_page.dart';
+import 'package:happy/screens/reservation_list_deal_express.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/services/auth_service.dart';
 
@@ -11,10 +12,7 @@ class ParametrePage extends StatelessWidget {
     final AuthService authService = AuthService();
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text('Paramètre'),
         centerTitle: true,
         backgroundColor: Colors.white,
@@ -45,6 +43,11 @@ class ParametrePage extends StatelessWidget {
               }),
               _buildServiceItem(context, 'Mes réservations',
                   'assets/images/mes_reservations.png', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ReservationListDealExpress()),
+                );
                 // Navigation vers l'écran Mes réservations
               }),
               _buildServiceItem(

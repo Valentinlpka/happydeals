@@ -59,7 +59,6 @@ class _LikedPostsPageState extends State<LikedPostsPage> {
 
       for (var doc in querySnapshot.docs) {
         try {
-          final postData = doc.data() as Map<String, dynamic>;
           final post = _createPostFromDocument(doc);
           if (post != null) {
             final companyData = await _getCompanyData(post.companyId);
@@ -69,7 +68,6 @@ class _LikedPostsPageState extends State<LikedPostsPage> {
             });
           }
         } catch (e) {
-          print('Error processing post ${doc.id}: $e');
           // Skip this post and continue with the next one
         }
       }

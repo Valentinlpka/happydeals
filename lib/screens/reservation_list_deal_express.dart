@@ -14,7 +14,7 @@ class ReservationListDealExpress extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         actions: const [],
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         title: const Text('Mes commandes'),
       ),
       body: StreamBuilder<QuerySnapshot>(

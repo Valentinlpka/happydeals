@@ -18,7 +18,7 @@ class HomeProvider extends ChangeNotifier {
 
   Position? _currentPosition;
   String _currentAddress = "Localisation en cours...";
-  double _selectedRadius = 10.0;
+  double _selectedRadius = 40.0;
   bool _isLoading = false;
   Position? get currentPosition => _currentPosition;
   String get currentAddress => _currentAddress;
@@ -121,8 +121,11 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> getCurrentLocation() async {
     try {
+      LocationPermission permission;
+      permission = await Geolocator.requestPermission();
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
+      print(position);
       List<Placemark> placemarks =
           await placemarkFromCoordinates(position.latitude, position.longitude);
       _currentPosition = position;

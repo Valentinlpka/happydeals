@@ -11,7 +11,8 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mon Panier')),
+      appBar: AppBar(
+          automaticallyImplyLeading: false, title: const Text('Mon Panier')),
       body: Consumer<CartService>(
         builder: (context, cart, child) {
           if (cart.items.isEmpty) {

@@ -31,27 +31,31 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: "Rechercher un post...",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.search),
+      body: Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: "Rechercher un post...",
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(5))),
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    searchTerm = value;
+                  });
+                },
               ),
-              onChanged: (value) {
-                setState(() {
-                  searchTerm = value;
-                });
-              },
             ),
-          ),
-          Expanded(
-            child: SearchResults(searchTerm: searchTerm),
-          ),
-        ],
+            Expanded(
+              child: SearchResults(searchTerm: searchTerm),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -60,7 +64,7 @@ class _SearchPageState extends State<SearchPage> {
 class SearchResults extends StatelessWidget {
   final String searchTerm;
 
-  const SearchResults({Key? key, required this.searchTerm}) : super(key: key);
+  const SearchResults({super.key, required this.searchTerm});
 
   @override
   Widget build(BuildContext context) {

@@ -54,58 +54,53 @@ class _MainContainerState extends State<MainContainer> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _buildPage(),
-      bottomNavigationBar: Stack(
-        children: [
-          Container(
-            height: 90,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.pink, Colors.blue],
-              ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.pink, Colors.blue],
+          ),
+        ),
+        child: SalomonBottomBar(
+          itemPadding: const EdgeInsets.all(10),
+          currentIndex: _currentIndex,
+          onTap: setCurrentIndex,
+          backgroundColor: Colors.transparent,
+          unselectedItemColor: Colors.white,
+          items: [
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.home),
+              title: const Text("Accueil"),
+              selectedColor: Colors.white,
             ),
-          ),
-          SalomonBottomBar(
-            itemPadding: const EdgeInsets.all(10),
-            currentIndex: _currentIndex,
-            onTap: setCurrentIndex,
-            backgroundColor: Colors.transparent,
-            unselectedItemColor: Colors.white,
-            items: [
-              SalomonBottomBarItem(
-                icon: const Icon(Icons.home),
-                title: const Text("Accueil"),
-                selectedColor: Colors.white,
-              ),
-              SalomonBottomBarItem(
-                icon: const Icon(Icons.search),
-                title: const Text("Rechercher"),
-                selectedColor: Colors.white,
-              ),
-              SalomonBottomBarItem(
-                icon: const Icon(Icons.favorite_border),
-                title: const Text("Mes Likes"),
-                selectedColor: Colors.white,
-              ),
-              SalomonBottomBarItem(
-                icon: const Icon(Icons.message_outlined),
-                title: const Text("Messages"),
-                selectedColor: Colors.white,
-              ),
-              SalomonBottomBarItem(
-                icon: const Icon(Icons.person_outline),
-                title: const Text("Profil"),
-                selectedColor: Colors.white,
-              ),
-              SalomonBottomBarItem(
-                icon: const Icon(Icons.shopping_bag_outlined),
-                title: const Text("Panier"),
-                selectedColor: Colors.white,
-              ),
-            ],
-          ),
-        ],
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.search),
+              title: const Text("Rechercher"),
+              selectedColor: Colors.white,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.favorite_border),
+              title: const Text("Mes Likes"),
+              selectedColor: Colors.white,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.message_outlined),
+              title: const Text("Messages"),
+              selectedColor: Colors.white,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.person_outline),
+              title: const Text("Profil"),
+              selectedColor: Colors.white,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.shopping_bag_outlined),
+              title: const Text("Panier"),
+              selectedColor: Colors.white,
+            ),
+          ],
+        ),
       ),
     );
   }
