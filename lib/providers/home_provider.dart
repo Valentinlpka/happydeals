@@ -20,129 +20,18 @@ class HomeProvider extends ChangeNotifier {
   String _currentAddress = "Localisation en cours...";
   double _selectedRadius = 40.0;
   bool _isLoading = false;
+
   Position? get currentPosition => _currentPosition;
   String get currentAddress => _currentAddress;
   double get selectedRadius => _selectedRadius;
   bool get isLoading => _isLoading;
 
-  // Cache pour les posts
   final Map<String, Post> _postCache = {};
-  // Cache pour les données des entreprises
   final Map<String, Map<String, dynamic>> _companyCache = {};
+  final Map<String, dynamic> _queryCache = {};
 
-  // Durée de validité du cache (en minutes)
-  static const int _cacheDuration = 15;
-
-  Future<List<Company>> fetchCompanies(
-      DocumentSnapshot? pageKey, int pageSize) async {
-    if (_currentPosition == null) {
-      print('Position actuelle non disponible');
-      return [];
-    }
-
-    final query = FirebaseFirestore.instance
-        .collection('companys')
-        .orderBy('name') // Vous pouvez changer l'ordre si nécessaire
-        .limit(pageSize);
-
-    final snapshot = pageKey == null
-        ? await query.get()
-        : await query.startAfterDocument(pageKey).get();
-
-    List<Company> companiesInRange = [];
-
-    for (var doc in snapshot.docs) {
-      Company company = Company.fromDocument(doc);
-
-      if (await _isCompanyWithinRadius(company)) {
-        companiesInRange.add(company);
-      }
-
-      if (companiesInRange.length >= pageSize) {
-        break;
-      }
-    }
-
-    print("Nombre d'entreprises trouvées : ${companiesInRange.length}");
-    return companiesInRange;
-  }
-
-  Future<bool> _isCompanyWithinRadius(Company company) async {
-    if (_currentPosition == null) return false;
-
-    try {
-      String companyAddress =
-          '${company.adress.adresse}, ${company.adress.codePostal}, ${company.adress.ville}, France';
-
-      List<Location> locations = await locationFromAddress(companyAddress);
-      if (locations.isEmpty) return false;
-
-      Location companyLocation = locations.first;
-      double distance = Geolocator.distanceBetween(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-        companyLocation.latitude,
-        companyLocation.longitude,
-      );
-
-      bool isWithinRadius = distance / 1000 <= _selectedRadius;
-      print(
-          "Distance to company ${company.name}: ${distance / 1000} km, Within radius: $isWithinRadius");
-      return isWithinRadius;
-    } catch (e) {
-      print(
-          "Erreur lors de la vérification de la distance pour l'entreprise ${company.name}: $e");
-      return false;
-    }
-  }
-
-  // Nouvelle méthode pour mettre à jour la localisation à partir d'une prédiction
-  Future<void> updateLocationFromPrediction(Prediction prediction) async {
-    if (prediction.lat != null && prediction.lng != null) {
-      _currentPosition = Position(
-        latitude: double.parse(prediction.lat!),
-        longitude: double.parse(prediction.lng!),
-        timestamp: DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        heading: 0,
-        speed: 0,
-        speedAccuracy: 0,
-        altitudeAccuracy: 0,
-        headingAccuracy: 0,
-      );
-      _currentAddress = prediction.description ?? "";
-      await _saveLocation(_currentAddress, _currentPosition!);
-      notifyListeners();
-    } else {
-      print("Erreur: Latitude ou longitude manquante dans la prédiction");
-    }
-  }
-
-  Future<void> getCurrentLocation() async {
-    try {
-      LocationPermission permission;
-      permission = await Geolocator.requestPermission();
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      print(position);
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
-      _currentPosition = position;
-      _currentAddress = placemarks.isNotEmpty
-          ? "${placemarks[0].locality}, ${placemarks[0].country}"
-          : "Adresse inconnue";
-      addressController.text = _currentAddress;
-      await _saveLocation(_currentAddress, position);
-      print("Nouvelle position : ${position.latitude}, ${position.longitude}");
-      print("Nouvelle adresse : $_currentAddress");
-    } catch (e) {
-      print("Erreur de localisation: $e");
-      _currentAddress = "Impossible d'obtenir la localisation";
-      addressController.text = _currentAddress;
-    }
-    notifyListeners();
-  }
+  static const int _cacheDuration = 15; // minutes
+  static const int _queryCacheDuration = 5; // minutes
 
   Future<void> loadSavedLocation() async {
     _isLoading = true;
@@ -153,13 +42,21 @@ class HomeProvider extends ChangeNotifier {
       final savedAddress = prefs.getString('savedAddress');
       final savedLat = prefs.getDouble('savedLat');
       final savedLng = prefs.getDouble('savedLng');
+      final lastLocationUpdate = prefs.getInt('lastLocationUpdate');
 
-      if (savedAddress != null && savedLat != null && savedLng != null) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      const oneDay = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+
+      if (savedAddress != null &&
+          savedLat != null &&
+          savedLng != null &&
+          lastLocationUpdate != null &&
+          (now - lastLocationUpdate < oneDay)) {
         _currentAddress = savedAddress;
         _currentPosition = Position(
           latitude: savedLat,
           longitude: savedLng,
-          timestamp: DateTime.now(),
+          timestamp: DateTime.fromMillisecondsSinceEpoch(lastLocationUpdate),
           accuracy: 0,
           altitude: 0,
           heading: 0,
@@ -170,6 +67,7 @@ class HomeProvider extends ChangeNotifier {
         );
       } else {
         await _initializeLocation();
+        await prefs.setInt('lastLocationUpdate', now);
       }
     } catch (e) {
       print("Erreur lors du chargement de la localisation sauvegardée: $e");
@@ -202,9 +100,9 @@ class HomeProvider extends ChangeNotifier {
         return;
       }
 
-      await getCurrentLocation();
+      await _getCurrentLocation();
     } catch (e) {
-      print("erreur lors de l'initialisation de la localisation ");
+      print("Erreur lors de l'initialisation de la localisation: $e");
       _currentAddress = "Erreur d'initialisation de la localisation";
     }
     notifyListeners();
@@ -239,41 +137,184 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> updateLocationFromPrediction(Prediction prediction) async {
+    if (prediction.lat != null && prediction.lng != null) {
+      _currentPosition = Position(
+        latitude: double.parse(prediction.lat!),
+        longitude: double.parse(prediction.lng!),
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        heading: 0,
+        speed: 0,
+        speedAccuracy: 0,
+        altitudeAccuracy: 0,
+        headingAccuracy: 0,
+      );
+      _currentAddress = prediction.description ?? "";
+      await _saveLocation(_currentAddress, _currentPosition!);
+      notifyListeners();
+    } else {
+      print("Erreur: Latitude ou longitude manquante dans la prédiction");
+    }
+  }
+
   void setSelectedRadius(double radius) {
     _selectedRadius = radius;
     notifyListeners();
   }
 
-  Future<List<Post>> fetchPosts(DocumentSnapshot? pageKey) async {
+  Future<List<Company>> fetchCompanies(
+      DocumentSnapshot? pageKey, int pageSize) async {
     if (_currentPosition == null) {
       print('Position actuelle non disponible');
       return [];
     }
 
-    final postsWithCompanyData = await fetchPostsWithCompanyData(pageKey, 10);
+    final query = FirebaseFirestore.instance
+        .collection('companys')
+        .orderBy('name')
+        .limit(pageSize);
 
-    final posts =
-        postsWithCompanyData.map((data) => data['post'] as Post).toList();
+    final snapshot = pageKey == null
+        ? await query.get()
+        : await query.startAfterDocument(pageKey).get();
 
-    print("Nombre de posts trouvés : ${posts.length}");
-    return posts;
-  }
+    List<Company> companiesInRange = [];
 
-  Post? _getPostFromCache(String postId) {
-    if (_postCache.containsKey(postId)) {
-      final cachedPost = _postCache[postId]!;
-      if (DateTime.now().difference(cachedPost.timestamp).inMinutes <
-          _cacheDuration) {
-        return cachedPost;
-      } else {
-        _postCache.remove(postId);
+    for (var doc in snapshot.docs) {
+      Company company = Company.fromDocument(doc);
+
+      if (await _isCompanyWithinRadius(company)) {
+        companiesInRange.add(company);
+      }
+
+      if (companiesInRange.length >= pageSize) {
+        break;
       }
     }
-    return null;
+
+    return companiesInRange;
   }
 
-  void _addPostToCache(String postId, Post post) {
-    _postCache[postId] = post;
+  Future<bool> _isCompanyWithinRadius(Company company) async {
+    if (_currentPosition == null) return false;
+
+    try {
+      String companyAddress =
+          '${company.adress.adresse}, ${company.adress.codePostal}, ${company.adress.ville}, France';
+
+      List<Location> locations = await locationFromAddress(companyAddress);
+      if (locations.isEmpty) return false;
+
+      Location companyLocation = locations.first;
+      double distance = Geolocator.distanceBetween(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        companyLocation.latitude,
+        companyLocation.longitude,
+      );
+
+      return distance / 1000 <= _selectedRadius;
+    } catch (e) {
+      print(
+          "Erreur lors de la vérification de la distance pour l'entreprise ${company.name}: $e");
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchPostsWithCompanyData(
+      DocumentSnapshot? pageKey, int pageSize) async {
+    if (_currentPosition == null) {
+      print('Position actuelle non disponible');
+      return [];
+    }
+
+    final cacheKey = '${pageKey?.id ?? "initial"}_$pageSize';
+    if (_queryCache.containsKey(cacheKey)) {
+      final cachedResult = _queryCache[cacheKey];
+      if (DateTime.now().difference(cachedResult['timestamp']).inMinutes <
+          _queryCacheDuration) {
+        return cachedResult['data'];
+      }
+    }
+
+    final postsQuery = FirebaseFirestore.instance
+        .collection('posts')
+        .orderBy('timestamp', descending: true)
+        .limit(pageSize);
+
+    if (pageKey != null) {
+      postsQuery.startAfterDocument(pageKey);
+    }
+
+    final postsSnapshot = await postsQuery.get();
+
+    final companyRefs = postsSnapshot.docs
+        .map((doc) => FirebaseFirestore.instance
+            .collection('companys')
+            .doc(doc['companyId']))
+        .toList();
+
+    final companySnapshots =
+        await Future.wait(companyRefs.map((ref) => ref.get()));
+
+    List<Map<String, dynamic>> postsWithCompanyData = [];
+
+    for (int i = 0; i < postsSnapshot.docs.length; i++) {
+      final postDoc = postsSnapshot.docs[i];
+      final companyDoc = companySnapshots[i];
+
+      final post = _createPostFromDocument(postDoc);
+      final companyData = companyDoc.data() as Map<String, dynamic>;
+
+      if (post != null &&
+          await _isPostWithinRadius(post.companyId, companyData)) {
+        postsWithCompanyData.add({
+          'post': post,
+          'company': companyData,
+        });
+      }
+
+      if (postsWithCompanyData.length >= pageSize) {
+        break;
+      }
+    }
+
+    _queryCache[cacheKey] = {
+      'timestamp': DateTime.now(),
+      'data': postsWithCompanyData,
+    };
+
+    return postsWithCompanyData;
+  }
+
+  Post? _createPostFromDocument(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final String type = data['type'] ?? 'unknown';
+
+    try {
+      switch (type) {
+        case 'job_offer':
+          return JobOffer.fromDocument(doc);
+        case 'contest':
+          return Contest.fromDocument(doc);
+        case 'happy_deal':
+          return HappyDeal.fromDocument(doc);
+        case 'express_deal':
+          return ExpressDeal.fromDocument(doc);
+        case 'referral':
+          return Referral.fromDocument(doc);
+        case 'event':
+          return Event.fromDocument(doc);
+        default:
+          print("Type de post non supporté: $type pour le document ${doc.id}");
+          return null;
+      }
+    } catch (e) {
+      print("Erreur lors de la création du post de type $type: $e");
+      return null;
+    }
   }
 
   Future<bool> _isPostWithinRadius(
@@ -305,141 +346,24 @@ class HomeProvider extends ChangeNotifier {
         companyLocation.longitude,
       );
 
-      bool isWithinRadius = distance / 1000 <= _selectedRadius;
-      print(
-          "Distance to company: ${distance / 1000} km, Within radius: $isWithinRadius");
-      return isWithinRadius;
+      return distance / 1000 <= _selectedRadius;
     } catch (e) {
       print("Erreur lors de la vérification de la distance: $e");
       return false;
     }
   }
 
-  Map<String, dynamic>? _getCompanyFromCache(String companyId) {
-    if (_companyCache.containsKey(companyId)) {
-      final cachedCompany = _companyCache[companyId]!;
-      if (DateTime.now()
-              .difference(cachedCompany['timestamp'] as DateTime)
-              .inMinutes <
-          _cacheDuration) {
-        return cachedCompany;
-      } else {
-        _companyCache.remove(companyId);
-      }
-    }
-    return null;
-  }
-
-  void _addCompanyToCache(String companyId, Map<String, dynamic> companyData) {
-    companyData['timestamp'] = DateTime.now();
-    _companyCache[companyId] = companyData;
+  Future<void> refreshPosts() async {
+    _postCache.clear();
+    _queryCache.clear();
+    notifyListeners();
   }
 
   void clearCache() {
     _postCache.clear();
     _companyCache.clear();
+    _queryCache.clear();
     notifyListeners();
-  }
-
-  Post? _createPostFromDocument(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    final String type = data['type'] ?? 'unknown';
-
-    try {
-      switch (type) {
-        case 'job_offer':
-          return JobOffer.fromDocument(doc);
-        case 'contest':
-          return Contest.fromDocument(doc);
-        case 'happy_deal':
-          return HappyDeal.fromDocument(doc);
-        case 'express_deal':
-          return ExpressDeal.fromDocument(doc);
-        case 'referral':
-          return Referral.fromDocument(doc);
-        case 'event':
-          return Event.fromDocument(doc);
-        default:
-          print("Type de post non supporté: $type pour le document ${doc.id}");
-          return null;
-      }
-    } catch (e) {
-      print("Erreur lors de la création du post de type $type: $e");
-      return null;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> fetchPostsWithCompanyData(
-      DocumentSnapshot? pageKey, int pageSize) async {
-    if (_currentPosition == null) {
-      print('Position actuelle non disponible');
-      return [];
-    }
-
-    final query = FirebaseFirestore.instance
-        .collection('posts')
-        .orderBy('timestamp', descending: true)
-        .limit(pageSize);
-
-    final snapshot = pageKey == null
-        ? await query.get()
-        : await query.startAfterDocument(pageKey).get();
-
-    List<Map<String, dynamic>> postsWithCompanyData = [];
-
-    for (var doc in snapshot.docs) {
-      final postId = doc.id;
-      Post? post = _getPostFromCache(postId);
-
-      if (post == null) {
-        post = _createPostFromDocument(doc);
-        if (post != null) {
-          _addPostToCache(postId, post);
-        }
-      }
-
-      if (post != null) {
-        Map<String, dynamic>? companyData =
-            await _getCompanyData(post.companyId);
-
-        if (companyData != null &&
-            await _isPostWithinRadius(post.companyId, companyData)) {
-          postsWithCompanyData.add({
-            'post': post,
-            'company': companyData,
-          });
-        }
-      }
-
-      if (postsWithCompanyData.length >= pageSize) {
-        break;
-      }
-    }
-
-    print("Nombre de posts trouvés : ${postsWithCompanyData.length}");
-    return postsWithCompanyData;
-  }
-
-  Future<Map<String, dynamic>?> _getCompanyData(String companyId) async {
-    Map<String, dynamic>? companyData = _getCompanyFromCache(companyId);
-
-    if (companyData == null) {
-      try {
-        DocumentSnapshot companyDoc = await FirebaseFirestore.instance
-            .collection('companys')
-            .doc(companyId)
-            .get();
-
-        if (companyDoc.exists) {
-          companyData = companyDoc.data() as Map<String, dynamic>;
-          _addCompanyToCache(companyId, companyData);
-        }
-      } catch (e) {
-        print("Erreur lors de la récupération des données de l'entreprise: $e");
-      }
-    }
-
-    return companyData;
   }
 
   @override
