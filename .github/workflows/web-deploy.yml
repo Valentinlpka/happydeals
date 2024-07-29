@@ -23,8 +23,12 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web --release
         
+      - name: Remove base href
+        run: |
+          sed -i 's/<base href="\/"\s*\/?>//g' build/web/index.html
+        
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          personal_token: ${{ secrets.PAT }}
           publish_dir: ./build/web
