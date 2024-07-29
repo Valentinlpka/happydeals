@@ -77,12 +77,16 @@ class Address {
   final String codePostal;
   final String pays;
   final String ville;
+  final double latitude;
+  final double longitude;
 
   Address({
     required this.adresse,
     required this.codePostal,
     required this.pays,
     required this.ville,
+    required this.longitude,
+    required this.latitude,
   });
 
   factory Address.fromMap(Map<String, dynamic> map) {
@@ -91,6 +95,8 @@ class Address {
       codePostal: map['code_postal'] ?? '',
       pays: map['pays'] ?? '',
       ville: map['ville'] ?? '',
+      latitude: map['latitude'],
+      longitude: map['longitude'],
     );
   }
 

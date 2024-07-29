@@ -207,18 +207,11 @@ class HomeProvider extends ChangeNotifier {
     if (_currentPosition == null) return false;
 
     try {
-      String companyAddress =
-          '${company.adress.adresse}, ${company.adress.codePostal}, ${company.adress.ville}, France';
-
-      List<Location> locations = await locationFromAddress(companyAddress);
-      if (locations.isEmpty) return false;
-
-      Location companyLocation = locations.first;
       double distance = Geolocator.distanceBetween(
         _currentPosition!.latitude,
         _currentPosition!.longitude,
-        companyLocation.latitude,
-        companyLocation.longitude,
+        company.adress.latitude,
+        company.adress.longitude,
       );
 
       return distance / 1000 <= _selectedRadius;
@@ -332,29 +325,26 @@ class HomeProvider extends ChangeNotifier {
           companyData['adress'] as Map<String, dynamic>?;
 
       if (addressMap == null ||
-          !addressMap.containsKey('adresse') ||
-          !addressMap.containsKey('code_postal') ||
-          !addressMap.containsKey('ville')) {
+          !addressMap.containsKey('latitude') ||
+          !addressMap.containsKey('longitude')) {
+        print("Coordonnées manquantes pour l'entreprise $companyId");
         return false;
       }
 
-      String companyAddress =
-          '${addressMap['adresse']}, ${addressMap['code_postal']}, ${addressMap['ville']}, France';
+      double companyLat = addressMap['latitude'];
+      double companyLng = addressMap['longitude'];
 
-      List<Location> locations = await locationFromAddress(companyAddress);
-      if (locations.isEmpty) return false;
-
-      Location companyLocation = locations.first;
       double distance = Geolocator.distanceBetween(
         _currentPosition!.latitude,
         _currentPosition!.longitude,
-        companyLocation.latitude,
-        companyLocation.longitude,
+        companyLat,
+        companyLng,
       );
 
       return distance / 1000 <= _selectedRadius;
     } catch (e) {
-      print("Erreur lors de la vérification de la distance: $e");
+      print(
+          "Erreur lors de la vérification de la distance pour l'entreprise $companyId: $e");
       return false;
     }
   }

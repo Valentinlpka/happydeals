@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 import 'package:happy/classes/company.dart';
@@ -47,6 +48,44 @@ class _HomeState extends State<Home> {
     _pagingController.dispose();
     _companiesPagingController.dispose();
     super.dispose();
+  }
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<void> _updateSingleCompany(QueryDocumentSnapshot doc) async {
+    try {
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      Map<String, dynamic>? addressData =
+          data['adress'] as Map<String, dynamic>?;
+
+      if (addressData == null) {
+        print('Données d\'adresse manquantes pour l\'entreprise ${doc.id}');
+        return;
+      }
+
+      String address =
+          '${addressData['adresse']}, ${addressData['code_postal']}, ${addressData['ville']}, France';
+
+      List<Location> locations = await locationFromAddress(address);
+
+      if (locations.isNotEmpty) {
+        Location location = locations.first;
+
+        // Mettre à jour le document avec les nouvelles coordonnées
+        await _firestore.collection('companys').doc(doc.id).update({
+          'adress.latitude': location.latitude,
+          'adress.longitude': location.longitude,
+        });
+
+        print(
+            'Entreprise ${doc.id} mise à jour avec les coordonnées: ${location.latitude}, ${location.longitude}');
+      } else {
+        print(
+            'Aucune coordonnée trouvée pour l\'adresse de l\'entreprise ${doc.id}');
+      }
+    } catch (e) {
+      print('Erreur lors de la mise à jour de l\'entreprise ${doc.id}: $e');
+    }
   }
 
   Future<void> _fetchCompanyPage(DocumentSnapshot? pageKey) async {

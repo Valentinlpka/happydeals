@@ -9,76 +9,57 @@ class WebAddressSearch extends StatefulWidget {
   final HomeProvider homeProvider;
   final VoidCallback onLocationUpdated;
 
-  const WebAddressSearch(
-      {super.key, required this.homeProvider, required this.onLocationUpdated});
+  const WebAddressSearch({
+    super.key,
+    required this.homeProvider,
+    required this.onLocationUpdated,
+  });
 
   @override
   _WebAddressSearchState createState() => _WebAddressSearchState();
 }
 
 class _WebAddressSearchState extends State<WebAddressSearch> {
-  List<dynamic> _predictions = [];
+  List<Map<String, dynamic>> _predictions = [];
+  final String mapboxAccessToken =
+      'pk.eyJ1IjoiaGFwcHlkZWFscyIsImEiOiJjbHo3ZHA5NDYwN2hyMnFzNTdiMWd2Zm92In0.1nmT5Fumjq16InZ3dmG9zQ';
 
   Future<void> _getAddressPredictions(String input) async {
     if (input.length < 3) return;
 
-    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    const apiUrl =
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json';
-    final fullUrl =
-        '$proxyUrl$apiUrl?input=$input&types=(cities)&components=country:fr&key=AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc';
+    final url = Uri.parse(
+        'https://api.mapbox.com/geocoding/v5/mapbox.places/$input.json?access_token=$mapboxAccessToken&country=FR&types=place,locality&limit=5');
 
     try {
-      final response = await http.get(Uri.parse(fullUrl), headers: {
-        'Origin':
-            'http://localhost', // Remplacez par l'URL de votre application
-      });
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          _predictions = data['predictions'];
+          _predictions = List<Map<String, dynamic>>.from(data['features']);
         });
+      } else {
+        print(
+            'Erreur lors de la récupération des prédictions: ${response.statusCode}');
       }
     } catch (e) {
       print('Erreur lors de la récupération des prédictions: $e');
     }
   }
 
-  Future<void> _getPlaceDetails(String placeId) async {
-    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    const apiUrl = 'https://maps.googleapis.com/maps/api/place/details/json';
-    final fullUrl =
-        '$proxyUrl$apiUrl?place_id=$placeId&fields=geometry&key=AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc';
+  Future<void> _selectPlace(Map<String, dynamic> place) async {
+    widget.homeProvider.addressController.text = place['place_name'] ?? '';
 
-    try {
-      final response = await http.get(Uri.parse(fullUrl), headers: {
-        'Origin':
-            'https://valentinlpka.github.io/happydeals/#/home', // Remplacez par l'URL de votre application
-      });
+    final coordinates = place['geometry']['coordinates'];
+    final prediction = Prediction(
+      description: place['place_name'],
+      placeId: place['id'],
+      lat: coordinates[1].toString(),
+      lng: coordinates[0].toString(),
+    );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['result'] != null && data['result']['geometry'] != null) {
-          final location = data['result']['geometry']['location'];
-          final lat = location['lat'];
-          final lng = location['lng'];
-
-          // Créez un objet Prediction similaire à celui utilisé dans la version mobile
-          final prediction = Prediction(
-            description: widget.homeProvider.addressController.text,
-            placeId: placeId,
-            lat: lat.toString(),
-            lng: lng.toString(),
-          );
-
-          // Mettez à jour la localisation dans le HomeProvider
-          await widget.homeProvider.updateLocationFromPrediction(prediction);
-        }
-      }
-    } catch (e) {
-      print('Erreur lors de la récupération des détails du lieu: $e');
-    }
+    await widget.homeProvider.updateLocationFromPrediction(prediction);
+    widget.onLocationUpdated();
   }
 
   @override
@@ -104,11 +85,9 @@ class _WebAddressSearchState extends State<WebAddressSearch> {
               itemBuilder: (context, index) {
                 final prediction = _predictions[index];
                 return ListTile(
-                  title: Text(prediction['description']),
+                  title: Text(prediction['place_name'] ?? ''),
                   onTap: () async {
-                    widget.homeProvider.addressController.text =
-                        prediction['description'];
-                    await _getPlaceDetails(prediction['place_id']);
+                    await _selectPlace(prediction);
                     setState(() {
                       _predictions = [];
                     });
