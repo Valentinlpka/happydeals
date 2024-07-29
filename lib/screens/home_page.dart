@@ -215,8 +215,11 @@ class _HomeState extends State<Home> {
                   _buildRadiusSelector(homeProvider),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(context);
+                      await homeProvider
+                          .applyChanges(); // Appliquer les changements
+                      setState(() {}); // Forcer la reconstruction du widget
                       _pagingController.refresh();
                       _companiesPagingController.refresh();
                     },
@@ -233,7 +236,10 @@ class _HomeState extends State<Home> {
 
   Widget _buildAddressSearch(HomeProvider homeProvider) {
     if (kIsWeb) {
-      return WebAddressSearch(homeProvider: homeProvider);
+      return WebAddressSearch(
+        homeProvider: homeProvider,
+        onLocationUpdated: () {},
+      );
     } else {
       return GooglePlaceAutoCompleteTextField(
         textEditingController: homeProvider.addressController,
@@ -246,8 +252,8 @@ class _HomeState extends State<Home> {
         debounceTime: 800,
         countries: const ["fr"],
         isLatLngRequired: true,
-        getPlaceDetailWithLatLng: (Prediction prediction) {
-          homeProvider.updateLocationFromPrediction(prediction);
+        getPlaceDetailWithLatLng: (Prediction prediction) async {
+          await homeProvider.updateLocationFromPrediction(prediction);
         },
         itemClick: (Prediction prediction) {
           homeProvider.addressController.text = prediction.description ?? "";
@@ -263,7 +269,7 @@ class _HomeState extends State<Home> {
         const Text("Rayon de recherche"),
         DropdownButton<double>(
           value: homeProvider.selectedRadius,
-          items: [5.0, 10.0, 15.0, 20.0, 50.0].map((double value) {
+          items: [5.0, 10.0, 15.0, 20.0, 40.0, 50.0].map((double value) {
             return DropdownMenuItem<double>(
               value: value,
               child: Text('$value km'),

@@ -108,6 +108,11 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> applyChanges() async {
+    _queryCache.clear(); // Vider le cache des requêtes
+    notifyListeners();
+  }
+
   Future<void> _getCurrentLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
@@ -153,6 +158,7 @@ class HomeProvider extends ChangeNotifier {
       );
       _currentAddress = prediction.description ?? "";
       await _saveLocation(_currentAddress, _currentPosition!);
+      _queryCache.clear();
       notifyListeners();
     } else {
       print("Erreur: Latitude ou longitude manquante dans la prédiction");

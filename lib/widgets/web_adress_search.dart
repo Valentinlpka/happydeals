@@ -7,8 +7,10 @@ import 'package:http/http.dart' as http;
 
 class WebAddressSearch extends StatefulWidget {
   final HomeProvider homeProvider;
+  final VoidCallback onLocationUpdated;
 
-  const WebAddressSearch({super.key, required this.homeProvider});
+  const WebAddressSearch(
+      {super.key, required this.homeProvider, required this.onLocationUpdated});
 
   @override
   _WebAddressSearchState createState() => _WebAddressSearchState();
@@ -71,7 +73,7 @@ class _WebAddressSearchState extends State<WebAddressSearch> {
           );
 
           // Mettez à jour la localisation dans le HomeProvider
-          widget.homeProvider.updateLocationFromPrediction(prediction);
+          await widget.homeProvider.updateLocationFromPrediction(prediction);
         }
       }
     } catch (e) {
