@@ -54,7 +54,7 @@ class _WebAddressSearchState extends State<WebAddressSearch> {
     try {
       final response = await http.get(Uri.parse(fullUrl), headers: {
         'Origin':
-            'http://localhost', // Remplacez par l'URL de votre application
+            'https://valentinlpka.github.io/happydeals/#/home', // Remplacez par l'URL de votre application
       });
 
       if (response.statusCode == 200) {
