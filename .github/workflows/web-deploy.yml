@@ -1,14 +1,33 @@
-name: Gh-Pages
+name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
-      - uses: actions/checkout@v2 # Only works with v2
+      - uses: actions/checkout@v2
       - uses: subosito/flutter-action@v1
-      - uses: bluefireteam/flutter-gh-pages@v7
+        with:
+          channel: 'stable'
+      
+      - name: Enable Flutter Web
+        run: flutter config --enable-web
+        
+      - name: Get dependencies
+        run: flutter pub get
+        
+      - name: Build Flutter Web
+        run: flutter build web --release
+        
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
