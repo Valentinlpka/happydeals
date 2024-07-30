@@ -55,7 +55,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (kIsWeb) {
         // Redirection pour le paiement web
-        final sessionUrl = result.data['url'];
         html.window.location.href = sessionUrl;
       } else {
         // Logique de paiement mobile

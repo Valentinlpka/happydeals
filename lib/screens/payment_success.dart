@@ -19,6 +19,8 @@ class PaymentSuccessScreen extends StatefulWidget {
 class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final OrderService _orderService = OrderService();
+  bool _isLoading = true;
+  String _statusMessage = 'Vérification du paiement en cours...';
 
   @override
   void initState() {
@@ -36,58 +38,59 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         throw Exception('Session ID not found');
       }
 
+      setState(() {
+        _statusMessage = 'Vérification du paiement...';
+      });
+
       final result = await functions.httpsCallable('verifyPayment').call({
         'sessionId': sessionId,
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vérification du paiement en cours...')),
-      );
-
       if (result.data['success'] == true) {
+        setState(() {
+          _statusMessage = 'Paiement confirmé. Finalisation de la commande...';
+        });
         await _finalizeOrder(cart);
-        // Ne pas naviguer ici, car _finalizeOrder s'en charge déjà
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Le paiement a échoué. Veuillez réessayer.')),
-        );
-        Navigator.of(context).pushReplacementNamed('/checkout');
+        throw Exception('Le paiement a échoué');
       }
     } on FirebaseFunctionsException catch (e) {
-      if (e.code == 'unauthenticated') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Veuillez vous connecter pour finaliser votre commande.')),
-        );
-        // Rediriger vers la page de connexion
-        Navigator.of(context).pushReplacementNamed('/login');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Une erreur est survenue: ${e.message}')),
-        );
-        Navigator.of(context).pushReplacementNamed('/checkout');
-      }
+      _handleError('Erreur Firebase: ${e.message}',
+          e.code == 'unauthenticated' ? '/login' : '/checkout');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Une erreur inattendue est survenue: $e')),
-      );
-      Navigator.of(context).pushReplacementNamed('/checkout');
+      _handleError('Une erreur inattendue est survenue: $e', '/checkout');
     } finally {
-      // Nettoyage du sessionId du localStorage
       html.window.localStorage.remove('stripeSessionId');
+      setState(() {
+        _isLoading = false;
+      });
     }
+  }
+
+  void _handleError(String message, String redirectRoute) {
+    setState(() {
+      _statusMessage = message;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+    Future.delayed(const Duration(seconds: 3), () {
+      Navigator.of(context).pushReplacementNamed(redirectRoute);
+    });
   }
 
   Future<void> _finalizeOrder(CartService cart) async {
     final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('User not authenticated');
+    }
+
     final address =
         await _fetchCompanyAddress(cart.items.first.product.entrepriseId);
 
     final orderId = await _orderService.createOrder(Orders(
       id: '',
-      userId: user != null ? user.uid : '',
+      userId: user.uid,
       sellerId: cart.items.first.product.sellerId,
       items: cart.items
           .map((item) => OrderItem(
@@ -108,16 +111,6 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       context,
       MaterialPageRoute(
           builder: (context) => OrderConfirmationScreen(orderId: orderId)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Traitement du paiement')),
-      body: const Center(
-        child: CircularProgressIndicator(),
-      ),
     );
   }
 
@@ -143,5 +136,24 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       print("Erreur lors de la récupération de l'adresse de l'entreprise: $e");
     }
     return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Traitement du paiement')),
+      body: Center(
+        child: _isLoading
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 20),
+                  Text(_statusMessage),
+                ],
+              )
+            : Text(_statusMessage),
+      ),
+    );
   }
 }
