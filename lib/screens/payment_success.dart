@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/order.dart';
@@ -29,36 +28,15 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   }
 
   Future<void> _verifyPaymentAndFinalizeOrder() async {
-    final functions = FirebaseFunctions.instance;
     final cart = Provider.of<CartService>(context, listen: false);
 
     try {
-      final sessionId = html.window.localStorage['stripeSessionId'];
-      if (sessionId == null) {
-        throw Exception('Session ID not found');
-      }
-
       setState(() {
-        _statusMessage = 'Vérification du paiement...';
+        _statusMessage = 'Paiement confirmé. Finalisation de la commande...';
       });
-
-      final result = await functions.httpsCallable('verifyPayment').call({
-        'sessionId': sessionId,
-      });
-
-      if (result.data['success'] == true) {
-        setState(() {
-          _statusMessage = 'Paiement confirmé. Finalisation de la commande...';
-        });
-        await _finalizeOrder(cart);
-      } else {
-        throw Exception('Le paiement a échoué');
-      }
-    } on FirebaseFunctionsException catch (e) {
-      _handleError('Erreur Firebase: ${e.message}',
-          e.code == 'unauthenticated' ? '/login' : '/checkout');
+      await _finalizeOrder(cart);
     } catch (e) {
-      _handleError('Une erreur inattendue est survenue: $e', '/checkout');
+      _handleError('Une erreur inattendue est survenue: $e', '/home');
     } finally {
       html.window.localStorage.remove('stripeSessionId');
       setState(() {
