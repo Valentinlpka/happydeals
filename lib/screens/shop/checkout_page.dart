@@ -48,6 +48,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'https://valentinlpka.github.io/happydeals/#/payment-cancel', // URL d'annulation
       });
 
+      final sessionId = result.data['sessionId'];
+      final sessionUrl = result.data['url'];
+
+      html.window.localStorage['stripeSessionId'] = sessionId;
+
       if (kIsWeb) {
         // Redirection pour le paiement web
         final sessionUrl = result.data['url'];
