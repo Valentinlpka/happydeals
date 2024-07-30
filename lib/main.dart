@@ -10,6 +10,8 @@ import 'package:happy/screens/auth/complete_profile.dart';
 import 'package:happy/screens/auth/login_page.dart';
 import 'package:happy/screens/auth/register_page.dart';
 import 'package:happy/screens/main_container.dart';
+import 'package:happy/screens/payment_cancel.dart';
+import 'package:happy/screens/payment_success.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -89,6 +91,9 @@ class _MyAppState extends State<MyApp> {
           '/profile_completion': (context) => const ProfileCompletionPage(),
           '/home': (context) => const MainContainer(),
           '/cart': (ctx) => const CartScreen(),
+          '/payment-success': (context) => const PaymentSuccessScreen(),
+          '/payment-cancel': (context) => const PaymentCancel(),
+          '/order-confirmation': (context) => const PaymentSuccessScreen(),
         },
       ),
     );

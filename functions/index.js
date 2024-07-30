@@ -92,7 +92,15 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { amount, currency, connectAccountId, userId } = data;
+  const {
+    amount,
+    currency,
+    connectAccountId,
+    userId,
+    isWeb,
+    successUrl,
+    cancelUrl,
+  } = data;
 
   try {
     let customer;
@@ -114,16 +122,47 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
       });
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency,
-      customer: customer.id,
-      transfer_data: { destination: connectAccountId },
-    });
+    if (isWeb) {
+      // Pour les paiements web, créer une session de paiement
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: currency,
+              unit_amount: amount,
+              product_data: {
+                name: "Achat sur Happy Deals",
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        customer: customer.id,
+        payment_intent_data: {
+          transfer_data: {
+            destination: connectAccountId,
+          },
+        },
+      });
 
-    return { clientSecret: paymentIntent.client_secret };
+      return { sessionId: session.id, url: session.url };
+    } else {
+      // Pour les paiements mobiles, créer une intention de paiement
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency,
+        customer: customer.id,
+        transfer_data: { destination: connectAccountId },
+      });
+
+      return { clientSecret: paymentIntent.client_secret };
+    }
   } catch (error) {
-    console.error("Error creating payment intent:", error);
+    console.error("Error creating payment:", error);
     throw new functions.https.HttpsError("internal", error.message);
   }
 });
@@ -652,5 +691,31 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
       "internal",
       "Impossible de créer la commande: " + error.message
     );
+  }
+});
+
+exports.verifyPayment = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be authenticated."
+    );
+  }
+
+  const { sessionId } = data;
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.payment_status === "paid") {
+      // Le paiement a réussi
+      return { success: true };
+    } else {
+      // Le paiement n'a pas réussi ou est en attente
+      return { success: false };
+    }
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });

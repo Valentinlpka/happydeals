@@ -1,14 +1,16 @@
-// lib/screens/checkout_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:happy/classes/order.dart';
-import 'package:happy/screens/shop/order_confirmation_page.dart';
 import 'package:provider/provider.dart';
+import 'package:universal_html/html.dart' as html;
 
+import '../../classes/order.dart';
 import '../../services/cart_service.dart';
 import '../../services/order_service.dart';
+import '../shop/order_confirmation_page.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -19,7 +21,6 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
   final OrderService _orderService = OrderService();
   bool _isLoading = false;
 
@@ -29,103 +30,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
 
     try {
-      print(cart.items.first.product.sellerId);
-      final paymentIntentResult = await _orderService.createPaymentIntent(
-        amount: (cart.total * 100).round(),
-        currency: 'eur',
-        connectAccountId: cart.items.first.product.sellerId,
-      );
-
-      // Configurer la feuille de paiement
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: paymentIntentResult['clientSecret'],
-          merchantDisplayName: 'Your App Name',
-          // Vous pouvez personnaliser davantage l'apparence ici
-        ),
-      );
-
-      // Afficher la feuille de paiement
-      await Stripe.instance.presentPaymentSheet();
-
-      // Si nous arrivons ici, le paiement a réussi
       final user = _auth.currentUser;
-
-      Future<String?> fetchCompanyAddress(String entrepriseId) async {
-        try {
-          // Obtenir le document de l'entreprise en utilisant son ID
-          DocumentSnapshot doc = await FirebaseFirestore.instance
-              .collection('companys')
-              .doc(entrepriseId)
-              .get();
-
-          if (doc.exists) {
-            // Récupérer les données de l'entreprise
-            Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
-
-            // Vérifier si le champ 'adress' existe et contient les informations nécessaires
-            if (data != null && data.containsKey('adress')) {
-              Map<String, dynamic> addressMap =
-                  data['adress'] as Map<String, dynamic>;
-              // Récupérer les champs individuels et les concaténer en une seule chaîne
-              String adresse = addressMap['adresse'] ?? '';
-              String codePostal = addressMap['codePostal'] ?? '';
-              String ville = addressMap['ville'] ?? '';
-
-              // Formater l'adresse complète
-              String formattedAddress = '$adresse, $codePostal $ville';
-
-              return formattedAddress;
-            } else {
-              print(
-                  "Les données de l'entreprise ne contiennent pas le champ 'adress'");
-              return null;
-            }
-          } else {
-            print("Aucune entreprise trouvée avec cet ID.");
-            return null;
-          }
-        } catch (e) {
-          print(
-              "Erreur lors de la récupération de l'adresse de l'entreprise: $e");
-          return null;
-        }
+      if (user == null) {
+        throw Exception("User not authenticated");
       }
 
-      final adress =
-          await fetchCompanyAddress(cart.items.first.product.entrepriseId);
+      final functions = FirebaseFunctions.instance;
+      final result = await functions.httpsCallable('createPayment').call({
+        'amount': (cart.total * 100).round(),
+        'currency': 'eur',
+        'connectAccountId': cart.items.first.product.sellerId,
+        'userId': user.uid,
+        'isWeb': kIsWeb,
+        'successUrl':
+            'https://valentinlpka.github.io/happydeals/#/payment-success', // URL de succès
+        'cancelUrl':
+            'https://valentinlpka.github.io/happydeals/#/payment-cancel', // URL d'annulation
+      });
 
-      final orderId = await _orderService.createOrder(Orders(
-        id: '',
-        userId: user != null
-            ? user.uid
-            : '', // Remplacez par l'ID de l'utilisateur actuel
-        sellerId: cart.items.first.product.sellerId,
-        items: cart.items
-            .map((item) => OrderItem(
-                  productId: item.product.id,
-                  name: item.product.name,
-                  quantity: item.quantity,
-                  price: item.product.price,
-                ))
-            .toList(),
-        totalPrice: cart.total,
-        status: 'paid',
-        createdAt: DateTime.now(),
-        pickupAddress: adress ?? "", // À remplacer par l'adresse réelle
-      ));
+      if (kIsWeb) {
+        // Redirection pour le paiement web
+        final sessionUrl = result.data['url'];
+        html.window.location.href = sessionUrl;
+      } else {
+        // Logique de paiement mobile
+        await Stripe.instance.initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            paymentIntentClientSecret: result.data['clientSecret'],
+            merchantDisplayName: 'Happy Deals',
+          ),
+        );
 
-      cart.clearCart();
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => OrderConfirmationScreen(orderId: orderId)),
-      );
-    } on StripeException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Erreur de paiement: ${e.error.localizedMessage}')),
-      );
+        await Stripe.instance.presentPaymentSheet();
+
+        // Si nous arrivons ici, le paiement a réussi
+        await _finalizeOrder(cart);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Une erreur est survenue: $e')),
@@ -137,6 +77,61 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> _finalizeOrder(CartService cart) async {
+    final user = _auth.currentUser;
+    final address =
+        await _fetchCompanyAddress(cart.items.first.product.entrepriseId);
+
+    final orderId = await _orderService.createOrder(Orders(
+      id: '',
+      userId: user != null ? user.uid : '',
+      sellerId: cart.items.first.product.sellerId,
+      items: cart.items
+          .map((item) => OrderItem(
+                productId: item.product.id,
+                name: item.product.name,
+                quantity: item.quantity,
+                price: item.product.price,
+              ))
+          .toList(),
+      totalPrice: cart.total,
+      status: 'paid',
+      createdAt: DateTime.now(),
+      pickupAddress: address ?? "",
+    ));
+
+    cart.clearCart();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+          builder: (context) => OrderConfirmationScreen(orderId: orderId)),
+    );
+  }
+
+  Future<String?> _fetchCompanyAddress(String entrepriseId) async {
+    try {
+      DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection('companys')
+          .doc(entrepriseId)
+          .get();
+
+      if (doc.exists) {
+        Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
+        if (data != null && data.containsKey('adress')) {
+          Map<String, dynamic> addressMap =
+              data['adress'] as Map<String, dynamic>;
+          String adresse = addressMap['adresse'] ?? '';
+          String codePostal = addressMap['codePostal'] ?? '';
+          String ville = addressMap['ville'] ?? '';
+          return '$adresse, $codePostal $ville';
+        }
+      }
+    } catch (e) {
+      print("Erreur lors de la récupération de l'adresse de l'entreprise: $e");
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartService>(context);
@@ -146,38 +141,63 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              child: Column(
-                children: [
-                  ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: cart.items.length,
-                    itemBuilder: (context, index) {
-                      final item = cart.items[index];
-                      return ListTile(
-                        title: Text(item.product.name),
-                        trailing:
-                            Text('${item.quantity} x ${item.product.price} €'),
-                      );
-                    },
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Total: ${cart.total.toStringAsFixed(2)} €',
-                          style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          child: const Text('Payer'),
-                          onPressed: () => _handlePayment(cart),
-                        ),
-                      ],
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Récapitulatif de la commande',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: cart.items.length,
+                      itemBuilder: (context, index) {
+                        final item = cart.items[index];
+                        return ListTile(
+                          title: Text(item.product.name),
+                          subtitle: Text('Quantité: ${item.quantity}'),
+                          trailing: Text(
+                              '${(item.product.price * item.quantity).toStringAsFixed(2)} €'),
+                        );
+                      },
+                    ),
+                    const Divider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Total',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '${cart.total.toStringAsFixed(2)} €',
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16.0),
+                        ),
+                        onPressed: () => _handlePayment(cart),
+                        child: const Text('Procéder au paiement'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
     );
