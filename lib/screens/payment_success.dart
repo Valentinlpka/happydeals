@@ -38,12 +38,15 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
       final result = await functions.httpsCallable('verifyPayment').call({
         'sessionId': sessionId,
-        // Passez les paramètres nécessaires, comme l'ID de session ou de paiement
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vérification du paiement en cours...')),
+      );
 
       if (result.data['success'] == true) {
         await _finalizeOrder(cart);
-        Navigator.of(context).pushReplacementNamed('/order-confirmation');
+        // Ne pas naviguer ici, car _finalizeOrder s'en charge déjà
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -51,11 +54,29 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         );
         Navigator.of(context).pushReplacementNamed('/checkout');
       }
+    } on FirebaseFunctionsException catch (e) {
+      if (e.code == 'unauthenticated') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Veuillez vous connecter pour finaliser votre commande.')),
+        );
+        // Rediriger vers la page de connexion
+        Navigator.of(context).pushReplacementNamed('/login');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Une erreur est survenue: ${e.message}')),
+        );
+        Navigator.of(context).pushReplacementNamed('/checkout');
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Une erreur est survenue: $e')),
+        SnackBar(content: Text('Une erreur inattendue est survenue: $e')),
       );
       Navigator.of(context).pushReplacementNamed('/checkout');
+    } finally {
+      // Nettoyage du sessionId du localStorage
+      html.window.localStorage.remove('stripeSessionId');
     }
   }
 
