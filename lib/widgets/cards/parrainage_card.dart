@@ -182,7 +182,7 @@ class ParrainageCard extends StatelessWidget {
                               ),
                               const Gap(10),
                               Text(
-                                companyName,
+                                capitalizeFirstLetter(companyName),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,

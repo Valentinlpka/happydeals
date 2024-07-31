@@ -184,44 +184,63 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
         context.watch<UserModel>().likedPosts.contains(widget.post.id);
 
     return Scaffold(
-      bottomNavigationBar: ElevatedButton(
-        onPressed: () async {
-          try {
-            final reservationRef = await reserveDeal(
-              type: widget.post.basketType,
-              postId: widget.post.id,
-              quantity: 1,
-              price: widget.post.price,
-              pickupDate: widget.post.pickupTime,
-            );
-
-            final reservationSnapshot = await reservationRef.get();
-            final reservationData =
-                reservationSnapshot.data() as Map<String, dynamic>?;
-            if (reservationData == null) {
-              throw Exception("Les données de réservation sont invalides");
-            }
-            final validationCode = reservationData['validationCode'] as String?;
-            if (validationCode == null) {
-              throw Exception("Le code de validation est manquant");
-            }
-
-            _showReservationSuccessDialog(validationCode);
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    ReservationDetailsPage(reservationId: reservationRef.id),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+            border: Border(
+                top: BorderSide(
+          width: 0.4,
+          color: Colors.black26,
+        ))),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              style: ButtonStyle(
+                backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
               ),
-            );
-          } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('Erreur lors de la réservation: $e'),
-            ));
-          }
-        },
-        child: const Text('Réserver'),
+              onPressed: () async {
+                try {
+                  final reservationRef = await reserveDeal(
+                    type: widget.post.basketType,
+                    postId: widget.post.id,
+                    quantity: 1,
+                    price: widget.post.price,
+                    pickupDate: widget.post.pickupTime,
+                  );
+
+                  final reservationSnapshot = await reservationRef.get();
+                  final reservationData =
+                      reservationSnapshot.data() as Map<String, dynamic>?;
+                  if (reservationData == null) {
+                    throw Exception(
+                        "Les données de réservation sont invalides");
+                  }
+                  final validationCode =
+                      reservationData['validationCode'] as String?;
+                  if (validationCode == null) {
+                    throw Exception("Le code de validation est manquant");
+                  }
+
+                  _showReservationSuccessDialog(validationCode);
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ReservationDetailsPage(
+                          reservationId: reservationRef.id),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Erreur lors de la réservation: $e'),
+                  ));
+                }
+              },
+              child: const Text('Réserver'),
+            ),
+          ),
+        ),
       ),
       body: CustomScrollView(
         slivers: [
@@ -230,8 +249,8 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
             floating: true,
             elevation: 11,
             centerTitle: true,
+            titleSpacing: 50,
             title: Container(
-              width: 150,
               height: 30,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
@@ -240,7 +259,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     Icon(
                       Icons.calendar_month_outlined,

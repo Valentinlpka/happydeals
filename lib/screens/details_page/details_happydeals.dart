@@ -52,11 +52,11 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
         slivers: [
           SliverAppBar(
             pinned: true,
-            floating: false,
-            elevation: 0,
+            floating: true,
+            elevation: 1,
             centerTitle: true,
+            titleSpacing: 50,
             title: Container(
-              width: 130,
               height: 30,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
@@ -65,7 +65,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.calendar_month_outlined,
@@ -73,13 +74,13 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
                       size: 16,
                     ),
                     Text(
-                      "Happy Deals",
+                      maxLines: 1,
+                      'Happy Deals',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    )
+                          color: Colors.white,
+                          fontSize: 14,
+                          overflow: TextOverflow.ellipsis),
+                    ),
                   ],
                 ),
               ),

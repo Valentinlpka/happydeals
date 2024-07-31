@@ -32,7 +32,7 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> loadSavedLocation() async {
     _isLoading = true;
-    notifyListeners();
+    // Ne pas notifier les listeners ici
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -60,8 +60,12 @@ class HomeProvider extends ChangeNotifier {
           "Erreur lors du chargement de la localisation sauvegardée", e);
     } finally {
       _isLoading = false;
-      notifyListeners();
+      // Ne pas notifier les listeners ici
     }
+  }
+
+  void notifyLocationLoaded() {
+    notifyListeners();
   }
 
   void _updateCurrentLocation(

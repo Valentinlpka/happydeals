@@ -48,18 +48,26 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
         context.watch<UserModel>().likedPosts.contains(widget.post.id);
 
     return Scaffold(
-        bottomNavigationBar: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: SizedBox(
-            height: 50,
-            child: ElevatedButton(
-              style: ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+              border: Border(
+                  top: BorderSide(
+            width: 0.4,
+            color: Colors.black26,
+          ))),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                style: ButtonStyle(
+                  backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
+                ),
+                onPressed: () {
+                  // Implement apply functionality
+                },
+                child: const Text('Postuler'),
               ),
-              onPressed: () {
-                // Implement apply functionality
-              },
-              child: const Text('Postuler'),
             ),
           ),
         ),
@@ -69,8 +77,8 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
             floating: true,
             elevation: 11,
             centerTitle: true,
+            titleSpacing: 50,
             title: Container(
-              width: 150,
               height: 30,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
@@ -79,7 +87,8 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.work_outline,
@@ -87,12 +96,13 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
                       size: 16,
                     ),
                     Text(
+                      maxLines: 1,
                       "Offre d'emploi",
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                    )
+                          color: Colors.white,
+                          fontSize: 14,
+                          overflow: TextOverflow.ellipsis),
+                    ),
                   ],
                 ),
               ),

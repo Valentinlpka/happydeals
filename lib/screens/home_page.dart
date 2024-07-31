@@ -21,13 +21,17 @@ class Home extends StatefulWidget {
   _HomeState createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
   static const _pageSize = 10;
   bool _showCompanies = false;
   late String currentUserId;
   late PagingController<DocumentSnapshot?, Map<String, dynamic>>
       _postsPagingController;
   late PagingController<DocumentSnapshot?, Company> _companiesPagingController;
+  late Future<void> _initializationFuture;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -36,12 +40,19 @@ class _HomeState extends State<Home> {
     _postsPagingController = PagingController(firstPageKey: null);
     _companiesPagingController = PagingController(firstPageKey: null);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<HomeProvider>().loadSavedLocation();
-    });
+    _initializationFuture = _initializeData();
+  }
 
+  Future<void> _initializeData() async {
+    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+    await homeProvider.loadSavedLocation();
     _postsPagingController.addPageRequestListener(_fetchPostsPage);
     _companiesPagingController.addPageRequestListener(_fetchCompaniesPage);
+    Future.microtask(() {
+      if (mounted) {
+        homeProvider.notifyLocationLoaded();
+      }
+    });
   }
 
   @override
@@ -53,7 +64,7 @@ class _HomeState extends State<Home> {
 
   Future<void> _fetchPostsPage(DocumentSnapshot? pageKey) async {
     try {
-      final homeProvider = context.read<HomeProvider>();
+      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
       final newPosts =
           await homeProvider.fetchPostsWithCompanyData(pageKey, _pageSize);
 
@@ -75,7 +86,7 @@ class _HomeState extends State<Home> {
 
   Future<void> _fetchCompaniesPage(DocumentSnapshot? pageKey) async {
     try {
-      final homeProvider = context.read<HomeProvider>();
+      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
       final newCompanies =
           await homeProvider.fetchCompanies(pageKey, _pageSize);
 
@@ -97,32 +108,41 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       body: SafeArea(
-        child: Consumer<HomeProvider>(
-          builder: (context, homeProvider, _) {
-            if (homeProvider.isLoading) {
+        child: FutureBuilder<void>(
+          future: _initializationFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            return RefreshIndicator(
-              onRefresh: _handleRefresh,
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        _buildHeader(),
-                        _buildLocationBar(homeProvider),
-                        _buildCategoryButtons(),
-                      ],
-                    ),
-                  ),
-                  _showCompanies ? _buildCompanyList() : _buildPostList(),
-                ],
-              ),
-            );
+            if (snapshot.hasError) {
+              return Center(child: Text('Erreur: ${snapshot.error}'));
+            }
+            return _buildHomeContent();
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildHomeContent() {
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _buildHeader(),
+                _buildLocationBar(),
+                _buildCategoryButtons(),
+              ],
+            ),
+          ),
+          _showCompanies ? _buildCompanyList() : _buildPostList(),
+        ],
       ),
     );
   }
@@ -164,25 +184,102 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildLocationBar(HomeProvider homeProvider) {
-    return GestureDetector(
-      onTap: _showLocationBottomSheet,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Row(
-          children: [
-            const Icon(Icons.location_on, color: Colors.blue),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                homeProvider.currentAddress,
-                style: const TextStyle(fontSize: 16),
-                overflow: TextOverflow.ellipsis,
-              ),
+  Widget _buildLocationBar() {
+    return Consumer<HomeProvider>(
+      builder: (context, homeProvider, _) {
+        return GestureDetector(
+          onTap: _showLocationBottomSheet,
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              children: [
+                const Icon(Icons.location_on, color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    homeProvider.currentAddress,
+                    style: const TextStyle(fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, color: Colors.blue),
+              ],
             ),
-            const Icon(Icons.arrow_drop_down, color: Colors.blue),
-          ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryButtons() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildCategoryButton("Posts", !_showCompanies),
+          _buildCategoryButton("Entreprises", _showCompanies),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryButton(String title, bool isSelected) {
+    return ElevatedButton(
+      onPressed: () {
+        setState(() {
+          _showCompanies = title == "Entreprises";
+        });
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor:
+            isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
+        foregroundColor: isSelected ? Colors.white : Colors.black,
+      ),
+      child: Text(title),
+    );
+  }
+
+  Widget _buildCompanyList() {
+    return PagedSliverList<DocumentSnapshot?, Company>(
+      pagingController: _companiesPagingController,
+      builderDelegate: PagedChildBuilderDelegate<Company>(
+        noItemsFoundIndicatorBuilder: (_) => const Center(
+          child: Text('Aucune entreprise trouvée à proximité'),
         ),
+        itemBuilder: (context, company, index) => CompanyCard(company),
+      ),
+    );
+  }
+
+  Widget _buildPostList() {
+    return PagedSliverList<DocumentSnapshot?, Map<String, dynamic>>(
+      pagingController: _postsPagingController,
+      builderDelegate: PagedChildBuilderDelegate<Map<String, dynamic>>(
+        noItemsFoundIndicatorBuilder: (_) => const Center(
+          child: Text(
+              'Aucun post à proximité, veuillez changer votre localisation'),
+        ),
+        itemBuilder: (context, postData, index) {
+          final post = postData['post'] as Post;
+          final companyData = postData['company'] as Map<String, dynamic>;
+          return Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: PostWidget(
+              key: ValueKey(post.id),
+              post: post,
+              companyCategorie: companyData['categorie'] ?? '',
+              companyName: companyData['name'] ?? '',
+              companyLogo: companyData['logo'] ?? '',
+              currentUserId: currentUserId,
+              onView: () {
+                // Logique d'affichage du post
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -286,80 +383,9 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildCategoryButtons() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildCategoryButton("Posts", !_showCompanies),
-          _buildCategoryButton("Entreprises", _showCompanies),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryButton(String title, bool isSelected) {
-    return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          _showCompanies = title == "Entreprises";
-        });
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor:
-            isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
-        foregroundColor: isSelected ? Colors.white : Colors.black,
-      ),
-      child: Text(title),
-    );
-  }
-
-  Widget _buildCompanyList() {
-    return PagedSliverList<DocumentSnapshot?, Company>(
-      pagingController: _companiesPagingController,
-      builderDelegate: PagedChildBuilderDelegate<Company>(
-        noItemsFoundIndicatorBuilder: (_) => const Center(
-          child: Text('Aucune entreprise trouvée à proximité'),
-        ),
-        itemBuilder: (context, company, index) => CompanyCard(company),
-      ),
-    );
-  }
-
-  Widget _buildPostList() {
-    return PagedSliverList<DocumentSnapshot?, Map<String, dynamic>>(
-      pagingController: _postsPagingController,
-      builderDelegate: PagedChildBuilderDelegate<Map<String, dynamic>>(
-        noItemsFoundIndicatorBuilder: (_) => const Center(
-          child: Text(
-              'Aucun post à proximité, veuillez changer votre localisation'),
-        ),
-        itemBuilder: (context, postData, index) {
-          final post = postData['post'] as Post;
-          final companyData = postData['company'] as Map<String, dynamic>;
-          return Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: PostWidget(
-              key: ValueKey(post.id),
-              post: post,
-              companyCategorie: companyData['categorie'] ?? '',
-              companyName: companyData['name'] ?? '',
-              companyLogo: companyData['logo'] ?? '',
-              currentUserId: currentUserId,
-              onView: () {
-                // Logique d'affichage du post
-              },
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Future<void> _handleRefresh() async {
-    final homeProvider = context.read<HomeProvider>();
+    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+    await homeProvider.loadSavedLocation();
     homeProvider.clearCache();
     _postsPagingController.refresh();
     _companiesPagingController.refresh();
