@@ -29,6 +29,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
       _postsPagingController;
   late PagingController<DocumentSnapshot?, Company> _companiesPagingController;
   late Future<void> _initializationFuture;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   bool get wantKeepAlive => true;
@@ -40,12 +42,50 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     _postsPagingController = PagingController(firstPageKey: null);
     _companiesPagingController = PagingController(firstPageKey: null);
 
-    _initializationFuture = _initializeData();
+    _initializationFuture = _initializeWithRetry();
+  }
+
+  Future<void> _initializeWithRetry() async {
+    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+    for (int i = 0; i <= _maxRetries; i++) {
+      try {
+        print("Tentative d'initialisation ${i + 1}', name: 'Home");
+        await Future.delayed(Duration(seconds: 1 * (i + 1)));
+        await homeProvider.loadSavedLocation();
+        _retryCount = 0;
+        _postsPagingController.addPageRequestListener(_fetchPostsPage);
+        _companiesPagingController.addPageRequestListener(_fetchCompaniesPage);
+        print("Initialisation réussie', name: 'Home");
+        return;
+      } catch (e, stackTrace) {
+        print(
+          "Erreur lors de l'initialisation (tentative ${i + 1}): $e",
+        );
+        if (i == _maxRetries) {
+          homeProvider.setError(e.toString());
+          rethrow;
+        }
+      }
+    }
+  }
+
+  Future<void> _retryInitialization() async {
+    setState(() {
+      _retryCount++;
+      _initializationFuture = _initializeWithRetry();
+    });
   }
 
   Future<void> _initializeData() async {
     final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-    await homeProvider.loadSavedLocation();
+    try {
+      await homeProvider.loadSavedLocation();
+      print(homeProvider.currentPosition);
+    } catch (e) {
+      if (mounted) {
+        _showLocationBottomSheet();
+      }
+    }
     _postsPagingController.addPageRequestListener(_fetchPostsPage);
     _companiesPagingController.addPageRequestListener(_fetchCompaniesPage);
     Future.microtask(() {
@@ -64,26 +104,33 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
 
   Future<void> _fetchPostsPage(DocumentSnapshot? pageKey) async {
     try {
+      print("Début du chargement des posts");
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
       final newPosts =
           await homeProvider.fetchPostsWithCompanyData(pageKey, _pageSize);
+      print("Posts récupérés: ${newPosts.length}");
 
       final isLastPage = newPosts.length < _pageSize;
       if (isLastPage) {
+        print("Dernière page de posts atteinte");
         _postsPagingController.appendLastPage(newPosts);
       } else {
         final lastPostId = newPosts.last['post'].id;
+        print("Chargement de la page suivante après le post: $lastPostId");
         final nextPageKey = await FirebaseFirestore.instance
             .collection('posts')
             .doc(lastPostId)
             .get();
         _postsPagingController.appendPage(newPosts, nextPageKey);
       }
+      print("Chargement des posts terminé avec succès");
     } catch (error) {
+      print("Erreur lors du chargement des posts: $error");
       _postsPagingController.error = error;
     }
   }
 
+// Faites de même pour _fetchCompaniesPage
   Future<void> _fetchCompaniesPage(DocumentSnapshot? pageKey) async {
     try {
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
@@ -118,7 +165,22 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Erreur: ${snapshot.error}'));
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Erreur: ${snapshot.error}'),
+                    if (_retryCount < _maxRetries)
+                      ElevatedButton(
+                        onPressed: _retryInitialization,
+                        child: const Text('Réessayer'),
+                      )
+                    else
+                      const Text(
+                          'Nombre maximum de tentatives atteint. Veuillez réessayer plus tard.'),
+                  ],
+                ),
+              );
             }
             return _buildHomeContent();
           },
@@ -128,22 +190,43 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
   }
 
   Widget _buildHomeContent() {
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
+    return Consumer<HomeProvider>(
+      builder: (context, homeProvider, _) {
+        if (homeProvider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (homeProvider.hasError) {
+          return Center(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildHeader(),
-                _buildLocationBar(),
-                _buildCategoryButtons(),
+                Text('Erreur: ${homeProvider.errorMessage}'),
+                ElevatedButton(
+                  onPressed: _retryInitialization,
+                  child: const Text('Réessayer'),
+                ),
               ],
             ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: _handleRefresh,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    _buildLocationBar(),
+                    _buildCategoryButtons(),
+                  ],
+                ),
+              ),
+              _showCompanies ? _buildCompanyList() : _buildPostList(),
+            ],
           ),
-          _showCompanies ? _buildCompanyList() : _buildPostList(),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -260,6 +343,32 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
         noItemsFoundIndicatorBuilder: (_) => const Center(
           child: Text(
               'Aucun post à proximité, veuillez changer votre localisation'),
+        ),
+        firstPageErrorIndicatorBuilder: (context) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                  'Erreur lors du chargement des posts: ${_postsPagingController.error}'),
+              ElevatedButton(
+                onPressed: () => _postsPagingController.refresh(),
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+        newPageErrorIndicatorBuilder: (context) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Erreur lors du chargement de la page suivante'),
+              ElevatedButton(
+                onPressed: () =>
+                    _postsPagingController.retryLastFailedRequest(),
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
         ),
         itemBuilder: (context, postData, index) {
           final post = postData['post'] as Post;

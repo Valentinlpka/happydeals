@@ -21,6 +21,10 @@ class HomeProvider extends ChangeNotifier {
   String _currentAddress = "Localisation en cours...";
   double _selectedRadius = 40.0;
   bool _isLoading = false;
+  String? _errorMessage;
+  bool get hasError => _errorMessage != null;
+  String get errorMessage =>
+      _errorMessage ?? "Une erreur inconnue est survenue";
 
   Position? get currentPosition => _currentPosition;
   String get currentAddress => _currentAddress;
@@ -32,6 +36,8 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> loadSavedLocation() async {
     _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
     // Ne pas notifier les listeners ici
 
     try {
@@ -65,6 +71,12 @@ class HomeProvider extends ChangeNotifier {
   }
 
   void notifyLocationLoaded() {
+    notifyListeners();
+  }
+
+  void setError(String message) {
+    _errorMessage = message;
+    _isLoading = false;
     notifyListeners();
   }
 
@@ -199,6 +211,7 @@ class HomeProvider extends ChangeNotifier {
 
   Future<List<Map<String, dynamic>>> fetchPostsWithCompanyData(
       DocumentSnapshot? pageKey, int pageSize) async {
+    print("Début de fetchPostsWithCompanyData");
     if (_currentPosition == null) {
       print('Position actuelle non disponible');
       return [];
@@ -206,9 +219,11 @@ class HomeProvider extends ChangeNotifier {
 
     final cacheKey = 'posts_${pageKey?.id ?? "initial"}_$pageSize';
     if (_isCacheValid(cacheKey)) {
-      return _cache[cacheKey];
+      print("Utilisation du cache pour les posts");
+      return _cache[cacheKey]['data'];
     }
 
+    print("Récupération des posts depuis Firestore");
     final postsQuery = _firestore
         .collection('posts')
         .orderBy('timestamp', descending: true)
@@ -217,19 +232,30 @@ class HomeProvider extends ChangeNotifier {
         ? await postsQuery.get()
         : await postsQuery.startAfterDocument(pageKey).get();
 
+    print("Nombre de documents récupérés: ${postsSnapshot.docs.length}");
+
     List<Map<String, dynamic>> postsWithCompanyData = [];
     for (var postDoc in postsSnapshot.docs) {
-      final post = _createPostFromDocument(postDoc);
-      if (post != null) {
-        final companyDoc =
-            await _firestore.collection('companys').doc(post.companyId).get();
-        final companyData = companyDoc.data() as Map<String, dynamic>;
-        if (await _isPostWithinRadius(post.companyId, companyData)) {
-          postsWithCompanyData.add({'post': post, 'company': companyData});
-          if (postsWithCompanyData.length >= pageSize) break;
+      try {
+        final post = _createPostFromDocument(postDoc);
+        if (post != null) {
+          print(
+              "Récupération des données de l'entreprise pour le post ${post.id}");
+          final companyDoc =
+              await _firestore.collection('companys').doc(post.companyId).get();
+          final companyData = companyDoc.data() as Map<String, dynamic>;
+          if (await _isPostWithinRadius(post.companyId, companyData)) {
+            postsWithCompanyData.add({'post': post, 'company': companyData});
+            if (postsWithCompanyData.length >= pageSize) break;
+          }
         }
+      } catch (e) {
+        print("Erreur lors du traitement du post ${postDoc.id}: $e");
       }
     }
+
+    print(
+        "Nombre de posts avec données d'entreprise: ${postsWithCompanyData.length}");
 
     _cache[cacheKey] = {
       'data': postsWithCompanyData,
@@ -282,6 +308,7 @@ class HomeProvider extends ChangeNotifier {
 
   Future<bool> _isPostWithinRadius(
       String companyId, Map<String, dynamic> companyData) async {
+    print("Vérification du rayon pour le post de l'entreprise $companyId");
     Map<String, dynamic>? addressMap =
         companyData['adress'] as Map<String, dynamic>?;
     if (addressMap == null ||
@@ -290,7 +317,10 @@ class HomeProvider extends ChangeNotifier {
       print("Coordonnées manquantes pour l'entreprise $companyId");
       return false;
     }
-    return _isWithinRadius(addressMap['latitude'], addressMap['longitude']);
+    bool result =
+        await _isWithinRadius(addressMap['latitude'], addressMap['longitude']);
+    print("Le post est${result ? '' : ' non'} dans le rayon");
+    return result;
   }
 
   Future<bool> _isWithinRadius(double lat, double lng) async {
