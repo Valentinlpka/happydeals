@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 import 'package:happy/classes/company.dart';
@@ -23,74 +22,60 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  final String currentUserId =
-      FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-  final PagingController<DocumentSnapshot?, Map<String, dynamic>>
-      _pagingController = PagingController(firstPageKey: null);
-  final PagingController<DocumentSnapshot?, Company>
-      _companiesPagingController = PagingController(firstPageKey: null);
-
   static const _pageSize = 10;
   bool _showCompanies = false;
+  late String currentUserId;
+  late PagingController<DocumentSnapshot?, Map<String, dynamic>>
+      _postsPagingController;
+  late PagingController<DocumentSnapshot?, Company> _companiesPagingController;
 
   @override
   void initState() {
     super.initState();
+    currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+    _postsPagingController = PagingController(firstPageKey: null);
+    _companiesPagingController = PagingController(firstPageKey: null);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<HomeProvider>(context, listen: false).loadSavedLocation();
+      context.read<HomeProvider>().loadSavedLocation();
     });
-    _pagingController.addPageRequestListener(_fetchPage);
-    _companiesPagingController.addPageRequestListener(_fetchCompanyPage);
+
+    _postsPagingController.addPageRequestListener(_fetchPostsPage);
+    _companiesPagingController.addPageRequestListener(_fetchCompaniesPage);
   }
 
   @override
   void dispose() {
-    _pagingController.dispose();
+    _postsPagingController.dispose();
     _companiesPagingController.dispose();
     super.dispose();
   }
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  Future<void> _updateSingleCompany(QueryDocumentSnapshot doc) async {
+  Future<void> _fetchPostsPage(DocumentSnapshot? pageKey) async {
     try {
-      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-      Map<String, dynamic>? addressData =
-          data['adress'] as Map<String, dynamic>?;
+      final homeProvider = context.read<HomeProvider>();
+      final newPosts =
+          await homeProvider.fetchPostsWithCompanyData(pageKey, _pageSize);
 
-      if (addressData == null) {
-        print('Données d\'adresse manquantes pour l\'entreprise ${doc.id}');
-        return;
-      }
-
-      String address =
-          '${addressData['adresse']}, ${addressData['code_postal']}, ${addressData['ville']}, France';
-
-      List<Location> locations = await locationFromAddress(address);
-
-      if (locations.isNotEmpty) {
-        Location location = locations.first;
-
-        // Mettre à jour le document avec les nouvelles coordonnées
-        await _firestore.collection('companys').doc(doc.id).update({
-          'adress.latitude': location.latitude,
-          'adress.longitude': location.longitude,
-        });
-
-        print(
-            'Entreprise ${doc.id} mise à jour avec les coordonnées: ${location.latitude}, ${location.longitude}');
+      final isLastPage = newPosts.length < _pageSize;
+      if (isLastPage) {
+        _postsPagingController.appendLastPage(newPosts);
       } else {
-        print(
-            'Aucune coordonnée trouvée pour l\'adresse de l\'entreprise ${doc.id}');
+        final lastPostId = newPosts.last['post'].id;
+        final nextPageKey = await FirebaseFirestore.instance
+            .collection('posts')
+            .doc(lastPostId)
+            .get();
+        _postsPagingController.appendPage(newPosts, nextPageKey);
       }
-    } catch (e) {
-      print('Erreur lors de la mise à jour de l\'entreprise ${doc.id}: $e');
+    } catch (error) {
+      _postsPagingController.error = error;
     }
   }
 
-  Future<void> _fetchCompanyPage(DocumentSnapshot? pageKey) async {
+  Future<void> _fetchCompaniesPage(DocumentSnapshot? pageKey) async {
     try {
-      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+      final homeProvider = context.read<HomeProvider>();
       final newCompanies =
           await homeProvider.fetchCompanies(pageKey, _pageSize);
 
@@ -107,28 +92,6 @@ class _HomeState extends State<Home> {
       }
     } catch (error) {
       _companiesPagingController.error = error;
-    }
-  }
-
-  Future<void> _fetchPage(DocumentSnapshot? pageKey) async {
-    try {
-      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-      final newPosts =
-          await homeProvider.fetchPostsWithCompanyData(pageKey, _pageSize);
-
-      final isLastPage = newPosts.length < _pageSize;
-      if (isLastPage) {
-        _pagingController.appendLastPage(newPosts);
-      } else {
-        final lastPostId = newPosts.last['post'].id;
-        final nextPageKey = await FirebaseFirestore.instance
-            .collection('posts')
-            .doc(lastPostId)
-            .get();
-        _pagingController.appendPage(newPosts, nextPageKey);
-      }
-    } catch (error) {
-      _pagingController.error = error;
     }
   }
 
@@ -203,7 +166,7 @@ class _HomeState extends State<Home> {
 
   Widget _buildLocationBar(HomeProvider homeProvider) {
     return GestureDetector(
-      onTap: () => _showLocationBottomSheet(),
+      onTap: _showLocationBottomSheet,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Row(
@@ -256,10 +219,9 @@ class _HomeState extends State<Home> {
                   ElevatedButton(
                     onPressed: () async {
                       Navigator.pop(context);
-                      await homeProvider
-                          .applyChanges(); // Appliquer les changements
-                      setState(() {}); // Forcer la reconstruction du widget
-                      _pagingController.refresh();
+                      await homeProvider.applyChanges();
+                      setState(() {});
+                      _postsPagingController.refresh();
                       _companiesPagingController.refresh();
                     },
                     child: const Text("Appliquer"),
@@ -367,7 +329,7 @@ class _HomeState extends State<Home> {
 
   Widget _buildPostList() {
     return PagedSliverList<DocumentSnapshot?, Map<String, dynamic>>(
-      pagingController: _pagingController,
+      pagingController: _postsPagingController,
       builderDelegate: PagedChildBuilderDelegate<Map<String, dynamic>>(
         noItemsFoundIndicatorBuilder: (_) => const Center(
           child: Text(
@@ -397,9 +359,9 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _handleRefresh() async {
-    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-    await homeProvider.refreshPosts();
-    _pagingController.refresh();
+    final homeProvider = context.read<HomeProvider>();
+    homeProvider.clearCache();
+    _postsPagingController.refresh();
     _companiesPagingController.refresh();
   }
 }

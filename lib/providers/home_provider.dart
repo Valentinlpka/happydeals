@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeProvider extends ChangeNotifier {
   final TextEditingController addressController = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Position? _currentPosition;
   String _currentAddress = "Localisation en cours...";
@@ -26,12 +27,8 @@ class HomeProvider extends ChangeNotifier {
   double get selectedRadius => _selectedRadius;
   bool get isLoading => _isLoading;
 
-  final Map<String, Post> _postCache = {};
-  final Map<String, Map<String, dynamic>> _companyCache = {};
-  final Map<String, dynamic> _queryCache = {};
-
+  final Map<String, dynamic> _cache = {};
   static const int _cacheDuration = 15; // minutes
-  static const int _queryCacheDuration = 5; // minutes
 
   Future<void> loadSavedLocation() async {
     _isLoading = true;
@@ -45,72 +42,69 @@ class HomeProvider extends ChangeNotifier {
       final lastLocationUpdate = prefs.getInt('lastLocationUpdate');
 
       final now = DateTime.now().millisecondsSinceEpoch;
-      const oneDay = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+      const oneDay = 24 * 60 * 60 * 1000;
 
       if (savedAddress != null &&
           savedLat != null &&
           savedLng != null &&
           lastLocationUpdate != null &&
           (now - lastLocationUpdate < oneDay)) {
-        _currentAddress = savedAddress;
-        _currentPosition = Position(
-          latitude: savedLat,
-          longitude: savedLng,
-          timestamp: DateTime.fromMillisecondsSinceEpoch(lastLocationUpdate),
-          accuracy: 0,
-          altitude: 0,
-          heading: 0,
-          speed: 0,
-          speedAccuracy: 0,
-          altitudeAccuracy: 0,
-          headingAccuracy: 0,
-        );
+        _updateCurrentLocation(
+            savedAddress, savedLat, savedLng, lastLocationUpdate);
       } else {
         await _initializeLocation();
         await prefs.setInt('lastLocationUpdate', now);
       }
     } catch (e) {
-      print("Erreur lors du chargement de la localisation sauvegardée: $e");
-      _currentAddress = "Erreur de chargement de la localisation";
+      _handleLocationError(
+          "Erreur lors du chargement de la localisation sauvegardée", e);
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  void _updateCurrentLocation(
+      String address, double lat, double lng, int timestamp) {
+    _currentAddress = address;
+    _currentPosition = Position(
+      latitude: lat,
+      longitude: lng,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
+      accuracy: 0,
+      altitude: 0,
+      heading: 0,
+      speed: 0,
+      speedAccuracy: 0,
+      altitudeAccuracy: 0,
+      headingAccuracy: 0,
+    );
+  }
+
   Future<void> _initializeLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _currentAddress = "Services de localisation désactivés";
-        return;
+        throw Exception("Services de localisation désactivés");
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _currentAddress = "Permission de localisation refusée";
-          return;
+          throw Exception("Permission de localisation refusée");
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        _currentAddress = "Permissions de localisation refusées définitivement";
-        return;
+        throw Exception("Permissions de localisation refusées définitivement");
       }
 
       await _getCurrentLocation();
     } catch (e) {
-      print("Erreur lors de l'initialisation de la localisation: $e");
-      _currentAddress = "Erreur d'initialisation de la localisation";
+      _handleLocationError(
+          "Erreur lors de l'initialisation de la localisation", e);
     }
-    notifyListeners();
-  }
-
-  Future<void> applyChanges() async {
-    _queryCache.clear(); // Vider le cache des requêtes
-    notifyListeners();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -125,10 +119,14 @@ class HomeProvider extends ChangeNotifier {
           : "Adresse inconnue";
       await _saveLocation(_currentAddress, position);
     } catch (e) {
-      print("Erreur de localisation: $e");
-      _currentAddress = "Impossible d'obtenir la localisation";
+      _handleLocationError("Erreur de localisation", e);
     }
     notifyListeners();
+  }
+
+  void _handleLocationError(String message, dynamic error) {
+    print("$message: $error");
+    _currentAddress = "Erreur de localisation";
   }
 
   Future<void> _saveLocation(String address, Position position) async {
@@ -144,21 +142,14 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> updateLocationFromPrediction(Prediction prediction) async {
     if (prediction.lat != null && prediction.lng != null) {
-      _currentPosition = Position(
-        latitude: double.parse(prediction.lat!),
-        longitude: double.parse(prediction.lng!),
-        timestamp: DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        heading: 0,
-        speed: 0,
-        speedAccuracy: 0,
-        altitudeAccuracy: 0,
-        headingAccuracy: 0,
+      _updateCurrentLocation(
+        prediction.description ?? "",
+        double.parse(prediction.lat!),
+        double.parse(prediction.lng!),
+        DateTime.now().millisecondsSinceEpoch,
       );
-      _currentAddress = prediction.description ?? "";
       await _saveLocation(_currentAddress, _currentPosition!);
-      _queryCache.clear();
+      clearCache();
       notifyListeners();
     } else {
       print("Erreur: Latitude ou longitude manquante dans la prédiction");
@@ -167,6 +158,7 @@ class HomeProvider extends ChangeNotifier {
 
   void setSelectedRadius(double radius) {
     _selectedRadius = radius;
+    clearCache();
     notifyListeners();
   }
 
@@ -177,49 +169,28 @@ class HomeProvider extends ChangeNotifier {
       return [];
     }
 
-    final query = FirebaseFirestore.instance
-        .collection('companys')
-        .orderBy('name')
-        .limit(pageSize);
+    final cacheKey = 'companies_${pageKey?.id ?? "initial"}_$pageSize';
+    if (_isCacheValid(cacheKey)) {
+      return _cache[cacheKey];
+    }
 
+    final query =
+        _firestore.collection('companys').orderBy('name').limit(pageSize);
     final snapshot = pageKey == null
         ? await query.get()
         : await query.startAfterDocument(pageKey).get();
 
     List<Company> companiesInRange = [];
-
     for (var doc in snapshot.docs) {
       Company company = Company.fromDocument(doc);
-
       if (await _isCompanyWithinRadius(company)) {
         companiesInRange.add(company);
       }
-
-      if (companiesInRange.length >= pageSize) {
-        break;
-      }
+      if (companiesInRange.length >= pageSize) break;
     }
 
+    _cache[cacheKey] = {'data': companiesInRange, 'timestamp': DateTime.now()};
     return companiesInRange;
-  }
-
-  Future<bool> _isCompanyWithinRadius(Company company) async {
-    if (_currentPosition == null) return false;
-
-    try {
-      double distance = Geolocator.distanceBetween(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-        company.adress.latitude,
-        company.adress.longitude,
-      );
-
-      return distance / 1000 <= _selectedRadius;
-    } catch (e) {
-      print(
-          "Erreur lors de la vérification de la distance pour l'entreprise ${company.name}: $e");
-      return false;
-    }
   }
 
   Future<List<Map<String, dynamic>>> fetchPostsWithCompanyData(
@@ -229,69 +200,54 @@ class HomeProvider extends ChangeNotifier {
       return [];
     }
 
-    final cacheKey = '${pageKey?.id ?? "initial"}_$pageSize';
-    if (_queryCache.containsKey(cacheKey)) {
-      final cachedResult = _queryCache[cacheKey];
-      if (DateTime.now().difference(cachedResult['timestamp']).inMinutes <
-          _queryCacheDuration) {
-        return cachedResult['data'];
-      }
+    final cacheKey = 'posts_${pageKey?.id ?? "initial"}_$pageSize';
+    if (_isCacheValid(cacheKey)) {
+      return _cache[cacheKey];
     }
 
-    final postsQuery = FirebaseFirestore.instance
+    final postsQuery = _firestore
         .collection('posts')
         .orderBy('timestamp', descending: true)
-        .limit(pageSize);
-
-    if (pageKey != null) {
-      postsQuery.startAfterDocument(pageKey);
-    }
-
-    final postsSnapshot = await postsQuery.get();
-
-    final companyRefs = postsSnapshot.docs
-        .map((doc) => FirebaseFirestore.instance
-            .collection('companys')
-            .doc(doc['companyId']))
-        .toList();
-
-    final companySnapshots =
-        await Future.wait(companyRefs.map((ref) => ref.get()));
+        .limit(pageSize * 2);
+    final postsSnapshot = pageKey == null
+        ? await postsQuery.get()
+        : await postsQuery.startAfterDocument(pageKey).get();
 
     List<Map<String, dynamic>> postsWithCompanyData = [];
-
-    for (int i = 0; i < postsSnapshot.docs.length; i++) {
-      final postDoc = postsSnapshot.docs[i];
-      final companyDoc = companySnapshots[i];
-
+    for (var postDoc in postsSnapshot.docs) {
       final post = _createPostFromDocument(postDoc);
-      final companyData = companyDoc.data() as Map<String, dynamic>;
-
-      if (post != null &&
-          await _isPostWithinRadius(post.companyId, companyData)) {
-        postsWithCompanyData.add({
-          'post': post,
-          'company': companyData,
-        });
-      }
-
-      if (postsWithCompanyData.length >= pageSize) {
-        break;
+      if (post != null) {
+        final companyDoc =
+            await _firestore.collection('companys').doc(post.companyId).get();
+        final companyData = companyDoc.data() as Map<String, dynamic>;
+        if (await _isPostWithinRadius(post.companyId, companyData)) {
+          postsWithCompanyData.add({'post': post, 'company': companyData});
+          if (postsWithCompanyData.length >= pageSize) break;
+        }
       }
     }
 
-    _queryCache[cacheKey] = {
-      'timestamp': DateTime.now(),
+    _cache[cacheKey] = {
       'data': postsWithCompanyData,
+      'timestamp': DateTime.now()
     };
-
     return postsWithCompanyData;
+  }
+
+  bool _isCacheValid(String key) {
+    if (_cache.containsKey(key)) {
+      final cachedData = _cache[key];
+      if (DateTime.now().difference(cachedData['timestamp']).inMinutes <
+          _cacheDuration) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Post? _createPostFromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final String type = data['type'] ?? 'unknown';
-
     try {
       switch (type) {
         case 'job_offer':
@@ -316,49 +272,46 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> _isCompanyWithinRadius(Company company) async {
+    return _isWithinRadius(company.adress.latitude, company.adress.longitude);
+  }
+
   Future<bool> _isPostWithinRadius(
       String companyId, Map<String, dynamic> companyData) async {
+    Map<String, dynamic>? addressMap =
+        companyData['adress'] as Map<String, dynamic>?;
+    if (addressMap == null ||
+        !addressMap.containsKey('latitude') ||
+        !addressMap.containsKey('longitude')) {
+      print("Coordonnées manquantes pour l'entreprise $companyId");
+      return false;
+    }
+    return _isWithinRadius(addressMap['latitude'], addressMap['longitude']);
+  }
+
+  Future<bool> _isWithinRadius(double lat, double lng) async {
     if (_currentPosition == null) return false;
-
     try {
-      Map<String, dynamic>? addressMap =
-          companyData['adress'] as Map<String, dynamic>?;
-
-      if (addressMap == null ||
-          !addressMap.containsKey('latitude') ||
-          !addressMap.containsKey('longitude')) {
-        print("Coordonnées manquantes pour l'entreprise $companyId");
-        return false;
-      }
-
-      double companyLat = addressMap['latitude'];
-      double companyLng = addressMap['longitude'];
-
       double distance = Geolocator.distanceBetween(
         _currentPosition!.latitude,
         _currentPosition!.longitude,
-        companyLat,
-        companyLng,
+        lat,
+        lng,
       );
-
       return distance / 1000 <= _selectedRadius;
     } catch (e) {
-      print(
-          "Erreur lors de la vérification de la distance pour l'entreprise $companyId: $e");
+      print("Erreur lors de la vérification de la distance: $e");
       return false;
     }
   }
 
-  Future<void> refreshPosts() async {
-    _postCache.clear();
-    _queryCache.clear();
+  void clearCache() {
+    _cache.clear();
     notifyListeners();
   }
 
-  void clearCache() {
-    _postCache.clear();
-    _companyCache.clear();
-    _queryCache.clear();
+  Future<void> applyChanges() async {
+    clearCache();
     notifyListeners();
   }
 
