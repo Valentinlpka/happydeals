@@ -80,9 +80,12 @@ class _LoginState extends State<Login> {
             padding: const EdgeInsets.only(left: 15.0, right: 15),
             child: Column(
               children: [
-                const Image(
-                  image: AssetImage('assets/images/mon_logo.png'),
-                  height: 150,
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 50.0),
+                  child: Image(
+                    image: AssetImage('assets/mon_logo.png'),
+                    height: 60,
+                  ),
                 ),
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
