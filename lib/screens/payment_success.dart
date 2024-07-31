@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/order.dart';
+import 'package:happy/classes/product.dart';
 import 'package:happy/screens/shop/order_confirmation_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/order_service.dart';
@@ -28,9 +32,47 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   }
 
   Future<void> _verifyPaymentAndFinalizeOrder() async {
-    final cart = Provider.of<CartService>(context, listen: false);
-
     try {
+      CartService cart;
+      if (kIsWeb) {
+        // Récupération et reconstruction du panier depuis le localStorage
+        final cartDataJson = html.window.localStorage['cartData'];
+        final cartTotal =
+            double.parse(html.window.localStorage['cartTotal'] ?? '0');
+        if (cartDataJson != null) {
+          final cartData = json.decode(cartDataJson) as List<dynamic>;
+          cart = CartService();
+          for (var item in cartData) {
+            final product = Product(
+              id: item['productId'],
+              name: item['name'],
+              description: item['description'] ??
+                  '', // Utilisez une valeur par défaut si non sauvegardée
+              price: item['price'],
+              imageUrl: (item['imageUrl'] as List<dynamic>?)?.cast<String>() ??
+                  [], // Conversion en List<String> avec valeur par défaut
+              sellerId: item['sellerId'],
+              entrepriseId: item['entrepriseId'],
+              stock: item['stock'] ??
+                  0, // Utilisez une valeur par défaut si non sauvegardée
+              isActive: item['isActive'] ??
+                  true, // Utilisez une valeur par défaut si non sauvegardée
+            );
+            cart.addToCart(product);
+            // Ajuster la quantité si nécessaire
+            if (item['quantity'] > 1) {
+              for (int i = 1; i < item['quantity']; i++) {
+                cart.addToCart(product);
+              }
+            }
+          }
+        } else {
+          throw Exception('Cart data not found');
+        }
+      } else {
+        cart = Provider.of<CartService>(context, listen: false);
+      }
+
       setState(() {
         _statusMessage = 'Paiement confirmé. Finalisation de la commande...';
       });
@@ -38,7 +80,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     } catch (e) {
       _handleError('Une erreur inattendue est survenue: $e', '/home');
     } finally {
-      html.window.localStorage.remove('stripeSessionId');
+      if (kIsWeb) {
+        html.window.localStorage.remove('cartData');
+        html.window.localStorage.remove('cartTotal');
+        html.window.localStorage.remove('stripeSessionId');
+      }
       setState(() {
         _isLoading = false;
       });

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -43,18 +45,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'userId': user.uid,
         'isWeb': kIsWeb,
         'successUrl':
-            'https://valentinlpka.github.io/happydeals/#/payment-success', // URL de succès
+            'https://valentinlpka.github.io/happydeals/#/payment-success',
         'cancelUrl':
-            'https://valentinlpka.github.io/happydeals/#/payment-cancel', // URL d'annulation
+            'https://valentinlpka.github.io/happydeals/#/payment-cancel',
       });
 
-      final sessionId = result.data['sessionId'];
-      final sessionUrl = result.data['url'];
-
-      html.window.localStorage['stripeSessionId'] = sessionId;
-
       if (kIsWeb) {
-        // Redirection pour le paiement web
+        // Sauvegarde des données du panier pour le web
+        final cartData = cart.items
+            .map((item) => {
+                  'productId': item.product.id,
+                  'name': item.product.name,
+                  'quantity': item.quantity,
+                  'price': item.product.price,
+                  'sellerId': item.product.sellerId,
+                  'entrepriseId': item.product.entrepriseId,
+                })
+            .toList();
+        html.window.localStorage['cartData'] = json.encode(cartData);
+        html.window.localStorage['cartTotal'] = cart.total.toString();
+
+        final sessionId = result.data['sessionId'];
+        final sessionUrl = result.data['url'];
+
+        html.window.localStorage['stripeSessionId'] = sessionId;
         html.window.location.href = sessionUrl;
       } else {
         // Logique de paiement mobile
