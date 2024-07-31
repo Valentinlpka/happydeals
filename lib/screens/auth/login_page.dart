@@ -80,9 +80,10 @@ class _LoginState extends State<Login> {
             padding: const EdgeInsets.only(left: 15.0, right: 15),
             child: Column(
               children: [
-                Image.network(
-                    height: 150,
-                    'https://happy-deals.fr/wp-content/uploads/2022/07/HAPPY-DEALS-1.png'),
+                const Image(
+                  image: AssetImage('assets/images/mon_logo.png'),
+                  height: 150,
+                ),
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
