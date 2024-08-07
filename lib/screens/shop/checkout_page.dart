@@ -6,13 +6,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_html/html.dart' as html;
 
 import '../../classes/order.dart';
 import '../../services/cart_service.dart';
 import '../../services/order_service.dart';
-import '../shop/order_confirmation_page.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -108,6 +108,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .map((item) => OrderItem(
                 productId: item.product.id,
                 name: item.product.name,
+                image: item.product.imageUrl[0],
                 quantity: item.quantity,
                 price: item.product.price,
               ))
@@ -122,7 +123,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-          builder: (context) => OrderConfirmationScreen(orderId: orderId)),
+          builder: (context) => OrderDetailPage(orderId: orderId)),
     );
   }
 
@@ -144,9 +145,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           return '$adresse, $codePostal $ville';
         }
       }
-    } catch (e) {
-      print("Erreur lors de la récupération de l'adresse de l'entreprise: $e");
-    }
+    } catch (e) {}
     return null;
   }
 

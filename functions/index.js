@@ -719,3 +719,206 @@ exports.verifyPayment = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("internal", error.message);
   }
 });
+
+exports.createPaymentAndReservation = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "L'utilisateur doit être authentifié."
+      );
+    }
+
+    const { dealId, amount, currency, isWeb, successUrl, cancelUrl } = data;
+
+    try {
+      // Récupérer les informations de l'utilisateur
+      const userDoc = await admin
+        .firestore()
+        .collection("users")
+        .doc(context.auth.uid)
+        .get();
+      const userData = userDoc.data();
+
+      // Récupérer les informations du deal
+      const dealDoc = await admin
+        .firestore()
+        .collection("posts")
+        .doc(dealId)
+        .get();
+      const dealData = dealDoc.data();
+
+      if (!dealData) {
+        throw new functions.https.HttpsError("not-found", "Deal non trouvé");
+      }
+
+      // Créer ou récupérer le client Stripe
+      let customer;
+      if (userData.stripeCustomerId) {
+        customer = await stripe.customers.retrieve(userData.stripeCustomerId);
+      } else {
+        customer = await stripe.customers.create({
+          email: userData.email,
+          metadata: { firebaseUID: context.auth.uid },
+        });
+        await admin
+          .firestore()
+          .collection("users")
+          .doc(context.auth.uid)
+          .update({
+            stripeCustomerId: customer.id,
+          });
+      }
+
+      let paymentIntent;
+
+      if (isWeb) {
+        // Pour les paiements web, créer une session de paiement
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ["card"],
+          line_items: [
+            {
+              price_data: {
+                currency: currency,
+                unit_amount: amount,
+                product_data: {
+                  name: dealData.basketType,
+                },
+              },
+              quantity: 1,
+            },
+          ],
+          mode: "payment",
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+          customer: customer.id,
+          payment_intent_data: {
+            transfer_data: {
+              destination: dealData.stripeAccountId,
+            },
+          },
+        });
+
+        return {
+          sessionId: session.id,
+          url: session.url,
+          clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+        };
+      } else {
+        // Pour les paiements mobiles, créer une intention de paiement
+        paymentIntent = await stripe.paymentIntents.create({
+          amount,
+          currency,
+          customer: customer.id,
+          transfer_data: { destination: dealData.stripeAccountId },
+        });
+
+        return {
+          clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+        };
+      }
+    } catch (error) {
+      console.error("Erreur lors de la création du paiement:", error);
+      throw new functions.https.HttpsError("internal", error.message);
+    }
+  }
+);
+
+exports.confirmReservation = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  const { dealId, paymentIntentId } = data;
+
+  try {
+    // Vérifier le statut du paiement
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (paymentIntent.status !== "succeeded") {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Le paiement n'a pas été effectué avec succès."
+      );
+    }
+
+    // Récupérer les informations du deal
+    const dealDoc = await admin
+      .firestore()
+      .collection("posts")
+      .doc(dealId)
+      .get();
+    const dealData = dealDoc.data();
+
+    if (!dealData) {
+      throw new functions.https.HttpsError("not-found", "Deal non trouvé");
+    }
+
+    // Générer un code de validation
+    const validationCode = Math.random()
+      .toString(36)
+      .substr(2, 6)
+      .toUpperCase();
+
+    const companyDoc = await admin
+      .firestore()
+      .collection("companys")
+      .doc(dealData.companyId)
+      .get();
+
+    const companyData = companyDoc.data();
+
+    const adress = companyData.adress;
+    const addressParts = [
+      adress.adresse,
+      adress.code_postal,
+      adress.ville,
+      adress.pays,
+    ].filter(Boolean);
+
+    // Créer la réservation
+    const reservation = {
+      buyerId: context.auth.uid,
+      postId: dealId,
+      companyId: dealData.companyId,
+      basketType: dealData.basketType,
+      price: dealData.price,
+      pickupDate: dealData.pickupTime,
+      isValidated: false,
+      paymentIntentId: paymentIntentId,
+      validationCode: validationCode,
+      quantity: 1,
+      companyName: companyData.name,
+      pickupAddress: addressParts.join(", "),
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const reservationRef = await admin
+      .firestore()
+      .collection("reservations")
+      .add(reservation);
+
+    // Mettre à jour le nombre de paniers disponibles
+    await admin
+      .firestore()
+      .collection("posts")
+      .doc(dealId)
+      .update({
+        basketCount: admin.firestore.FieldValue.increment(-1),
+      });
+
+    return {
+      success: true,
+      reservationId: reservationRef.id,
+      validationCode: validationCode,
+    };
+  } catch (error) {
+    console.error("Erreur lors de la confirmation de la réservation:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});

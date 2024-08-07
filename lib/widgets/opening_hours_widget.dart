@@ -1,12 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:accordion/accordion.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class OpeningHoursWidget extends StatelessWidget {
   final Map<String, dynamic> openingHours;
 
-  const OpeningHoursWidget({Key? key, required this.openingHours})
-      : super(key: key);
+  const OpeningHoursWidget({super.key, required this.openingHours});
 
   @override
   Widget build(BuildContext context) {

@@ -103,11 +103,9 @@ class _LikedPostsPageState extends State<LikedPostsPage> {
         case 'event':
           return Event.fromDocument(doc);
         default:
-          print("Type de post non supporté: $type pour le document ${doc.id}");
           return null;
       }
     } catch (e) {
-      print("Erreur lors de la création du post de type $type: $e");
       return null;
     }
   }
@@ -137,6 +135,7 @@ class _LikedPostsPageState extends State<LikedPostsPage> {
                 child: PostWidget(
                   key: ValueKey(post.id),
                   post: post,
+                  companyCover: companyData['cover'],
                   companyCategorie: companyData['categorie'] ?? '',
                   companyName: companyData['name'] ?? '',
                   companyLogo: companyData['logo'] ?? '',

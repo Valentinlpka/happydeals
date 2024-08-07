@@ -17,7 +17,6 @@ class PromoCodeService {
       }
       return null;
     } catch (e) {
-      print('Erreur lors de la validation du code promo: $e');
       return null;
     }
   }

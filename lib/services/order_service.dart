@@ -19,7 +19,6 @@ class OrderService {
       });
       return result.data['orderId'];
     } catch (e) {
-      print('Error creating order: $e');
       rethrow;
     }
   }
@@ -65,7 +64,6 @@ class OrderService {
         'newStatus': newStatus,
       });
     } catch (e) {
-      print('Error updating order status: $e');
       rethrow;
     }
   }
@@ -77,7 +75,6 @@ class OrderService {
         'pickupCode': pickupCode,
       });
     } catch (e) {
-      print('Error confirming order pickup: $e');
       rethrow;
     }
   }
@@ -93,10 +90,6 @@ class OrderService {
       if (user == null) {
         throw Exception('Utilisateur non authentifié');
       }
-      DocumentSnapshot orderDoc =
-          await _firestore.collection('users').doc(user.uid).get();
-      final stripeId = orderDoc['stripeCustomerId'];
-      print(stripeId);
       final result = await _functions.httpsCallable('createPayment').call({
         'amount': amount,
         'currency': currency,
@@ -105,7 +98,6 @@ class OrderService {
       });
       return result.data;
     } catch (e) {
-      print('Error creating payment intent: $e');
       rethrow;
     }
   }

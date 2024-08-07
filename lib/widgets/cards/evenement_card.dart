@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/screens/details_page/details_evenement_page.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
@@ -130,7 +129,10 @@ class EvenementCard extends StatelessWidget {
                                 Icons.calendar_today,
                                 size: 15,
                               ),
-                              const Gap(5),
+                              const SizedBox(
+                                height: 5,
+                                width: 5,
+                              ),
                               Text(
                                 formattedDate,
                                 style: const TextStyle(
@@ -162,7 +164,10 @@ class EvenementCard extends StatelessWidget {
                                       'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
                                 ),
                               ),
-                              Gap(10),
+                              SizedBox(
+                                height: 10,
+                                width: 10,
+                              ),
                               Text(
                                 'Be Happy',
                                 style: TextStyle(

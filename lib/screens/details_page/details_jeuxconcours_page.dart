@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/contest.dart';
@@ -305,24 +304,12 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    Row(
-                                      children: [
-                                        RatingBar.readOnly(
-                                          filledIcon: Icons.star,
-                                          emptyIcon: Icons.star_border,
-                                          initialRating: company.averageRating,
-                                          maxRating: 5,
-                                          size: 16,
-                                          filledColor: Colors.blue,
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          '(12 avis)',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[600]),
-                                        ),
-                                      ],
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      '(12 avis)',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600]),
                                     ),
                                   ],
                                 ),

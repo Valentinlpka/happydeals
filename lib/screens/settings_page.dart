@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/screens/profile_page.dart';
 import 'package:happy/screens/reservation_list_deal_express.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
+import 'package:happy/screens/userApplicationsPage.dart';
 import 'package:happy/services/auth_service.dart';
 
 class ParametrePage extends StatelessWidget {
@@ -51,7 +52,14 @@ class ParametrePage extends StatelessWidget {
                 // Navigation vers l'écran Mes réservations
               }),
               _buildServiceItem(
-                  context, 'Ma brocante', 'assets/images/ma_brocante.png', () {
+                  context, 'Mes candidatures', 'assets/images/ma_brocante.png',
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const UserApplicationsPage()),
+                );
+
                 // Navigation vers l'écran Ma brocante
               }),
               _buildServiceItem(

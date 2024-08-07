@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/screens/details_page/details_happydeals.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
@@ -10,12 +9,14 @@ class HappyDealsCard extends StatelessWidget {
   final String companyName;
   final String companyCategorie;
   final String companyLogo;
+  final String companyCover;
   final String currentUserId;
 
   const HappyDealsCard(
       {super.key,
       required this.post,
       required this.companyName,
+      required this.companyCover,
       required this.currentUserId,
       required this.companyCategorie,
       required this.companyLogo});
@@ -42,6 +43,7 @@ class HappyDealsCard extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => DetailsHappyDeals(
+                    cover: companyCover,
                     happydeal: post,
                   ),
                 ),
@@ -63,7 +65,7 @@ class HappyDealsCard extends StatelessWidget {
                           BlendMode.darken),
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
-                      image: NetworkImage(post.photo),
+                      image: NetworkImage(companyCover),
                     ),
                   ),
                   height: 123,
@@ -194,7 +196,10 @@ class HappyDealsCard extends StatelessWidget {
                                   Icons.star,
                                 ),
                               ),
-                              const Gap(4),
+                              const SizedBox(
+                                height: 4,
+                                width: 4,
+                              ),
                               const Text(
                                 "4,4",
                                 style: TextStyle(
@@ -202,7 +207,10 @@ class HappyDealsCard extends StatelessWidget {
                                   fontSize: 16,
                                 ),
                               ),
-                              const Gap(4),
+                              const SizedBox(
+                                height: 4,
+                                width: 4,
+                              ),
                             ],
                           ),
                           Row(
@@ -218,7 +226,7 @@ class HappyDealsCard extends StatelessWidget {
                                     color: const Color.fromARGB(
                                         255, 231, 231, 231),
                                     child: Text(
-                                        "${post.deals[0].discount} % de réduction",
+                                        "${post.discountPercentage} % de réduction",
                                         style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
@@ -227,7 +235,7 @@ class HappyDealsCard extends StatelessWidget {
                                   Row(
                                     children: [
                                       Text(
-                                        "${post.deals[0].oldPrice} €",
+                                        "${post.oldPrice} €",
                                         style: const TextStyle(
                                             letterSpacing: 1,
                                             decoration:
@@ -237,9 +245,12 @@ class HappyDealsCard extends StatelessWidget {
                                             color: Color.fromARGB(
                                                 255, 181, 11, 11)),
                                       ),
-                                      const Gap(10),
+                                      const SizedBox(
+                                        height: 10,
+                                        width: 10,
+                                      ),
                                       Text(
-                                        "${post.deals[0].newPrice} €",
+                                        "${post.newPrice} €",
                                         style: const TextStyle(
                                           letterSpacing: 1,
                                           fontSize: 16,

@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:happy/classes/company.dart';
@@ -280,21 +279,9 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const Row(
-                                    children: [
-                                      RatingBar.readOnly(
-                                        filledIcon: Icons.star,
-                                        size: 16,
-                                        filledColor: Colors.blue,
-                                        emptyIcon: Icons.star_border,
-                                        initialRating: 2,
-                                        maxRating: 5,
-                                      ),
-                                      Text(
-                                        ' (12 avis)',
-                                        style: TextStyle(fontSize: 12),
-                                      ),
-                                    ],
+                                  const Text(
+                                    ' (12 avis)',
+                                    style: TextStyle(fontSize: 12),
                                   ),
                                 ],
                               ),

@@ -45,24 +45,6 @@ class DealProduct extends StatelessWidget {
       ),
       child: Row(
         children: [
-          InkWell(
-            onTap: () {
-              // Action when the circle is tapped
-            },
-            child: Container(
-              margin: const EdgeInsets.only(right: 10),
-              height: 20,
-              width: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.blue,
-                  width: 2,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

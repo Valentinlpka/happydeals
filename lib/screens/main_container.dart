@@ -15,6 +15,8 @@ class MainContainer extends StatefulWidget {
   State<MainContainer> createState() => _MainContainerState();
 }
 
+final currentUserIds = FirebaseAuth.instance.currentUser?.uid ?? "";
+
 class _MainContainerState extends State<MainContainer> {
   int _currentIndex = 0;
   late final String currentUserId;
@@ -30,6 +32,15 @@ class _MainContainerState extends State<MainContainer> {
       _currentIndex = index;
     });
   }
+
+  final List<Widget> _children = [
+    const Home(),
+    const SearchPage(),
+    const LikedPostsPage(),
+    ConversationsListScreen(userId: currentUserIds),
+    const ParametrePage(),
+    const CartScreen(),
+  ];
 
   Widget _buildPage() {
     switch (_currentIndex) {
@@ -53,7 +64,10 @@ class _MainContainerState extends State<MainContainer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildPage(),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _children,
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

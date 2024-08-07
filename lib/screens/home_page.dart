@@ -34,6 +34,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
 
   @override
   bool get wantKeepAlive => true;
+  int _postCount = 0;
+  int _companyCount = 0;
 
   @override
   void initState() {
@@ -43,24 +45,22 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     _companiesPagingController = PagingController(firstPageKey: null);
 
     _initializationFuture = _initializeWithRetry();
+
+    _postsPagingController.addListener(_updatePostCount);
+    _companiesPagingController.addListener(_updateCompanyCount);
   }
 
   Future<void> _initializeWithRetry() async {
     final homeProvider = Provider.of<HomeProvider>(context, listen: false);
     for (int i = 0; i <= _maxRetries; i++) {
       try {
-        print("Tentative d'initialisation ${i + 1}', name: 'Home");
         await Future.delayed(Duration(seconds: 1 * (i + 1)));
         await homeProvider.loadSavedLocation();
         _retryCount = 0;
         _postsPagingController.addPageRequestListener(_fetchPostsPage);
         _companiesPagingController.addPageRequestListener(_fetchCompaniesPage);
-        print("Initialisation réussie', name: 'Home");
         return;
-      } catch (e, stackTrace) {
-        print(
-          "Erreur lors de l'initialisation (tentative ${i + 1}): $e",
-        );
+      } catch (e) {
         if (i == _maxRetries) {
           homeProvider.setError(e.toString());
           rethrow;
@@ -76,56 +76,45 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     });
   }
 
-  Future<void> _initializeData() async {
-    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-    try {
-      await homeProvider.loadSavedLocation();
-      print(homeProvider.currentPosition);
-    } catch (e) {
-      if (mounted) {
-        _showLocationBottomSheet();
-      }
-    }
-    _postsPagingController.addPageRequestListener(_fetchPostsPage);
-    _companiesPagingController.addPageRequestListener(_fetchCompaniesPage);
-    Future.microtask(() {
-      if (mounted) {
-        homeProvider.notifyLocationLoaded();
-      }
-    });
-  }
-
   @override
   void dispose() {
+    _postsPagingController.removeListener(_updatePostCount);
+    _companiesPagingController.removeListener(_updateCompanyCount);
     _postsPagingController.dispose();
     _companiesPagingController.dispose();
     super.dispose();
   }
 
+  void _updatePostCount() {
+    setState(() {
+      _postCount = _postsPagingController.itemList?.length ?? 0;
+    });
+  }
+
+  void _updateCompanyCount() {
+    setState(() {
+      _companyCount = _companiesPagingController.itemList?.length ?? 0;
+    });
+  }
+
   Future<void> _fetchPostsPage(DocumentSnapshot? pageKey) async {
     try {
-      print("Début du chargement des posts");
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
       final newPosts =
           await homeProvider.fetchPostsWithCompanyData(pageKey, _pageSize);
-      print("Posts récupérés: ${newPosts.length}");
 
       final isLastPage = newPosts.length < _pageSize;
       if (isLastPage) {
-        print("Dernière page de posts atteinte");
         _postsPagingController.appendLastPage(newPosts);
       } else {
         final lastPostId = newPosts.last['post'].id;
-        print("Chargement de la page suivante après le post: $lastPostId");
         final nextPageKey = await FirebaseFirestore.instance
             .collection('posts')
             .doc(lastPostId)
             .get();
         _postsPagingController.appendPage(newPosts, nextPageKey);
       }
-      print("Chargement des posts terminé avec succès");
     } catch (error) {
-      print("Erreur lors du chargement des posts: $error");
       _postsPagingController.error = error;
     }
   }
@@ -219,6 +208,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
                     _buildHeader(),
                     _buildLocationBar(),
                     _buildCategoryButtons(),
+                    _buildNumberPost(),
                   ],
                 ),
               ),
@@ -308,19 +298,75 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     );
   }
 
+  Widget _buildNumberPost() {
+    int totalItems = _showCompanies ? _companyCount : _postCount;
+    String itemType = _showCompanies ? "entreprises" : "posts";
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Text(
+        "$totalItems $itemType trouvés",
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[600],
+        ),
+      ),
+    );
+  }
+
+  int _getTotalItems() {
+    if (_showCompanies) {
+      return _companiesPagingController.itemList?.length ?? 0;
+    } else {
+      return _postsPagingController.itemList?.length ?? 0;
+    }
+  }
+
   Widget _buildCategoryButton(String title, bool isSelected) {
-    return ElevatedButton(
-      onPressed: () {
+    return InkWell(
+      onTap: () {
         setState(() {
           _showCompanies = title == "Entreprises";
         });
       },
-      style: ElevatedButton.styleFrom(
-        backgroundColor:
-            isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
-        foregroundColor: isSelected ? Colors.white : Colors.black,
+      child: Container(
+        decoration: BoxDecoration(
+            gradient: isSelected
+                ? const LinearGradient(
+                    colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+                    stops: [0.0, 1.0],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  )
+                : const LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 251, 251, 251),
+                      Color.fromARGB(255, 255, 255, 255)
+                    ],
+                    stops: [0.0, 1.0],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+            borderRadius: BorderRadius.circular(5),
+            color: isSelected ? Colors.blue[800] : Colors.white,
+            border: Border.all(
+              width: 1,
+              color: isSelected ? Colors.transparent : Colors.black12,
+            )),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10.0,
+            vertical: 5,
+          ),
+          child: Text(
+            title,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+            ),
+          ),
+        ),
       ),
-      child: Text(title),
     );
   }
 
@@ -342,6 +388,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
       builderDelegate: PagedChildBuilderDelegate<Map<String, dynamic>>(
         noItemsFoundIndicatorBuilder: (_) => const Center(
           child: Text(
+              textAlign: TextAlign.center,
               'Aucun post à proximité, veuillez changer votre localisation'),
         ),
         firstPageErrorIndicatorBuilder: (context) => Center(
@@ -379,6 +426,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
             child: PostWidget(
               key: ValueKey(post.id),
               post: post,
+              companyCover: companyData['cover'],
               companyCategorie: companyData['categorie'] ?? '',
               companyName: companyData['name'] ?? '',
               companyLogo: companyData['logo'] ?? '',
@@ -453,12 +501,28 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
         googleAPIKey: "AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc",
         inputDecoration: const InputDecoration(
           hintText: "Rechercher une ville",
-          prefixIcon: Icon(Icons.location_on),
-          border: OutlineInputBorder(),
+          alignLabelWithHint: true,
+          icon: Padding(
+            padding: EdgeInsets.only(left: 10.0),
+            child: Icon(
+              Icons.location_on,
+              applyTextScaling: true,
+            ),
+          ),
+          isCollapsed: false,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 0,
+            vertical: 10,
+          ),
+          border: InputBorder.none,
         ),
         debounceTime: 800,
         countries: const ["fr"],
         isLatLngRequired: true,
+        seperatedBuilder: const Divider(
+          color: Colors.black12,
+          height: 2,
+        ),
         getPlaceDetailWithLatLng: (Prediction prediction) async {
           await homeProvider.updateLocationFromPrediction(prediction);
         },

@@ -141,7 +141,6 @@ class HomeProvider extends ChangeNotifier {
   }
 
   void _handleLocationError(String message, dynamic error) {
-    print("$message: $error");
     _currentAddress = "Erreur de localisation";
   }
 
@@ -152,7 +151,7 @@ class HomeProvider extends ChangeNotifier {
       await prefs.setDouble('savedLat', position.latitude);
       await prefs.setDouble('savedLng', position.longitude);
     } catch (e) {
-      print("Erreur lors de la sauvegarde de la localisation: $e");
+      Text(e.toString());
     }
   }
 
@@ -167,9 +166,7 @@ class HomeProvider extends ChangeNotifier {
       await _saveLocation(_currentAddress, _currentPosition!);
       clearCache();
       notifyListeners();
-    } else {
-      print("Erreur: Latitude ou longitude manquante dans la prédiction");
-    }
+    } else {}
   }
 
   void setSelectedRadius(double radius) {
@@ -181,7 +178,6 @@ class HomeProvider extends ChangeNotifier {
   Future<List<Company>> fetchCompanies(
       DocumentSnapshot? pageKey, int pageSize) async {
     if (_currentPosition == null) {
-      print('Position actuelle non disponible');
       return [];
     }
 
@@ -211,19 +207,15 @@ class HomeProvider extends ChangeNotifier {
 
   Future<List<Map<String, dynamic>>> fetchPostsWithCompanyData(
       DocumentSnapshot? pageKey, int pageSize) async {
-    print("Début de fetchPostsWithCompanyData");
     if (_currentPosition == null) {
-      print('Position actuelle non disponible');
       return [];
     }
 
     final cacheKey = 'posts_${pageKey?.id ?? "initial"}_$pageSize';
     if (_isCacheValid(cacheKey)) {
-      print("Utilisation du cache pour les posts");
       return _cache[cacheKey]['data'];
     }
 
-    print("Récupération des posts depuis Firestore");
     final postsQuery = _firestore
         .collection('posts')
         .orderBy('timestamp', descending: true)
@@ -232,15 +224,11 @@ class HomeProvider extends ChangeNotifier {
         ? await postsQuery.get()
         : await postsQuery.startAfterDocument(pageKey).get();
 
-    print("Nombre de documents récupérés: ${postsSnapshot.docs.length}");
-
     List<Map<String, dynamic>> postsWithCompanyData = [];
     for (var postDoc in postsSnapshot.docs) {
       try {
         final post = _createPostFromDocument(postDoc);
         if (post != null) {
-          print(
-              "Récupération des données de l'entreprise pour le post ${post.id}");
           final companyDoc =
               await _firestore.collection('companys').doc(post.companyId).get();
           final companyData = companyDoc.data() as Map<String, dynamic>;
@@ -249,13 +237,8 @@ class HomeProvider extends ChangeNotifier {
             if (postsWithCompanyData.length >= pageSize) break;
           }
         }
-      } catch (e) {
-        print("Erreur lors du traitement du post ${postDoc.id}: $e");
-      }
+      } catch (e) {}
     }
-
-    print(
-        "Nombre de posts avec données d'entreprise: ${postsWithCompanyData.length}");
 
     _cache[cacheKey] = {
       'data': postsWithCompanyData,
@@ -293,11 +276,9 @@ class HomeProvider extends ChangeNotifier {
         case 'event':
           return Event.fromDocument(doc);
         default:
-          print("Type de post non supporté: $type pour le document ${doc.id}");
           return null;
       }
     } catch (e) {
-      print("Erreur lors de la création du post de type $type: $e");
       return null;
     }
   }
@@ -308,18 +289,15 @@ class HomeProvider extends ChangeNotifier {
 
   Future<bool> _isPostWithinRadius(
       String companyId, Map<String, dynamic> companyData) async {
-    print("Vérification du rayon pour le post de l'entreprise $companyId");
     Map<String, dynamic>? addressMap =
         companyData['adress'] as Map<String, dynamic>?;
     if (addressMap == null ||
         !addressMap.containsKey('latitude') ||
         !addressMap.containsKey('longitude')) {
-      print("Coordonnées manquantes pour l'entreprise $companyId");
       return false;
     }
     bool result =
         await _isWithinRadius(addressMap['latitude'], addressMap['longitude']);
-    print("Le post est${result ? '' : ' non'} dans le rayon");
     return result;
   }
 
@@ -334,7 +312,6 @@ class HomeProvider extends ChangeNotifier {
       );
       return distance / 1000 <= _selectedRadius;
     } catch (e) {
-      print("Erreur lors de la vérification de la distance: $e");
       return false;
     }
   }

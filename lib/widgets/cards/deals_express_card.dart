@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/screens/details_page/details_dealsexpress_page.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
@@ -35,7 +34,7 @@ class DealsExpressCard extends StatelessWidget {
       return 'demain à ${timeFormat.format(dateTime)}';
     } else {
       // Autre jour
-      return '${dateFormat.format(dateTime)} à ${timeFormat.format(dateTime)}';
+      return 'le ${dateFormat.format(dateTime)} à ${timeFormat.format(dateTime)}';
     }
   }
 
@@ -192,34 +191,8 @@ class DealsExpressCard extends StatelessWidget {
                       ),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                height: 25,
-                                width: 25,
-                                decoration: const BoxDecoration(
-                                  color: Colors.blueAccent,
-                                ),
-                                child: const Icon(
-                                  size: 20,
-                                  color: Colors.white,
-                                  Icons.star,
-                                ),
-                              ),
-                              const Gap(4),
-                              const Text(
-                                "4,4",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
                           Row(
                             children: [
                               Column(
@@ -251,7 +224,10 @@ class DealsExpressCard extends StatelessWidget {
                                             color: Color.fromARGB(
                                                 255, 181, 11, 11)),
                                       ),
-                                      Gap(10),
+                                      SizedBox(
+                                        height: 10,
+                                        width: 10,
+                                      ),
                                       Text(
                                         '9,99€',
                                         style: TextStyle(

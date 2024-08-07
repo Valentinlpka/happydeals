@@ -75,9 +75,7 @@ class UserModel with ChangeNotifier {
 
         notifyListeners();
       }
-    } catch (e) {
-      print("Error loading user data: $e");
-    }
+    } catch (e) {}
   }
 
   void clearUserData() {
@@ -113,7 +111,6 @@ class UserModel with ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      print("Erreur lors du chargement de la citation quotidienne: $e");
       _dailyQuote = "Impossible de charger la citation du jour.";
       notifyListeners();
     }
@@ -176,7 +173,6 @@ class UserModel with ChangeNotifier {
         post.likes += 1;
       }
       notifyListeners();
-      print("Error handling like: $e");
     }
   }
 }

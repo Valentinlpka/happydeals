@@ -51,34 +51,28 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
         backgroundColor: Colors.white,
         elevation: 0,
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          setState(() {
-            _ordersFuture = _orderService.getUserOrders('current_user_id');
-          });
-        },
-        child: FutureBuilder<List<Orders>>(
-          future: _ordersFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return const Center(child: Text('Une erreur est survenue'));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(
-                  child: Text('Vous n\'avez pas encore de commandes'));
-            }
+      body: FutureBuilder<List<Orders>>(
+        future: _ordersFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            print(snapshot.error);
+            return const Center(child: Text('Une erreur est survenue'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(
+                child: Text('Vous n\'avez pas encore de commandes'));
+          }
 
-            return ListView.builder(
-              controller: _scrollController,
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                final order = snapshot.data![index];
-                return _buildOrderCard(order);
-              },
-            );
-          },
-        ),
+          return ListView.builder(
+            controller: _scrollController,
+            itemCount: snapshot.data!.length,
+            itemBuilder: (context, index) {
+              final order = snapshot.data![index];
+              return _buildOrderCard(order);
+            },
+          );
+        },
       ),
     );
   }
@@ -108,7 +102,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Commande #${order.id.substring(0, 8)}',
+                    order.id.substring(0, 8),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   _buildStatusChip(order.status),
@@ -133,18 +127,6 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
               const SizedBox(height: 16),
               if (order.status == 'en préparation')
                 const LinearProgressIndicator(value: 0.5),
-              if (order.status == 'prête à être retirée')
-                ElevatedButton(
-                  onPressed: () {
-                    // Afficher un dialogue pour entrer le code de retrait
-                  },
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: const Text('Confirmer le retrait'),
-                ),
             ],
           ),
         ),
@@ -177,13 +159,20 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
         color = Colors.grey;
     }
 
-    return Chip(
-      label: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
-      ),
-      backgroundColor: color,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    );
+    return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(5),
+          color: color,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 18.0,
+            vertical: 7,
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ));
   }
 }

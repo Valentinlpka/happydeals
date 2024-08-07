@@ -6,6 +6,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/home_provider.dart';
+import 'package:happy/providers/review_service.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/auth/auth_page.dart';
 import 'package:happy/screens/auth/complete_profile.dart';
@@ -54,6 +55,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => ConversationService()),
         ChangeNotifierProvider(create: (_) => CartService()),
+        ChangeNotifierProvider(create: (_) => ReviewService())
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

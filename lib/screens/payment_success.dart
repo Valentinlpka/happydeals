@@ -37,8 +37,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       if (kIsWeb) {
         // Récupération et reconstruction du panier depuis le localStorage
         final cartDataJson = html.window.localStorage['cartData'];
-        final cartTotal =
-            double.parse(html.window.localStorage['cartTotal'] ?? '0');
+        double.parse(html.window.localStorage['cartTotal'] ?? '0');
         if (cartDataJson != null) {
           final cartData = json.decode(cartDataJson) as List<dynamic>;
           cart = CartService();
@@ -119,6 +118,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       items: cart.items
           .map((item) => OrderItem(
                 productId: item.product.id,
+                image: item.product.imageUrl[0],
                 name: item.product.name,
                 quantity: item.quantity,
                 price: item.product.price,
@@ -157,7 +157,10 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         }
       }
     } catch (e) {
-      print("Erreur lors de la récupération de l'adresse de l'entreprise: $e");
+      if (kDebugMode) {
+        print(
+            "Erreur lors de la récupération de l'adresse de l'entreprise: $e");
+      }
     }
     return null;
   }

@@ -12,6 +12,7 @@ import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/providers/company_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
+import 'package:happy/providers/review_service.dart';
 import 'package:happy/screens/conversation_detail.dart';
 import 'package:happy/screens/shop/product_list.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
@@ -69,8 +70,6 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
         .orderBy('timestamp', descending: true)
         .get();
 
-    print("Nombre de documents trouvés : ${querySnapshot.docs.length}");
-
     List<Map<String, dynamic>> posts = [];
     for (var doc in querySnapshot.docs) {
       final post = _createPostFromDocument(doc);
@@ -101,11 +100,9 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
         case 'event':
           return Event.fromDocument(doc);
         default:
-          print("Type de post non supporté: $type pour le document ${doc.id}");
           return null;
       }
     } catch (e) {
-      print("Erreur lors de la création du post de type $type: $e");
       return null;
     }
   }
@@ -120,8 +117,13 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => CompanyLikeService(FirebaseAuth.instance.currentUser!.uid),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+            create: (_) =>
+                CompanyLikeService(FirebaseAuth.instance.currentUser!.uid)),
+        ChangeNotifierProvider(create: (_) => ReviewService()),
+      ],
       child: Scaffold(
         body: FutureBuilder<Company>(
           future: _entrepriseFuture,
@@ -136,14 +138,17 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
             }
 
             final entreprise = snapshot.data!;
-            return CustomScrollView(
-              slivers: [
-                _buildSliverAppBar(entreprise),
-                SliverToBoxAdapter(child: _buildCompanyInfo(entreprise)),
-                SliverToBoxAdapter(child: _buildActionButtons(entreprise)),
-                SliverToBoxAdapter(child: _buildTabBar()),
-                SliverFillRemaining(child: _buildTabContent(entreprise)),
-              ],
+            return NestedScrollView(
+              headerSliverBuilder:
+                  (BuildContext context, bool innerBoxIsScrolled) {
+                return <Widget>[
+                  _buildSliverAppBar(entreprise),
+                  SliverToBoxAdapter(child: _buildCompanyInfo(entreprise)),
+                  SliverToBoxAdapter(child: _buildActionButtons(entreprise)),
+                  SliverToBoxAdapter(child: _buildTabBar()),
+                ];
+              },
+              body: _buildTabContent(entreprise),
             );
           },
         ),
@@ -153,7 +158,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
 
   Widget _buildSliverAppBar(Company entreprise) {
     return SliverAppBar(
-      expandedHeight: 200.0,
+      expandedHeight: 150.0,
       floating: false,
       pinned: true,
       flexibleSpace: FlexibleSpaceBar(
@@ -302,7 +307,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
   Widget _buildTabContent(Company entreprise) {
     switch (_currentTab) {
       case 'Avis':
-        return ReviewList(companyId: widget.entrepriseId);
+        return ReviewListWidget(companyId: entreprise.id);
       case 'À Propos':
         return _buildAboutTab(entreprise);
       case 'Boutique':
@@ -334,6 +339,8 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
                 .toList();
 
         return ListView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
           padding: const EdgeInsets.all(10),
           itemCount: filteredPosts.length,
           itemBuilder: (context, index) {
@@ -344,6 +351,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
             return PostWidget(
               key: ValueKey(post.id),
               post: post,
+              companyCover: companyData['cover'],
               companyCategorie: companyData['categorie'] ?? '',
               companyName: companyData['name'] ?? '',
               companyLogo: companyData['logo'] ?? '',
@@ -398,16 +406,35 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
-                      stops: [0.0, 1.0],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
+                    border: Border.all(
+                      width: isLiked ? 0 : 2,
+                      color: isLiked
+                          ? Colors.blue
+                          : const Color.fromARGB(255, 21, 108, 179),
                     ),
+                    gradient: isLiked
+                        ? const LinearGradient(
+                            colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+                            stops: [0.0, 1.0],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          )
+                        : const LinearGradient(
+                            colors: [
+                              Color.fromARGB(255, 251, 251, 251),
+                              Color.fromARGB(255, 255, 255, 255)
+                            ],
+                            stops: [0.0, 1.0],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
+                      textStyle: TextStyle(
+                        color: isLiked ? Colors.white : Colors.black,
+                      ),
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                     ),
@@ -418,7 +445,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
                         _entrepriseFuture = Future.value(updatedCompany);
                       });
                     },
-                    child: Text(isLiked ? 'Aimé' : 'Aimer l\'entreprise'),
+                    child: Text(
+                      isLiked ? 'Aimé' : 'Aimer l\'entreprise',
+                      style: TextStyle(
+                        color: isLiked ? Colors.white : Colors.black,
+                      ),
+                    ),
                   ),
                 ),
               ),

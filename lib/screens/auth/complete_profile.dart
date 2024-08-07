@@ -52,8 +52,6 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
                   ),
                 ),
                 const SizedBox(height: 48),
-                _buildImagePicker(),
-                const SizedBox(height: 32),
                 _buildInputField(
                   controller: _firstNameController,
                   placeholder: 'Prénom',
@@ -65,10 +63,11 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
                   placeholder: 'Nom',
                   textInputAction: TextInputAction.done,
                 ),
+                const SizedBox(height: 24),
+                const Text('Photo de profil'),
+                _buildImagePicker(),
                 const SizedBox(height: 48),
                 _buildCompleteButton(),
-                const SizedBox(height: 16),
-                _buildLaterButton(),
               ],
             ),
           ),
@@ -82,20 +81,31 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     required String placeholder,
     required TextInputAction textInputAction,
   }) {
-    return CupertinoTextField(
-      controller: controller,
-      placeholder: placeholder,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      decoration: BoxDecoration(
-        color: CupertinoColors.extraLightBackgroundGray,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      style: const TextStyle(fontSize: 17),
-      placeholderStyle: const TextStyle(
-        color: CupertinoColors.placeholderText,
-        fontSize: 17,
-      ),
-      textInputAction: textInputAction,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(placeholder),
+        const SizedBox(
+          height: 8,
+        ),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey[200],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 15,
+              horizontal: 20,
+            ),
+          ),
+          style: const TextStyle(fontSize: 17),
+          textInputAction: textInputAction,
+        ),
+      ],
     );
   }
 
@@ -135,26 +145,6 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
                       ),
                     )
                   : null,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLaterButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: CupertinoButton(
-        onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(8),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: const Text(
-          'Plus tard',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: CupertinoColors.activeBlue,
-          ),
         ),
       ),
     );
@@ -225,7 +215,6 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
 
       setState(() => _isImageUploaded = true);
     } catch (e) {
-      print('Erreur lors du téléchargement de l\'image: $e');
       // Afficher une alerte d'erreur
       showCupertinoDialog(
         context: context,
@@ -272,7 +261,6 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
 
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      print('Erreur lors de la complétion du profil: $e');
       // Afficher une alerte d'erreur
       showCupertinoDialog(
         context: context,

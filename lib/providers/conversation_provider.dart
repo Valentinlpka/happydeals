@@ -39,12 +39,6 @@ class ConversationService extends ChangeNotifier {
       timestamp: DateTime.now(),
     );
 
-    final messageRef = await _firestore
-        .collection('conversations')
-        .doc(conversationId)
-        .collection('messages')
-        .add(message.toFirestore());
-
     await _firestore.collection('conversations').doc(conversationId).update({
       'lastMessage': content,
       'lastMessageTimestamp': Timestamp.fromDate(message.timestamp),

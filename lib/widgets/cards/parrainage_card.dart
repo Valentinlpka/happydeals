@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:happy/classes/referral.dart';
 // ignore: unused_import
 import 'package:happy/screens/details_page/details_evenement_page.dart';
@@ -136,7 +135,10 @@ class ParrainageCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const Gap(5),
+                          const SizedBox(
+                            height: 5,
+                            width: 5,
+                          ),
                           Row(
                             children: [
                               const Icon(Icons.calendar_today, size: 15),
@@ -152,7 +154,10 @@ class ParrainageCard extends StatelessWidget {
                               )
                             ],
                           ),
-                          const Gap(5),
+                          const SizedBox(
+                            height: 5,
+                            width: 5,
+                          ),
                           Text(
                             post.description,
                             style: const TextStyle(
@@ -180,7 +185,10 @@ class ParrainageCard extends StatelessWidget {
                                   backgroundImage: NetworkImage(companyLogo),
                                 ),
                               ),
-                              const Gap(10),
+                              const SizedBox(
+                                height: 10,
+                                width: 10,
+                              ),
                               Text(
                                 capitalizeFirstLetter(companyName),
                                 style: const TextStyle(

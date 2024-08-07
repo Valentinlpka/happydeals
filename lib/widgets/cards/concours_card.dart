@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/screens/details_page/details_jeuxconcours_page.dart';
 import 'package:intl/intl.dart';
@@ -96,7 +95,10 @@ class ConcoursCard extends StatelessWidget {
                                     size: 18,
                                     color: Colors.white,
                                   ),
-                                  Gap(5),
+                                  SizedBox(
+                                    height: 5,
+                                    width: 5,
+                                  ),
                                   Text(
                                     'Jeux Concours',
                                     style: TextStyle(
@@ -117,7 +119,6 @@ class ConcoursCard extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
-                  height: 150,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -141,7 +142,10 @@ class ConcoursCard extends StatelessWidget {
                                 Icons.calendar_today,
                                 size: 15,
                               ),
-                              const Gap(5),
+                              const SizedBox(
+                                height: 5,
+                                width: 5,
+                              ),
                               Text(
                                 "${formatDateTime(contest.startDate)} -${formatDateTime(contest.endDate)}",
                                 style: const TextStyle(
@@ -150,12 +154,19 @@ class ConcoursCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const Gap(10),
+                          const SizedBox(
+                            height: 10,
+                            width: 10,
+                          ),
                           Text(
                             contest.description,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                          )
+                          ),
+                          const SizedBox(
+                            height: 10,
+                            width: 10,
+                          ),
                         ],
                       ),
                       Row(
@@ -174,7 +185,10 @@ class ConcoursCard extends StatelessWidget {
                                   backgroundImage: NetworkImage(companyLogo),
                                 ),
                               ),
-                              const Gap(10),
+                              const SizedBox(
+                                height: 10,
+                                width: 10,
+                              ),
                               Text(
                                 capitalizeFirstLetter(companyName),
                                 style: const TextStyle(

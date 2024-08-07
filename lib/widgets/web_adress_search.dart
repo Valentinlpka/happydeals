@@ -38,13 +38,8 @@ class _WebAddressSearchState extends State<WebAddressSearch> {
         setState(() {
           _predictions = List<Map<String, dynamic>>.from(data['features']);
         });
-      } else {
-        print(
-            'Erreur lors de la récupération des prédictions: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Erreur lors de la récupération des prédictions: $e');
-    }
+      } else {}
+    } catch (e) {}
   }
 
   Future<void> _selectPlace(Map<String, dynamic> place) async {

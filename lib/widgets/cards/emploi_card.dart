@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/screens/details_page/details_emploi_page.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
@@ -75,7 +74,10 @@ class JobOfferCard extends StatelessWidget {
                                     size: 18,
                                     color: Colors.white,
                                   ),
-                                  Gap(5),
+                                  SizedBox(
+                                    height: 5,
+                                    width: 5,
+                                  ),
                                   Text(
                                     "Offre d'emploi",
                                     style: TextStyle(
@@ -116,7 +118,10 @@ class JobOfferCard extends StatelessWidget {
                                           'https://media.licdn.com/dms/image/C4D0BAQF1LJrX1nhcyA/company-logo_200_200/0/1630523580358/be_happy_services_logo?e=2147483647&v=beta&t=XH4UBtLR0ulhQvd1XKnpRgg-BrU0JrWZhcsAZf7c15I'),
                                     ),
                                   ),
-                                  const Gap(20),
+                                  const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                  ),
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.start,
                                     crossAxisAlignment:
@@ -137,7 +142,10 @@ class JobOfferCard extends StatelessWidget {
                               )
                             ],
                           ),
-                          const Gap(10),
+                          const SizedBox(
+                            height: 10,
+                            width: 10,
+                          ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: post.keywords
@@ -171,14 +179,16 @@ class JobOfferCard extends StatelessWidget {
                                 )
                                 .toList(),
                           ),
-                          const Gap(5),
+                          const SizedBox(
+                            height: 5,
+                            width: 5,
+                          ),
                         ],
                       ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(timeago.format(post.timestamp, locale: 'fr')),
-                          const Text('1500€ / mois')
                         ],
                       )
                     ],

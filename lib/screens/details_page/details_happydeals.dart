@@ -11,10 +11,12 @@ import 'package:provider/provider.dart';
 
 class DetailsHappyDeals extends StatefulWidget {
   final HappyDeal happydeal;
+  final String cover;
 
   const DetailsHappyDeals({
     super.key,
     required this.happydeal,
+    required this.cover,
   });
 
   @override
@@ -121,7 +123,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
             expandedHeight: 200,
             flexibleSpace: FlexibleSpaceBar(
               background: Image.network(
-                widget.happydeal.photo,
+                widget.cover,
                 fit: BoxFit.cover,
                 color: Colors.black.withOpacity(0.30),
                 colorBlendMode: BlendMode.darken,
@@ -233,7 +235,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
               ),
               Container(
                 height: 35,
-                color: Colors.transparent,
+                color: Colors.white,
                 child: TabBar(
                   labelPadding: EdgeInsets.zero,
                   controller: _tabController,
@@ -294,7 +296,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
                         width: 10,
                       ),
                       const Text(
-                        'Choix du deal',
+                        'Détail du deal',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -304,24 +306,16 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
                         height: 10,
                         width: 10,
                       ),
-                      Column(
-                        children: widget.happydeal.deals.map(
-                          (deal) {
-                            return Column(
-                              children: [
-                                DealProduct(
-                                    name: deal.name,
-                                    oldPrice: deal.oldPrice,
-                                    newPrice: deal.newPrice,
-                                    discount: deal.discount),
-                                const SizedBox(
-                                  height: 10,
-                                )
-                              ],
-                            );
-                          },
-                        ).toList(),
-                      ),
+                      Column(children: [
+                        DealProduct(
+                            name: widget.happydeal.productName,
+                            oldPrice: widget.happydeal.oldPrice,
+                            newPrice: widget.happydeal.newPrice,
+                            discount: widget.happydeal.discountPercentage),
+                        const SizedBox(
+                          height: 10,
+                        )
+                      ]),
                       const SizedBox(
                         height: 10,
                         width: 10,

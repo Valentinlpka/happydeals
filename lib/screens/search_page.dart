@@ -148,6 +148,7 @@ class SearchResults extends StatelessWidget {
                   child: PostWidget(
                     key: Key(document.id),
                     post: post,
+                    companyCover: companyData['cover'],
                     companyCategorie: companyData['categorie'] ?? '',
                     companyName: companyData['name'] ?? 'Unknown',
                     companyLogo: companyData['logo'] ?? '',

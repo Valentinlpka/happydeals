@@ -1,8 +1,7 @@
-import 'package:custom_rating_bar/custom_rating_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:happy/providers/company_provider.dart';
+import 'package:happy/widgets/average_rating.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:provider/provider.dart';
 
@@ -127,7 +126,6 @@ class CompanyCard extends StatelessWidget {
         final isLiked = companyLikeService.isCompanyLiked(company.id);
         return IconButton(
           onPressed: () async {
-            final updatedCompany = await companyLikeService.handleLike(company);
             // Vous pouvez ajouter ici une logique pour mettre à jour l'état global si nécessaire
           },
           icon: isLiked
@@ -176,17 +174,13 @@ class CompanyCard extends StatelessWidget {
             ),
           ),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              RatingBar(
-                filledIcon: Icons.star,
-                size: 16,
-                filledColor: Colors.blue,
-                emptyIcon: Icons.star_border,
-                onRatingChanged: (_) => {},
-                initialRating: company.averageRating,
-                maxRating: 5,
+              buildAverageRating(company.averageRating),
+              const SizedBox(
+                height: 5,
+                width: 5,
               ),
-              const Gap(5),
               Text(
                 '(${company.numberOfReviews} avis)',
                 style: const TextStyle(fontSize: 12),
@@ -204,7 +198,10 @@ class CompanyCard extends StatelessWidget {
                 company.like.toString(),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Gap(5),
+              const SizedBox(
+                height: 5,
+                width: 5,
+              ),
               const Text("J'aime")
             ],
           ),
@@ -216,7 +213,10 @@ class CompanyCard extends StatelessWidget {
                 Icons.phone,
                 size: 20,
               ),
-              const Gap(5),
+              const SizedBox(
+                height: 5,
+                width: 5,
+              ),
               Text(company.phone)
             ],
           )

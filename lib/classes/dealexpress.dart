@@ -10,6 +10,7 @@ class ExpressDeal extends Post {
   final int basketCount;
   final int price;
   int availableBaskets;
+  final String stripeAccountId;
 
   ExpressDeal({
     required super.id,
@@ -21,6 +22,7 @@ class ExpressDeal extends Post {
     required this.basketCount,
     required this.price,
     required this.availableBaskets,
+    required this.stripeAccountId,
     super.views,
     super.likes,
     super.likedBy,
@@ -44,6 +46,7 @@ class ExpressDeal extends Post {
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
       availableBaskets: data['basketCount'],
+      stripeAccountId: data['stripeAccountId'] ?? '',
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)
@@ -62,6 +65,7 @@ class ExpressDeal extends Post {
       'content': content,
       'basketCount': basketCount,
       'price': price,
+      'stripeAccountId': stripeAccountId,
     });
     return map;
   }
@@ -90,6 +94,7 @@ class ExpressDeal extends Post {
                 'userId': userId,
                 'companyId': companyId,
                 'reservationTime': FieldValue.serverTimestamp(),
+                'stripeAccountId': stripeAccountId,
                 'validationCode': validationCode,
                 'isValidated': false,
                 'pickupTime': pickupTime,

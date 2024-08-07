@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
+import 'package:happy/screens/reservation_screen.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
@@ -199,43 +199,13 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
               style: ButtonStyle(
                 backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
               ),
-              onPressed: () async {
-                try {
-                  final reservationRef = await reserveDeal(
-                    type: widget.post.basketType,
-                    postId: widget.post.id,
-                    quantity: 1,
-                    price: widget.post.price,
-                    pickupDate: widget.post.pickupTime,
-                  );
-
-                  final reservationSnapshot = await reservationRef.get();
-                  final reservationData =
-                      reservationSnapshot.data() as Map<String, dynamic>?;
-                  if (reservationData == null) {
-                    throw Exception(
-                        "Les données de réservation sont invalides");
-                  }
-                  final validationCode =
-                      reservationData['validationCode'] as String?;
-                  if (validationCode == null) {
-                    throw Exception("Le code de validation est manquant");
-                  }
-
-                  _showReservationSuccessDialog(validationCode);
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ReservationDetailsPage(
-                          reservationId: reservationRef.id),
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Erreur lors de la réservation: $e'),
-                  ));
-                }
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ReservationScreen(deal: widget.post),
+                  ),
+                );
               },
               child: const Text('Réserver'),
             ),

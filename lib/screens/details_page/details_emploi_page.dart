@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/bottom_sheet_emploi.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
@@ -25,6 +26,19 @@ class DetailsEmploiPage extends StatefulWidget {
 class _DetailsEmploiPageState extends State<DetailsEmploiPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
+  void _showApplicationBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return ApplicationBottomSheet(
+          jobOfferId: widget.post.id,
+          companyId: widget.post.companyId,
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -63,9 +77,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
                 style: ButtonStyle(
                   backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
                 ),
-                onPressed: () {
-                  // Implement apply functionality
-                },
+                onPressed: _showApplicationBottomSheet,
                 child: const Text('Postuler'),
               ),
             ),
