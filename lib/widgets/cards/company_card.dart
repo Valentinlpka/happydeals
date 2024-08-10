@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/company_provider.dart';
 import 'package:happy/widgets/average_rating.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:provider/provider.dart';
 
 import '../../classes/company.dart';
@@ -55,15 +54,18 @@ class CompanyCard extends StatelessWidget {
 
   Widget _buildCoverImage(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.only(
+        left: 10,
+        bottom: 10,
+      ),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
           topRight: Radius.circular(8),
         ),
         image: DecorationImage(
-          colorFilter:
-              ColorFilter.mode(Colors.black.withOpacity(0.80), BlendMode.hue),
+          colorFilter: ColorFilter.mode(
+              Colors.black.withOpacity(0.30), BlendMode.darken),
           alignment: Alignment.center,
           fit: BoxFit.cover,
           image: NetworkImage(company.cover),
@@ -94,10 +96,13 @@ class CompanyCard extends StatelessWidget {
   Widget _buildLocationTag() {
     return Container(
       padding: const EdgeInsets.only(top: 3, bottom: 3, right: 7, left: 5),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.all(Radius.circular(5)),
-        color: Colors.black38,
-        border: Border.all(color: Colors.white, width: 2),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.pink, Colors.blue],
+        ),
+        borderRadius: BorderRadius.all(Radius.circular(5)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -126,6 +131,7 @@ class CompanyCard extends StatelessWidget {
         final isLiked = companyLikeService.isCompanyLiked(company.id);
         return IconButton(
           onPressed: () async {
+            companyLikeService.handleLike(company);
             // Vous pouvez ajouter ici une logique pour mettre à jour l'état global si nécessaire
           },
           icon: isLiked
@@ -167,7 +173,7 @@ class CompanyCard extends StatelessWidget {
         children: [
           Text(
             overflow: TextOverflow.ellipsis,
-            capitalizeFirstLetter(company.name),
+            (company.name),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -188,7 +194,7 @@ class CompanyCard extends StatelessWidget {
             ],
           ),
           Text(
-            capitalizeFirstLetter(company.categorie),
+            (company.categorie),
             style: const TextStyle(
                 fontSize: 14, color: Color.fromARGB(255, 85, 85, 85)),
           ),

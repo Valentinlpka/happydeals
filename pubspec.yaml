@@ -60,6 +60,7 @@ dependencies:
   cached_network_image: ^3.3.1
   universal_html: ^2.2.4
   file_picker: ^8.0.6
+  share_plus: ^10.0.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.13.1

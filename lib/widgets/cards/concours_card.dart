@@ -83,7 +83,11 @@ class ConcoursCard extends StatelessWidget {
                               padding: const EdgeInsets.only(
                                   top: 3, bottom: 3, right: 7, left: 5),
                               decoration: const BoxDecoration(
-                                color: Color.fromARGB(70, 0, 0, 0),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Colors.pink, Colors.blue],
+                                ),
                               ),
                               child: const Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,

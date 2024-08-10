@@ -17,10 +17,23 @@ class OrderService {
         'totalPrice': order.totalPrice,
         'pickupAddress': order.pickupAddress,
       });
+
+      await updateProductStock(order.items);
+
       return result.data['orderId'];
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<void> updateProductStock(List<OrderItem> items) async {
+    WriteBatch batch = _firestore.batch();
+    for (var item in items) {
+      DocumentReference productRef =
+          _firestore.collection('products').doc(item.productId);
+      batch.update(productRef, {'stock': FieldValue.increment(-item.quantity)});
+    }
+    await batch.commit();
   }
 
   Future<Orders> getOrder(String orderId) async {

@@ -185,21 +185,43 @@ class _ApplicationBottomSheetState extends State<ApplicationBottomSheet> {
         Map<String, dynamic> companyData =
             companySnapshot.data() as Map<String, dynamic>;
 
-        await FirebaseFirestore.instance.collection('applications').add({
-          'jobOfferId': widget.jobOfferId,
-          'companyId': widget.companyId,
-          'jobTitle': jobData['job_title'],
-          'companyName': companyData['name'],
-          'companyLogo': companyData['logo'],
-          'applicantId': FirebaseAuth.instance.currentUser!.uid,
-          'name': _nameController.text,
-          'email': _emailController.text,
-          'phone': _phoneController.text,
-          'cvUrl': _cvUrl,
-          'cvFileName': _cvFileName,
-          'coverLetterUrl': coverLetterUrl,
-          'status': 'pending',
-          'appliedAt': FieldValue.serverTimestamp(),
+        // Utiliser une transaction pour créer la candidature et la notification
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          // Créer une référence pour la nouvelle candidature
+          DocumentReference applicationRef =
+              FirebaseFirestore.instance.collection('applications').doc();
+
+          // Créer la candidature
+          transaction.set(applicationRef, {
+            'jobOfferId': widget.jobOfferId,
+            'companyId': widget.companyId,
+            'jobTitle': jobData['job_title'],
+            'companyName': companyData['name'],
+            'companyLogo': companyData['logo'],
+            'applicantId': FirebaseAuth.instance.currentUser!.uid,
+            'name': _nameController.text,
+            'email': _emailController.text,
+            'phone': _phoneController.text,
+            'cvUrl': _cvUrl,
+            'cvFileName': _cvFileName,
+            'coverLetterUrl': coverLetterUrl,
+            'status': 'pending',
+            'appliedAt': FieldValue.serverTimestamp(),
+          });
+
+          // Créer une notification pour l'entreprise
+          DocumentReference notificationRef =
+              FirebaseFirestore.instance.collection('notifications').doc();
+          transaction.set(notificationRef, {
+            'userId': widget
+                .companyId, // L'ID de l'entreprise qui recevra la notification
+            'type': 'new_application',
+            'message':
+                'Nouvelle candidature pour le poste ${jobData['job_title']} de ${_nameController.text}',
+            'relatedId': applicationRef.id, // L'ID de la candidature
+            'timestamp': FieldValue.serverTimestamp(),
+            'isRead': false,
+          });
         });
 
         Navigator.of(context).pop();

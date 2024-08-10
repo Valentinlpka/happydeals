@@ -8,7 +8,6 @@ import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/reservation_screen.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:provider/provider.dart';
@@ -184,30 +183,33 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
         context.watch<UserModel>().likedPosts.contains(widget.post.id);
 
     return Scaffold(
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-            border: Border(
-                top: BorderSide(
-          width: 0.4,
-          color: Colors.black26,
-        ))),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: SizedBox(
-            height: 50,
-            child: ElevatedButton(
-              style: ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+              border: Border(
+                  top: BorderSide(
+            width: 0.4,
+            color: Colors.black26,
+          ))),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                style: ButtonStyle(
+                  backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          ReservationScreen(deal: widget.post),
+                    ),
+                  );
+                },
+                child: const Text('Réserver'),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ReservationScreen(deal: widget.post),
-                  ),
-                );
-              },
-              child: const Text('Réserver'),
             ),
           ),
         ),
@@ -308,7 +310,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                           width: 10,
                         ),
                         Text(
-                          widget.post.basketType,
+                          widget.post.title,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -469,7 +471,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  capitalizeFirstLetter(widget.companyName),
+                                  (widget.companyName),
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,

@@ -3,7 +3,9 @@ import 'package:happy/screens/profile_page.dart';
 import 'package:happy/screens/reservation_list_deal_express.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/screens/userApplicationsPage.dart';
+import 'package:happy/screens/user_referral_page.dart';
 import 'package:happy/services/auth_service.dart';
+import 'package:happy/widgets/update_field.dart';
 
 class ParametrePage extends StatelessWidget {
   const ParametrePage({super.key});
@@ -85,6 +87,11 @@ class ParametrePage extends StatelessWidget {
             children: [
               _buildServiceItem(
                   context, 'Parrainage', 'assets/images/happy_deals.png', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const UserReferralsPage()),
+                );
                 // Navigation vers l'écran Parrainage
               }),
               _buildServiceItem(
@@ -114,6 +121,12 @@ class ParametrePage extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _buildSettingsItem(context, 'Paramètres', Icons.settings, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const UpdateSearchableFieldsScreen()),
+            );
+
             // Navigation vers l'écran Paramètres
           }),
           _buildSettingsItem(context, 'Se déconnecter', Icons.logout, () {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/screens/details_page/details_evenement_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class EvenementCard extends StatelessWidget {
@@ -67,33 +66,37 @@ class EvenementCard extends StatelessWidget {
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(15)),
                             child: Container(
-                              height: 30,
+                              padding: const EdgeInsets.only(
+                                  top: 3, bottom: 3, right: 7, left: 5),
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                color: const Color.fromARGB(115, 0, 0, 0),
-                              ),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 10.0, vertical: 5),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Icon(
-                                      Icons.calendar_month_outlined,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    Text(
-                                      'Evènement',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Colors.pink, Colors.blue],
                                 ),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_month_outlined,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  SizedBox(
+                                    width: 5,
+                                  ),
+                                  Text(
+                                    'Evènement',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -114,7 +117,7 @@ class EvenementCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                capitalizeFirstLetter(event.title),
+                                (event.title),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,

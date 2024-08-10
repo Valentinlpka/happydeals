@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/screens/details_page/details_emploi_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class JobOfferCard extends StatelessWidget {
@@ -62,8 +61,13 @@ class JobOfferCard extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.only(
                                   top: 3, bottom: 3, right: 7, left: 5),
-                              decoration:
-                                  const BoxDecoration(color: Colors.black54),
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Colors.pink, Colors.blue],
+                                ),
+                              ),
                               child: const Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 mainAxisAlignment:
@@ -128,14 +132,13 @@ class JobOfferCard extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        capitalizeFirstLetter(post.jobTitle),
+                                        (post.title),
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      Text(
-                                          '${capitalizeFirstLetter(companyName)} - ${post.city}')
+                                      Text('${(companyName)} - ${post.city}')
                                     ],
                                   )
                                 ],

@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/modify_application_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class UserApplicationsPage extends StatelessWidget {
@@ -54,9 +53,6 @@ class UserApplicationsPage extends StatelessWidget {
                         child: ListTile(title: Text('Erreur de chargement')));
                   }
 
-                  var jobData =
-                      jobSnapshot.data!.data() as Map<String, dynamic>;
-
                   return Card(
                     margin: const EdgeInsets.all(8),
                     child: ListTile(
@@ -74,7 +70,7 @@ class UserApplicationsPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            capitalizeFirstLetter(application['companyName']),
+                            (application['companyName']),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(

@@ -27,6 +27,7 @@ class Gift {
 
 class Contest extends Post {
   final String title;
+  final String searchText;
   final String description;
   final List<Gift> gifts;
   final String howToParticipate;
@@ -40,6 +41,7 @@ class Contest extends Post {
     required super.timestamp,
     required String authorId,
     required this.title,
+    required this.searchText,
     required this.description,
     required this.gifts,
     required super.companyId,
@@ -64,6 +66,7 @@ class Contest extends Post {
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       authorId: data['authorId'],
       title: data['title'],
+      searchText: data['searchText'],
       description: data['description'],
       gifts: (data['gifts'] as List<dynamic>)
           .map((giftsData) => Gift.fromMap(giftsData as Map<String, dynamic>))
@@ -90,6 +93,7 @@ class Contest extends Post {
     final map = super.toMap();
     map.addAll({
       'title': title,
+      'searchText': searchText,
       'description': description,
       'gifts': gifts,
       'companyId': companyId,

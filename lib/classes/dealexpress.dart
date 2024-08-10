@@ -4,7 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
 class ExpressDeal extends Post {
-  final String basketType;
+  final String title;
+  final String searchText;
   final DateTime pickupTime;
   final String content;
   final int basketCount;
@@ -15,7 +16,8 @@ class ExpressDeal extends Post {
   ExpressDeal({
     required super.id,
     required super.timestamp,
-    required this.basketType,
+    required this.title,
+    required this.searchText,
     required this.pickupTime,
     required this.content,
     required super.companyId,
@@ -37,7 +39,8 @@ class ExpressDeal extends Post {
     return ExpressDeal(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      basketType: data['basketType'],
+      title: data['title'],
+      searchText: data['searchText'],
       pickupTime: (data['pickupTime'] as Timestamp).toDate(),
       content: data['content'],
       companyId: data['companyId'],
@@ -60,7 +63,8 @@ class ExpressDeal extends Post {
   Map<String, dynamic> toMap() {
     final map = super.toMap();
     map.addAll({
-      'basketType': basketType,
+      'title': title,
+      'searchText': searchText,
       'pickupTime': Timestamp.fromDate(pickupTime),
       'content': content,
       'basketCount': basketCount,

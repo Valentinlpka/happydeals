@@ -2,7 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
 class JobOffer extends Post {
-  final String jobTitle;
+  final String title;
+  final String searchText;
   final String city;
   final String description;
   final String missions;
@@ -14,7 +15,8 @@ class JobOffer extends Post {
   JobOffer({
     required super.id,
     required super.timestamp,
-    required this.jobTitle,
+    required this.title,
+    required this.searchText,
     required this.city,
     required this.description,
     required this.missions,
@@ -37,7 +39,8 @@ class JobOffer extends Post {
     return JobOffer(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      jobTitle: data['job_title'],
+      title: data['title'],
+      searchText: data['searchText'],
       city: data['city'],
       description: data['description'],
       missions: data['missions'],
@@ -61,7 +64,8 @@ class JobOffer extends Post {
   Map<String, dynamic> toMap() {
     final map = super.toMap();
     map.addAll({
-      'job_title': jobTitle,
+      'title': title,
+      'searchText': searchText,
       'city': city,
       'description': description,
       'missions': missions,

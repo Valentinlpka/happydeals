@@ -3,6 +3,7 @@ import 'package:happy/classes/post.dart';
 
 class Referral extends Post {
   final String title;
+  final String searchText;
   final String description;
   final String sponsorBenefit;
   final String refereeBenefit;
@@ -13,6 +14,7 @@ class Referral extends Post {
     required super.id,
     required super.timestamp,
     required this.title,
+    required this.searchText,
     required this.dateFinal,
     required this.description,
     required this.sponsorBenefit,
@@ -34,6 +36,7 @@ class Referral extends Post {
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       title: data['title'],
+      searchText: data['searchText'],
       description: data['description'],
       sponsorBenefit: data['sponsorBenefit'],
       refereeBenefit: data['refereeBenefit'],
@@ -56,6 +59,7 @@ class Referral extends Post {
     final map = super.toMap();
     map.addAll({
       'title': title,
+      'searchText': searchText,
       'description': description,
       'companyId': companyId,
       'sponsorBenefit': sponsorBenefit,

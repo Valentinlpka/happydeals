@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_storage
   geolocator_windows
   maps_launcher
+  share_plus
   url_launcher_windows
 )
 

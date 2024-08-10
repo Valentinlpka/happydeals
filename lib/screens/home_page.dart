@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
+import 'package:happy/classes/combined_item.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/providers/home_provider.dart';
@@ -11,7 +11,6 @@ import 'package:happy/providers/users.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/web_adress_search.dart';
-import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:provider/provider.dart';
 
 class Home extends StatefulWidget {
@@ -21,202 +20,71 @@ class Home extends StatefulWidget {
   _HomeState createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
-  static const _pageSize = 10;
-  bool _showCompanies = false;
+class _HomeState extends State<Home> {
   late String currentUserId;
-  late PagingController<DocumentSnapshot?, Map<String, dynamic>>
-      _postsPagingController;
-  late PagingController<DocumentSnapshot?, Company> _companiesPagingController;
-  late Future<void> _initializationFuture;
-  int _retryCount = 0;
-  static const int _maxRetries = 3;
+  late Future<List<CombinedItem>> _combinedItemsFuture;
+  String _selectedFilter = 'Tous';
+  List<CombinedItem> _items = [];
 
-  @override
-  bool get wantKeepAlive => true;
-  int _postCount = 0;
-  int _companyCount = 0;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-    _postsPagingController = PagingController(firstPageKey: null);
-    _companiesPagingController = PagingController(firstPageKey: null);
-
-    _initializationFuture = _initializeWithRetry();
-
-    _postsPagingController.addListener(_updatePostCount);
-    _companiesPagingController.addListener(_updateCompanyCount);
+    _loadData();
   }
 
-  Future<void> _initializeWithRetry() async {
-    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-    for (int i = 0; i <= _maxRetries; i++) {
-      try {
-        await Future.delayed(Duration(seconds: 1 * (i + 1)));
-        await homeProvider.loadSavedLocation();
-        _retryCount = 0;
-        _postsPagingController.addPageRequestListener(_fetchPostsPage);
-        _companiesPagingController.addPageRequestListener(_fetchCompaniesPage);
-        return;
-      } catch (e) {
-        if (i == _maxRetries) {
-          homeProvider.setError(e.toString());
-          rethrow;
-        }
-      }
-    }
-  }
-
-  Future<void> _retryInitialization() async {
+  Future<void> _loadData() async {
     setState(() {
-      _retryCount++;
-      _initializationFuture = _initializeWithRetry();
+      _isLoading = true;
     });
-  }
 
-  @override
-  void dispose() {
-    _postsPagingController.removeListener(_updatePostCount);
-    _companiesPagingController.removeListener(_updateCompanyCount);
-    _postsPagingController.dispose();
-    _companiesPagingController.dispose();
-    super.dispose();
-  }
-
-  void _updatePostCount() {
-    setState(() {
-      _postCount = _postsPagingController.itemList?.length ?? 0;
-    });
-  }
-
-  void _updateCompanyCount() {
-    setState(() {
-      _companyCount = _companiesPagingController.itemList?.length ?? 0;
-    });
-  }
-
-  Future<void> _fetchPostsPage(DocumentSnapshot? pageKey) async {
     try {
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-      final newPosts =
-          await homeProvider.fetchPostsWithCompanyData(pageKey, _pageSize);
-
-      final isLastPage = newPosts.length < _pageSize;
-      if (isLastPage) {
-        _postsPagingController.appendLastPage(newPosts);
-      } else {
-        final lastPostId = newPosts.last['post'].id;
-        final nextPageKey = await FirebaseFirestore.instance
-            .collection('posts')
-            .doc(lastPostId)
-            .get();
-        _postsPagingController.appendPage(newPosts, nextPageKey);
-      }
-    } catch (error) {
-      _postsPagingController.error = error;
-    }
-  }
-
-// Faites de même pour _fetchCompaniesPage
-  Future<void> _fetchCompaniesPage(DocumentSnapshot? pageKey) async {
-    try {
-      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-      final newCompanies =
-          await homeProvider.fetchCompanies(pageKey, _pageSize);
-
-      final isLastPage = newCompanies.length < _pageSize;
-      if (isLastPage) {
-        _companiesPagingController.appendLastPage(newCompanies);
-      } else {
-        final lastCompany = newCompanies.last;
-        final nextPageKey = await FirebaseFirestore.instance
-            .collection('companys')
-            .doc(lastCompany.id)
-            .get();
-        _companiesPagingController.appendPage(newCompanies, nextPageKey);
-      }
-    } catch (error) {
-      _companiesPagingController.error = error;
+      _combinedItemsFuture = homeProvider.loadAllData(); // Initialisez ici
+      final items = await _combinedItemsFuture;
+      setState(() {
+        _items = items ?? [];
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading data: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     return Scaffold(
       body: SafeArea(
-        child: FutureBuilder<void>(
-          future: _initializationFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Erreur: ${snapshot.error}'),
-                    if (_retryCount < _maxRetries)
-                      ElevatedButton(
-                        onPressed: _retryInitialization,
-                        child: const Text('Réessayer'),
-                      )
-                    else
-                      const Text(
-                          'Nombre maximum de tentatives atteint. Veuillez réessayer plus tard.'),
-                  ],
-                ),
-              );
-            }
-            return _buildHomeContent();
+        child: RefreshIndicator(
+          onRefresh: () async {
+            setState(() {
+              _loadData();
+            });
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHomeContent() {
-    return Consumer<HomeProvider>(
-      builder: (context, homeProvider, _) {
-        if (homeProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (homeProvider.hasError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Erreur: ${homeProvider.errorMessage}'),
-                ElevatedButton(
-                  onPressed: _retryInitialization,
-                  child: const Text('Réessayer'),
-                ),
-              ],
-            ),
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: _handleRefresh,
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
                 child: Column(
                   children: [
                     _buildHeader(),
+                    const SizedBox(height: 10),
                     _buildLocationBar(),
-                    _buildCategoryButtons(),
-                    _buildNumberPost(),
+                    const SizedBox(height: 10),
+                    _buildFilterButtons(),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
-              _showCompanies ? _buildCompanyList() : _buildPostList(),
+              _buildCombinedList(),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -224,7 +92,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     return Consumer<UserModel>(
       builder: (context, usersProvider, _) {
         return Container(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.only(left: 20.0, top: 10),
           child: Row(
             children: [
               CircleAvatar(
@@ -264,7 +132,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
           onTap: _showLocationBottomSheet,
           child: Container(
             padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
             child: Row(
               children: [
                 const Icon(Icons.location_on, color: Colors.blue),
@@ -285,202 +153,185 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     );
   }
 
-  Widget _buildCategoryButtons() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildCategoryButton("Posts", !_showCompanies),
-          _buildCategoryButton("Entreprises", _showCompanies),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNumberPost() {
-    int totalItems = _showCompanies ? _companyCount : _postCount;
-    String itemType = _showCompanies ? "entreprises" : "posts";
-
+  Widget _buildFilterButtons() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: Text(
-        "$totalItems $itemType trouvés",
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey[600],
+      padding: const EdgeInsets.only(left: 20.0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildFilterButton('Tous'),
+            _buildFilterButton('Entreprises'),
+            _buildFilterButton('Deals Express'),
+            _buildFilterButton('Happy Deals'),
+            _buildFilterButton('Offres d\'emploi'),
+            _buildFilterButton('Parrainage'),
+            _buildFilterButton('Jeux concours'),
+          ],
         ),
       ),
     );
   }
 
-  int _getTotalItems() {
-    if (_showCompanies) {
-      return _companiesPagingController.itemList?.length ?? 0;
-    } else {
-      return _postsPagingController.itemList?.length ?? 0;
-    }
-  }
-
-  Widget _buildCategoryButton(String title, bool isSelected) {
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _showCompanies = title == "Entreprises";
-        });
-      },
-      child: Container(
-        decoration: BoxDecoration(
-            gradient: isSelected
-                ? const LinearGradient(
-                    colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
-                    stops: [0.0, 1.0],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  )
-                : const LinearGradient(
-                    colors: [
-                      Color.fromARGB(255, 251, 251, 251),
-                      Color.fromARGB(255, 255, 255, 255)
-                    ],
-                    stops: [0.0, 1.0],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-            borderRadius: BorderRadius.circular(5),
-            color: isSelected ? Colors.blue[800] : Colors.white,
-            border: Border.all(
-              width: 1,
-              color: isSelected ? Colors.transparent : Colors.black12,
-            )),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10.0,
-            vertical: 5,
-          ),
-          child: Text(
-            title,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.black,
-            ),
-          ),
+  Widget _buildFilterButton(String title) {
+    bool isSelected = _selectedFilter == title;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          foregroundColor: isSelected ? Colors.white : Colors.black,
+          backgroundColor: isSelected ? Colors.blue : Colors.grey[200],
         ),
+        onPressed: () {
+          setState(() {
+            _selectedFilter = title;
+          });
+        },
+        child: Text(title),
       ),
     );
   }
 
-  Widget _buildCompanyList() {
-    return PagedSliverList<DocumentSnapshot?, Company>(
-      pagingController: _companiesPagingController,
-      builderDelegate: PagedChildBuilderDelegate<Company>(
-        noItemsFoundIndicatorBuilder: (_) => const Center(
-          child: Text('Aucune entreprise trouvée à proximité'),
-        ),
-        itemBuilder: (context, company, index) => CompanyCard(company),
-      ),
-    );
-  }
-
-  Widget _buildPostList() {
-    return PagedSliverList<DocumentSnapshot?, Map<String, dynamic>>(
-      pagingController: _postsPagingController,
-      builderDelegate: PagedChildBuilderDelegate<Map<String, dynamic>>(
-        noItemsFoundIndicatorBuilder: (_) => const Center(
-          child: Text(
-              textAlign: TextAlign.center,
-              'Aucun post à proximité, veuillez changer votre localisation'),
-        ),
-        firstPageErrorIndicatorBuilder: (context) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                  'Erreur lors du chargement des posts: ${_postsPagingController.error}'),
-              ElevatedButton(
-                onPressed: () => _postsPagingController.refresh(),
-                child: const Text('Réessayer'),
-              ),
-            ],
-          ),
-        ),
-        newPageErrorIndicatorBuilder: (context) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Erreur lors du chargement de la page suivante'),
-              ElevatedButton(
-                onPressed: () =>
-                    _postsPagingController.retryLastFailedRequest(),
-                child: const Text('Réessayer'),
-              ),
-            ],
-          ),
-        ),
-        itemBuilder: (context, postData, index) {
-          final post = postData['post'] as Post;
-          final companyData = postData['company'] as Map<String, dynamic>;
-          return Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: PostWidget(
-              key: ValueKey(post.id),
-              post: post,
-              companyCover: companyData['cover'],
-              companyCategorie: companyData['categorie'] ?? '',
-              companyName: companyData['name'] ?? '',
-              companyLogo: companyData['logo'] ?? '',
-              currentUserId: currentUserId,
-              onView: () {
-                // Logique d'affichage du post
-              },
+  Widget _buildCombinedList() {
+    return FutureBuilder<List<CombinedItem>>(
+      future: _combinedItemsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverFillRemaining(
+            child: Center(child: CircularProgressIndicator()),
+          );
+        } else if (snapshot.hasError) {
+          return SliverFillRemaining(
+            child: Center(child: Text('Erreur: ${snapshot.error}')),
+          );
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SliverFillRemaining(
+            child: Center(
+                child: Text(
+                    'Aucun élément trouvé à proximité, veuillez changer votre localisation')),
+          );
+        } else {
+          final filteredItems = _applyFilter(snapshot.data!);
+          return SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildItem(filteredItems[index]),
+              childCount: filteredItems.length,
             ),
           );
-        },
-      ),
+        }
+      },
     );
+  }
+
+  List<CombinedItem> _applyFilter(List<CombinedItem> items) {
+    if (_selectedFilter == 'Tous') return items;
+    return items.where((item) {
+      if (_selectedFilter == 'Entreprises' && item.type == 'company') {
+        return true;
+      }
+      if (item.type == 'post') {
+        final post = item.item['post'] as Post;
+        switch (_selectedFilter) {
+          case 'Deals Express':
+            return post.type == 'express_deal';
+          case 'Happy Deals':
+            return post.type == 'happy_deal';
+          case 'Offres d\'emploi':
+            return post.type == 'job_offer';
+          case 'Parrainage':
+            return post.type == 'referral';
+          case 'Jeux concours':
+            return post.type == 'contest';
+        }
+      }
+      return false;
+    }).toList();
+  }
+
+  Widget _buildItem(CombinedItem item) {
+    if (item.type == 'post') {
+      final postData = item.item;
+      final post = postData['post'] as Post;
+      final companyData = postData['company'] as Map<String, dynamic>;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        child: PostWidget(
+          key: ValueKey(post.id),
+          post: post,
+          companyCover: companyData['cover'],
+          companyCategorie: companyData['categorie'] ?? '',
+          companyName: companyData['name'] ?? '',
+          companyLogo: companyData['logo'] ?? '',
+          currentUserId: currentUserId,
+          onView: () {
+            // Logique d'affichage du post
+          },
+        ),
+      );
+    } else {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        child: CompanyCard(item.item as Company),
+      );
+    }
   }
 
   void _showLocationBottomSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => Consumer<HomeProvider>(
         builder: (context, homeProvider, _) {
-          return DraggableScrollableSheet(
-            initialChildSize: 0.4,
-            minChildSize: 0.2,
-            maxChildSize: 0.75,
-            expand: false,
-            builder: (_, controller) {
-              return ListView(
-                controller: controller,
-                padding: const EdgeInsets.all(16),
-                children: [
-                  const Text(
-                    "Localisation",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setModalState) {
+              return Container(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
-                  const SizedBox(height: 20),
-                  _buildAddressSearch(homeProvider),
-                  const SizedBox(height: 20),
-                  _buildRadiusSelector(homeProvider),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      await homeProvider.applyChanges();
-                      setState(() {});
-                      _postsPagingController.refresh();
-                      _companiesPagingController.refresh();
-                    },
-                    child: const Text("Appliquer"),
+                ),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          "Localisation",
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        _buildAddressSearch(homeProvider),
+                        const SizedBox(height: 20),
+                        _buildRadiusSelector(homeProvider),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  WidgetStatePropertyAll(Colors.blue[800])),
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await homeProvider.applyChanges();
+                            setState(() {
+                              _loadData();
+                            });
+                          },
+                          child: const Text("Appliquer"),
+                        ),
+                        SizedBox(
+                            height: MediaQuery.of(context).viewInsets.bottom),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               );
             },
           );
@@ -504,25 +355,16 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
           alignLabelWithHint: true,
           icon: Padding(
             padding: EdgeInsets.only(left: 10.0),
-            child: Icon(
-              Icons.location_on,
-              applyTextScaling: true,
-            ),
+            child: Icon(Icons.location_on),
           ),
           isCollapsed: false,
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: 0,
-            vertical: 10,
-          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 10),
           border: InputBorder.none,
         ),
         debounceTime: 800,
         countries: const ["fr"],
         isLatLngRequired: true,
-        seperatedBuilder: const Divider(
-          color: Colors.black12,
-          height: 2,
-        ),
+        seperatedBuilder: const Divider(color: Colors.black12, height: 2),
         getPlaceDetailWithLatLng: (Prediction prediction) async {
           await homeProvider.updateLocationFromPrediction(prediction);
         },
@@ -554,13 +396,5 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
         ),
       ],
     );
-  }
-
-  Future<void> _handleRefresh() async {
-    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-    await homeProvider.loadSavedLocation();
-    homeProvider.clearCache();
-    _postsPagingController.refresh();
-    _companiesPagingController.refresh();
   }
 }

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/conversation.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:provider/provider.dart';
 
 class ConversationsListScreen extends StatelessWidget {
@@ -101,8 +100,7 @@ class ConversationsListScreen extends StatelessWidget {
 
                   final userData =
                       userSnapshot.data!.data() as Map<String, dynamic>;
-                  final String companyName =
-                      capitalizeFirstLetter(userData['name']);
+                  final String companyName = (userData['name']);
                   final String profilePicUrl = userData['logo'];
 
                   return Card(

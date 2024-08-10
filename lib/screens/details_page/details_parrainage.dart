@@ -4,7 +4,7 @@ import 'package:happy/classes/company.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
+import 'package:happy/widgets/referral_modal.dart';
 import 'package:provider/provider.dart';
 
 class DetailsParrainagePage extends StatefulWidget {
@@ -38,6 +38,27 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
     return Company.fromDocument(doc);
   }
 
+  void _showReferralModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          child: Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: ReferralModal(
+              referralId: widget.referral.id,
+              companyId: widget.referral.companyId,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLiked =
@@ -59,9 +80,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
               style: ButtonStyle(
                 backgroundColor: WidgetStateProperty.all(Colors.blue[800]),
               ),
-              onPressed: () {
-                // Implement referral functionality
-              },
+              onPressed: _showReferralModal,
               child: const Text('Je parraine !'),
             ),
           ),
@@ -152,7 +171,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      capitalizeFirstLetter(widget.referral.title),
+                      (widget.referral.title),
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -258,7 +277,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      capitalizeFirstLetter(company.name),
+                                      (company.name),
                                       style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,

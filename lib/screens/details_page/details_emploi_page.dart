@@ -3,7 +3,6 @@ import 'package:happy/classes/joboffer.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/bottom_sheet_emploi.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -169,7 +168,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      capitalizeFirstLetter(widget.post.jobTitle),
+                      (widget.post.title),
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -181,7 +180,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
                         Icon(Icons.business, color: Colors.blue[800], size: 20),
                         const SizedBox(width: 10),
                         Text(
-                          capitalizeFirstLetter(widget.companyName),
+                          (widget.companyName),
                           style: const TextStyle(fontSize: 16),
                         ),
                       ],
@@ -257,13 +256,13 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              capitalizeFirstLetter(widget.companyName),
+                              (widget.companyName),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Text(widget.post.jobTitle),
+                            Text(widget.post.title),
                           ],
                         ),
                       ),

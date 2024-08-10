@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/screens/details_page/details_dealsexpress_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class DealsExpressCard extends StatelessWidget {
@@ -68,6 +67,8 @@ class DealsExpressCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
+                    color: Colors.white,
+                    backgroundBlendMode: BlendMode.darken,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(8),
                       topRight: Radius.circular(8),
@@ -95,7 +96,11 @@ class DealsExpressCard extends StatelessWidget {
                               padding: const EdgeInsets.only(
                                   top: 3, bottom: 3, right: 7, left: 5),
                               decoration: const BoxDecoration(
-                                color: Colors.black54,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Colors.pink, Colors.blue],
+                                ),
                               ),
                               child: const Row(
                                 mainAxisAlignment:
@@ -137,7 +142,7 @@ class DealsExpressCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                capitalizeFirstLetter(companyName),
+                                (companyName),
                                 style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -169,7 +174,7 @@ class DealsExpressCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                capitalizeFirstLetter(post.basketType),
+                                (post.title),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -211,11 +216,11 @@ class DealsExpressCard extends StatelessWidget {
                                           fontWeight: FontWeight.w600,
                                         )),
                                   ),
-                                  const Row(
+                                  Row(
                                     children: [
                                       Text(
-                                        "19,99 €",
-                                        style: TextStyle(
+                                        "${(post.price * 2).toString()} €",
+                                        style: const TextStyle(
                                             letterSpacing: 1,
                                             decoration:
                                                 TextDecoration.lineThrough,
@@ -224,13 +229,13 @@ class DealsExpressCard extends StatelessWidget {
                                             color: Color.fromARGB(
                                                 255, 181, 11, 11)),
                                       ),
-                                      SizedBox(
+                                      const SizedBox(
                                         height: 10,
                                         width: 10,
                                       ),
                                       Text(
-                                        '9,99€',
-                                        style: TextStyle(
+                                        "${post.price.toString()} €",
+                                        style: const TextStyle(
                                           letterSpacing: 1,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,

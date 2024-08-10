@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:happy/widgets/deal_product.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -284,7 +283,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        capitalizeFirstLetter(widget.happydeal.title),
+                        (widget.happydeal.title),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,

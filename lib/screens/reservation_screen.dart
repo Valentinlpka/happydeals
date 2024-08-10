@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:happy/classes/dealexpress.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class ReservationScreen extends StatefulWidget {
@@ -83,6 +82,9 @@ class _ReservationScreenState extends State<ReservationScreen> {
       });
 
       if (result.data['success']) {
+        // Créer une notification pour l'entreprise
+        await _createNotification(result.data['reservationId']);
+
         _showReservationSuccessDialog(result.data['validationCode']);
       } else {
         throw Exception("La confirmation de la réservation a échoué");
@@ -93,6 +95,23 @@ class _ReservationScreenState extends State<ReservationScreen> {
             content:
                 Text('Erreur lors de la confirmation de la réservation: $e')),
       );
+    }
+  }
+
+  Future<void> _createNotification(String reservationId) async {
+    try {
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'userId': widget
+            .deal.companyId, // L'ID de l'entreprise qui recevra la notification
+        'type': 'new_reservation',
+        'message': 'Nouvelle réservation pour le deal ${widget.deal.title}',
+        'relatedId': reservationId, // L'ID de la réservation
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+      });
+    } catch (e) {
+      print('Erreur lors de la création de la notification: $e');
+      // Ne pas lancer d'exception ici pour ne pas interrompre le flux principal
     }
   }
 
@@ -219,14 +238,13 @@ class _ReservationScreenState extends State<ReservationScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            capitalizeFirstLetter(
-                companyName ?? "Nom de l'entreprise non disponible"),
+            (companyName ?? "Nom de l'entreprise non disponible"),
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 15),
-          _buildInfoRow(Icons.shopping_bag_outlined, widget.deal.basketType),
+          _buildInfoRow(Icons.shopping_bag_outlined, widget.deal.title),
           const SizedBox(
             height: 10,
           ),

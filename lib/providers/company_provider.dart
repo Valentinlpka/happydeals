@@ -6,6 +6,8 @@ class CompanyLikeService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String userId;
   Set<String> _likedCompanies = {};
+  bool _disposed = false;
+  bool _initialized = false;
 
   CompanyLikeService(this.userId) {
     _loadLikedCompanies();
@@ -16,14 +18,23 @@ class CompanyLikeService extends ChangeNotifier {
   }
 
   Future<void> _loadLikedCompanies() async {
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-    final likedCompanies =
-        userDoc.data()?['likedCompanies'] as List<dynamic>? ?? [];
-    _likedCompanies = Set<String>.from(likedCompanies.cast<String>());
-    notifyListeners();
+    if (_disposed) return;
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final likedCompanies =
+          userDoc.data()?['likedCompanies'] as List<dynamic>? ?? [];
+      _likedCompanies = Set<String>.from(likedCompanies.cast<String>());
+      _initialized = true;
+      if (!_disposed) notifyListeners();
+    } catch (e) {
+      print("Erreur lors du chargement des entreprises aimées : $e");
+    }
   }
 
   Future<Company> handleLike(Company company) async {
+    if (!_initialized) await _loadLikedCompanies();
+    if (_disposed) return company;
+
     final companyRef = _firestore.collection('companys').doc(company.id);
     final userRef = _firestore.collection('users').doc(userId);
 
@@ -37,7 +48,7 @@ class CompanyLikeService extends ChangeNotifier {
       _likedCompanies.add(company.id);
       updatedCompany = company.copyWith(like: company.like + 1);
     }
-    notifyListeners();
+    if (!_disposed) notifyListeners();
 
     // Mise à jour Firestore en arrière-plan
     try {
@@ -88,11 +99,24 @@ class CompanyLikeService extends ChangeNotifier {
         _likedCompanies.add(company.id);
         updatedCompany = company.copyWith(like: company.like + 1);
       }
-      notifyListeners();
+      if (!_disposed) notifyListeners();
       print("Erreur lors de la gestion du like : $e");
     }
 
     return updatedCompany;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) {
+      super.notifyListeners();
+    }
   }
 }
 

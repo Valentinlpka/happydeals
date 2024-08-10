@@ -15,7 +15,6 @@ import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/review_service.dart';
 import 'package:happy/screens/conversation_detail.dart';
 import 'package:happy/screens/shop/product_list.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:happy/widgets/opening_hours_widget.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/review_list.dart';
@@ -159,6 +158,14 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
   Widget _buildSliverAppBar(Company entreprise) {
     return SliverAppBar(
       expandedHeight: 150.0,
+      automaticallyImplyLeading: true,
+      leading: IconButton(
+        icon:
+            const Icon(Icons.arrow_back_ios_new_outlined, color: Colors.white),
+        onPressed: () {
+          Navigator.pop(context);
+        },
+      ),
       floating: false,
       pinned: true,
       flexibleSpace: FlexibleSpaceBar(
@@ -240,13 +247,13 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      capitalizeFirstLetter(entreprise.name),
+                      (entreprise.name),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 28,
                       ),
                     ),
-                    Text(capitalizeFirstLetter(entreprise.categorie)),
+                    Text((entreprise.categorie)),
                     Text('${entreprise.like} J\'aime'),
                   ],
                 ),

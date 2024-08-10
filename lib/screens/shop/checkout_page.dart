@@ -6,7 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:happy/classes/notification.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
+import 'package:happy/services/notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_html/html.dart' as html;
 
@@ -22,6 +24,8 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  final NotificationService _notificationService = NotificationService();
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final OrderService _orderService = OrderService();
   bool _isLoading = false;
@@ -119,6 +123,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       pickupAddress: address ?? "",
     ));
 
+    // Créer une notification pour le vendeur
+    await _notificationService.createNotification(NotificationModel(
+      id: '', // Firestore générera automatiquement l'ID
+      userId: cart.items.first.product.entrepriseId,
+      type: 'new_order',
+      message:
+          'Nouvelle commande reçue pour un montant de ${cart.total.toStringAsFixed(2)} €',
+      relatedId: orderId,
+      timestamp: DateTime.now(),
+    ));
+
     cart.clearCart();
     Navigator.pushReplacement(
       context,
@@ -176,6 +191,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       itemBuilder: (context, index) {
                         final item = cart.items[index];
                         return ListTile(
+                          leadingAndTrailingTextStyle: const TextStyle(
+                              fontSize: 16, color: Colors.black),
+                          leading: Image.network(item.product.imageUrl[0]),
                           title: Text(item.product.name),
                           subtitle: Text('Quantité: ${item.quantity}'),
                           trailing: Text(

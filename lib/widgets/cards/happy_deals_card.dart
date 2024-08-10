@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/screens/details_page/details_happydeals.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class HappyDealsCard extends StatelessWidget {
@@ -82,7 +81,11 @@ class HappyDealsCard extends StatelessWidget {
                               padding: const EdgeInsets.only(
                                   top: 3, bottom: 3, right: 7, left: 5),
                               decoration: const BoxDecoration(
-                                color: Colors.black54,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Colors.pink, Colors.blue],
+                                ),
                               ),
                               child: const Row(
                                 mainAxisAlignment:
@@ -124,7 +127,7 @@ class HappyDealsCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                capitalizeFirstLetter(companyName),
+                                (companyName),
                                 style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -156,7 +159,7 @@ class HappyDealsCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                capitalizeFirstLetter(post.title),
+                                (post.title),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -180,38 +183,10 @@ class HappyDealsCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
+                          const Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                height: 25,
-                                width: 25,
-                                decoration: const BoxDecoration(
-                                  color: Colors.blueAccent,
-                                ),
-                                child: const Icon(
-                                  size: 20,
-                                  color: Colors.white,
-                                  Icons.star,
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 4,
-                                width: 4,
-                              ),
-                              const Text(
-                                "4,4",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 4,
-                                width: 4,
-                              ),
-                            ],
+                            children: [],
                           ),
                           Row(
                             children: [

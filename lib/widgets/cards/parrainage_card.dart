@@ -3,7 +3,6 @@ import 'package:happy/classes/referral.dart';
 // ignore: unused_import
 import 'package:happy/screens/details_page/details_evenement_page.dart';
 import 'package:happy/screens/details_page/details_parrainage.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 
 class ParrainageCard extends StatelessWidget {
@@ -79,14 +78,17 @@ class ParrainageCard extends StatelessWidget {
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(15)),
                             child: Container(
-                              height: 30,
                               decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Colors.pink, Colors.blue],
+                                ),
                                 borderRadius: BorderRadius.circular(20),
-                                color: const Color.fromARGB(115, 0, 0, 0),
                               ),
                               child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 10.0, vertical: 5),
+                                padding: EdgeInsets.only(
+                                    top: 3, bottom: 3, right: 7, left: 5),
                                 child: Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -96,11 +98,14 @@ class ParrainageCard extends StatelessWidget {
                                       color: Colors.white,
                                       size: 16,
                                     ),
+                                    SizedBox(
+                                      width: 5,
+                                    ),
                                     Text(
                                       'Parrainage',
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 14,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -120,51 +125,49 @@ class ParrainageCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            children: [
-                              Text(
-                                softWrap: true,
-                                capitalizeFirstLetter(post.title),
-                                overflow: TextOverflow.fade,
-                                maxLines: 2,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(
-                            height: 5,
-                            width: 5,
-                          ),
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today, size: 15),
-                              const SizedBox(
-                                width: 5,
-                              ),
-                              Text(
-                                "jusqu'au ${formatDateTime(post.dateFinal)}",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color.fromARGB(255, 85, 85, 85),
-                                ),
-                              )
-                            ],
-                          ),
-                          const SizedBox(
-                            height: 5,
-                            width: 5,
-                          ),
                           Text(
-                            post.description,
+                            textAlign: TextAlign.left,
+                            softWrap: true,
+                            (post.title),
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(
+                        height: 5,
+                        width: 5,
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today, size: 15),
+                          const SizedBox(
+                            width: 5,
+                          ),
+                          Text(
+                            "jusqu'au ${formatDateTime(post.dateFinal)}",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color.fromARGB(255, 85, 85, 85),
+                            ),
+                          )
+                        ],
+                      ),
+                      const SizedBox(
+                        height: 5,
+                        width: 5,
+                      ),
+                      Text(
+                        post.description,
+                        style: const TextStyle(
+                          fontSize: 14,
+                        ),
                       ),
                       Divider(
                         color: Colors.grey[300],
@@ -190,7 +193,7 @@ class ParrainageCard extends StatelessWidget {
                                 width: 10,
                               ),
                               Text(
-                                capitalizeFirstLetter(companyName),
+                                (companyName),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,

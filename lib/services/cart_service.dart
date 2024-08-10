@@ -1,4 +1,5 @@
 // lib/services/cart_service.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:happy/classes/product.dart';
 
@@ -21,12 +22,20 @@ class CartItem {
 class CartService extends ChangeNotifier {
   final List<CartItem> _items = [];
   String? _currentSellerId;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   List<CartItem> get items => _items;
   double get total =>
       _items.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
 
-  void addToCart(Product product) {
+  Future<bool> checkStock(Product product, int requestedQuantity) async {
+    DocumentSnapshot doc =
+        await _firestore.collection('products').doc(product.id).get();
+    int currentStock = doc.get('stock') as int;
+    return currentStock >= requestedQuantity;
+  }
+
+  Future<void> addToCart(Product product) async {
     if (_currentSellerId == null) {
       _currentSellerId = product.sellerId;
     } else if (_currentSellerId != product.sellerId) {
@@ -35,6 +44,13 @@ class CartService extends ChangeNotifier {
     }
 
     int index = _items.indexWhere((item) => item.product.id == product.id);
+    int newQuantity = index != -1 ? _items[index].quantity + 1 : 1;
+
+    bool isAvailable = await checkStock(product, newQuantity);
+    if (!isAvailable) {
+      throw Exception('Stock insuffisant');
+    }
+
     if (index != -1) {
       _items[index].quantity++;
     } else {

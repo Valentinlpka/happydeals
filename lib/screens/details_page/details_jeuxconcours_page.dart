@@ -4,7 +4,6 @@ import 'package:happy/classes/company.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -155,7 +154,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      capitalizeFirstLetter(widget.contest.title),
+                      (widget.contest.title),
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -298,7 +297,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      capitalizeFirstLetter(company.name),
+                                      (company.name),
                                       style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,

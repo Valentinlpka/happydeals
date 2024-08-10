@@ -15,6 +15,7 @@ class Company {
   final Map<String, dynamic> openingHours;
   final double averageRating;
   final int numberOfReviews;
+  final DateTime createdAt;
 
   Company({
     required this.id,
@@ -28,10 +29,11 @@ class Company {
     required this.phone,
     required this.sellerId,
     required this.adress,
+    DateTime? createdAt,
     required this.openingHours,
     this.averageRating = 0.0,
     this.numberOfReviews = 0,
-  });
+  }) : createdAt = createdAt ?? DateTime.now();
 
   factory Company.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -48,8 +50,9 @@ class Company {
       sellerId: data['sellerId'] ?? '',
       adress: Address.fromMap(data['adress'] ?? {}),
       openingHours: Map<String, String>.from(data['openingHours'] ?? {}),
-      averageRating: (data['averageRating'] ?? 0.0).toDouble(),
+      averageRating: (data['averageRating'] ?? 0.0).toDouble() ?? 0,
       numberOfReviews: data['numberOfReviews'] ?? 0,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
@@ -68,6 +71,7 @@ class Company {
       'openingHours': openingHours,
       'averageRating': averageRating,
       'numberOfReviews': numberOfReviews,
+      'createdAt': createdAt,
     };
   }
 }

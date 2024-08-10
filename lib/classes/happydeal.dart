@@ -3,6 +3,8 @@ import 'package:happy/classes/post.dart';
 
 class HappyDeal extends Post {
   final String title;
+  final String searchText;
+
   final String productName;
   final String description;
   final String productId; // Référence au produit existant
@@ -16,6 +18,7 @@ class HappyDeal extends Post {
   HappyDeal(
       {required super.timestamp,
       required this.title,
+      required this.searchText,
       required this.productName,
       required this.newPrice,
       required this.oldPrice,
@@ -40,6 +43,7 @@ class HappyDeal extends Post {
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       title: data['title'],
+      searchText: data['searchText'],
       productName: data['productName'],
       description: data['description'],
       productId: data['productId'],
@@ -66,6 +70,7 @@ class HappyDeal extends Post {
     final map = super.toMap();
     map.addAll({
       'title': title,
+      'searchText': searchText,
       'description': description,
       'productId': productId,
       'productName': productName,
@@ -83,6 +88,7 @@ class HappyDeal extends Post {
   Map<String, dynamic> toEditableMap() {
     return {
       'title': title,
+      'searchText': searchText,
       'description': description,
       'productId': productId,
       'newPrice': newPrice,

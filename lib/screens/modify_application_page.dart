@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/widgets/capitalize_first_letter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -221,7 +220,7 @@ class _EditApplicationPageState extends State<EditApplicationPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              capitalizeFirstLetter(data['jobTitle']),
+              (data['jobTitle']),
               style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -229,7 +228,7 @@ class _EditApplicationPageState extends State<EditApplicationPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              capitalizeFirstLetter(data['companyName']),
+              (data['companyName']),
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),

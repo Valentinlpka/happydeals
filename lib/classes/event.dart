@@ -3,6 +3,8 @@ import 'package:happy/classes/post.dart';
 
 class Event extends Post {
   final String title;
+  final String searchText;
+
   final String category;
   final DateTime eventDate;
   final String city;
@@ -14,6 +16,7 @@ class Event extends Post {
     required super.id,
     required super.timestamp,
     required this.title,
+    required this.searchText,
     required this.category,
     required this.eventDate,
     required this.city,
@@ -36,6 +39,7 @@ class Event extends Post {
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       title: data['title'],
+      searchText: data['searchText'],
       category: data['category'],
       eventDate: (data['eventDate'] as Timestamp).toDate(),
       city: data['city'],
@@ -59,6 +63,7 @@ class Event extends Post {
     final map = super.toMap();
     map.addAll({
       'title': title,
+      'searchText': searchText,
       'category': category,
       'eventDate': Timestamp.fromDate(eventDate),
       'city': city,
