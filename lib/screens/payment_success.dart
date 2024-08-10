@@ -80,11 +80,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     } catch (e) {
       _handleError('Une erreur inattendue est survenue: $e', '/home');
     } finally {
-      if (kIsWeb) {
-        html.window.localStorage.remove('cartData');
-        html.window.localStorage.remove('cartTotal');
-        html.window.localStorage.remove('stripeSessionId');
-      }
+      if (kIsWeb) {}
       setState(() {
         _isLoading = false;
       });
