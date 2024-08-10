@@ -41,11 +41,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw Exception("User not authenticated");
       }
 
+      if (cart.items.isEmpty) {
+        throw Exception("Cart is empty");
+      }
+
+      final firstItem = cart.items.first;
+      final sellerId = firstItem.product.sellerId ?? '';
+
       final functions = FirebaseFunctions.instance;
       final result = await functions.httpsCallable('createPayment').call({
         'amount': (cart.total * 100).round(),
         'currency': 'eur',
-        'connectAccountId': cart.items.first.product.sellerId,
+        'connectAccountId': sellerId,
         'userId': user.uid,
         'isWeb': kIsWeb,
         'successUrl':
@@ -62,11 +69,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'name': item.product.name,
                   'quantity': item.quantity,
                   'price': item.product.price,
-                  'sellerId': item.product.sellerId,
-                  'entrepriseId': item.product.entrepriseId,
+                  'sellerId': item.product.sellerId ?? '',
+                  'entrepriseId': item.product.entrepriseId ?? '',
+                  'imageUrl': item.product.imageUrl,
+                  'description': item.product.description,
+                  'stock': item.product.stock,
+                  'isActive': item.product.isActive,
                 })
             .toList();
-        html.window.localStorage['cartData'] = json.encode(cartData);
+
+        // Convertir les données en JSON et les stocker dans le localStorage
+        final cartDataJson = json.encode(cartData);
+        html.window.localStorage['cartData'] = cartDataJson;
         html.window.localStorage['cartTotal'] = cart.total.toString();
 
         final sessionId = result.data['sessionId'];

@@ -37,7 +37,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       if (kIsWeb) {
         // Récupération et reconstruction du panier depuis le localStorage
         final cartDataJson = html.window.localStorage['cartData'];
-        double.parse(html.window.localStorage['cartTotal'] ?? '0');
+        final cartTotal =
+            double.parse(html.window.localStorage['cartTotal'] ?? '0');
         if (cartDataJson != null) {
           final cartData = json.decode(cartDataJson) as List<dynamic>;
           cart = CartService();
