@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/order.dart';
 import 'package:happy/classes/product.dart';
-import 'package:happy/screens/shop/order_detail_page.dart';
+import 'package:happy/screens/shop/order_confirmation_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:provider/provider.dart';
@@ -80,7 +80,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     } catch (e) {
       _handleError('Une erreur inattendue est survenue: $e', '/home');
     } finally {
-      if (kIsWeb) {}
+      if (kIsWeb) {
+        html.window.localStorage.remove('cartData');
+        html.window.localStorage.remove('cartTotal');
+        html.window.localStorage.remove('stripeSessionId');
+      }
       setState(() {
         _isLoading = false;
       });
@@ -101,18 +105,22 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<void> _finalizeOrder(CartService cart) async {
     final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('User not authenticated');
+    }
+
     final address =
         await _fetchCompanyAddress(cart.items.first.product.entrepriseId);
 
     final orderId = await _orderService.createOrder(Orders(
       id: '',
-      userId: user != null ? user.uid : '',
+      userId: user.uid,
       sellerId: cart.items.first.product.sellerId,
       items: cart.items
           .map((item) => OrderItem(
                 productId: item.product.id,
-                name: item.product.name,
                 image: item.product.imageUrl[0],
+                name: item.product.name,
                 quantity: item.quantity,
                 price: item.product.price,
               ))
@@ -123,13 +131,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       pickupAddress: address ?? "",
     ));
 
-    // Créer une notification pour le vendeur
-
     cart.clearCart();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-          builder: (context) => OrderDetailPage(orderId: orderId)),
+          builder: (context) => OrderConfirmationScreen(orderId: orderId)),
     );
   }
 
@@ -152,10 +158,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         }
       }
     } catch (e) {
-      if (kDebugMode) {
-        print(
-            "Erreur lors de la récupération de l'adresse de l'entreprise: $e");
-      }
+      print("Erreur lors de la récupération de l'adresse de l'entreprise: $e");
     }
     return null;
   }
