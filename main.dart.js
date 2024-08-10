@@ -31144,13 +31144,16 @@ _.b=b
 _.c=c
 _.d=d
 _.e=e},
-w2:function w2(a,b,c,d,e,f){var _=this
+w2:function w2(a,b,c,d,e,f,g,h,i){var _=this
 _.a=a
 _.b=b
-_.d=c
-_.e=d
-_.f=e
-_.r=f},
+_.c=c
+_.d=d
+_.e=e
+_.f=f
+_.r=g
+_.w=h
+_.x=i},
 YD(a){var s,r,q,p,o,n,m,l=t.P.a(a.hx(0)),k=a.gpm(a),j=J.X(l),i=t.y4,h=A.eI(i.a(j.h(l,"timestamp")).geS()),g=j.h(l,"title")
 j.h(l,"searchText")
 s=j.h(l,"description")
@@ -110514,8 +110517,8 @@ return new A.a6l(s,new A.vK(r,q,A.d5(new A.ax(m))))}}
 A.a6l.prototype={
 ad(){this.az()
 this.Eu()},
-Eu(){var s=0,r=A.p(t.H),q=1,p,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6
-var $async$Eu=A.l(function(a7,a8){if(a7===1){p=a8
+Eu(){var s=0,r=A.p(t.H),q=1,p,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9
+var $async$Eu=A.l(function(b0,b1){if(b0===1){p=b1
 s=q}while(true)switch(s){case 0:q=3
 m=null
 l=window.localStorage.getItem("cartData")
@@ -110530,16 +110533,18 @@ m=new A.kh(f,A.bF(new A.ax(d)),$.ao())
 for(f=J.aJ(k),e=t.N,c=t.kc,b=t.s;f.v();){j=f.gK(f)
 a=J.an(j,"productId")
 a0=J.an(j,"name")
-J.an(j,"description")
-a1=J.an(j,"price")
-a2=c.a(J.an(j,"imageUrl"))
-a2=a2==null?null:J.ek(a2,e)
-if(a2==null)a2=A.a([],b)
-a3=J.an(j,"sellerId")
-a4=J.an(j,"entrepriseId")
-J.an(j,"stock")
-J.an(j,"isActive")
-i=new A.w2(a,a0,a1,a2,a3,a4)
+a1=J.an(j,"description")
+if(a1==null)a1=""
+a2=J.an(j,"price")
+a3=c.a(J.an(j,"imageUrl"))
+a3=a3==null?null:J.ek(a3,e)
+if(a3==null)a3=A.a([],b)
+a4=J.an(j,"sellerId")
+a5=J.an(j,"entrepriseId")
+a6=J.an(j,"stock")
+if(a6==null)a6=0
+a7=J.an(j,"isActive")
+i=new A.w2(a,a0,a1,a2,a3,a4,a5,a6,a7==null?!0:a7)
 m.qJ(i)
 if(J.beM(J.an(j,"quantity"),1))for(h=1;h<J.an(j,"quantity");++h)m.qJ(i)}}else{f=A.bA("Cart data not found")
 throw A.c(f)}n.M(new A.aPM(n))
@@ -110549,8 +110554,8 @@ case 6:o.push(5)
 s=4
 break
 case 3:q=2
-a6=p
-g=A.a2(a6)
+a9=p
+g=A.a2(a9)
 n.au9("Une erreur inattendue est survenue: "+A.h(g),"/home")
 o.push(5)
 s=4
@@ -111393,41 +111398,44 @@ A.a9(l,m,!0)
 return new A.a2c(new A.avH(s),r,new A.vK(q,p,A.d5(new A.ax(l))))}}
 A.a2c.prototype={
 CX(a){return this.aoC(a)},
-aoC(a){var s=0,r=A.p(t.H),q=1,p,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b
-var $async$CX=A.l(function(a0,a1){if(a0===1){p=a1
+aoC(a2){var s=0,r=A.p(t.H),q=1,p,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1
+var $async$CX=A.l(function(a3,a4){if(a3===1){p=a4
 s=q}while(true)switch(s){case 0:n.M(new A.aIo(n))
 q=3
 m=n.e.gcR()
-if(m==null){f=A.bA("User not authenticated")
-throw A.c(f)}f=$.N
-e=(f==null?$.N=$.aB():f).aj("[DEFAULT]")
-A.a9(e,$.aX(),!0)
-l=A.ql(new A.ax(e))
-f=a.a
+if(m==null){c=A.bA("User not authenticated")
+throw A.c(c)}c=a2.a
+if(c.length===0){c=A.bA("Cart is empty")
+throw A.c(c)}l=B.b.gR(c)
+b=l.a
+k=b.f
+b=$.N
+a=(b==null?$.N=$.aB():b).aj("[DEFAULT]")
+A.a9(a,$.aX(),!0)
+j=A.ql(new A.ax(a))
 s=6
-return A.k(l.zE("createPayment").$1$1(A.a7(["amount",B.c.a5(a.gB0(0)*100),"currency","eur","connectAccountId",B.b.gR(f).a.f,"userId",m.a.c.a.a,"isWeb",!0,"successUrl","https://valentinlpka.github.io/happydeals/#/payment-success","cancelUrl","https://valentinlpka.github.io/happydeals/#/payment-cancel"],t.N,t.K),t.z),$async$CX)
-case 6:k=a1
-d=A.a_(f).i("a0<1,ay<r,z>>")
-j=A.a1(new A.a0(f,new A.aIp(),d),!0,d.i("at.E"))
-d=window.localStorage
-d.toString
-d.setItem("cartData",B.cI.oK(j))
-d=window.localStorage
-d.toString
-d.setItem("cartTotal",B.c.j(a.gB0(0)))
-i=J.an(k.a,"sessionId")
-h=J.an(k.a,"url")
-window.localStorage.setItem("stripeSessionId",i)
-window.location.href=h
+return A.k(j.zE("createPayment").$1$1(A.a7(["amount",B.c.a5(a2.gB0(0)*100),"currency","eur","connectAccountId",k,"userId",m.a.c.a.a,"isWeb",!0,"successUrl","https://valentinlpka.github.io/happydeals/#/payment-success","cancelUrl","https://valentinlpka.github.io/happydeals/#/payment-cancel"],t.N,t.K),t.z),$async$CX)
+case 6:i=a4
+b=A.a_(c).i("a0<1,ay<r,z>>")
+h=A.a1(new A.a0(c,new A.aIp(),b),!0,b.i("at.E"))
+g=B.cI.oK(h)
+window.localStorage.setItem("cartData",g)
+b=window.localStorage
+b.toString
+b.setItem("cartTotal",B.c.j(a2.gB0(0)))
+f=J.an(i.a,"sessionId")
+e=J.an(i.a,"url")
+window.localStorage.setItem("stripeSessionId",f)
+window.location.href=e
 o.push(5)
 s=4
 break
 case 3:q=2
-b=p
-g=A.a2(b)
-f=n.c.a6(t.J)
-f.toString
-f.f.dE(A.hx(null,null,null,null,null,B.r,null,A.O("Une erreur est survenue: "+A.h(g),null,null,null,null,null,null,null),null,B.aw,null,null,null,null,null,null,null,null,null))
+a1=p
+d=A.a2(a1)
+c=n.c.a6(t.J)
+c.toString
+c.f.dE(A.hx(null,null,null,null,null,B.r,null,A.O("Une erreur est survenue: "+A.h(d),null,null,null,null,null,null,null),null,B.aw,null,null,null,null,null,null,null,null,null))
 o.push(5)
 s=4
 break
@@ -111447,8 +111455,8 @@ A.aIo.prototype={
 $0(){this.a.r=!0},
 $S:0}
 A.aIp.prototype={
-$1(a){var s=a.a
-return A.a7(["productId",s.a,"name",s.b,"quantity",a.b,"price",s.d,"sellerId",s.f,"entrepriseId",s.r],t.N,t.K)},
+$1(a){var s=a.a,r=a.b
+return A.a7(["productId",s.a,"name",s.b,"quantity",r,"price",s.d,"sellerId",s.f,"entrepriseId",s.r,"imageUrl",s.e,"description",s.c,"stock",s.w,"isActive",s.x],t.N,t.K)},
 $S:742}
 A.aIq.prototype={
 $0(){this.a.r=!1},
@@ -111584,25 +111592,27 @@ q=A.a1(new A.a0(s,new A.axz(),r),!0,r.i("at.E"))
 return A.jG(p,p,new A.axA(q),q.length,B.aq,B.ch,!1,!1)},
 $S:105}
 A.axz.prototype={
-$1(a){var s,r,q,p,o,n,m=a.fo(0)
-m.toString
-t.P.a(m)
+$1(a){var s,r,q,p,o,n,m,l,k=a.fo(0)
+k.toString
+t.P.a(k)
 s=B.b.ga0(a.b.b.a)
-r=m.h(0,"name")
+r=k.h(0,"name")
 if(r==null)r=""
-m.h(0,"description")
-q=m.h(0,"price")
-q=J.xJ(q==null?0:q)
-p=m.h(0,"images")
-if(p==null)p=[]
-p=A.cP(p,!0,t.N)
-o=m.h(0,"merchantId")
-if(o==null)o=""
-n=m.h(0,"sellerId")
+q=k.h(0,"description")
+if(q==null)q=""
+p=k.h(0,"price")
+p=J.xJ(p==null?0:p)
+o=k.h(0,"images")
+if(o==null)o=[]
+o=A.cP(o,!0,t.N)
+n=k.h(0,"merchantId")
 if(n==null)n=""
-m.h(0,"stock")
-m.h(0,"isActive")
-return new A.w2(s,r,q,p,o,n)},
+m=k.h(0,"sellerId")
+if(m==null)m=""
+l=k.h(0,"stock")
+if(l==null)l=0
+k=k.h(0,"isActive")
+return new A.w2(s,r,q,p,o,n,m,l,k==null?!1:k)},
 $S:746}
 A.axA.prototype={
 $2(a,b){return new A.Ad(this.a[b],null)},
