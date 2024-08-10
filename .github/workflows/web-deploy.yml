@@ -1,37 +1,39 @@
 name: Deploy Flutter Web to GitHub Pages
-
 on:
   push:
     branches: [master]
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v2
       - uses: subosito/flutter-action@v1
         with:
           channel: "stable"
-
       - name: Enable Flutter Web
         run: flutter config --enable-web
-
       - name: Get dependencies
         run: flutter pub get
-
       - name: Build Flutter Web
         run: flutter build web --web-renderer html
-
-      - name: Update index.html
+      - name: Update index.html for deployment
         run: |
           sed -i 's/<base href="\/happydeals\/">/<base href="\/">/' build/web/index.html
-
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web
+      - name: Checkout gh-pages
+        uses: actions/checkout@v2
+        with:
+          ref: gh-pages
+      - name: Remove base href from index.html
+        run: |
+          sed -i 's/<base href="\/">/<base href="">/' index.html
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git commit -am "Remove base href from index.html"
+          git push
