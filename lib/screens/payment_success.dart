@@ -59,40 +59,63 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<CartService> _reconstructCartFromLocalStorage() async {
     final cartDataJson = html.window.localStorage['cartData'];
-    if (cartDataJson == null) {
-      throw Exception('Cart data not found');
+    if (cartDataJson == null || cartDataJson.isEmpty) {
+      throw Exception('Données du panier non trouvées ou vides');
     }
 
     final cartData = json.decode(cartDataJson) as List<dynamic>;
     final cart = CartService();
 
     for (var item in cartData) {
-      final productDoc =
-          await _firestore.collection('products').doc(item['productId']).get();
-      if (!productDoc.exists) {
-        throw Exception('Product not found in Firestore');
+      if (item['productId'] == null) {
+        print(
+            'Avertissement: ID de produit manquant dans les données du panier');
+        continue;
       }
 
-      final productData = productDoc.data() as Map<String, dynamic>;
-      final product = Product(
-        id: item['productId'],
-        name: productData['name'],
-        description: productData['description'] ?? '',
-        price: productData['price'].toDouble(),
-        imageUrl: List<String>.from(productData['imageUrl']),
-        sellerId: productData['sellerId'],
-        entrepriseId: productData['entrepriseId'],
-        stock: productData['stock'] ?? 0,
-        isActive: productData['isActive'] ?? true,
-      );
+      try {
+        final productDoc = await _firestore
+            .collection('products')
+            .doc(item['productId'])
+            .get();
+        if (!productDoc.exists) {
+          print(
+              'Avertissement: Produit ${item['productId']} non trouvé dans Firestore');
+          continue;
+        }
 
-      cart.addToCart(product);
-      // Adjust quantity if necessary
-      if (item['quantity'] > 1) {
-        for (int i = 1; i < item['quantity']; i++) {
+        final productData = productDoc.data();
+        if (productData == null) {
+          print(
+              'Avertissement: Données nulles pour le produit ${item['productId']}');
+          continue;
+        }
+
+        final product = Product(
+          id: item['productId'],
+          name: productData['name'] ?? 'Nom inconnu',
+          description: productData['description'] ?? '',
+          price: (productData['price'] as num?)?.toDouble() ?? 0.0,
+          imageUrl: List<String>.from(productData['imageUrl'] ?? []),
+          sellerId: productData['sellerId'] ?? '',
+          entrepriseId: productData['entrepriseId'] ?? '',
+          stock: productData['stock'] as int? ?? 0,
+          isActive: productData['isActive'] as bool? ?? false,
+        );
+
+        final quantity = item['quantity'] as int? ?? 1;
+        for (int i = 0; i < quantity; i++) {
           cart.addToCart(product);
         }
+      } catch (e) {
+        print(
+            'Erreur lors de la reconstruction du produit ${item['productId']}: $e');
+        // Continuer avec le produit suivant
       }
+    }
+
+    if (cart.items.isEmpty) {
+      throw Exception('Aucun produit valide n\'a pu être ajouté au panier');
     }
 
     return cart;
@@ -105,8 +128,10 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   }
 
   void _handleError(String message, String redirectRoute) {
+    print('Erreur: $message'); // Pour le débogage
     setState(() {
       _statusMessage = message;
+      _isLoading = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
