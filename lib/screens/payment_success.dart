@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/order.dart';
 import 'package:happy/classes/product.dart';
-import 'package:happy/screens/shop/order_confirmation_page.dart';
+import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:provider/provider.dart';
@@ -190,7 +190,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-          builder: (context) => OrderConfirmationScreen(orderId: orderId)),
+          builder: (context) => OrderDetailPage(orderId: orderId)),
     );
   }
 

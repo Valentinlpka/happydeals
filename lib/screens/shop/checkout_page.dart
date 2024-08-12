@@ -183,6 +183,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = Provider.of<CartService>(context);
 
     return Scaffold(
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+              border: Border(
+                  top: BorderSide(
+            width: 0.4,
+            color: Colors.black26,
+          ))),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                style: ButtonStyle(
+                  backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
+                ),
+                onPressed: () => _handlePayment(cart),
+                child: const Text('Procéder au paiement'),
+              ),
+            ),
+          ),
+        ),
+      ),
       appBar: AppBar(title: const Text('Paiement')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -235,16 +258,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16.0),
-                        ),
-                        onPressed: () => _handlePayment(cart),
-                        child: const Text('Procéder au paiement'),
-                      ),
-                    ),
                   ],
                 ),
               ),
