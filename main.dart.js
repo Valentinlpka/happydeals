@@ -110615,11 +110615,11 @@ if(a6==null)a6=""
 a7=A.b03(J.am(j,"price"))
 if(a7==null)a7=null
 if(a7==null)a7=0
-a8=J.am(j,"imageUrl")
+a8=J.am(j,"image")
 a8=A.cE(a8==null?[]:a8,!0,b)
-a9=J.am(j,"sellerId")
+a9=J.am(j,"merchantId")
 if(a9==null)a9=""
-b0=J.am(j,"entrepriseId")
+b0=J.am(j,"sellerId")
 if(b0==null)b0=""
 b1=A.du(J.am(j,"stock"))
 if(b1==null)b1=0
