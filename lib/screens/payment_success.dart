@@ -33,6 +33,10 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   }
 
   Future<void> _verifyPaymentAndFinalizeOrder() async {
+    print('Contenu de localStorage:');
+    print('cartData: ${html.window.localStorage['cartData']}');
+    print('cartTotal: ${html.window.localStorage['cartTotal']}');
+    print('stripeSessionId: ${html.window.localStorage['stripeSessionId']}');
     try {
       CartService cart;
       if (kIsWeb) {
@@ -58,15 +62,19 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   }
 
   Future<CartService> _reconstructCartFromLocalStorage() async {
+    print('Début de la reconstruction du panier');
     final cartDataJson = html.window.localStorage['cartData'];
     if (cartDataJson == null || cartDataJson.isEmpty) {
+      print('Données du panier non trouvées ou vides dans localStorage');
       throw Exception('Données du panier non trouvées ou vides');
     }
 
+    print('Données du panier trouvées: $cartDataJson');
     final cartData = json.decode(cartDataJson) as List<dynamic>;
     final cart = CartService();
 
     for (var item in cartData) {
+      print('Traitement de l\'item: $item');
       if (item['productId'] == null) {
         print(
             'Avertissement: ID de produit manquant dans les données du panier');
@@ -74,6 +82,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       }
 
       try {
+        print('Récupération du produit ${item['productId']} depuis Firestore');
         final productDoc = await _firestore
             .collection('products')
             .doc(item['productId'])
@@ -85,6 +94,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         }
 
         final productData = productDoc.data();
+        print('Données du produit récupérées: $productData');
         if (productData == null) {
           print(
               'Avertissement: Données nulles pour le produit ${item['productId']}');
@@ -103,21 +113,27 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
           isActive: productData['isActive'] as bool? ?? false,
         );
 
+        print('Produit créé: ${product.name}');
+
         final quantity = item['quantity'] as int? ?? 1;
         for (int i = 0; i < quantity; i++) {
           cart.addToCart(product);
+          print(
+              'Produit ajouté au panier: ${product.name}, quantité: ${i + 1}');
         }
       } catch (e) {
         print(
             'Erreur lors de la reconstruction du produit ${item['productId']}: $e');
-        // Continuer avec le produit suivant
       }
     }
 
     if (cart.items.isEmpty) {
+      print('Aucun produit valide n\'a pu être ajouté au panier');
       throw Exception('Aucun produit valide n\'a pu être ajouté au panier');
     }
 
+    print(
+        'Reconstruction du panier terminée. Nombre d\'articles: ${cart.items.length}');
     return cart;
   }
 
