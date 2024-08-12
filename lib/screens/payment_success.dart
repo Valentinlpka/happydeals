@@ -22,6 +22,7 @@ class PaymentSuccessScreen extends StatefulWidget {
 class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final OrderService _orderService = OrderService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = true;
   String _statusMessage = 'Vérification du paiement en cours...';
 
@@ -35,40 +36,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     try {
       CartService cart;
       if (kIsWeb) {
-        // Récupération et reconstruction du panier depuis le localStorage
-        final cartDataJson = html.window.localStorage['cartData'];
-        final cartTotal =
-            double.parse(html.window.localStorage['cartTotal'] ?? '0');
-        if (cartDataJson != null) {
-          final cartData = json.decode(cartDataJson) as List<dynamic>;
-          cart = CartService();
-          for (var item in cartData) {
-            final product = Product(
-              id: item['productId'],
-              name: item['name'],
-              description: item['description'] ??
-                  '', // Utilisez une valeur par défaut si non sauvegardée
-              price: item['price'],
-              imageUrl: (item['imageUrl'] as List<dynamic>?)?.cast<String>() ??
-                  [], // Conversion en List<String> avec valeur par défaut
-              sellerId: item['sellerId'],
-              entrepriseId: item['entrepriseId'],
-              stock: item['stock'] ??
-                  0, // Utilisez une valeur par défaut si non sauvegardée
-              isActive: item['isActive'] ??
-                  true, // Utilisez une valeur par défaut si non sauvegardée
-            );
-            cart.addToCart(product);
-            // Ajuster la quantité si nécessaire
-            if (item['quantity'] > 1) {
-              for (int i = 1; i < item['quantity']; i++) {
-                cart.addToCart(product);
-              }
-            }
-          }
-        } else {
-          throw Exception('Cart data not found');
-        }
+        cart = await _reconstructCartFromLocalStorage();
       } else {
         cart = Provider.of<CartService>(context, listen: false);
       }
@@ -78,17 +46,62 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       });
       await _finalizeOrder(cart);
     } catch (e) {
-      _handleError('Une erreur inattendue est survenue: $e', '/home');
+      _handleError('Une erreur est survenue: $e', '/home');
     } finally {
       if (kIsWeb) {
-        html.window.localStorage.remove('cartData');
-        html.window.localStorage.remove('cartTotal');
-        html.window.localStorage.remove('stripeSessionId');
+        _clearLocalStorage();
       }
       setState(() {
         _isLoading = false;
       });
     }
+  }
+
+  Future<CartService> _reconstructCartFromLocalStorage() async {
+    final cartDataJson = html.window.localStorage['cartData'];
+    if (cartDataJson == null) {
+      throw Exception('Cart data not found');
+    }
+
+    final cartData = json.decode(cartDataJson) as List<dynamic>;
+    final cart = CartService();
+
+    for (var item in cartData) {
+      final productDoc =
+          await _firestore.collection('products').doc(item['productId']).get();
+      if (!productDoc.exists) {
+        throw Exception('Product not found in Firestore');
+      }
+
+      final productData = productDoc.data() as Map<String, dynamic>;
+      final product = Product(
+        id: item['productId'],
+        name: productData['name'],
+        description: productData['description'] ?? '',
+        price: productData['price'].toDouble(),
+        imageUrl: List<String>.from(productData['imageUrl']),
+        sellerId: productData['sellerId'],
+        entrepriseId: productData['entrepriseId'],
+        stock: productData['stock'] ?? 0,
+        isActive: productData['isActive'] ?? true,
+      );
+
+      cart.addToCart(product);
+      // Adjust quantity if necessary
+      if (item['quantity'] > 1) {
+        for (int i = 1; i < item['quantity']; i++) {
+          cart.addToCart(product);
+        }
+      }
+    }
+
+    return cart;
+  }
+
+  void _clearLocalStorage() {
+    html.window.localStorage.remove('cartData');
+    html.window.localStorage.remove('cartTotal');
+    html.window.localStorage.remove('stripeSessionId');
   }
 
   void _handleError(String message, String redirectRoute) {

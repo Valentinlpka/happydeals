@@ -13,6 +13,7 @@ class CartItem {
     return {
       'productId': product.id,
       'name': product.name,
+      'images': product.imageUrl[0],
       'price': product.price,
       'quantity': quantity,
     };
