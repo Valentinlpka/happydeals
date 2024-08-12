@@ -37,6 +37,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     print('cartData: ${html.window.localStorage['cartData']}');
     print('cartTotal: ${html.window.localStorage['cartTotal']}');
     print('stripeSessionId: ${html.window.localStorage['stripeSessionId']}');
+
     try {
       CartService cart;
       if (kIsWeb) {

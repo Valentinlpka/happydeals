@@ -1,7 +1,11 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/shop/checkout_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:provider/provider.dart';
+import 'package:universal_html/html.dart' as html;
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -69,11 +73,7 @@ class CartScreen extends StatelessWidget {
                       backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
                     ),
                     onPressed: cart.items.isNotEmpty
-                        ? () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const CheckoutScreen()),
-                            )
+                        ? () => _proceedToCheckout(context, cart)
                         : null,
                     child: Text('Acheter (${cart.total.toStringAsFixed(2)} €)'),
                   ),
@@ -83,6 +83,35 @@ class CartScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  void _proceedToCheckout(BuildContext context, CartService cart) {
+    if (kIsWeb) {
+      // Sauvegarde des données du panier pour le web
+      final cartData = cart.items
+          .map((item) => {
+                'productId': item.product.id,
+                'name': item.product.name,
+                'quantity': item.quantity,
+                'price': item.product.price,
+                'sellerId': item.product.sellerId,
+                'entrepriseId': item.product.entrepriseId,
+                'imageUrl': item.product.imageUrl,
+                'description': item.product.description,
+                'stock': item.product.stock,
+                'isActive': item.product.isActive,
+              })
+          .toList();
+
+      final cartDataJson = json.encode(cartData);
+      html.window.localStorage['cartData'] = cartDataJson;
+      html.window.localStorage['cartTotal'] = cart.total.toString();
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CheckoutScreen()),
     );
   }
 }

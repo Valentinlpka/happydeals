@@ -1,7 +1,10 @@
 // lib/services/cart_service.dart
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:happy/classes/product.dart';
+import 'package:universal_html/html.dart' as html;
 
 class CartItem {
   final Product product;
@@ -21,9 +24,50 @@ class CartItem {
 }
 
 class CartService extends ChangeNotifier {
-  final List<CartItem> _items = [];
+  List<CartItem> _items = [];
   String? _currentSellerId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  CartService() {
+    if (kIsWeb) {
+      _loadFromLocalStorage();
+    }
+  }
+
+  void _loadFromLocalStorage() {
+    final cartDataJson = html.window.localStorage['cartData'];
+    if (cartDataJson != null && cartDataJson.isNotEmpty) {
+      final cartData = json.decode(cartDataJson) as List<dynamic>;
+      _items = cartData
+          .map((item) => CartItem(
+                product: Product(
+                  id: item['productId'],
+                  name: item['name'],
+                  price: item['price'],
+                  imageUrl: List<String>.from(item['imageUrl']),
+                  sellerId: item['sellerId'],
+                  entrepriseId: item['entrepriseId'],
+                  description: item['description'],
+                  stock: item['stock'],
+                  isActive: item['isActive'],
+                ),
+                quantity: item['quantity'],
+              ))
+          .toList();
+      _currentSellerId =
+          _items.isNotEmpty ? _items.first.product.sellerId : null;
+      notifyListeners();
+    }
+  }
+
+  void _saveToLocalStorage() {
+    if (kIsWeb) {
+      final cartData = _items.map((item) => item.toMap()).toList();
+      final cartDataJson = json.encode(cartData);
+      html.window.localStorage['cartData'] = cartDataJson;
+      html.window.localStorage['cartTotal'] = total.toString();
+    }
+  }
 
   List<CartItem> get items => _items;
   double get total =>
@@ -57,6 +101,7 @@ class CartService extends ChangeNotifier {
     } else {
       _items.add(CartItem(product: product));
     }
+    _saveToLocalStorage();
     notifyListeners();
   }
 
@@ -71,6 +116,7 @@ class CartService extends ChangeNotifier {
       if (_items.isEmpty) {
         _currentSellerId = null;
       }
+      _saveToLocalStorage();
       notifyListeners();
     }
   }
@@ -78,6 +124,7 @@ class CartService extends ChangeNotifier {
   void clearCart() {
     _items.clear();
     _currentSellerId = null;
+    _saveToLocalStorage();
     notifyListeners();
   }
 }
