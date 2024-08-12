@@ -107,9 +107,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
           name: productData['name'] ?? 'Nom inconnu',
           description: productData['description'] ?? '',
           price: (productData['price'] as num?)?.toDouble() ?? 0.0,
-          imageUrl: List<String>.from(productData['imageUrl'] ?? []),
-          sellerId: productData['sellerId'] ?? '',
-          entrepriseId: productData['entrepriseId'] ?? '',
+          imageUrl: List<String>.from(productData['image'] ?? []),
+          sellerId: productData['merchantId'] ?? '',
+          entrepriseId: productData['sellerId'] ?? '',
           stock: productData['stock'] as int? ?? 0,
           isActive: productData['isActive'] as bool? ?? false,
         );
