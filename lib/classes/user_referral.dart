@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserReferral {
+  final String id;
   final String message;
   final String refereeContact;
   final String refereeContactType;
@@ -12,6 +13,7 @@ class UserReferral {
   final DateTime timestamp;
 
   UserReferral({
+    required this.id,
     required this.message,
     required this.refereeContact,
     required this.refereeContactType,
@@ -26,6 +28,7 @@ class UserReferral {
   factory UserReferral.fromDocument(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return UserReferral(
+      id: doc.id,
       message: data['message'] ?? '',
       refereeContact: data['refereeContact'] ?? '',
       refereeContactType: data['refereeContactType'] ?? '',

@@ -1,163 +1,281 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-class ReservationDetailsPage extends StatelessWidget {
+class ReservationDetailsPage extends StatefulWidget {
   final String reservationId;
 
   const ReservationDetailsPage({super.key, required this.reservationId});
 
-  String formatDate(DateTime date) {
-    initializeDateFormatting('fr_FR', null);
-    final DateFormat formatter =
-        DateFormat("'le' d MMMM yyyy 'à' HH'h'mm", 'fr_FR');
-    return formatter.format(date);
-  }
+  @override
+  _ReservationDetailsPageState createState() => _ReservationDetailsPageState();
+}
 
-  void _launchMaps(String address) async {
-    final url =
-        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeFull(address)}';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw 'Could not launch $url';
-    }
+class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
+  late Stream<DocumentSnapshot> _reservationStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _reservationStream = FirebaseFirestore.instance
+        .collection('reservations')
+        .doc(widget.reservationId)
+        .snapshots();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
-        title: const Text(
-          'Détails de la Réservation',
-        ),
+        title: const Text('Détails de la réservation',
+            style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('reservations')
-            .doc(reservationId)
-            .snapshots(),
+        stream: _reservationStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return const Center(child: Text('Une erreur est survenue'));
+          } else if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text('Réservation non trouvée'));
           }
-          if (!snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('Réservation introuvable'));
-          }
-          final reservation = snapshot.data!.data() as Map<String, dynamic>;
 
+          final reservation = snapshot.data!.data() as Map<String, dynamic>;
           return SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Card(
-                    elevation: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10.0, vertical: 5),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          _buildInfoRow('Type de panier',
-                              reservation['basketType'] ?? 'Non spécifié'),
-                          _buildInfoRow(
-                              'Quantité', '${reservation['quantity']}'),
-                          _buildInfoRow('Prix', '${reservation['price']} €'),
-                          _buildInfoRow('Date de récupération',
-                              formatDate(reservation['pickupDate'].toDate())),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Card(
-                    elevation: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10.0, vertical: 5),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Code de validation',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 10),
-                          Center(
-                              child: Text(
-                            reservation['validationCode'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 8,
-                              fontSize: 20,
-                            ),
-                          ))
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    elevation: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10.0, vertical: 5),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Adresse de récupération',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(reservation['pickupAddress'] ??
-                              'Adresse non spécifiée'),
-                          const SizedBox(height: 16),
-                          Center(
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.directions),
-                              label: const Text('Y aller'),
-                              onPressed: () => MapsLauncher.launchQuery(
-                                  reservation['pickupAddress']),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _buildReservationHeader(reservation),
+                  const SizedBox(height: 24),
+                  _buildReservationStatus(reservation),
+                  const SizedBox(height: 24),
+                  _buildValidationCode(reservation),
+                  const SizedBox(height: 24),
+                  _buildPickupInfo(reservation),
+                  const SizedBox(height: 24),
+                  _buildReservationDetails(reservation),
+                  const SizedBox(height: 24),
+                  _buildReservationSummary(reservation),
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
           );
         },
       ),
+      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(
-            height: 10,
-            width: 10,
+  Widget _buildBottomBar() {
+    return SafeArea(
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(width: 0.4, color: Colors.black26)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[800],
+              ),
+              onPressed: () async {
+                final reservation = await FirebaseFirestore.instance
+                    .collection('reservations')
+                    .doc(widget.reservationId)
+                    .get();
+                final address = reservation.data()?['pickupAddress'] as String?;
+                if (address != null) {
+                  await MapsLauncher.launchQuery(address);
+                }
+              },
+              child: const Text("S'y rendre"),
+            ),
           ),
-          Expanded(child: Text(value)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReservationHeader(Map<String, dynamic> reservation) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Réservation #${widget.reservationId.substring(0, 8)}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Passée le ${DateFormat('dd/MM/yyyy à HH:mm').format((reservation['timestamp'] as Timestamp).toDate())}',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildReservationStatus(Map<String, dynamic> reservation) {
+    final status = reservation['status'] as String? ?? 'En attente';
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Statut de la réservation',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(_getStatusIcon(status), color: _getStatusColor(status)),
+              const SizedBox(width: 8),
+              Text(
+                _getStatusText(status),
+                style: TextStyle(
+                    color: _getStatusColor(status),
+                    fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValidationCode(Map<String, dynamic> reservation) {
+    final validationCode = reservation['validationCode'] as String?;
+    if (validationCode == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Code de validation',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(
+            validationCode,
+            style: const TextStyle(fontSize: 18, letterSpacing: 5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPickupInfo(Map<String, dynamic> reservation) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Informations de retrait',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('Adresse: ${reservation['pickupAddress'] ?? 'Non spécifiée'}'),
+          const SizedBox(height: 8),
+          Text(
+              'Date: ${DateFormat('dd/MM/yyyy à HH:mm').format((reservation['pickupDate'] as Timestamp).toDate())}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReservationDetails(Map<String, dynamic> reservation) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Détails de la réservation',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          _buildDetailRow(
+              'Type de panier', reservation['basketType'] ?? 'Non spécifié'),
+          _buildDetailRow('Quantité', '${reservation['quantity'] ?? 1}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReservationSummary(Map<String, dynamic> reservation) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Récapitulatif',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Total'),
+              Text('${reservation['price']?.toStringAsFixed(2) ?? '0.00'}€',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'confirmé':
+        return Icons.check_circle;
+      case 'en attente':
+        return Icons.hourglass_empty;
+      case 'annulé':
+        return Icons.cancel;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'confirmé':
+        return Colors.green;
+      case 'en attente':
+        return Colors.orange;
+      case 'annulé':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getStatusText(String status) {
+    return status.capitalize();
+  }
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
   }
 }

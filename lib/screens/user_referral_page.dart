@@ -83,11 +83,12 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       child: InkWell(
         onTap: () {
+          print(referral.referralId);
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => ReferralDetailPage(
-                referralId: referral.referralId,
+                referralId: referral.id,
               ),
             ),
           );
