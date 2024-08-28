@@ -42,10 +42,11 @@ class ReferralService {
     };
   }
 
-  Future<List<UserReferral>> getUserReferrals(String userId) async {
+  Future<List<UserReferral>> getUserReferrals(
+      String userId, String type, String sponsorUid) async {
     QuerySnapshot snapshot = await _firestore
         .collection('referrals')
-        .where('sponsorUid', isEqualTo: userId)
+        .where(sponsorUid, isEqualTo: userId)
         .orderBy('timestamp', descending: true)
         .get();
     return snapshot.docs.map((doc) => UserReferral.fromDocument(doc)).toList();

@@ -2,9 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/referral.dart';
+import 'package:happy/classes/referral_options_modal.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/widgets/referral_modal.dart';
 import 'package:provider/provider.dart';
 
 class DetailsParrainagePage extends StatefulWidget {
@@ -38,7 +38,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
     return Company.fromDocument(doc);
   }
 
-  void _showReferralModal() {
+  void _showReferralOptionsModal() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -49,7 +49,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
-            child: ReferralModal(
+            child: ReferralOptionsModal(
               referralId: widget.referral.id,
               companyId: widget.referral.companyId,
             ),
@@ -80,7 +80,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
               style: ButtonStyle(
                 backgroundColor: WidgetStateProperty.all(Colors.blue[800]),
               ),
-              onPressed: _showReferralModal,
+              onPressed: _showReferralOptionsModal,
               child: const Text('Je parraine !'),
             ),
           ),

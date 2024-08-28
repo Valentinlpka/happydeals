@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserReferral {
   final String id;
   final String message;
+  final String companyName;
+  final String type;
   final String refereeContact;
   final String refereeContactType;
   final String refereeName;
@@ -11,9 +13,13 @@ class UserReferral {
   final String sponsorName;
   final String sponsorUid;
   final DateTime timestamp;
+  final String status;
 
   UserReferral({
     required this.id,
+    required this.type,
+    required this.companyName,
+    required this.status,
     required this.message,
     required this.refereeContact,
     required this.refereeContactType,
@@ -30,6 +36,9 @@ class UserReferral {
     return UserReferral(
       id: doc.id,
       message: data['message'] ?? '',
+      companyName: data['companyName'] ?? '',
+      type: data['type'] ?? '',
+      status: data['etat'] ?? '',
       refereeContact: data['refereeContact'] ?? '',
       refereeContactType: data['refereeContactType'] ?? '',
       refereeName: data['refereeName'] ?? '',

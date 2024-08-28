@@ -14,8 +14,8 @@ class UserReferralsPage extends StatefulWidget {
 
 class _UserReferralsPageState extends State<UserReferralsPage> {
   final ReferralService _referralService = ReferralService();
-  late Future<List<UserReferral>> _referralsFuture;
-  final ScrollController _scrollController = ScrollController();
+  late Future<List<UserReferral>> _sentReferralsFuture;
+  late Future<List<UserReferral>> _receivedReferralsFuture;
 
   @override
   void initState() {
@@ -23,21 +23,10 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
-      _referralsFuture = _referralService.getUserReferrals(user.uid);
-    }
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels ==
-        _scrollController.position.maxScrollExtent) {
-      // Chargez plus de parrainages ici si nécessaire
+      _sentReferralsFuture = _referralService.getUserReferrals(
+          user.uid, 'sponsorship', 'sponsorUid');
+      _receivedReferralsFuture = _referralService.getUserReferrals(
+          user.uid, 'sponsorship_request', 'refereeUid');
     }
   }
 
@@ -50,29 +39,66 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
         backgroundColor: Colors.white,
         elevation: 0,
       ),
-      body: FutureBuilder<List<UserReferral>>(
-        future: _referralsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            print(snapshot.error);
-            return const Center(child: Text('Une erreur est survenue'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-                child: Text('Vous n\'avez pas encore de parrainages'));
-          }
-
-          return ListView.builder(
-            controller: _scrollController,
-            itemCount: snapshot.data!.length,
-            itemBuilder: (context, index) {
-              final referral = snapshot.data![index];
-              return _buildReferralCard(referral);
-            },
-          );
-        },
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildReferralSection(
+              title: 'Parrainages envoyés',
+              future: _sentReferralsFuture,
+              emptyMessage: 'Vous n\'avez pas encore envoyé de parrainages',
+            ),
+            _buildReferralSection(
+              title: 'Parrainages reçus',
+              future: _receivedReferralsFuture,
+              emptyMessage: 'Vous n\'avez pas encore reçu de parrainages',
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildReferralSection({
+    required String title,
+    required Future<List<UserReferral>> future,
+    required String emptyMessage,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        FutureBuilder<List<UserReferral>>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              print(snapshot.error);
+              return Center(
+                  child: Text('Une erreur est survenue: ${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return Center(child: Text(emptyMessage));
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                final referral = snapshot.data![index];
+                return _buildReferralCard(referral);
+              },
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -80,42 +106,115 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-      child: InkWell(
-        onTap: () {
-          print(referral.referralId);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ReferralDetailPage(
-                referralId: referral.id,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Entreprise: ${referral.companyName}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        referral.type == 'sponsorship'
+                            ? 'Filleul: ${referral.refereeName}'
+                            : 'Parrain: ${referral.sponsorName}',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(referral.status),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _getStatusText(referral.status),
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(
+                  DateFormat('dd/MM/yyyy HH:mm').format(referral.timestamp),
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          ReferralDetailPage(referralId: referral.id),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[800],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Voir en détail'),
               ),
             ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Filleul: ${referral.refereeName}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Contact: ${referral.refereeContact} (${referral.refereeContactType})',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Date: ${DateFormat('dd/MM/yyyy HH:mm').format(referral.timestamp)}',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'envoyé':
+        return Colors.blue;
+      case 'en cours':
+        return Colors.orange;
+      case 'refusé':
+        return Colors.red;
+      case 'validé':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'envoyé':
+        return 'Envoyé';
+      case 'en cours':
+        return 'En cours';
+      case 'refusé':
+        return 'Refusé';
+      case 'validé':
+        return 'Validé';
+      default:
+        return 'Inconnu';
+    }
   }
 }
