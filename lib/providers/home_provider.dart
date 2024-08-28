@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 import 'package:happy/classes/combined_item.dart';
 import 'package:happy/classes/company.dart';
@@ -12,6 +14,7 @@ import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
+import 'package:happy/widgets/web_adress_search.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeProvider extends ChangeNotifier {
@@ -40,8 +43,7 @@ class HomeProvider extends ChangeNotifier {
     notifyLocationChanges();
 
     if (_currentPosition == null) {
-      throw Exception(
-          "La position de l'utilisateur n'a pas pu être déterminée.");
+      return [];
     }
 
     final posts = await fetchAllPostsWithCompanyData();
@@ -56,6 +58,141 @@ class HomeProvider extends ChangeNotifier {
 
     combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return combinedItems;
+  }
+
+  Future<void> showLocationSelectionBottomSheet(BuildContext context) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _buildLocationBottomSheet(context),
+    );
+  }
+
+  Widget _buildLocationBottomSheet(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 20,
+        left: 20,
+        right: 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            "Sélectionnez votre ville",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          _buildAddressSearch(context),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            child: const Text("Confirmer"),
+            onPressed: () {
+              Navigator.of(context).pop();
+              notifyListeners();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressSearch(BuildContext context) {
+    if (kIsWeb) {
+      return WebAddressSearch(
+        homeProvider: this,
+        onLocationUpdated: () {
+          notifyListeners();
+        },
+      );
+    } else {
+      return GooglePlaceAutoCompleteTextField(
+        textEditingController: addressController,
+        googleAPIKey: "AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc",
+        inputDecoration: const InputDecoration(
+          hintText: "Rechercher une ville",
+          alignLabelWithHint: true,
+          icon: Padding(
+            padding: EdgeInsets.only(left: 10.0),
+            child: Icon(Icons.location_on),
+          ),
+          isCollapsed: false,
+          contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+          border: InputBorder.none,
+        ),
+        debounceTime: 800,
+        countries: const ["fr"],
+        isLatLngRequired: true,
+        seperatedBuilder: const Divider(color: Colors.black12, height: 2),
+        getPlaceDetailWithLatLng: (Prediction prediction) async {
+          await updateLocationFromPrediction(prediction);
+        },
+        itemClick: (Prediction prediction) {
+          addressController.text = prediction.description ?? "";
+        },
+      );
+    }
+  }
+
+  Future<List<CombinedItem>> loadFollowingData(
+      List<String> likedCompanies) async {
+    if (likedCompanies.isEmpty) {
+      return [];
+    }
+
+    final posts = await fetchFollowingPostsWithCompanyData(likedCompanies);
+    final companies = await fetchFollowingCompanies(likedCompanies);
+
+    final combinedItems = [
+      ...posts.map((postData) =>
+          CombinedItem(postData, postData['post'].timestamp, 'post')),
+      ...companies.map(
+          (company) => CombinedItem(company, company.createdAt, 'company')),
+    ];
+
+    combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return combinedItems;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchFollowingPostsWithCompanyData(
+      List<String> likedCompanies) async {
+    final postsQuery = _firestore
+        .collection('posts')
+        .where('companyId', whereIn: likedCompanies)
+        .orderBy('timestamp', descending: true);
+    final postsSnapshot = await postsQuery.get();
+
+    List<Map<String, dynamic>> postsWithCompanyData = [];
+
+    for (var postDoc in postsSnapshot.docs) {
+      try {
+        final post = _createPostFromDocument(postDoc);
+        if (post != null) {
+          final companyDoc =
+              await _firestore.collection('companys').doc(post.companyId).get();
+          final companyData = companyDoc.data() as Map<String, dynamic>;
+          postsWithCompanyData.add({'post': post, 'company': companyData});
+        }
+      } catch (e) {
+        print('Error processing post: $e');
+      }
+    }
+
+    return postsWithCompanyData;
+  }
+
+  Future<List<Company>> fetchFollowingCompanies(
+      List<String> likedCompanies) async {
+    final companiesQuery = _firestore
+        .collection('companys')
+        .where(FieldPath.documentId, whereIn: likedCompanies)
+        .orderBy('createdAt', descending: true);
+    final companiesSnapshot = await companiesQuery.get();
+
+    return companiesSnapshot.docs
+        .map((doc) => Company.fromDocument(doc))
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> fetchAllPostsWithCompanyData() async {
@@ -170,27 +307,19 @@ class HomeProvider extends ChangeNotifier {
       final savedAddress = prefs.getString('savedAddress');
       final savedLat = prefs.getDouble('savedLat');
       final savedLng = prefs.getDouble('savedLng');
-      final lastLocationUpdate = prefs.getInt('lastLocationUpdate');
 
-      final now = DateTime.now().millisecondsSinceEpoch;
-      const oneDay = 24 * 60 * 60 * 1000;
-
-      if (savedAddress != null &&
-          savedLat != null &&
-          savedLng != null &&
-          lastLocationUpdate != null &&
-          (now - lastLocationUpdate < oneDay)) {
-        _updateCurrentLocation(
-            savedAddress, savedLat, savedLng, lastLocationUpdate);
+      if (savedAddress != null && savedLat != null && savedLng != null) {
+        _updateCurrentLocation(savedAddress, savedLat, savedLng,
+            DateTime.now().millisecondsSinceEpoch);
       } else {
         await _initializeLocation();
-        await prefs.setInt('lastLocationUpdate', now);
       }
     } catch (e) {
       _handleLocationError(
           "Erreur lors du chargement de la localisation sauvegardée", e);
     } finally {
       _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -245,10 +374,34 @@ class HomeProvider extends ChangeNotifier {
         throw Exception("Permissions de localisation refusées définitivement");
       }
 
-      await _getCurrentLocation();
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+      } catch (e) {
+        print("Erreur lors de l'obtention de la position: $e");
+        // Essayez d'obtenir la dernière position connue si la position actuelle échoue
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      if (position == null) {
+        throw Exception("Impossible d'obtenir la position");
+      }
+
+      List<Placemark> placemarks =
+          await placemarkFromCoordinates(position.latitude, position.longitude);
+      String address = placemarks.isNotEmpty
+          ? "${placemarks[0].locality}, ${placemarks[0].country}"
+          : "Adresse inconnue";
+
+      _updateCurrentLocation(address, position.latitude, position.longitude,
+          DateTime.now().millisecondsSinceEpoch);
+      await _saveLocation(address, position);
     } catch (e) {
-      _handleLocationError(
-          "Erreur lors de l'initialisation de la localisation", e);
+      print("Erreur d'initialisation de la localisation: $e");
+      _handleLocationError("Erreur d'initialisation de la localisation", e);
     }
   }
 
@@ -270,7 +423,12 @@ class HomeProvider extends ChangeNotifier {
   }
 
   void _handleLocationError(String message, dynamic error) {
-    _currentAddress = "Erreur de localisation";
+    print("$message: $error");
+    _currentAddress = "Localisation non disponible";
+    _currentPosition = null;
+    _errorMessage =
+        "Impossible d'obtenir la localisation automatiquement. Veuillez entrer votre localisation manuellement.";
+    notifyListeners();
   }
 
   Future<void> _saveLocation(String address, Position position) async {
@@ -280,7 +438,7 @@ class HomeProvider extends ChangeNotifier {
       await prefs.setDouble('savedLat', position.latitude);
       await prefs.setDouble('savedLng', position.longitude);
     } catch (e) {
-      Text(e.toString());
+      print("Erreur lors de la sauvegarde de la localisation: $e");
     }
   }
 

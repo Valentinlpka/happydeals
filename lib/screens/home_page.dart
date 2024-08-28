@@ -20,17 +20,20 @@ class Home extends StatefulWidget {
   _HomeState createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends State<Home> with TickerProviderStateMixin {
+  late TabController _tabController;
   late String currentUserId;
-  late Future<List<CombinedItem>> _combinedItemsFuture;
+  late Future<List<CombinedItem>> _forYouItemsFuture;
+  late Future<List<CombinedItem>> _followingItemsFuture;
   String _selectedFilter = 'Tous';
-  List<CombinedItem> _items = [];
-
+  List<CombinedItem> _forYouItems = [];
+  List<CombinedItem> _followingItems = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
     _loadData();
   }
@@ -42,17 +45,39 @@ class _HomeState extends State<Home> {
 
     try {
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-      _combinedItemsFuture = homeProvider.loadAllData(); // Initialisez ici
-      final items = await _combinedItemsFuture;
-      setState(() {
-        _items = items ?? [];
-        _isLoading = false;
-      });
+      final userProvider = Provider.of<UserModel>(context, listen: false);
+
+      // Chargement des données "Pour toi"
+      await homeProvider.loadSavedLocation();
+      if (homeProvider.currentPosition == null) {
+        await homeProvider.showLocationSelectionBottomSheet(context);
+      }
+      final forYouItems = await homeProvider.loadAllData();
+
+      // Chargement des données "Suivis"
+      final followingItems =
+          await homeProvider.loadFollowingData(userProvider.likedCompanies);
+
+      // Mise à jour de l'état avec les nouvelles données
+      if (mounted) {
+        setState(() {
+          _forYouItems = forYouItems;
+          _followingItems = followingItems;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error loading data: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Une erreur est survenue lors du chargement des données.')),
+        );
+      }
     }
   }
 
@@ -60,29 +85,33 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            setState(() {
-              _loadData();
-            });
-          },
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 10),
-                    _buildLocationBar(),
-                    const SizedBox(height: 10),
-                    _buildFilterButtons(),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildLocationBar(),
+            _buildFilterButtons(),
+            TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'Pour toi'),
+                Tab(text: 'Suivis'),
+              ],
+            ),
+            if (_isLoading)
+              const LinearProgressIndicator()
+            else
+              const SizedBox(
+                  height: 4), // Pour maintenir la mise en page cohérente
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildContentList(_forYouItems),
+                  _buildContentList(_followingItems),
+                ],
               ),
-              _buildCombinedList(),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -92,7 +121,7 @@ class _HomeState extends State<Home> {
     return Consumer<UserModel>(
       builder: (context, usersProvider, _) {
         return Container(
-          padding: const EdgeInsets.only(left: 20.0, top: 10),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               CircleAvatar(
@@ -131,8 +160,7 @@ class _HomeState extends State<Home> {
         return GestureDetector(
           onTap: _showLocationBottomSheet,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 const Icon(Icons.location_on, color: Colors.blue),
@@ -154,21 +182,19 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildFilterButtons() {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20.0),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildFilterButton('Tous'),
-            _buildFilterButton('Entreprises'),
-            _buildFilterButton('Deals Express'),
-            _buildFilterButton('Happy Deals'),
-            _buildFilterButton('Offres d\'emploi'),
-            _buildFilterButton('Parrainage'),
-            _buildFilterButton('Jeux concours'),
-          ],
-        ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          _buildFilterButton('Tous'),
+          _buildFilterButton('Entreprises'),
+          _buildFilterButton('Deals Express'),
+          _buildFilterButton('Happy Deals'),
+          _buildFilterButton('Offres d\'emploi'),
+          _buildFilterButton('Parrainage'),
+          _buildFilterButton('Jeux concours'),
+        ],
       ),
     );
   }
@@ -176,7 +202,7 @@ class _HomeState extends State<Home> {
   Widget _buildFilterButton(String title) {
     bool isSelected = _selectedFilter == title;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      padding: const EdgeInsets.only(right: 8),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           foregroundColor: isSelected ? Colors.white : Colors.black,
@@ -192,35 +218,36 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildCombinedList() {
-    return FutureBuilder<List<CombinedItem>>(
-      future: _combinedItemsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SliverFillRemaining(
-            child: Center(child: CircularProgressIndicator()),
-          );
-        } else if (snapshot.hasError) {
-          return SliverFillRemaining(
-            child: Center(child: Text('Erreur: ${snapshot.error}')),
-          );
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SliverFillRemaining(
-            child: Center(
-                child: Text(
-                    'Aucun élément trouvé à proximité, veuillez changer votre localisation')),
-          );
-        } else {
-          final filteredItems = _applyFilter(snapshot.data!);
-          return SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => _buildItem(filteredItems[index]),
-              childCount: filteredItems.length,
-            ),
-          );
-        }
-      },
-    );
+  Widget _buildContentList(List<CombinedItem> items) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (items.isEmpty) {
+      return const Center(child: Text('Aucun élément trouvé'));
+    } else {
+      final filteredItems = _applyFilter(items);
+      return RefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: ListView.builder(
+          itemCount: filteredItems.length,
+          itemBuilder: (context, index) => _buildItem(filteredItems[index]),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    // Réinitialiser l'état de chargement
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Recharger les données
+    await _loadData();
+
+    // Mettre à jour l'état une fois le chargement terminé
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   List<CombinedItem> _applyFilter(List<CombinedItem> items) {
@@ -315,19 +342,16 @@ class _HomeState extends State<Home> {
                         const SizedBox(height: 20),
                         ElevatedButton(
                           style: ButtonStyle(
-                              backgroundColor:
-                                  WidgetStatePropertyAll(Colors.blue[800])),
+                            backgroundColor:
+                                WidgetStateProperty.all(Colors.blue[800]),
+                          ),
                           onPressed: () async {
                             Navigator.pop(context);
                             await homeProvider.applyChanges();
-                            setState(() {
-                              _loadData();
-                            });
+                            _loadData();
                           },
                           child: const Text("Appliquer"),
                         ),
-                        SizedBox(
-                            height: MediaQuery.of(context).viewInsets.bottom),
                       ],
                     ),
                   ),
@@ -396,5 +420,11 @@ class _HomeState extends State<Home> {
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 }

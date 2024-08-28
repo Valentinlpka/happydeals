@@ -12,6 +12,7 @@ class UserModel with ChangeNotifier {
   String _dailyQuote = '';
   String _profileUrl = '';
   final List<String> likedPosts = [];
+  final List<String> likedCompanies = [];
 
   String get firstName => _firstName;
   String get lastName => _lastName;
@@ -71,11 +72,18 @@ class UserModel with ChangeNotifier {
           likedPosts.addAll(List<String>.from(data['likedPosts']));
         }
 
+        likedCompanies.clear();
+        if (data['likedCompanies'] != null) {
+          likedCompanies.addAll(List<String>.from(data['likedCompanies']));
+        }
+
         await loadDailyQuote();
 
         notifyListeners();
       }
-    } catch (e) {}
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
   }
 
   void clearUserData() {
@@ -85,6 +93,7 @@ class UserModel with ChangeNotifier {
     _dailyQuote = '';
     _profileUrl = '';
     likedPosts.clear();
+    likedCompanies.clear();
     notifyListeners();
   }
 
@@ -113,6 +122,48 @@ class UserModel with ChangeNotifier {
     } catch (e) {
       _dailyQuote = "Impossible de charger la citation du jour.";
       notifyListeners();
+    }
+  }
+
+  Future<void> handleCompanyFollow(String companyId) async {
+    final userRef = _firestore.collection('users').doc(userId);
+
+    // Mise à jour optimiste de l'état local
+    if (likedCompanies.contains(companyId)) {
+      likedCompanies.remove(companyId);
+    } else {
+      likedCompanies.add(companyId);
+    }
+    notifyListeners();
+
+    // Mise à jour Firestore en arrière-plan
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final userSnapshot = await transaction.get(userRef);
+
+        if (!userSnapshot.exists) {
+          throw Exception("User document does not exist!");
+        }
+
+        if (likedCompanies.contains(companyId)) {
+          transaction.update(userRef, {
+            'likedCompanies': FieldValue.arrayUnion([companyId])
+          });
+        } else {
+          transaction.update(userRef, {
+            'likedCompanies': FieldValue.arrayRemove([companyId])
+          });
+        }
+      });
+    } catch (e) {
+      // Annuler la mise à jour optimiste si la transaction Firestore échoue
+      if (likedCompanies.contains(companyId)) {
+        likedCompanies.remove(companyId);
+      } else {
+        likedCompanies.add(companyId);
+      }
+      notifyListeners();
+      print('Error handling company follow: $e');
     }
   }
 
