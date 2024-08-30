@@ -1,20 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/classes/company.dart'; // Assurez-vous d'importer la classe Company
-import 'package:happy/classes/contest.dart';
-import 'package:happy/classes/dealexpress.dart';
-import 'package:happy/classes/event.dart';
-import 'package:happy/classes/happydeal.dart';
-import 'package:happy/classes/joboffer.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
-import 'package:happy/classes/referral.dart';
+import 'package:happy/screens/profile.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/postwidget.dart';
 
 class SearchResults extends StatelessWidget {
   final String searchTerm;
+  final String filter;
 
-  const SearchResults({super.key, required this.searchTerm});
+  const SearchResults(
+      {super.key, required this.searchTerm, required this.filter});
 
   @override
   Widget build(BuildContext context) {
@@ -24,110 +21,97 @@ class SearchResults extends StatelessWidget {
 
     String normalizedSearchTerm = normalizeText(searchTerm);
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('posts')
-          .where('searchText', isGreaterThanOrEqualTo: normalizedSearchTerm)
-          .where('searchText',
-              isLessThanOrEqualTo: '$normalizedSearchTerm\uf7ff')
-          .snapshots(),
-      builder: (context, postSnapshot) {
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('companys')
-              .where('searchText', isGreaterThanOrEqualTo: normalizedSearchTerm)
-              .where('searchText',
-                  isLessThanOrEqualTo: '$normalizedSearchTerm\uf7ff')
-              .snapshots(),
-          builder: (context, companySnapshot) {
-            if (postSnapshot.connectionState == ConnectionState.waiting ||
-                companySnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+    return FutureBuilder<List<Widget>>(
+      future: _getFilteredResults(context, normalizedSearchTerm),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-            List<Widget> results = [];
+        if (snapshot.hasError) {
+          return Center(child: Text("Erreur: ${snapshot.error}"));
+        }
 
-            // Ajouter les résultats des posts
-            if (postSnapshot.hasData) {
-              results.addAll(postSnapshot.data!.docs
-                  .map((document) => buildPostWidget(document)));
-            }
+        List<Widget> results = snapshot.data ?? [];
 
-            // Ajouter les résultats des entreprises
-            if (companySnapshot.hasData) {
-              results.addAll(companySnapshot.data!.docs
-                  .map((document) => buildCompanyCard(document)));
-            }
+        if (results.isEmpty) {
+          return const Center(child: Text("Aucun résultat trouvé"));
+        }
 
-            if (results.isEmpty) {
-              return const Center(child: Text("Aucun résultat trouvé"));
-            }
-
-            return ListView(children: results);
-          },
-        );
+        return ListView(children: results);
       },
     );
   }
 
-  Widget buildPostWidget(DocumentSnapshot document) {
-    Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-    Post post;
+  Future<List<Widget>> _getFilteredResults(
+      BuildContext context, String normalizedSearchTerm) async {
+    List<Widget> results = [];
 
-    switch (data['type']) {
-      case 'job_offer':
-        post = JobOffer.fromDocument(document);
-        break;
-      case 'contest':
-        post = Contest.fromDocument(document);
-        break;
-      case 'express_deal':
-        post = ExpressDeal.fromDocument(document);
-        break;
-      case 'event':
-        post = Event.fromDocument(document);
-        break;
-      case 'happy_deal':
-        post = HappyDeal.fromDocument(document);
-        break;
-      case 'referral':
-        post = Referral.fromDocument(document);
-        break;
-      default:
-        return const SizedBox.shrink();
+    if (filter == "Tous" || filter == "Utilisateurs") {
+      results.addAll(await _getUserResults(context, normalizedSearchTerm));
     }
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('companys')
-          .doc(data['companyId'])
-          .snapshots(),
-      builder: (BuildContext context,
-          AsyncSnapshot<DocumentSnapshot> companySnapshot) {
-        if (companySnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (companySnapshot.hasError ||
-            !companySnapshot.hasData ||
-            !companySnapshot.data!.exists) {
-          return const SizedBox.shrink();
-        }
+    if (filter == "Tous" || filter == "Entreprises") {
+      results.addAll(await _getCompanyResults(normalizedSearchTerm));
+    }
 
-        Map<String, dynamic> companyData =
-            companySnapshot.data!.data() as Map<String, dynamic>;
+    if (filter == "Tous" || filter == "Posts") {
+      results.addAll(await _getPostResults(normalizedSearchTerm));
+    }
 
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: PostWidget(
-            key: Key(document.id),
-            post: post,
-            companyCover: companyData['cover'],
-            companyCategorie: companyData['categorie'] ?? '',
-            companyName: companyData['name'] ?? 'Unknown',
-            companyLogo: companyData['logo'] ?? '',
-            currentUserId:
-                '', // Ajoutez l'ID de l'utilisateur actuel si nécessaire
-            onView: () {},
+    return results;
+  }
+
+  Future<List<Widget>> _getUserResults(
+      BuildContext context, String normalizedSearchTerm) async {
+    QuerySnapshot userSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('searchName', arrayContains: normalizedSearchTerm)
+        .get();
+
+    return userSnapshot.docs
+        .map((doc) => buildUserWidget(context, doc))
+        .toList();
+  }
+
+  Future<List<Widget>> _getCompanyResults(String normalizedSearchTerm) async {
+    QuerySnapshot companySnapshot = await FirebaseFirestore.instance
+        .collection('companys')
+        .where('searchText', isGreaterThanOrEqualTo: normalizedSearchTerm)
+        .where('searchText', isLessThanOrEqualTo: '$normalizedSearchTerm\uf7ff')
+        .get();
+
+    return companySnapshot.docs.map((doc) => buildCompanyCard(doc)).toList();
+  }
+
+  Future<List<Widget>> _getPostResults(String normalizedSearchTerm) async {
+    QuerySnapshot postSnapshot = await FirebaseFirestore.instance
+        .collection('posts')
+        .where('searchText', isGreaterThanOrEqualTo: normalizedSearchTerm)
+        .where('searchText', isLessThanOrEqualTo: '$normalizedSearchTerm\uf7ff')
+        .get();
+
+    List<Widget> postWidgets = [];
+    for (var doc in postSnapshot.docs) {
+      Widget postWidget = await buildPostWidget(doc);
+      postWidgets.add(postWidget);
+    }
+
+    return postWidgets;
+  }
+
+  Widget buildUserWidget(BuildContext context, DocumentSnapshot document) {
+    Map<String, dynamic> userData = document.data() as Map<String, dynamic>;
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundImage: NetworkImage(userData['image_profile'] ?? ''),
+      ),
+      title: Text('${userData['firstName']} ${userData['lastName']}'),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Profile(userId: document.id),
           ),
         );
       },
@@ -137,6 +121,38 @@ class SearchResults extends StatelessWidget {
   Widget buildCompanyCard(DocumentSnapshot document) {
     Company company = Company.fromDocument(document);
     return CompanyCard(company);
+  }
+
+  Future<Widget> buildPostWidget(DocumentSnapshot document) async {
+    Map<String, dynamic> data = document.data() as Map<String, dynamic>;
+    Post post = Post.fromDocument(document);
+
+    DocumentSnapshot companySnapshot = await FirebaseFirestore.instance
+        .collection('companys')
+        .doc(data['companyId'])
+        .get();
+
+    if (!companySnapshot.exists) {
+      return const SizedBox.shrink();
+    }
+
+    Map<String, dynamic> companyData =
+        companySnapshot.data() as Map<String, dynamic>;
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: PostWidget(
+        key: Key(document.id),
+        post: post,
+        companyCover: companyData['cover'],
+        companyCategorie: companyData['categorie'] ?? '',
+        companyName: companyData['name'] ?? 'Unknown',
+        companyLogo: companyData['logo'] ?? '',
+        companyData: companyData,
+        currentUserId: '',
+        onView: () {},
+      ),
+    );
   }
 
   String normalizeText(String text) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/screens/conversation_list.dart';
 import 'package:happy/screens/home_page.dart';
 import 'package:happy/screens/liked_post_page.dart';
+import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/search_page.dart';
 import 'package:happy/screens/settings_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
@@ -53,7 +54,7 @@ class _MainContainerState extends State<MainContainer> {
       case 3:
         return ConversationsListScreen(userId: currentUserId);
       case 4:
-        return const ParametrePage();
+        return Profile(userId: currentUserId);
       case 5:
         return const CartScreen();
       default:

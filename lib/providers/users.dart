@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/classes/share_post.dart';
 
 class UserModel with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,6 +14,7 @@ class UserModel with ChangeNotifier {
   String _profileUrl = '';
   final List<String> likedPosts = [];
   final List<String> likedCompanies = [];
+  final List<String> followedUsers = [];
 
   String get firstName => _firstName;
   String get lastName => _lastName;
@@ -66,7 +68,10 @@ class UserModel with ChangeNotifier {
         _firstName = data['firstName'] ?? '';
         _lastName = data['lastName'] ?? '';
         _profileUrl = data['image_profile'] ?? '';
-
+        followedUsers.clear();
+        if (data['followedUsers'] != null) {
+          followedUsers.addAll(List<String>.from(data['followedUsers']));
+        }
         likedPosts.clear();
         if (data['likedPosts'] != null) {
           likedPosts.addAll(List<String>.from(data['likedPosts']));
@@ -86,6 +91,42 @@ class UserModel with ChangeNotifier {
     }
   }
 
+  Future<void> followUser(String userIdToFollow) async {
+    if (!followedUsers.contains(userIdToFollow)) {
+      followedUsers.add(userIdToFollow);
+      notifyListeners();
+
+      try {
+        await _firestore.collection('users').doc(userId).update({
+          'followedUsers': FieldValue.arrayUnion([userIdToFollow])
+        });
+      } catch (e) {
+        // Revert optimistic update if Firestore update fails
+        followedUsers.remove(userIdToFollow);
+        notifyListeners();
+        print('Error following user: $e');
+      }
+    }
+  }
+
+  Future<void> unfollowUser(String userIdToUnfollow) async {
+    if (followedUsers.contains(userIdToUnfollow)) {
+      followedUsers.remove(userIdToUnfollow);
+      notifyListeners();
+
+      try {
+        await _firestore.collection('users').doc(userId).update({
+          'followedUsers': FieldValue.arrayRemove([userIdToUnfollow])
+        });
+      } catch (e) {
+        // Revert optimistic update if Firestore update fails
+        followedUsers.add(userIdToUnfollow);
+        notifyListeners();
+        print('Error unfollowing user: $e');
+      }
+    }
+  }
+
   void clearUserData() {
     userId = "";
     _firstName = '';
@@ -94,6 +135,7 @@ class UserModel with ChangeNotifier {
     _profileUrl = '';
     likedPosts.clear();
     likedCompanies.clear();
+    followedUsers.clear();
     notifyListeners();
   }
 
@@ -225,5 +267,34 @@ class UserModel with ChangeNotifier {
       }
       notifyListeners();
     }
+  }
+
+  Future<void> sharePost(String postId, String userId) async {
+    final postDoc = await _firestore.collection('posts').doc(postId).get();
+    if (!postDoc.exists) {
+      throw Exception('Post not found');
+    }
+
+    final originalPost = Post.fromDocument(postDoc);
+    final sharedPost = SharedPost(
+      id: _firestore.collection('posts').doc().id,
+      companyId: originalPost.companyId,
+      timestamp: DateTime.now(),
+      sharedBy: userId,
+      sharedAt: DateTime.now(),
+      originalPostId: postId,
+    );
+
+    await _firestore
+        .collection('posts')
+        .doc(sharedPost.id)
+        .set(sharedPost.toMap());
+
+    // Mettre à jour le profil de l'utilisateur
+    await _firestore.collection('users').doc(userId).update({
+      'sharedPosts': FieldValue.arrayUnion([sharedPost.id])
+    });
+
+    notifyListeners();
   }
 }

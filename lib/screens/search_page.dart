@@ -11,6 +11,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchTerm = "";
+  String _selectedFilter = "Tous";
 
   @override
   void initState() {
@@ -54,7 +55,8 @@ class _SearchPageState extends State<SearchPage> {
               child: TextField(
                 controller: _searchController,
                 decoration: const InputDecoration(
-                  hintText: "Rechercher un post ou une entreprise...",
+                  hintText:
+                      "Rechercher un utilisateur, un post ou une entreprise...",
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(5)),
                   ),
@@ -62,11 +64,40 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
             ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip("Tous"),
+                  _buildFilterChip("Utilisateurs"),
+                  _buildFilterChip("Posts"),
+                  _buildFilterChip("Entreprises"),
+                ],
+              ),
+            ),
             Expanded(
-              child: SearchResults(searchTerm: _searchTerm),
+              child: SearchResults(
+                searchTerm: _searchTerm,
+                filter: _selectedFilter,
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: FilterChip(
+        label: Text(label),
+        selected: _selectedFilter == label,
+        onSelected: (bool selected) {
+          setState(() {
+            _selectedFilter = selected ? label : "Tous";
+          });
+        },
       ),
     );
   }

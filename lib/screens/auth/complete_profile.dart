@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
@@ -194,6 +196,32 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     }
   }
 
+  Future<String> generateUniqueCode() async {
+    final random = Random();
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    String code;
+    bool isUnique = false;
+
+    while (!isUnique) {
+      code = String.fromCharCodes(Iterable.generate(
+          5, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
+
+      // Vérifier si le code existe déjà dans Firestore
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('uniqueCode', isEqualTo: code)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        isUnique = true;
+        return code;
+      }
+    }
+
+    // Cette ligne ne devrait jamais être atteinte, mais Dart l'exige pour la compilation
+    throw Exception('Impossible de générer un code unique');
+  }
+
   Future<void> _uploadImage() async {
     if (_imageFile == null) return;
 
@@ -242,11 +270,21 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     try {
       final userModel = Provider.of<UserModel>(context, listen: false);
 
+      String firstName = _firstNameController.text.trim();
+      String lastName = _lastNameController.text.trim();
+
+      // Générer searchName
+      List<String> searchName = generateSearchKeywords('$firstName $lastName');
+
+      String uniqueCode = await generateUniqueCode();
+
       // Mettre à jour le profil utilisateur
       await userModel.updateUserProfile({
-        'firstName': _firstNameController.text,
-        'lastName': _lastNameController.text,
+        'firstName': firstName,
+        'lastName': lastName,
         'isProfileComplete': true,
+        'searchName': searchName,
+        'uniqueCode': uniqueCode,
       });
 
       // Créer un client Stripe
@@ -279,5 +317,24 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  List<String> generateSearchKeywords(String fullName) {
+    List<String> keywords = [];
+    String name = fullName.toLowerCase();
+
+    List<String> nameParts = name.split(' ');
+
+    for (String part in nameParts) {
+      for (int i = 1; i <= part.length; i++) {
+        keywords.add(part.substring(0, i));
+      }
+    }
+
+    // Ajoutez le nom complet
+    keywords.add(name);
+
+    // Retirez les doublons
+    return keywords.toSet().toList();
   }
 }

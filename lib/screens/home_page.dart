@@ -55,8 +55,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       final forYouItems = await homeProvider.loadAllData();
 
       // Chargement des données "Suivis"
-      final followingItems =
-          await homeProvider.loadFollowingData(userProvider.likedCompanies);
+      final followingItems = await homeProvider.loadFollowingData(
+        userProvider.likedCompanies,
+        userProvider
+            .followedUsers, // Assurez-vous que cette propriété existe dans votre UserModel
+      );
 
       // Mise à jour de l'état avec les nouvelles données
       if (mounted) {
@@ -280,6 +283,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       final postData = item.item;
       final post = postData['post'] as Post;
       final companyData = postData['company'] as Map<String, dynamic>;
+      final sharedByUserData =
+          postData['sharedByUser'] as Map<String, dynamic>?;
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         child: PostWidget(
@@ -290,9 +295,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           companyName: companyData['name'] ?? '',
           companyLogo: companyData['logo'] ?? '',
           currentUserId: currentUserId,
+          sharedByUserData: sharedByUserData,
           onView: () {
             // Logique d'affichage du post
           },
+          companyData: companyData,
         ),
       );
     } else {

@@ -14,6 +14,7 @@ import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
+import 'package:happy/classes/share_post.dart';
 import 'package:happy/widgets/web_adress_search.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -136,12 +137,13 @@ class HomeProvider extends ChangeNotifier {
   }
 
   Future<List<CombinedItem>> loadFollowingData(
-      List<String> likedCompanies) async {
-    if (likedCompanies.isEmpty) {
+      List<String> likedCompanies, List<String> followedUsers) async {
+    if (likedCompanies.isEmpty && followedUsers.isEmpty) {
       return [];
     }
 
-    final posts = await fetchFollowingPostsWithCompanyData(likedCompanies);
+    final posts =
+        await fetchFollowingPostsWithCompanyData(likedCompanies, followedUsers);
     final companies = await fetchFollowingCompanies(likedCompanies);
 
     final combinedItems = [
@@ -156,30 +158,77 @@ class HomeProvider extends ChangeNotifier {
   }
 
   Future<List<Map<String, dynamic>>> fetchFollowingPostsWithCompanyData(
-      List<String> likedCompanies) async {
-    final postsQuery = _firestore
-        .collection('posts')
-        .where('companyId', whereIn: likedCompanies)
-        .orderBy('timestamp', descending: true);
-    final postsSnapshot = await postsQuery.get();
-
+      List<String> likedCompanies, List<String> followedUsers) async {
     List<Map<String, dynamic>> postsWithCompanyData = [];
 
-    for (var postDoc in postsSnapshot.docs) {
-      try {
-        final post = _createPostFromDocument(postDoc);
-        if (post != null) {
-          final companyDoc =
-              await _firestore.collection('companys').doc(post.companyId).get();
-          final companyData = companyDoc.data() as Map<String, dynamic>;
-          postsWithCompanyData.add({'post': post, 'company': companyData});
-        }
-      } catch (e) {
-        print('Error processing post: $e');
+    // Requête pour les posts des entreprises aimées
+    if (likedCompanies.isNotEmpty) {
+      final companyPostsQuery = await _firestore
+          .collection('posts')
+          .where('companyId', whereIn: likedCompanies)
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      for (var doc in companyPostsQuery.docs) {
+        await _processPost(doc, postsWithCompanyData);
       }
     }
 
+    // Requête pour les posts partagés par les utilisateurs suivis
+    if (followedUsers.isNotEmpty) {
+      final sharedPostsQuery = await _firestore
+          .collection('posts')
+          .where('sharedBy', whereIn: followedUsers)
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      for (var doc in sharedPostsQuery.docs) {
+        await _processPost(doc, postsWithCompanyData);
+      }
+    }
+
+    // Trier tous les posts par timestamp
+    postsWithCompanyData.sort((a, b) =>
+        (b['post'] as Post).timestamp.compareTo((a['post'] as Post).timestamp));
+
     return postsWithCompanyData;
+  }
+
+  Future<void> _processPost(DocumentSnapshot doc,
+      List<Map<String, dynamic>> postsWithCompanyData) async {
+    try {
+      final post = Post.fromDocument(doc);
+      Map<String, dynamic> postData = {'post': post};
+
+      // Récupérer les données de l'entreprise
+      final companyDoc =
+          await _firestore.collection('companys').doc(post.companyId).get();
+      if (companyDoc.exists) {
+        postData['company'] = companyDoc.data();
+      }
+
+      // Si c'est un post partagé, récupérer le post original
+      if (post is SharedPost) {
+        final originalPostDoc =
+            await _firestore.collection('posts').doc(post.originalPostId).get();
+        if (originalPostDoc.exists) {
+          postData['originalPost'] = Post.fromDocument(originalPostDoc);
+        }
+      }
+
+      // Récupérer les données de l'utilisateur qui a partagé (si applicable)
+      if (post.sharedBy != null) {
+        final userDoc =
+            await _firestore.collection('users').doc(post.sharedBy).get();
+        if (userDoc.exists) {
+          postData['sharedByUser'] = userDoc.data();
+        }
+      }
+
+      postsWithCompanyData.add(postData);
+    } catch (e) {
+      print('Erreur lors du traitement du post ${doc.id}: $e');
+    }
   }
 
   Future<List<Company>> fetchFollowingCompanies(
@@ -223,9 +272,10 @@ class HomeProvider extends ChangeNotifier {
   }
 
   Post? _createPostFromDocument(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    final String type = data['type'] ?? 'unknown';
     try {
+      final data = doc.data() as Map<String, dynamic>;
+      final String type = data['type'] ?? 'unknown';
+
       switch (type) {
         case 'job_offer':
           return JobOffer.fromDocument(doc);
@@ -240,11 +290,13 @@ class HomeProvider extends ChangeNotifier {
         case 'event':
           return Event.fromDocument(doc);
         default:
-          print('Unsupported post type: $type');
+          print('Type de post non supporté: $type pour le document ${doc.id}');
           return null;
       }
     } catch (e) {
-      print('Error creating post from document: $e');
+      print(
+          'Erreur lors de la création du post à partir du document ${doc.id}: $e');
+      print('Données du document: ${doc.data()}');
       return null;
     }
   }
@@ -519,33 +571,28 @@ class HomeProvider extends ChangeNotifier {
 
     final postsSnapshot = await postsQuery.get();
 
-    final cacheKey = 'posts_${pageKey?.id ?? "initial"}_$pageSize';
-    if (_isCacheValid(cacheKey)) {
-      return _cache[cacheKey]['data'];
-    }
-
     List<Map<String, dynamic>> postsWithCompanyData = [];
-    Map<String, int> postTypeCounts = {};
 
     for (var postDoc in postsSnapshot.docs) {
       try {
         final post = _createPostFromDocument(postDoc);
         if (post != null) {
+          Map<String, dynamic> postData = {'post': post};
+
+          if (post.sharedBy != null) {
+            // C'est un post partagé, récupérez les informations de l'utilisateur qui l'a partagé
+            final userDoc =
+                await _firestore.collection('users').doc(post.sharedBy).get();
+            postData['sharedByUser'] = userDoc.data();
+          }
+
           final companyDoc =
               await _firestore.collection('companys').doc(post.companyId).get();
           final companyData = companyDoc.data() as Map<String, dynamic>;
+
           if (await _isPostWithinRadius(post.companyId, companyData)) {
-            postsWithCompanyData.add({'post': post, 'company': companyData});
-            postTypeCounts[post.type] = (postTypeCounts[post.type] ?? 0) + 1;
-
-            print(
-                'Added post of type: ${post.type}. Total count: ${postTypeCounts[post.type]}');
-
-            // Vérifier si nous avons au moins un post de chaque type et que nous avons atteint pageSize
-            if (postTypeCounts.isNotEmpty &&
-                postsWithCompanyData.length >= pageSize) {
-              break;
-            }
+            postData['company'] = companyData;
+            postsWithCompanyData.add(postData);
           }
         }
       } catch (e) {
@@ -553,12 +600,6 @@ class HomeProvider extends ChangeNotifier {
       }
     }
 
-    print('Final post type counts: $postTypeCounts');
-
-    _cache[cacheKey] = {
-      'data': postsWithCompanyData,
-      'timestamp': DateTime.now()
-    };
     return postsWithCompanyData;
   }
 
