@@ -6,6 +6,7 @@ class UserModel {
   String? firstName;
   String? lastName;
   String? phoneNumber;
+  String? image_profile;
   String? address;
   bool isProfileComplete;
   String? stripeCustomerId;
@@ -16,6 +17,7 @@ class UserModel {
     this.firstName,
     this.lastName,
     this.phoneNumber,
+    this.image_profile,
     this.address,
     this.isProfileComplete = false,
     this.stripeCustomerId,
@@ -27,6 +29,7 @@ class UserModel {
       id: doc.id,
       email: data['email'] ?? '',
       firstName: data['firstName'],
+      image_profile: data['image_profile'],
       lastName: data['lastName'],
       phoneNumber: data['phoneNumber'],
       address: data['address'],
@@ -40,6 +43,7 @@ class UserModel {
       'email': email,
       'firstName': firstName,
       'lastName': lastName,
+      'image_profile': image_profile,
       'phoneNumber': phoneNumber,
       'address': address,
       'isProfileComplete': isProfileComplete,

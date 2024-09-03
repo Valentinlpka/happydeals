@@ -253,7 +253,6 @@ class HomeProvider extends ChangeNotifier {
 
     for (var postDoc in postsSnapshot.docs) {
       try {
-        final postData = postDoc.data();
         final post = _createPostFromDocument(postDoc);
         if (post != null) {
           final companyDoc =

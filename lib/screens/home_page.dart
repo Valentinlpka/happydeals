@@ -23,8 +23,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with TickerProviderStateMixin {
   late TabController _tabController;
   late String currentUserId;
-  late Future<List<CombinedItem>> _forYouItemsFuture;
-  late Future<List<CombinedItem>> _followingItemsFuture;
+
   String _selectedFilter = 'Tous';
   List<CombinedItem> _forYouItems = [];
   List<CombinedItem> _followingItems = [];
