@@ -1,6 +1,13 @@
+import 'dart:io';
+
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/post_type_page/job_search_profile_page.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 class GeneralProfilePage extends StatefulWidget {
@@ -11,7 +18,9 @@ class GeneralProfilePage extends StatefulWidget {
 }
 
 class _GeneralProfilePageState extends State<GeneralProfilePage> {
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   final _formKey = GlobalKey<FormState>();
+  File? _imageFile;
 
   @override
   Widget build(BuildContext context) {
@@ -32,29 +41,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 60,
-                            backgroundImage: NetworkImage(userModel.profileUrl),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: CircleAvatar(
-                              backgroundColor: Theme.of(context).primaryColor,
-                              radius: 20,
-                              child: IconButton(
-                                icon:
-                                    const Icon(Icons.edit, color: Colors.white),
-                                onPressed: () {
-                                  // Implement image picker
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: _buildProfileImage(userModel),
                     ),
                     const SizedBox(height: 24),
                     _buildTextField('Prénom', userModel.firstName,
@@ -143,6 +130,122 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
           return null;
         },
         onSaved: (value) => onSaved(value!),
+      ),
+    );
+  }
+
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      if (kIsWeb) {
+        // Web platform
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatio: const CropAspectRatio(ratioX: 10, ratioY: 10),
+          uiSettings: [
+            WebUiSettings(
+              context: context,
+            ),
+          ],
+        );
+        if (croppedFile != null) {
+          final bytes = await croppedFile.readAsBytes();
+          setState(() {
+            _imageFile = File.fromRawPath(Uint8List.fromList(bytes));
+          });
+          await _uploadImage();
+        }
+      } else {
+        // Mobile platforms
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatio: const CropAspectRatio(ratioX: 21, ratioY: 11),
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Recadrer la photo',
+              toolbarColor: Theme.of(context).primaryColor,
+              toolbarWidgetColor: Colors.white,
+              initAspectRatio: CropAspectRatioPreset.square,
+              lockAspectRatio: true,
+            ),
+            IOSUiSettings(
+              title: 'Recadrer la photo',
+              cancelButtonTitle: 'Annuler',
+              doneButtonTitle: 'Terminer',
+            ),
+          ],
+        );
+        if (croppedFile != null) {
+          setState(() {
+            _imageFile = File(croppedFile.path);
+          });
+          await _uploadImage();
+        }
+      }
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    if (_imageFile == null) return;
+
+    try {
+      final usersProvider = Provider.of<UserModel>(context, listen: false);
+      String fileName = '${usersProvider.userId}_profile_picture.jpg';
+      Reference storageRef = _storage.ref().child('profile_pictures/$fileName');
+      UploadTask uploadTask = storageRef.putFile(_imageFile!);
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      await usersProvider.updateUserProfile({
+        'image_profile': downloadUrl,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Photo de profil mise à jour avec succès')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Erreur lors de la mise à jour de la photo: $e')),
+      );
+    }
+  }
+
+  Widget _buildProfileImage(UserModel usersProvider) {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        width: 120,
+        height: 120,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: CupertinoColors.systemGrey5,
+          image: _imageFile != null
+              ? DecorationImage(
+                  image: FileImage(_imageFile!),
+                  fit: BoxFit.cover,
+                )
+              : usersProvider.profileUrl.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(usersProvider.profileUrl),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: CupertinoColors.black.withOpacity(0.5),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            CupertinoIcons.camera,
+            color: CupertinoColors.white,
+            size: 40,
+          ),
+        ),
       ),
     );
   }

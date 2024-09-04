@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_cached_pdfview/flutter_cached_pdfview.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 class PDFViewerPage extends StatelessWidget {
   final String url;
@@ -10,13 +10,9 @@ class PDFViewerPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Visualisation du CV'),
+        title: const Text('CV'),
       ),
-      body: const PDF().cachedFromUrl(
-        url,
-        placeholder: (progress) => Center(child: Text('$progress %')),
-        errorWidget: (error) => Center(child: Text(error.toString())),
-      ),
+      body: SfPdfViewer.network(url),
     );
   }
 }

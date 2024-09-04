@@ -231,6 +231,8 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
         TaskSnapshot snapshot = await uploadTask;
         String downloadUrl = await snapshot.ref.getDownloadURL();
 
+        // Modifier l'URL pour obtenir l'URL d'affichage
+
         await userModel.updateUserProfile({'cvUrl': downloadUrl});
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -238,7 +240,7 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors du téléchargement du CV')),
+          SnackBar(content: Text('Erreur lors du téléchargement du CV: $e')),
         );
       } finally {
         setState(() {
@@ -248,16 +250,22 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
     }
   }
 
-  Future<void> _viewCV(String url) async {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => PDFViewerPage(url: url),
-      ),
-    );
+  Future<void> _viewCV(String url) {
+    return Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => PDFViewerPage(
+                  url: url,
+                )));
   }
 
   Widget _buildDropdownField(String label, String? value,
       Function(String?) onChanged, List<String> items) {
+    // Assurez-vous que la valeur actuelle est dans la liste des éléments
+    if (value != null && !items.contains(value)) {
+      value = null; // Réinitialisez la valeur si elle n'est pas dans la liste
+    }
+
     return DropdownButtonFormField<String>(
       value: value,
       decoration: InputDecoration(
@@ -268,13 +276,15 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
         filled: true,
         fillColor: Colors.grey[100],
       ),
-      items: items.map((String value) {
+      items: items.map((String item) {
         return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value),
+          value: item,
+          child: Text(item),
         );
       }).toList(),
       onChanged: onChanged,
+      // Ajoutez un hint pour gérer le cas où la valeur est null
+      hint: Text('Sélectionnez $label'),
     );
   }
 
