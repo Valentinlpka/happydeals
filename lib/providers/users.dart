@@ -13,14 +13,34 @@ class UserModel with ChangeNotifier {
   String _lastName = '';
   String _dailyQuote = '';
   String _profileUrl = '';
-  final List<String> likedPosts = [];
-  final List<String> likedCompanies = [];
-  final List<String> followedUsers = [];
+  String _email = '';
+  String _phone = '';
+  bool _showEmail = false;
+  bool _showPhone = false;
+  String _desiredPosition = '';
+  String _cvUrl = '';
+  String _description = '';
+  String _availability = '';
+  List<String> _contractTypes = [];
+  String _workingHours = '';
+  List<String> likedPosts = [];
+  List<String> likedCompanies = [];
+  List<String> followedUsers = [];
 
   String get firstName => _firstName;
   String get lastName => _lastName;
   String get dailyQuote => _dailyQuote;
   String get profileUrl => _profileUrl;
+  String get email => _email;
+  String get phone => _phone;
+  bool get showEmail => _showEmail;
+  bool get showPhone => _showPhone;
+  String get desiredPosition => _desiredPosition;
+  String get cvUrl => _cvUrl;
+  String get description => _description;
+  String get availability => _availability;
+  List<String> get contractTypes => _contractTypes;
+  String get workingHours => _workingHours;
 
   set firstName(String value) {
     _firstName = value;
@@ -32,10 +52,57 @@ class UserModel with ChangeNotifier {
     notifyListeners();
   }
 
+  set workingHours(String value) {
+    _workingHours = value;
+    notifyListeners();
+  }
+
   set profileUrl(String value) {
     _profileUrl = value;
     notifyListeners();
   }
+
+  set email(String value) {
+    _email = value;
+    notifyListeners();
+  }
+
+  set phone(String value) {
+    _phone = value;
+    notifyListeners();
+  }
+
+  set desiredPosition(String value) {
+    _desiredPosition = value;
+    notifyListeners();
+  }
+
+  set cvUrl(String value) {
+    _cvUrl = value;
+    notifyListeners();
+  }
+
+  set description(String value) {
+    _description = value;
+    notifyListeners();
+  }
+
+  set availability(String value) {
+    _availability = value;
+    notifyListeners();
+  }
+
+  set showEmail(bool value) {
+    _showEmail = value;
+    notifyListeners();
+  }
+
+  set showPhone(bool value) {
+    _showPhone = value;
+    notifyListeners();
+  }
+
+  // Ajoutez d'autres setters si nécessaire
 
   Future<void> updateUserProfile(Map<String, dynamic> userData) async {
     final uid = _auth.currentUser?.uid;
@@ -72,15 +139,20 @@ class UserModel with ChangeNotifier {
       _firstName = data['firstName'] ?? '';
       _lastName = data['lastName'] ?? '';
       _profileUrl = data['image_profile'] ?? '';
+      _email = data['email'] ?? '';
+      _phone = data['phone'] ?? '';
+      _showEmail = data['showEmail'] ?? false;
+      _showPhone = data['showPhone'] ?? false;
+      _desiredPosition = data['desiredPosition'] ?? '';
+      _cvUrl = data['cvUrl'] ?? '';
+      _description = data['description'] ?? '';
+      _availability = data['availability'] ?? '';
+      _contractTypes = List<String>.from(data['contractTypes'] ?? []);
+      _workingHours = data['workingHours'] ?? '';
 
-      followedUsers.clear();
-      followedUsers.addAll(List<String>.from(data['followedUsers'] ?? []));
-
-      likedPosts.clear();
-      likedPosts.addAll(List<String>.from(data['likedPosts'] ?? []));
-
-      likedCompanies.clear();
-      likedCompanies.addAll(List<String>.from(data['likedCompanies'] ?? []));
+      followedUsers = List<String>.from(data['followedUsers'] ?? []);
+      likedPosts = List<String>.from(data['likedPosts'] ?? []);
+      likedCompanies = List<String>.from(data['likedCompanies'] ?? []);
 
       await loadDailyQuote();
       notifyListeners();
@@ -89,38 +161,37 @@ class UserModel with ChangeNotifier {
     }
   }
 
+  Future<void> _updateUserField(String field, dynamic value,
+      {bool isArray = false, bool add = true}) async {
+    try {
+      if (isArray) {
+        await _firestore.collection('users').doc(userId).update({
+          field: add
+              ? FieldValue.arrayUnion([value])
+              : FieldValue.arrayRemove([value])
+        });
+      } else {
+        await _firestore.collection('users').doc(userId).update({field: value});
+      }
+    } catch (e) {
+      debugPrint('Error updating $field: $e');
+      rethrow;
+    }
+  }
+
   Future<void> followUser(String userIdToFollow) async {
     if (followedUsers.contains(userIdToFollow)) return;
-
+    await _updateUserField('followedUsers', userIdToFollow, isArray: true);
     followedUsers.add(userIdToFollow);
     notifyListeners();
-
-    try {
-      await _firestore.collection('users').doc(userId).update({
-        'followedUsers': FieldValue.arrayUnion([userIdToFollow])
-      });
-    } catch (e) {
-      followedUsers.remove(userIdToFollow);
-      notifyListeners();
-      debugPrint('Error following user: $e');
-    }
   }
 
   Future<void> unfollowUser(String userIdToUnfollow) async {
     if (!followedUsers.contains(userIdToUnfollow)) return;
-
+    await _updateUserField('followedUsers', userIdToUnfollow,
+        isArray: true, add: false);
     followedUsers.remove(userIdToUnfollow);
     notifyListeners();
-
-    try {
-      await _firestore.collection('users').doc(userId).update({
-        'followedUsers': FieldValue.arrayRemove([userIdToUnfollow])
-      });
-    } catch (e) {
-      followedUsers.add(userIdToUnfollow);
-      notifyListeners();
-      debugPrint('Error unfollowing user: $e');
-    }
   }
 
   void clearUserData() {
@@ -129,6 +200,16 @@ class UserModel with ChangeNotifier {
     _lastName = '';
     _dailyQuote = '';
     _profileUrl = '';
+    _email = '';
+    _phone = '';
+    _showEmail = false;
+    _showPhone = false;
+    _desiredPosition = '';
+    _cvUrl = '';
+    _description = '';
+    _availability = '';
+    _contractTypes = [];
+    _workingHours = '';
     likedPosts.clear();
     likedCompanies.clear();
     followedUsers.clear();
@@ -144,15 +225,15 @@ class UserModel with ChangeNotifier {
           .limit(1)
           .get();
 
-      if (quoteSnapshot.docs.isNotEmpty) {
-        _dailyQuote = quoteSnapshot.docs.first['quote'];
-      } else {
-        final randomQuoteSnapshot =
-            await _firestore.collection('daily_quotes').limit(1).get();
-        _dailyQuote = randomQuoteSnapshot.docs.isNotEmpty
-            ? randomQuoteSnapshot.docs.first['quote']
-            : "Aucune citation disponible pour aujourd'hui.";
-      }
+      _dailyQuote = quoteSnapshot.docs.isNotEmpty
+          ? quoteSnapshot.docs.first['quote']
+          : (await _firestore.collection('daily_quotes').limit(1).get())
+                  .docs
+                  .isNotEmpty
+              ? (await _firestore.collection('daily_quotes').limit(1).get())
+                  .docs
+                  .first['quote']
+              : "Aucune citation disponible pour aujourd'hui.";
     } catch (e) {
       _dailyQuote = "Impossible de charger la citation du jour.";
     }
@@ -160,72 +241,43 @@ class UserModel with ChangeNotifier {
   }
 
   Future<void> handleCompanyFollow(String companyId) async {
-    final userRef = _firestore.collection('users').doc(userId);
     final isCurrentlyLiked = likedCompanies.contains(companyId);
-
+    await _updateUserField('likedCompanies', companyId,
+        isArray: true, add: !isCurrentlyLiked);
     likedCompanies.toggle(companyId);
     notifyListeners();
-
-    try {
-      await _firestore.runTransaction((transaction) async {
-        final userSnapshot = await transaction.get(userRef);
-        if (!userSnapshot.exists)
-          throw Exception("User document does not exist!");
-
-        transaction.update(userRef, {
-          'likedCompanies': isCurrentlyLiked
-              ? FieldValue.arrayRemove([companyId])
-              : FieldValue.arrayUnion([companyId])
-        });
-      });
-    } catch (e) {
-      likedCompanies.toggle(companyId);
-      notifyListeners();
-      debugPrint('Error handling company follow: $e');
-    }
   }
 
   Future<void> handleLike(Post post) async {
-    final postRef = _firestore.collection('posts').doc(post.id);
-    final userRef = _firestore.collection('users').doc(userId);
     final isCurrentlyLiked = likedPosts.contains(post.id);
+    await _firestore.runTransaction((transaction) async {
+      final postRef = _firestore.collection('posts').doc(post.id);
+      final userRef = _firestore.collection('users').doc(userId);
+
+      final postDoc = await transaction.get(postRef);
+      if (!postDoc.exists) throw Exception("Post does not exist!");
+
+      final likedBy = List<String>.from(postDoc['likedBy'] ?? []);
+      final likes = postDoc['likes'] as int? ?? 0;
+
+      if (isCurrentlyLiked) {
+        likedBy.remove(userId);
+        transaction.update(postRef, {'likedBy': likedBy, 'likes': likes - 1});
+        transaction.update(userRef, {
+          'likedPosts': FieldValue.arrayRemove([post.id])
+        });
+      } else {
+        likedBy.add(userId);
+        transaction.update(postRef, {'likedBy': likedBy, 'likes': likes + 1});
+        transaction.update(userRef, {
+          'likedPosts': FieldValue.arrayUnion([post.id])
+        });
+      }
+    });
 
     likedPosts.toggle(post.id);
     post.likes += isCurrentlyLiked ? -1 : 1;
     notifyListeners();
-
-    try {
-      await _firestore.runTransaction((transaction) async {
-        final postSnapshot = await transaction.get(postRef);
-        final userSnapshot = await transaction.get(userRef);
-
-        if (!postSnapshot.exists || !userSnapshot.exists) {
-          throw Exception("Document does not exist!");
-        }
-
-        final likedBy = List<String>.from(postSnapshot['likedBy']);
-        final likes = postSnapshot['likes'] as int;
-
-        if (isCurrentlyLiked) {
-          likedBy.remove(userId);
-          transaction.update(postRef, {'likedBy': likedBy, 'likes': likes - 1});
-          transaction.update(userRef, {
-            'likedPosts': FieldValue.arrayRemove([post.id])
-          });
-        } else {
-          likedBy.add(userId);
-          transaction.update(postRef, {'likedBy': likedBy, 'likes': likes + 1});
-          transaction.update(userRef, {
-            'likedPosts': FieldValue.arrayUnion([post.id])
-          });
-        }
-      });
-    } catch (e) {
-      likedPosts.toggle(post.id);
-      post.likes += isCurrentlyLiked ? 1 : -1;
-      notifyListeners();
-      debugPrint('Error handling like: $e');
-    }
   }
 
   Future<void> sharePost(String postId, String userId) async {
@@ -254,8 +306,8 @@ class UserModel with ChangeNotifier {
   }
 }
 
-extension on List<String> {
-  void toggle(String value) {
+extension ListExtension<T> on List<T> {
+  void toggle(T value) {
     if (contains(value)) {
       remove(value);
     } else {

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/post_type_page/professional_page.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
 
@@ -76,9 +77,9 @@ class _ProfileState extends State<Profile> {
                       fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                Text('Identifiant : ${userData['uniqueCode']}' ?? ''),
+                Text('Identifiant : ${userData['uniqueCode']}'),
                 const SizedBox(height: 16),
-                _buildFollowButton(widget.userId ?? ''),
+                _buildFollowButton(widget.userId),
               ],
             ),
           ),
@@ -94,8 +95,18 @@ class _ProfileState extends State<Profile> {
         bool isCurrentUser = userModel.userId == profileUserId;
 
         if (isCurrentUser) {
-          return const SizedBox
-              .shrink(); // Ne pas afficher le bouton pour le profil de l'utilisateur actuel
+          return ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const GeneralProfilePage()));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[700],
+            ),
+            child: const Text('Modifier mon profil'),
+          );
         }
 
         return ElevatedButton(
