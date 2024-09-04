@@ -68,7 +68,8 @@ class _ProfileState extends State<Profile> {
               children: [
                 CircleAvatar(
                   radius: 50,
-                  backgroundImage: NetworkImage(userData['profileUrl'] ?? ''),
+                  backgroundImage:
+                      NetworkImage(userData['image_profile'] ?? ''),
                 ),
                 const SizedBox(height: 16),
                 Text(

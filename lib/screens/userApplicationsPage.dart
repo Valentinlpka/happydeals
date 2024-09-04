@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/modify_application_page.dart';
+import 'package:happy/screens/post_type_page/job_search_profile_page.dart';
 import 'package:intl/intl.dart';
 
 class UserApplicationsPage extends StatelessWidget {
@@ -15,76 +16,101 @@ class UserApplicationsPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mes candidatures'),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('applications')
-            .where('applicantId', isEqualTo: user != null ? user.uid : '')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const JobSearchProfilePage(),
+                  ),
+                );
+              },
+              child: const Text('Gérer mon espace candidature'),
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('applications')
+                  .where('applicantId', isEqualTo: user != null ? user.uid : '')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          if (snapshot.hasError) {
-            return const Center(child: Text('Une erreur est survenue'));
-          }
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Une erreur est survenue'));
+                }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('Aucune candidature trouvée'));
-          }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                      child: Text('Aucune candidature trouvée'));
+                }
 
-          return ListView.builder(
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              var application = snapshot.data!.docs[index];
-              return FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('posts')
-                    .doc(application['jobOfferId'])
-                    .get(),
-                builder: (context, jobSnapshot) {
-                  if (jobSnapshot.connectionState == ConnectionState.waiting) {
-                    return const Card(
-                        child: ListTile(title: Text('Chargement...')));
-                  }
+                return ListView.builder(
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    var application = snapshot.data!.docs[index];
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('posts')
+                          .doc(application['jobOfferId'])
+                          .get(),
+                      builder: (context, jobSnapshot) {
+                        if (jobSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Card(
+                              child: ListTile(title: Text('Chargement...')));
+                        }
 
-                  if (jobSnapshot.hasError || !jobSnapshot.hasData) {
-                    return const Card(
-                        child: ListTile(title: Text('Erreur de chargement')));
-                  }
+                        if (jobSnapshot.hasError || !jobSnapshot.hasData) {
+                          return const Card(
+                              child: ListTile(
+                                  title: Text('Erreur de chargement')));
+                        }
 
-                  return Card(
-                    margin: const EdgeInsets.all(8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        maxRadius: 20,
-                        backgroundColor: Colors.blue[800],
-                        child: CircleAvatar(
-                          maxRadius: 18,
-                          backgroundImage:
-                              NetworkImage(application['companyLogo'] ?? ''),
-                        ),
-                      ),
-                      title: Text(application['jobTitle'] ?? 'Titre inconnu'),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (application['companyName']),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                        return Card(
+                          margin: const EdgeInsets.all(8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              maxRadius: 20,
+                              backgroundColor: Colors.blue[800],
+                              child: CircleAvatar(
+                                maxRadius: 18,
+                                backgroundImage: NetworkImage(
+                                    application['companyLogo'] ?? ''),
+                              ),
+                            ),
+                            title: Text(
+                                application['jobTitle'] ?? 'Titre inconnu'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (application['companyName']),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                    'Postuler le: ${_formatDate(application['appliedAt'])}'),
+                              ],
+                            ),
+                            onTap: () => _showBottomSheet(context, application),
                           ),
-                          Text(
-                              'Postuler le: ${_formatDate(application['appliedAt'])}'),
-                        ],
-                      ),
-                      onTap: () => _showBottomSheet(context, application),
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

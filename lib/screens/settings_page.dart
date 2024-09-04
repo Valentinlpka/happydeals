@@ -6,7 +6,7 @@ import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
-import 'package:happy/screens/post_type_page/professional_page.dart';
+import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/reservation_list_deal_express.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/screens/userApplicationsPage.dart';
@@ -56,7 +56,7 @@ class ParametrePage extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const GeneralProfilePage(),
+            builder: (context) => Profile(userId: user.userId),
           ),
         );
       },

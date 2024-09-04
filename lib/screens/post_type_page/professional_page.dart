@@ -20,7 +20,7 @@ class GeneralProfilePage extends StatefulWidget {
 class _GeneralProfilePageState extends State<GeneralProfilePage> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final _formKey = GlobalKey<FormState>();
-  File? _imageFile;
+  dynamic _imageFile;
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +143,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
         // Web platform
         final croppedFile = await ImageCropper().cropImage(
           sourcePath: image.path,
-          aspectRatio: const CropAspectRatio(ratioX: 10, ratioY: 10),
+          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
           uiSettings: [
             WebUiSettings(
               context: context,
@@ -153,7 +153,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
         if (croppedFile != null) {
           final bytes = await croppedFile.readAsBytes();
           setState(() {
-            _imageFile = File.fromRawPath(Uint8List.fromList(bytes));
+            _imageFile = Uint8List.fromList(bytes);
           });
           await _uploadImage();
         }
@@ -161,7 +161,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
         // Mobile platforms
         final croppedFile = await ImageCropper().cropImage(
           sourcePath: image.path,
-          aspectRatio: const CropAspectRatio(ratioX: 21, ratioY: 11),
+          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: 'Recadrer la photo',
@@ -194,7 +194,14 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
       final usersProvider = Provider.of<UserModel>(context, listen: false);
       String fileName = '${usersProvider.userId}_profile_picture.jpg';
       Reference storageRef = _storage.ref().child('profile_pictures/$fileName');
-      UploadTask uploadTask = storageRef.putFile(_imageFile!);
+
+      UploadTask uploadTask;
+      if (kIsWeb) {
+        uploadTask = storageRef.putData(_imageFile);
+      } else {
+        uploadTask = storageRef.putFile(_imageFile);
+      }
+
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
 
@@ -225,7 +232,9 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
           color: CupertinoColors.systemGrey5,
           image: _imageFile != null
               ? DecorationImage(
-                  image: FileImage(_imageFile!),
+                  image: kIsWeb
+                      ? MemoryImage(_imageFile)
+                      : FileImage(_imageFile) as ImageProvider,
                   fit: BoxFit.cover,
                 )
               : usersProvider.profileUrl.isNotEmpty
@@ -241,7 +250,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
             shape: BoxShape.circle,
           ),
           child: const Icon(
-            CupertinoIcons.camera,
+            Icons.camera,
             color: CupertinoColors.white,
             size: 40,
           ),
