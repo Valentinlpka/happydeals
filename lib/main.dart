@@ -62,6 +62,17 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: _buildTheme(context),
         home: const AuthWrapper(),
+        initialRoute: '/',
+        onGenerateRoute: (settings) {
+          if (settings.name?.startsWith('/company/') ?? false) {
+            final companyId = settings.name!.split('/').last;
+            return MaterialPageRoute(
+              builder: (context) => DetailsEntreprise(entrepriseId: companyId),
+              settings: settings,
+            );
+          }
+          return null;
+        },
         routes: {
           '/signup': (context) => const SignUpPage(),
           '/login': (context) => const Login(),
@@ -71,11 +82,6 @@ class MyApp extends StatelessWidget {
           '/payment-success': (context) => const PaymentSuccessScreen(),
           '/payment-cancel': (context) => const PaymentCancel(),
           '/order-confirmation': (context) => const PaymentSuccessScreen(),
-          '/company/:companyId': (context) {
-            final companyId =
-                ModalRoute.of(context)!.settings.arguments as String;
-            return DetailsEntreprise(entrepriseId: companyId);
-          },
         },
       ),
     );
