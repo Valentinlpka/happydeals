@@ -84,6 +84,89 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
 });
 
 // Création d'un paiement
+// exports.createPayment = functions.https.onCall(async (data, context) => {
+//   if (!context.auth) {
+//     throw new functions.https.HttpsError(
+//       "unauthenticated",
+//       "User must be authenticated."
+//     );
+//   }
+
+//   const {
+//     amount,
+//     currency,
+//     connectAccountId,
+//     userId,
+//     isWeb,
+//     successUrl,
+//     cancelUrl,
+//   } = data;
+
+//   try {
+//     let customer;
+//     const userDoc = await admin
+//       .firestore()
+//       .collection("users")
+//       .doc(userId)
+//       .get();
+//     const userData = userDoc.data();
+
+//     if (userData && userData.stripeCustomerId) {
+//       customer = await stripe.customers.retrieve(userData.stripeCustomerId);
+//     } else {
+//       customer = await stripe.customers.create({
+//         metadata: { firebaseUID: userId },
+//       });
+//       await admin.firestore().collection("users").doc(userId).update({
+//         stripeCustomerId: customer.id,
+//       });
+//     }
+
+// if (isWeb) {
+//   // Pour les paiements web, créer une session de paiement
+//   const session = await stripe.checkout.sessions.create({
+//     payment_method_types: ["card"],
+//     line_items: [
+//       {
+//         price_data: {
+//           currency: currency,
+//           unit_amount: amount,
+//           product_data: {
+//             name: "Achat sur Happy Deals",
+//           },
+//         },
+//         quantity: 1,
+//       },
+//     ],
+//     mode: "payment",
+//     success_url: successUrl,
+//     cancel_url: cancelUrl,
+//     customer: customer.id,
+//     payment_intent_data: {
+//       transfer_data: {
+//         destination: connectAccountId,
+//       },
+//     },
+//   });
+
+//   return { sessionId: session.id, url: session.url };
+// } else {
+//   // Pour les paiements mobiles, créer une intention de paiement
+//   const paymentIntent = await stripe.paymentIntents.create({
+//     amount,
+//     currency,
+//     customer: customer.id,
+//     transfer_data: { destination: connectAccountId },
+//   });
+
+//   return { clientSecret: paymentIntent.client_secret };
+// }
+//   } catch (error) {
+//     console.error("Error creating payment:", error);
+//     throw new functions.https.HttpsError("internal", error.message);
+//   }
+// });
+
 exports.createPayment = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -92,15 +175,8 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const {
-    amount,
-    currency,
-    connectAccountId,
-    userId,
-    isWeb,
-    successUrl,
-    cancelUrl,
-  } = data;
+  const { amount, currency, sellerId, userId, isWeb, successUrl, cancelUrl } =
+    data;
 
   try {
     let customer;
@@ -123,7 +199,6 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
     }
 
     if (isWeb) {
-      // Pour les paiements web, créer une session de paiement
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: [
@@ -142,21 +217,14 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
         success_url: successUrl,
         cancel_url: cancelUrl,
         customer: customer.id,
-        payment_intent_data: {
-          transfer_data: {
-            destination: connectAccountId,
-          },
-        },
       });
 
       return { sessionId: session.id, url: session.url };
     } else {
-      // Pour les paiements mobiles, créer une intention de paiement
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency,
         customer: customer.id,
-        transfer_data: { destination: connectAccountId },
       });
 
       return { clientSecret: paymentIntent.client_secret };
@@ -167,8 +235,8 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
   }
 });
 
-// Transfert automatique vers le compte du marchand
-exports.transferFunds = functions.firestore
+// Mettre à jour le plafond du pro
+exports.updateMerchantBalance = functions.firestore
   .document("orders/{orderId}")
   .onUpdate(async (change, context) => {
     const newValue = change.after.data();
@@ -181,17 +249,111 @@ exports.transferFunds = functions.firestore
       const merchantId = newValue.merchantId;
       const amount = newValue.amount;
 
-      const transfer = await stripe.transfers.create({
-        amount: Math.round(amount * 0.9), // 90% du montant (10% de frais)
-        currency: "eur",
-        destination: merchantId,
+      // Mise à jour du solde du commerçant
+      const merchantRef = admin.firestore().collection("users").doc(merchantId);
+      await merchantRef.update({
+        availableBalance: admin.firestore.FieldValue.increment(amount),
       });
 
-      return change.after.ref.update({ transferId: transfer.id });
+      // Enregistrement de la transaction
+      await admin.firestore().collection("transactions").add({
+        merchantId: merchantId,
+        orderId: context.params.orderId,
+        amount: amount,
+        type: "credit",
+        status: "pending",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     }
 
     return null;
   });
+
+//demande d'un paiement de la part d'un pro
+
+exports.requestPayout = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be authenticated."
+    );
+  }
+
+  const { amount } = data;
+  const merchantId = context.auth.uid;
+
+  try {
+    const merchantDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(merchantId)
+      .get();
+    const merchantData = merchantDoc.data();
+
+    if (amount > merchantData.availableBalance) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Montant demandé supérieur au solde disponible"
+      );
+    }
+
+    // Créer un transfert Stripe
+    const transfer = await stripe.transfers.create({
+      amount: amount,
+      currency: "eur",
+      destination: merchantData.stripeAccountId,
+    });
+
+    // Mettre à jour le solde du commerçant
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(merchantId)
+      .update({
+        availableBalance: admin.firestore.FieldValue.increment(-amount),
+      });
+
+    // Enregistrer la demande de virement
+    await admin.firestore().collection("payouts").add({
+      merchantId: merchantId,
+      amount: amount,
+      status: "completed",
+      stripeTransferId: transfer.id,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, transferId: transfer.id };
+  } catch (error) {
+    console.error("Error requesting payout:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+// Transfert automatique vers le compte du marchand
+// exports.transferFunds = functions.firestore
+//   .document("orders/{orderId}")
+//   .onUpdate(async (change, context) => {
+//     const newValue = change.after.data();
+//     const previousValue = change.before.data();
+
+//     if (
+//       newValue.status === "completed" &&
+//       previousValue.status !== "completed"
+//     ) {
+//       const merchantId = newValue.merchantId;
+//       const amount = newValue.amount;
+
+//       const transfer = await stripe.transfers.create({
+//         amount: Math.round(amount * 0.9), // 90% du montant (10% de frais)
+//         currency: "eur",
+//         destination: merchantId,
+//       });
+
+//       return change.after.ref.update({ transferId: transfer.id });
+//     }
+
+//     return null;
+//   });
 
 // functions/index.js
 exports.createProduct = functions.https.onCall(async (data, context) => {

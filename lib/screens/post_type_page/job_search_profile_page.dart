@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,46 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
   String? _cvFileName;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
+
+  final List<String> _industrySectors = [
+    'Agriculture et agroalimentaire',
+    'Architecture et urbanisme',
+    'Arts, culture et divertissement',
+    'Assurance',
+    'Automobile',
+    'Banque et services financiers',
+    'Bâtiment et travaux publics',
+    'Biotechnologie',
+    'Commerce de détail',
+    'Commerce de gros',
+    'Communication et médias',
+    'Conseil et audit',
+    'Défense et aérospatiale',
+    'Éducation et formation',
+    'Énergie et ressources naturelles',
+    'Environnement et développement durable',
+    'Fabrication et production',
+    'Hôtellerie et restauration',
+    'Immobilier',
+    'Industrie pharmaceutique',
+    "Informatique et technologies de l'information",
+    'Ingénierie',
+    'Logistique et transport',
+    'Marketing et publicité',
+    'Mode et textile',
+    'ONG et associations',
+    'Recherche et développement',
+    'Recrutement et ressources humaines',
+    'Santé et services sociaux',
+    'Sécurité et services de protection',
+    'Services aux entreprises',
+    'Services juridiques',
+    'Services publics et administration',
+    'Sport et loisirs',
+    'Télécommunications',
+    'Tourisme et voyages',
+    'Traduction et interprétation',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +91,13 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                         'Poste recherché',
                         userModel.desiredPosition,
                         (value) => userModel.desiredPosition = value),
+                    const SizedBox(height: 16),
+                    _buildDropdownField(
+                      'Secteur d\'activité',
+                      userModel.industrySector,
+                      (value) => userModel.industrySector = value!,
+                      _industrySectors,
+                    ),
                     const SizedBox(height: 16),
                     _buildCVUpload(userModel),
                     const SizedBox(height: 16),
@@ -94,6 +142,8 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                               'availability': userModel.availability,
                               'contractTypes': userModel.contractTypes,
                               'workingHours': userModel.workingHours,
+                              'industrySector': userModel.industrySector,
+                              'timestampProfile': Timestamp.now()
                             });
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(

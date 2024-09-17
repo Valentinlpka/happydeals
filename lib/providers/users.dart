@@ -23,11 +23,13 @@ class UserModel with ChangeNotifier {
   String _availability = '';
   List<String> _contractTypes = [];
   String _workingHours = '';
+  String _industrySector = '';
   List<String> likedPosts = [];
   List<String> likedCompanies = [];
   List<String> followedUsers = [];
 
   String get firstName => _firstName;
+  String get industrySector => _industrySector;
   String get lastName => _lastName;
   String get dailyQuote => _dailyQuote;
   String get profileUrl => _profileUrl;
@@ -44,6 +46,11 @@ class UserModel with ChangeNotifier {
 
   set firstName(String value) {
     _firstName = value;
+    notifyListeners();
+  }
+
+  set industrySector(String value) {
+    _industrySector = value;
     notifyListeners();
   }
 
@@ -149,6 +156,7 @@ class UserModel with ChangeNotifier {
       _availability = data['availability'] ?? '';
       _contractTypes = List<String>.from(data['contractTypes'] ?? []);
       _workingHours = data['workingHours'] ?? '';
+      _industrySector = data['industrySector'] ?? '';
 
       followedUsers = List<String>.from(data['followedUsers'] ?? []);
       likedPosts = List<String>.from(data['likedPosts'] ?? []);

@@ -65,7 +65,7 @@ class _PostWidgetState extends State<PostWidget> {
     return ListTile(
       leading: CircleAvatar(
         backgroundImage:
-            NetworkImage(widget.sharedByUserData?['profileUrl'] ?? ''),
+            NetworkImage(widget.sharedByUserData?['profileImageUrl'] ?? ''),
       ),
       title: Text(
           '${widget.sharedByUserData?['firstName']} ${widget.sharedByUserData?['lastName']} a partagé'),

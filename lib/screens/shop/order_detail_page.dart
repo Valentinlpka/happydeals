@@ -1,9 +1,18 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:happy/classes/order.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:universal_html/html.dart' as html;
 
 class OrderDetailPage extends StatefulWidget {
   final String orderId;
@@ -113,19 +122,166 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Widget _buildOrderHeader(Orders order) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Commande #${order.id.substring(0, 8)}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Commande #${order.id.substring(0, 8)}',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Passée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Passée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
-            style: TextStyle(color: Colors.grey[600]),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.download),
+            label: const Text('Facture'),
+            onPressed: () => _generateInvoice(order),
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.blue[800],
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _generateInvoice(Orders order) async {
+    final pdf = pw.Document();
+
+    // Chargez votre logo
+    final ByteData logoData = await rootBundle.load('assets/mon_logo.png');
+    final Uint8List logoBytes = logoData.buffer.asUint8List();
+
+    // Chargez la police personnalisée
+    final fontData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
+    final ttf = pw.Font.ttf(fontData);
+
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Image(pw.MemoryImage(logoBytes), width: 100),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text('FACTURE',
+                          style: pw.TextStyle(
+                              font: ttf,
+                              fontSize: 24,
+                              fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Commande #${order.id.substring(0, 8)}',
+                          style: pw.TextStyle(font: ttf)),
+                      pw.Text(
+                          'Date: ${DateFormat('dd/MM/yyyy').format(order.createdAt)}',
+                          style: pw.TextStyle(font: ttf)),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Text('Adresse de retrait:',
+                  style:
+                      pw.TextStyle(font: ttf, fontWeight: pw.FontWeight.bold)),
+              pw.Text(order.pickupAddress, style: pw.TextStyle(font: ttf)),
+              pw.SizedBox(height: 20),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
+                children: [
+                  pw.TableRow(
+                    decoration:
+                        const pw.BoxDecoration(color: PdfColors.grey300),
+                    children: [
+                      _buildTableCell('Article', ttf, isHeader: true),
+                      _buildTableCell('Quantité', ttf, isHeader: true),
+                      _buildTableCell('Prix unitaire HT', ttf, isHeader: true),
+                      _buildTableCell('Total HT', ttf, isHeader: true),
+                    ],
+                  ),
+                  ...order.items.map((item) {
+                    final priceHT =
+                        item.price / 1.2; // Supposons une TVA de 20%
+                    return pw.TableRow(
+                      children: [
+                        _buildTableCell(item.name, ttf),
+                        _buildTableCell(item.quantity.toString(), ttf),
+                        _buildTableCell('${priceHT.toStringAsFixed(2)}€', ttf),
+                        _buildTableCell(
+                            '${(priceHT * item.quantity).toStringAsFixed(2)}€',
+                            ttf),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                          'Total HT: ${(order.totalPrice / 1.2).toStringAsFixed(2)}€',
+                          style: pw.TextStyle(font: ttf)),
+                      pw.Text(
+                          'TVA (20%): ${(order.totalPrice - (order.totalPrice / 1.2)).toStringAsFixed(2)}€',
+                          style: pw.TextStyle(font: ttf)),
+                      pw.Text(
+                          'Total TTC: ${order.totalPrice.toStringAsFixed(2)}€',
+                          style: pw.TextStyle(
+                              font: ttf, fontWeight: pw.FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    final Uint8List pdfBytes = await pdf.save();
+
+    if (kIsWeb) {
+      // Pour le web
+      final blob = html.Blob([pdfBytes], 'application/pdf');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.window.open(url, "_blank");
+      html.Url.revokeObjectUrl(url);
+    } else {
+      // Pour mobile
+      final output = await getTemporaryDirectory();
+      final file =
+          File('${output.path}/facture_${order.id.substring(0, 8)}.pdf');
+      await file.writeAsBytes(pdfBytes);
+      OpenFile.open(file.path);
+    }
+  }
+
+  pw.Widget _buildTableCell(String text, pw.Font font,
+      {bool isHeader = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          font: font,
+          fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
       ),
     );
   }

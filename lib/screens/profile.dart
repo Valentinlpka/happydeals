@@ -66,11 +66,7 @@ class _ProfileState extends State<Profile> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundImage:
-                      NetworkImage(userData['image_profile'] ?? ''),
-                ),
+                _buildProfileImage(userData['image_profile']),
                 const SizedBox(height: 16),
                 Text(
                   '${userData['firstName']} ${userData['lastName']}',
@@ -86,6 +82,24 @@ class _ProfileState extends State<Profile> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildProfileImage(String? imageUrl) {
+    print(imageUrl);
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: Colors.grey[200],
+      child: ClipOval(
+        child: imageUrl != null && imageUrl.isNotEmpty
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                width: 100,
+                height: 100,
+              )
+            : const Icon(Icons.person, size: 50, color: Colors.grey),
+      ),
     );
   }
 

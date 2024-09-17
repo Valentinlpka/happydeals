@@ -13,28 +13,57 @@ class JobOffersPage extends StatefulWidget {
 class _JobOffersPageState extends State<JobOffersPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String _selectedLocation = 'Tous';
+  String _selectedSector = 'Tous';
+  String _selectedDate = 'Tous';
   List<String> _locations = ['Tous'];
+  List<String> _sectors = ['Tous'];
+  final List<String> _dates = [
+    'Tous',
+    'Aujourd\'hui',
+    'Cette semaine',
+    'Ce mois-ci'
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadLocations();
+    _loadFilters();
   }
 
-  Future<void> _loadLocations() async {
-    final locationsSnapshot = await _firestore
-        .collection('posts')
-        .where('type', isEqualTo: 'job_offer')
-        .get();
+  Future<void> _loadFilters() async {
+    try {
+      final jobOffersSnapshot = await _firestore
+          .collection('posts')
+          .where('type', isEqualTo: 'job_offer')
+          .get();
 
-    final locations = locationsSnapshot.docs
-        .map((doc) => doc['city'] as String)
-        .toSet()
-        .toList();
+      print("Nombre total de documents: ${jobOffersSnapshot.docs.length}");
 
-    setState(() {
-      _locations = ['Tous', ...locations];
-    });
+      Set<String> locationsSet = {};
+      Set<String> sectorsSet = {};
+
+      for (var doc in jobOffersSnapshot.docs) {
+        final data = doc.data();
+        print("Document data: $data"); // Debugging: print each document's data
+
+        if (data.containsKey('city') && data['city'] != null) {
+          locationsSet.add(data['city'] as String);
+        }
+        if (data.containsKey('sector') && data['sector'] != null) {
+          sectorsSet.add(data['sector'] as String);
+        }
+      }
+
+      print("Locations trouvées: $locationsSet");
+      print("Secteurs trouvés: $sectorsSet");
+
+      setState(() {
+        _locations = ['Tous', ...locationsSet];
+        _sectors = ['Tous', ...sectorsSet];
+      });
+    } catch (e) {
+      print("Erreur lors du chargement des filtres: $e");
+    }
   }
 
   @override
@@ -55,24 +84,71 @@ class _JobOffersPageState extends State<JobOffersPage> {
   }
 
   Widget _buildFilters() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: DropdownButton<String>(
-        value: _selectedLocation,
-        onChanged: (String? newValue) {
-          if (newValue != null) {
-            setState(() {
-              _selectedLocation = newValue;
-            });
-          }
-        },
-        items: _locations.map<DropdownMenuItem<String>>((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
-        }).toList(),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Filtres',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                  child: _buildDropdown('Ville', _selectedLocation, _locations,
+                      (value) => _selectedLocation = value)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildDropdown('Secteur', _selectedSector, _sectors,
+                      (value) => _selectedSector = value)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildDropdown('Date', _selectedDate, _dates,
+                      (value) => _selectedDate = value)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown(String label, String value, List<String> items,
+      Function(String) onChanged) {
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      value: value,
+      onChanged: (newValue) {
+        if (newValue != null) {
+          setState(() {
+            onChanged(newValue);
+          });
+        }
+      },
+      items: items.map<DropdownMenuItem<String>>((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value, style: const TextStyle(fontSize: 14)),
+        );
+      }).toList(),
     );
   }
 
@@ -89,7 +165,6 @@ class _JobOffersPageState extends State<JobOffersPage> {
         }
 
         if (snapshot.hasError) {
-          print(snapshot.error);
           return Center(child: Text('Erreur: ${snapshot.error}'));
         }
 
@@ -105,14 +180,13 @@ class _JobOffersPageState extends State<JobOffersPage> {
             final jobOfferData =
                 jobOffers[index].data() as Map<String, dynamic>;
 
-            if (_selectedLocation != 'Tous' &&
-                jobOfferData['city'] != _selectedLocation) {
+            if (!_matchesFilters(jobOfferData)) {
               return const SizedBox.shrink();
             }
 
             return FutureBuilder<DocumentSnapshot>(
               future: _firestore
-                  .collection('companies')
+                  .collection('companys')
                   .doc(jobOfferData['companyId'])
                   .get(),
               builder: (context, companySnapshot) {
@@ -137,5 +211,39 @@ class _JobOffersPageState extends State<JobOffersPage> {
         );
       },
     );
+  }
+
+  bool _matchesFilters(Map<String, dynamic> jobOfferData) {
+    if (_selectedLocation != 'Tous' &&
+        jobOfferData['city'] != _selectedLocation) {
+      return false;
+    }
+
+    if (_selectedSector != 'Tous' &&
+        jobOfferData['sector'] != _selectedSector) {
+      return false;
+    }
+
+    if (_selectedDate != 'Tous') {
+      final publishDate = (jobOfferData['timestamp'] as Timestamp).toDate();
+      final now = DateTime.now();
+
+      switch (_selectedDate) {
+        case 'Aujourd\'hui':
+          if (!DateUtils.isSameDay(publishDate, now)) return false;
+          break;
+        case 'Cette semaine':
+          final weekAgo = now.subtract(const Duration(days: 7));
+          if (publishDate.isBefore(weekAgo)) return false;
+          break;
+        case 'Ce mois-ci':
+          if (publishDate.month != now.month || publishDate.year != now.year) {
+            return false;
+          }
+          break;
+      }
+    }
+
+    return true;
   }
 }

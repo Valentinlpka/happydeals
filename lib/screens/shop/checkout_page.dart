@@ -45,14 +45,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw Exception("Cart is empty");
       }
 
-      final firstItem = cart.items.first;
-      final sellerId = firstItem.product.sellerId ?? '';
-
       final functions = FirebaseFunctions.instance;
       final result = await functions.httpsCallable('createPayment').call({
         'amount': (cart.total * 100).round(),
         'currency': 'eur',
-        'connectAccountId': sellerId,
         'userId': user.uid,
         'isWeb': kIsWeb,
         'successUrl':
@@ -62,7 +58,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       });
 
       if (kIsWeb) {
-        // Sauvegarde des données du panier pour le web
+        // Logique de paiement web (inchangée)
         final cartData = cart.items
             .map((item) => {
                   'productId': item.product.id,
@@ -78,7 +74,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 })
             .toList();
 
-        // Convertir les données en JSON et les stocker dans le localStorage
         final cartDataJson = json.encode(cartData);
         html.window.localStorage['cartData'] = cartDataJson;
         html.window.localStorage['cartTotal'] = cart.total.toString();
@@ -132,14 +127,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ))
           .toList(),
       totalPrice: cart.total,
-      status: 'paid',
+      status:
+          'paid', // Le statut reste 'paid' car le paiement a été effectué sur le compte de la plateforme
       createdAt: DateTime.now(),
       pickupAddress: address ?? "",
     ));
 
     // Créer une notification pour le vendeur
     await _notificationService.createNotification(NotificationModel(
-      id: '', // Firestore générera automatiquement l'ID
+      id: '',
       userId: cart.items.first.product.entrepriseId,
       type: 'new_order',
       message:
