@@ -246,24 +246,53 @@ exports.updateMerchantBalance = functions.firestore
       newValue.status === "completed" &&
       previousValue.status !== "completed"
     ) {
-      const merchantId = newValue.merchantId;
-      const amount = newValue.amount;
+      const sellerId = newValue.sellerId;
+      const amount = newValue.totalPrice;
 
-      // Mise à jour du solde du commerçant
-      const merchantRef = admin.firestore().collection("users").doc(merchantId);
-      await merchantRef.update({
-        availableBalance: admin.firestore.FieldValue.increment(amount),
-      });
+      try {
+        // Recherche de l'entreprise correspondante dans la collection "Companys"
+        const companySnapshot = await admin
+          .firestore()
+          .collection("companys")
+          .where("sellerId", "==", sellerId)
+          .limit(1)
+          .get();
 
-      // Enregistrement de la transaction
-      await admin.firestore().collection("transactions").add({
-        merchantId: merchantId,
-        orderId: context.params.orderId,
-        amount: amount,
-        type: "credit",
-        status: "pending",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+        if (companySnapshot.empty) {
+          console.error(
+            `Aucune entreprise trouvée pour le sellerId: ${sellerId}`
+          );
+          return null;
+        }
+
+        const companyDoc = companySnapshot.docs[0];
+        const companyId = companyDoc.id;
+
+        // Mise à jour du solde de l'entreprise
+        await admin
+          .firestore()
+          .collection("companys")
+          .doc(companyId)
+          .update({
+            availableBalance: admin.firestore.FieldValue.increment(amount),
+          });
+
+        // Enregistrement de la transaction
+        await admin.firestore().collection("transactions").add({
+          companyId: companyId,
+          orderId: context.params.orderId,
+          amount: amount,
+          type: "credit",
+          status: "pending",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        console.log(
+          `Solde mis à jour pour l'entreprise: ${companyId}, Montant: ${amount}`
+        );
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour du solde:", error);
+      }
     }
 
     return null;
@@ -275,47 +304,79 @@ exports.requestPayout = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
       "unauthenticated",
-      "User must be authenticated."
+      "L'utilisateur doit être authentifié."
     );
   }
 
-  const { amount } = data;
-  const merchantId = context.auth.uid;
+  const { amount, companyId } = data;
+  const userUid = context.auth.uid;
 
   try {
-    const merchantDoc = await admin
-      .firestore()
-      .collection("users")
-      .doc(merchantId)
-      .get();
-    const merchantData = merchantDoc.data();
+    const balance = await stripe.balance.retrieve();
+    const availableBalance =
+      balance.available.find((bal) => bal.currency === "eur")?.amount || 0;
+    console.log(availableBalance);
 
-    if (amount > merchantData.availableBalance) {
+    // Vérifier que l'utilisateur est bien associé à l'entreprise
+    const companyDoc = await admin
+      .firestore()
+      .collection("companys")
+      .doc(companyId)
+      .get();
+
+    if (!companyDoc.exists) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Entreprise non trouvée"
+      );
+    }
+
+    const companyData = companyDoc.data();
+
+    // Vérifier que l'utilisateur est bien le propriétaire de l'entreprise
+    if (companyDoc.id !== userUid) {
+      console.log(companyData.userUid);
+      console.log(userUid);
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Vous n'avez pas les droits pour cette entreprise"
+      );
+    }
+
+    if (amount > companyData.availableBalance) {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "Montant demandé supérieur au solde disponible"
       );
     }
 
+    // Vérifier que le compte Stripe est bien configuré
+    if (!companyData.sellerId) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Le compte Stripe de l'entreprise n'est pas configuré"
+      );
+    }
+
     // Créer un transfert Stripe
     const transfer = await stripe.transfers.create({
-      amount: amount,
+      amount: Math.round(amount * 100), // Convertir en centimes
       currency: "eur",
-      destination: merchantData.stripeAccountId,
+      destination: companyData.sellerId,
     });
 
-    // Mettre à jour le solde du commerçant
+    // Mettre à jour le solde de l'entreprise
     await admin
       .firestore()
-      .collection("users")
-      .doc(merchantId)
+      .collection("companys")
+      .doc(companyId)
       .update({
         availableBalance: admin.firestore.FieldValue.increment(-amount),
       });
 
     // Enregistrer la demande de virement
     await admin.firestore().collection("payouts").add({
-      merchantId: merchantId,
+      companyId: companyId,
       amount: amount,
       status: "completed",
       stripeTransferId: transfer.id,
@@ -324,7 +385,7 @@ exports.requestPayout = functions.https.onCall(async (data, context) => {
 
     return { success: true, transferId: transfer.id };
   } catch (error) {
-    console.error("Error requesting payout:", error);
+    console.error("Erreur lors de la demande de virement:", error);
     throw new functions.https.HttpsError("internal", error.message);
   }
 });

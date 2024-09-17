@@ -12,6 +12,7 @@ import 'package:happy/screens/auth/auth_page.dart';
 import 'package:happy/screens/auth/complete_profile.dart';
 import 'package:happy/screens/auth/login_page.dart';
 import 'package:happy/screens/auth/register_page.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/main_container.dart';
 import 'package:happy/screens/payment_cancel.dart';
 import 'package:happy/screens/payment_success.dart';
@@ -70,6 +71,11 @@ class MyApp extends StatelessWidget {
           '/payment-success': (context) => const PaymentSuccessScreen(),
           '/payment-cancel': (context) => const PaymentCancel(),
           '/order-confirmation': (context) => const PaymentSuccessScreen(),
+          '/company/:companyId': (context) {
+            final companyId =
+                ModalRoute.of(context)!.settings.arguments as String;
+            return DetailsEntreprise(entrepriseId: companyId);
+          },
         },
       ),
     );
