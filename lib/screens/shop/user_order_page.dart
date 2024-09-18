@@ -150,7 +150,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
         text = "Prête à être retirée";
         color = Colors.green;
         break;
-      case 'terminée':
+      case 'completed':
         text = "Terminée";
         color = Colors.grey;
         break;

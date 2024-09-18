@@ -701,7 +701,7 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
       "payée",
       "en préparation",
       "prête à être retirée",
-      "terminée",
+      "completed",
     ];
     if (!validStatuses.includes(newStatus)) {
       throw new functions.https.HttpsError(
@@ -771,7 +771,7 @@ exports.confirmOrderPickup = functions.https.onCall(async (data, context) => {
 
     // Confirmation de la réception
     await orderRef.update({
-      status: "terminée",
+      status: "completed",
       completedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
