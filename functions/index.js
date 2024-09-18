@@ -236,6 +236,7 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
 });
 
 // Mettre à jour le plafond du pro
+
 exports.updateMerchantBalance = functions.firestore
   .document("orders/{orderId}")
   .onUpdate(async (change, context) => {
@@ -247,10 +248,26 @@ exports.updateMerchantBalance = functions.firestore
       previousValue.status !== "completed"
     ) {
       const sellerId = newValue.sellerId;
-      const amount = newValue.totalPrice;
+      const totalAmount = parseFloat(newValue.totalPrice);
+
+      if (isNaN(totalAmount) || totalAmount <= 0) {
+        console.error(
+          `Montant total invalide pour la commande ${context.params.orderId}: ${totalPrice}`
+        );
+        return null;
+      }
+
+      const feePercentage = 7.5;
+      const feeAmount = (totalPrice * feePercentage) / 100;
+      const amountAfterFee = totalPrice - feeAmount;
+
+      console.log(`Traitement de la commande ${context.params.orderId}:`);
+      console.log(`  Total: ${totalPrice}`);
+      console.log(`  Frais: ${feeAmount}`);
+      console.log(`  Montant après frais: ${amountAfterFee}`);
 
       try {
-        // Recherche de l'entreprise correspondante dans la collection "Companys"
+        // Recherche de l'entreprise correspondante dans la collection "companys"
         const companySnapshot = await admin
           .firestore()
           .collection("companys")
@@ -268,36 +285,40 @@ exports.updateMerchantBalance = functions.firestore
         const companyDoc = companySnapshot.docs[0];
         const companyId = companyDoc.id;
 
-        // Mise à jour du solde de l'entreprise
+        // Mise à jour des soldes de l'entreprise
         await admin
           .firestore()
           .collection("companys")
           .doc(companyId)
           .update({
-            availableBalance: admin.firestore.FieldValue.increment(amount),
+            totalGain: admin.firestore.FieldValue.increment(totalPrice),
+            totalFees: admin.firestore.FieldValue.increment(feeAmount),
+            availableBalance:
+              admin.firestore.FieldValue.increment(amountAfterFee),
           });
 
         // Enregistrement de la transaction
         await admin.firestore().collection("transactions").add({
           companyId: companyId,
           orderId: context.params.orderId,
-          amount: amount,
+          totalAmount: totalPrice,
+          feeAmount: feeAmount,
+          amountAfterFee: amountAfterFee,
           type: "credit",
-          status: "pending",
+          status: "completed",
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
         console.log(
-          `Solde mis à jour pour l'entreprise: ${companyId}, Montant: ${amount}`
+          `Solde mis à jour pour l'entreprise: ${companyId}, Montant total: ${totalAmount}, Montant après frais: ${amountAfterFee}`
         );
       } catch (error) {
         console.error("Erreur lors de la mise à jour du solde:", error);
+        console.error("Détails de l'erreur:", JSON.stringify(error));
       }
     }
-
     return null;
   });
-
 //demande d'un paiement de la part d'un pro
 
 exports.requestPayout = functions.https.onCall(async (data, context) => {
@@ -312,11 +333,6 @@ exports.requestPayout = functions.https.onCall(async (data, context) => {
   const userUid = context.auth.uid;
 
   try {
-    const balance = await stripe.balance.retrieve();
-    const availableBalance =
-      balance.available.find((bal) => bal.currency === "eur")?.amount || 0;
-    console.log(availableBalance);
-
     // Vérifier que l'utilisateur est bien associé à l'entreprise
     const companyDoc = await admin
       .firestore()
@@ -335,14 +351,13 @@ exports.requestPayout = functions.https.onCall(async (data, context) => {
 
     // Vérifier que l'utilisateur est bien le propriétaire de l'entreprise
     if (companyDoc.id !== userUid) {
-      console.log(companyData.userUid);
-      console.log(userUid);
       throw new functions.https.HttpsError(
         "permission-denied",
         "Vous n'avez pas les droits pour cette entreprise"
       );
     }
 
+    // Vérifier que le montant demandé ne dépasse pas le solde disponible
     if (amount > companyData.availableBalance) {
       throw new functions.https.HttpsError(
         "invalid-argument",

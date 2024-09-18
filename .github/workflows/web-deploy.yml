@@ -17,7 +17,7 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       - name: Build Flutter Web
-        run: flutter build web --web-renderer html
+        run: flutter build web
       - name: Update index.html for deployment
         run: |
           sed -i 's/<base href="\/happydeals\/">/<base href="\/">/' build/web/index.html
