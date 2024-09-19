@@ -242,6 +242,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                 name: item.product.name,
                 quantity: item.quantity,
                 price: item.product.price,
+                tva: item.product.tva,
               ))
           .toList(),
       totalPrice: cart.total,

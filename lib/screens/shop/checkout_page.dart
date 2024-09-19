@@ -124,6 +124,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 image: item.product.imageUrl[0],
                 quantity: item.quantity,
                 price: item.product.price,
+                tva: item.product.tva,
               ))
           .toList(),
       totalPrice: cart.total,

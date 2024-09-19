@@ -47,6 +47,7 @@ class OrderItem {
   final String image;
   final String name;
   final int quantity;
+  final double tva;
   final double price;
 
   OrderItem({
@@ -55,6 +56,7 @@ class OrderItem {
     required this.name,
     required this.quantity,
     required this.price,
+    required this.tva,
   });
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
@@ -64,6 +66,7 @@ class OrderItem {
       name: map['name'] ?? '',
       quantity: map['quantity'] ?? 0,
       price: (map['price'] ?? 0).toDouble(),
+      tva: (map['tva'] ?? 0).toDouble(),
     );
   }
 
@@ -74,6 +77,7 @@ class OrderItem {
       'name': name,
       'quantity': quantity,
       'price': price,
+      'tva': tva,
     };
   }
 }
