@@ -187,6 +187,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     ));
 
     cart.clearCart();
+    _clearLocalStorage();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

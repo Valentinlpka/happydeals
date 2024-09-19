@@ -252,17 +252,17 @@ exports.updateMerchantBalance = functions.firestore
 
       if (isNaN(totalAmount) || totalAmount <= 0) {
         console.error(
-          `Montant total invalide pour la commande ${context.params.orderId}: ${totalPrice}`
+          `Montant total invalide pour la commande ${context.params.orderId}: ${totalAmount}`
         );
         return null;
       }
 
       const feePercentage = 7.5;
-      const feeAmount = (totalPrice * feePercentage) / 100;
-      const amountAfterFee = totalPrice - feeAmount;
+      const feeAmount = (totalAmount * feePercentage) / 100;
+      const amountAfterFee = totalAmount - feeAmount;
 
       console.log(`Traitement de la commande ${context.params.orderId}:`);
-      console.log(`  Total: ${totalPrice}`);
+      console.log(`  Total: ${totalAmount}`);
       console.log(`  Frais: ${feeAmount}`);
       console.log(`  Montant après frais: ${amountAfterFee}`);
 
@@ -291,7 +291,7 @@ exports.updateMerchantBalance = functions.firestore
           .collection("companys")
           .doc(companyId)
           .update({
-            totalGain: admin.firestore.FieldValue.increment(totalPrice),
+            totalGain: admin.firestore.FieldValue.increment(totalAmount),
             totalFees: admin.firestore.FieldValue.increment(feeAmount),
             availableBalance:
               admin.firestore.FieldValue.increment(amountAfterFee),
@@ -301,7 +301,7 @@ exports.updateMerchantBalance = functions.firestore
         await admin.firestore().collection("transactions").add({
           companyId: companyId,
           orderId: context.params.orderId,
-          totalAmount: totalPrice,
+          totalAmount: totalAmount,
           feeAmount: feeAmount,
           amountAfterFee: amountAfterFee,
           type: "credit",
@@ -520,6 +520,7 @@ exports.createProduct = functions.https.onCall(async (data, context) => {
         name: data.name,
         description: data.description || "",
         price: data.price,
+        tva: data.tva,
         stock: data.stock,
         images: data.images,
         isActive: data.isActive,
