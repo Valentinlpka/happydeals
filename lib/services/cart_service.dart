@@ -18,6 +18,7 @@ class CartItem {
       'name': product.name,
       'images': product.imageUrl[0],
       'price': product.price,
+      'tva': product.tva,
       'quantity': quantity,
     };
   }
