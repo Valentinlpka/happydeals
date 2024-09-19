@@ -44,6 +44,7 @@ class CartService extends ChangeNotifier {
                   id: item['productId'],
                   name: item['name'],
                   price: item['price'],
+                  tva: item['tva'],
                   imageUrl: List<String>.from(item['imageUrl']),
                   sellerId: item['sellerId'],
                   entrepriseId: item['entrepriseId'],

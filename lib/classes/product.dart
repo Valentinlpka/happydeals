@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Product {
   final String id;
   final String name;
+  final double tva;
   final String description;
   final double price;
   final List<String> imageUrl;
@@ -16,6 +17,7 @@ class Product {
     required this.name,
     required this.description,
     required this.price,
+    required this.tva,
     required this.imageUrl,
     required this.sellerId,
     required this.entrepriseId,
@@ -29,6 +31,7 @@ class Product {
       name: map['name'] ?? '',
       description: map['description'] ?? '',
       price: (map['price'] ?? 0).toDouble(),
+      tva: (map['tva'] ?? 0).toDouble(),
       imageUrl: List<String>.from(map['images'] ?? []),
       sellerId: map['merchantId'] ?? '',
       entrepriseId: map['sellerId'] ?? '',
@@ -44,6 +47,7 @@ class Product {
       name: data['name'] ?? '',
       description: data['description'] ?? '',
       price: (data['price'] ?? 0).toDouble(),
+      tva: (data['tva'] ?? 0).toDouble(),
       imageUrl: List<String>.from(data['images'] ?? []),
       sellerId: data['merchantId'] ?? '',
       entrepriseId: data['sellerId'] ?? '',
@@ -62,6 +66,7 @@ class Product {
       'name': name,
       'description': description,
       'price': price,
+      'tva': tva,
       'images': imageUrl,
       'merchantId': sellerId,
       'entrepriseId': entrepriseId,
