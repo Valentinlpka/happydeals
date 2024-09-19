@@ -213,7 +213,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   ),
                   ...order.items.map((item) {
                     final priceHT =
-                        item.price / 1.2; // Supposons une TVA de 20%
+                        item.price / (1 + (order.items[0].tva / 100));
                     return pw.TableRow(
                       children: [
                         _buildTableCell(item.name, ttf),
@@ -235,10 +235,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Text(
-                          'Total HT: ${(order.totalPrice / 1.2).toStringAsFixed(2)}€',
+                          'Total HT: ${(order.totalPrice / (1 + (order.items[0].tva / 100))).toStringAsFixed(2)}€',
                           style: pw.TextStyle(font: ttf)),
                       pw.Text(
-                          'TVA (20%): ${(order.totalPrice - (order.totalPrice / 1.2)).toStringAsFixed(2)}€',
+                          'TVA (${order.items[0].tva} %): ${(order.totalPrice - (order.totalPrice / (1 + (order.items[0].tva / 100)))).toStringAsFixed(2)}€',
                           style: pw.TextStyle(font: ttf)),
                       pw.Text(
                           'Total TTC: ${order.totalPrice.toStringAsFixed(2)}€',
