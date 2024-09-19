@@ -157,20 +157,40 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Future<void> _generateInvoice(Orders order) async {
     final pdf = pw.Document();
 
-    // Chargez votre logo
+    // Charger le logo
     final ByteData logoData = await rootBundle.load('assets/mon_logo.png');
     final Uint8List logoBytes = logoData.buffer.asUint8List();
 
-    // Chargez la police personnalisée
+    // Charger la police
     final fontData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
     final ttf = pw.Font.ttf(fontData);
 
+    // Informations de la société (à remplacer par vos vraies informations)
+    final companyInfo = {
+      'name': 'Votre Société',
+      'address': '123 Rue Principale, 75000 Paris',
+      'phone': '+33 1 23 45 67 89',
+      'email': 'contact@votresociete.com',
+      'website': 'www.votresociete.com',
+      'siret': '123 456 789 00012',
+    };
+
+    // Fonction pour créer un style de texte
+    pw.TextStyle textStyle(
+            {double size = 10,
+            pw.FontWeight weight = pw.FontWeight.normal,
+            PdfColor color = PdfColors.black}) =>
+        pw.TextStyle(
+            font: ttf, fontSize: size, fontWeight: weight, color: color);
+
     pdf.addPage(
       pw.Page(
+        pageFormat: PdfPageFormat.a4,
         build: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
+              // En-tête
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
@@ -179,25 +199,51 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Text('FACTURE',
-                          style: pw.TextStyle(
-                              font: ttf,
-                              fontSize: 24,
-                              fontWeight: pw.FontWeight.bold)),
-                      pw.Text('Commande #${order.id.substring(0, 8)}',
-                          style: pw.TextStyle(font: ttf)),
+                          style:
+                              textStyle(size: 24, weight: pw.FontWeight.bold)),
+                      pw.Text('N° ${order.id.substring(0, 8)}',
+                          style: textStyle()),
                       pw.Text(
                           'Date: ${DateFormat('dd/MM/yyyy').format(order.createdAt)}',
-                          style: pw.TextStyle(font: ttf)),
+                          style: textStyle()),
                     ],
                   ),
                 ],
               ),
               pw.SizedBox(height: 20),
-              pw.Text('Adresse de retrait:',
-                  style:
-                      pw.TextStyle(font: ttf, fontWeight: pw.FontWeight.bold)),
-              pw.Text(order.pickupAddress, style: pw.TextStyle(font: ttf)),
+
+              // Informations de la société
+              pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                decoration: const pw.BoxDecoration(
+                  color: PdfColors.grey200,
+                  borderRadius: pw.BorderRadius.all(pw.Radius.circular(5)),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(companyInfo['name']!,
+                        style: textStyle(weight: pw.FontWeight.bold)),
+                    pw.Text(companyInfo['address']!, style: textStyle()),
+                    pw.Text('Tél: ${companyInfo['phone']}', style: textStyle()),
+                    pw.Text('Email: ${companyInfo['email']}',
+                        style: textStyle()),
+                    pw.Text('Site web: ${companyInfo['website']}',
+                        style: textStyle()),
+                    pw.Text('SIRET: ${companyInfo['siret']}',
+                        style: textStyle()),
+                  ],
+                ),
+              ),
               pw.SizedBox(height: 20),
+
+              // Adresse de retrait
+              pw.Text('Adresse de retrait:',
+                  style: textStyle(weight: pw.FontWeight.bold)),
+              pw.Text(order.pickupAddress, style: textStyle()),
+              pw.SizedBox(height: 20),
+
+              // Tableau des articles
               pw.Table(
                 border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
                 children: [
@@ -205,29 +251,44 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     decoration:
                         const pw.BoxDecoration(color: PdfColors.grey300),
                     children: [
-                      _buildTableCell('Article', ttf, isHeader: true),
-                      _buildTableCell('Quantité', ttf, isHeader: true),
-                      _buildTableCell('Prix unitaire HT', ttf, isHeader: true),
-                      _buildTableCell('Total HT', ttf, isHeader: true),
+                      _buildTableCell(
+                          'Article', textStyle(weight: pw.FontWeight.bold)),
+                      _buildTableCell(
+                          'Quantité', textStyle(weight: pw.FontWeight.bold)),
+                      _buildTableCell('Prix unitaire HT',
+                          textStyle(weight: pw.FontWeight.bold)),
+                      _buildTableCell(
+                          'TVA', textStyle(weight: pw.FontWeight.bold)),
+                      _buildTableCell(
+                          'Total TTC', textStyle(weight: pw.FontWeight.bold)),
                     ],
                   ),
                   ...order.items.map((item) {
-                    final priceHT =
-                        item.price / (1 + (order.items[0].tva / 100));
+                    final priceHT = item.price / (1 + (item.tva / 100));
                     return pw.TableRow(
                       children: [
-                        _buildTableCell(item.name, ttf),
-                        _buildTableCell(item.quantity.toString(), ttf),
-                        _buildTableCell('${priceHT.toStringAsFixed(2)}€', ttf),
+                        _buildTableCell(item.name, textStyle()),
+                        _buildTableCell(item.quantity.toString(), textStyle()),
                         _buildTableCell(
-                            '${(priceHT * item.quantity).toStringAsFixed(2)}€',
-                            ttf),
+                            '${priceHT.toStringAsFixed(2)}€', textStyle()),
+                        _buildTableCell('${item.tva}%', textStyle()),
+                        _buildTableCell(
+                            '${(item.price * item.quantity).toStringAsFixed(2)}€',
+                            textStyle()),
                       ],
                     );
                   }),
                 ],
               ),
               pw.SizedBox(height: 20),
+
+              // Récapitulatif TVA
+              pw.Text('Récapitulatif TVA:',
+                  style: textStyle(weight: pw.FontWeight.bold)),
+              ..._generateVATSummary(order.items),
+              pw.SizedBox(height: 20),
+
+              // Total
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.end,
                 children: [
@@ -235,15 +296,15 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Text(
-                          'Total HT: ${(order.totalPrice / (1 + (order.items[0].tva / 100))).toStringAsFixed(2)}€',
-                          style: pw.TextStyle(font: ttf)),
+                          'Total HT: ${_calculateTotalHT(order.items).toStringAsFixed(2)}€',
+                          style: textStyle()),
                       pw.Text(
-                          'TVA (${order.items[0].tva} %): ${(order.totalPrice - (order.totalPrice / (1 + (order.items[0].tva / 100)))).toStringAsFixed(2)}€',
-                          style: pw.TextStyle(font: ttf)),
+                          'Total TVA: ${_calculateTotalVAT(order.items).toStringAsFixed(2)}€',
+                          style: textStyle()),
                       pw.Text(
                           'Total TTC: ${order.totalPrice.toStringAsFixed(2)}€',
-                          style: pw.TextStyle(
-                              font: ttf, fontWeight: pw.FontWeight.bold)),
+                          style:
+                              textStyle(weight: pw.FontWeight.bold, size: 12)),
                     ],
                   ),
                 ],
@@ -285,18 +346,40 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  pw.Widget _buildTableCell(String text, pw.Font font,
-      {bool isHeader = false}) {
+  pw.Widget _buildTableCell(String text, pw.TextStyle style) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.all(8),
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          font: font,
-          fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
-        ),
-      ),
+      padding: const pw.EdgeInsets.all(5),
+      child: pw.Text(text, style: style),
     );
+  }
+
+  List<pw.Widget> _generateVATSummary(List<OrderItem> items) {
+    Map<double, double> vatSummary = {};
+    for (var item in items) {
+      vatSummary[item.tva] = (vatSummary[item.tva] ?? 0) +
+          (item.price * item.quantity) -
+          ((item.price / (1 + (item.tva / 100))) * item.quantity);
+    }
+
+    return vatSummary.entries.map((entry) {
+      return pw.Text('TVA ${entry.key}% : ${entry.value.toStringAsFixed(2)}€');
+    }).toList();
+  }
+
+  double _calculateTotalHT(List<OrderItem> items) {
+    return items.fold(
+        0,
+        (sum, item) =>
+            sum + ((item.price / (1 + (item.tva / 100))) * item.quantity));
+  }
+
+  double _calculateTotalVAT(List<OrderItem> items) {
+    return items.fold(
+        0,
+        (sum, item) =>
+            sum +
+            (item.price * item.quantity) -
+            ((item.price / (1 + (item.tva / 100))) * item.quantity));
   }
 
   Widget _buildOrderStatus(Orders order) {
