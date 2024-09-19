@@ -1,18 +1,13 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:happy/classes/order.dart';
+import 'package:happy/screens/facture_page.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:universal_html/html.dart' as html;
 
 class OrderDetailPage extends StatefulWidget {
   final String orderId;
@@ -317,33 +312,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
     final Uint8List pdfBytes = await pdf.save();
 
-    if (kIsWeb) {
-      // Pour le web
-      final blob = html.Blob([pdfBytes], 'application/pdf');
-      final url = html.Url.createObjectUrlFromBlob(blob);
+    if (!mounted) return;
 
-      // Créer un élément <a> invisible
-      final anchor = html.document.createElement('a') as html.AnchorElement
-        ..href = url
-        ..style.display = 'none'
-        ..download = 'facture_${order.id.substring(0, 8)}.pdf';
-
-      html.document.body!.children.add(anchor);
-
-      // Déclencher le téléchargement
-      anchor.click();
-
-      // Nettoyer
-      html.document.body!.children.remove(anchor);
-      html.Url.revokeObjectUrl(url);
-    } else {
-      // Pour mobile
-      final output = await getTemporaryDirectory();
-      final file =
-          File('${output.path}/facture_${order.id.substring(0, 8)}.pdf');
-      await file.writeAsBytes(pdfBytes);
-      OpenFile.open(file.path);
-    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => InvoiceViewerPage(
+          pdfBytes: pdfBytes,
+          invoiceId: order.id.substring(0, 8),
+        ),
+      ),
+    );
   }
 
   pw.Widget _buildTableCell(String text, pw.TextStyle style) {
@@ -362,7 +340,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
 
     return vatSummary.entries.map((entry) {
-      return pw.Text('TVA ${entry.key}% : ${entry.value.toStringAsFixed(2)}€');
+      return pw.Text('TVA ${entry.key}% : ${entry.value.toStringAsFixed(2)} €');
     }).toList();
   }
 
