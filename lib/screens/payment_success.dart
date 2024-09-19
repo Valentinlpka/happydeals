@@ -169,6 +169,22 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       print('Produit: ${item.product.name}, Quantité: ${item.quantity}');
     }
 
+    // Vérification supplémentaire des quantités
+    bool quantitiesCorrect = cart.items.every((item) {
+      final localStorageQuantity =
+          _getQuantityFromLocalStorage(item.product.id);
+      print(
+          'Produit: ${item.product.name}, Quantité dans le panier: ${item.quantity}, Quantité dans localStorage: $localStorageQuantity');
+      return item.quantity == localStorageQuantity;
+    });
+
+    if (!quantitiesCorrect) {
+      print(
+          'Erreur: Les quantités dans le panier ne correspondent pas à celles du localStorage');
+      // Correction des quantités si nécessaire
+      _correctCartQuantities(cart);
+    }
+
     final orderId = await _orderService.createOrder(Orders(
       id: '',
       userId: user.uid,
@@ -189,6 +205,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     ));
 
     print('Commande créée avec l\'ID: $orderId');
+    print('Détails de la commande:');
+    final createdOrder = await _orderService.getOrder(orderId);
+    for (var item in createdOrder.items) {
+      print('Produit: ${item.name}, Quantité: ${item.quantity}');
+    }
 
     cart.clearCart();
 
@@ -197,6 +218,39 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       MaterialPageRoute(
           builder: (context) => OrderDetailPage(orderId: orderId)),
     );
+  }
+
+  int _getQuantityFromLocalStorage(String productId) {
+    final cartDataJson = html.window.localStorage['cartData'];
+    if (cartDataJson != null) {
+      final cartData = json.decode(cartDataJson) as List<dynamic>;
+      final item = cartData.firstWhere((item) => item['productId'] == productId,
+          orElse: () => null);
+      if (item != null) {
+        return item['quantity'] as int? ?? 0;
+      }
+    }
+    return 0;
+  }
+
+  void _correctCartQuantities(CartService cart) {
+    final cartDataJson = html.window.localStorage['cartData'];
+    if (cartDataJson != null) {
+      final cartData = json.decode(cartDataJson) as List<dynamic>;
+      for (var item in cart.items) {
+        final localStorageItem = cartData.firstWhere(
+            (element) => element['productId'] == item.product.id,
+            orElse: () => null);
+        if (localStorageItem != null) {
+          final correctQuantity = localStorageItem['quantity'] as int? ?? 1;
+          if (item.quantity != correctQuantity) {
+            print(
+                'Correction de la quantité pour ${item.product.name} de ${item.quantity} à $correctQuantity');
+            item.quantity = correctQuantity;
+          }
+        }
+      }
+    }
   }
 
   Future<String?> _fetchCompanyAddress(String entrepriseId) async {
