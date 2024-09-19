@@ -117,11 +117,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         print('Produit créé: ${product.name}');
 
         final quantity = item['quantity'] as int? ?? 1;
-        for (int i = 0; i < quantity; i++) {
-          cart.addToCart(product);
-          print(
-              'Produit ajouté au panier: ${product.name}, quantité: ${i + 1}');
-        }
+
+        await cart.addToCartWithQuantity(product, quantity);
       } catch (e) {
         print(
             'Erreur lors de la reconstruction du produit ${item['productId']}: $e');

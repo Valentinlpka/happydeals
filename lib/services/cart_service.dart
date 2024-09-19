@@ -121,6 +121,33 @@ class CartService extends ChangeNotifier {
     }
   }
 
+  Future<void> addToCartWithQuantity(Product product, int quantity) async {
+    if (_currentSellerId == null) {
+      _currentSellerId = product.sellerId;
+    } else if (_currentSellerId != product.sellerId) {
+      throw Exception(
+          'Vous ne pouvez ajouter que des produits du même vendeur');
+    }
+
+    int index = _items.indexWhere((item) => item.product.id == product.id);
+    int newQuantity =
+        index != -1 ? _items[index].quantity + quantity : quantity;
+
+    bool isAvailable = await checkStock(product, newQuantity);
+    if (!isAvailable) {
+      throw Exception('Stock insuffisant');
+    }
+
+    if (index != -1) {
+      _items[index].quantity += quantity;
+    } else {
+      _items.add(CartItem(product: product, quantity: quantity));
+    }
+
+    _saveToLocalStorage();
+    notifyListeners();
+  }
+
   void clearCart() {
     _items.clear();
     _currentSellerId = null;
