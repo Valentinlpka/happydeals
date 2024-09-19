@@ -122,7 +122,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
     print('Reconstruction du panier terminée. Contenu final du panier:');
     for (var item in cart.items) {
-      print('${item.product.name}: ${item.quantity}');
+      print('${item.product.name}: ${item.quantity} : ${item.product.tva}');
     }
 
     // Mettre à jour le localStorage avec les quantités correctes

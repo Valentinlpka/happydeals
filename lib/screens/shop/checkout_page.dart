@@ -66,6 +66,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'quantity': item.quantity,
                   'price': item.product.price,
                   'sellerId': item.product.sellerId,
+                  'tva': item.product.tva,
                   'entrepriseId': item.product.entrepriseId,
                   'imageUrl': item.product.imageUrl,
                   'description': item.product.description,
