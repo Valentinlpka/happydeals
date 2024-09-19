@@ -277,12 +277,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               ),
               pw.SizedBox(height: 20),
 
-              // Récapitulatif TVA
-              pw.Text('Récapitulatif TVA:',
-                  style: textStyle(weight: pw.FontWeight.bold)),
-              ..._generateVATSummary(order.items),
-              pw.SizedBox(height: 20),
-
               // Total
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.end,
