@@ -260,7 +260,20 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       // Pour le web
       final blob = html.Blob([pdfBytes], 'application/pdf');
       final url = html.Url.createObjectUrlFromBlob(blob);
-      html.window.open(url, "_blank");
+
+      // Créer un élément <a> invisible
+      final anchor = html.document.createElement('a') as html.AnchorElement
+        ..href = url
+        ..style.display = 'none'
+        ..download = 'facture_${order.id.substring(0, 8)}.pdf';
+
+      html.document.body!.children.add(anchor);
+
+      // Déclencher le téléchargement
+      anchor.click();
+
+      // Nettoyer
+      html.document.body!.children.remove(anchor);
       html.Url.revokeObjectUrl(url);
     } else {
       // Pour mobile
