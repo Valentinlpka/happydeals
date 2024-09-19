@@ -81,10 +81,12 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       throw Exception('Données du panier non trouvées ou vides');
     }
 
+    print('Données brutes du panier: $cartDataJson');
     final cartData = json.decode(cartDataJson) as List<dynamic>;
     final cart = CartService();
 
     for (var item in cartData) {
+      print('Traitement de l\'item: $item');
       if (item['productId'] == null) {
         print(
             'Avertissement: ID de produit manquant dans les données du panier');
@@ -94,7 +96,20 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       try {
         final product = await _fetchProductFromFirestore(item['productId']);
         final quantity = item['quantity'] as int? ?? 1;
-        await cart.addToCartWithQuantity(product, quantity);
+        print(
+            'Ajout du produit ${product.name} avec une quantité de $quantity');
+
+        // Vérifier si le produit existe déjà dans le panier
+        final existingItem = cart.items.firstWhere(
+          (cartItem) => cartItem.product.id == product.id,
+        );
+
+        print(
+            'Le produit ${product.name} existe déjà dans le panier. Mise à jour de la quantité.');
+        existingItem.quantity = quantity;
+
+        print(
+            'Panier après ajout: ${cart.items.map((i) => "${i.product.name}: ${i.quantity}").join(", ")}');
       } catch (e) {
         print(
             'Erreur lors de la reconstruction du produit ${item['productId']}: $e');
@@ -105,9 +120,38 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       throw Exception('Aucun produit valide n\'a pu être ajouté au panier');
     }
 
-    print(
-        'Reconstruction du panier terminée. Nombre d\'articles: ${cart.items.length}');
+    print('Reconstruction du panier terminée. Contenu final du panier:');
+    for (var item in cart.items) {
+      print('${item.product.name}: ${item.quantity}');
+    }
+
+    // Mettre à jour le localStorage avec les quantités correctes
+    _updateLocalStorage(cart);
+
     return cart;
+  }
+
+  void _updateLocalStorage(CartService cart) {
+    final cartData = cart.items
+        .map((item) => {
+              'productId': item.product.id,
+              'name': item.product.name,
+              'quantity': item.quantity,
+              'price': item.product.price,
+              'sellerId': item.product.sellerId,
+              'entrepriseId': item.product.entrepriseId,
+              'imageUrl': item.product.imageUrl,
+              'description': item.product.description,
+              'stock': item.product.stock,
+              'isActive': item.product.isActive,
+            })
+        .toList();
+
+    final cartDataJson = json.encode(cartData);
+    html.window.localStorage['cartData'] = cartDataJson;
+    html.window.localStorage['cartTotal'] = cart.total.toString();
+
+    print('localStorage mis à jour avec les nouvelles quantités');
   }
 
   Future<Product> _fetchProductFromFirestore(String productId) async {

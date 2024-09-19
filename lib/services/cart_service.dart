@@ -130,16 +130,15 @@ class CartService extends ChangeNotifier {
     }
 
     int index = _items.indexWhere((item) => item.product.id == product.id);
-    int newQuantity =
-        index != -1 ? _items[index].quantity + quantity : quantity;
 
-    bool isAvailable = await checkStock(product, newQuantity);
+    bool isAvailable = await checkStock(product, quantity);
     if (!isAvailable) {
       throw Exception('Stock insuffisant');
     }
 
     if (index != -1) {
-      _items[index].quantity += quantity;
+      _items[index].quantity =
+          quantity; // Remplacer la quantité au lieu de l'ajouter
     } else {
       _items.add(CartItem(product: product, quantity: quantity));
     }
