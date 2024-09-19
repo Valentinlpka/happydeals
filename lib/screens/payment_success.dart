@@ -33,25 +33,20 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   }
 
   Future<void> _verifyPaymentAndFinalizeOrder() async {
-    print('Contenu de localStorage:');
-    print('cartData: ${html.window.localStorage['cartData']}');
-    print('cartTotal: ${html.window.localStorage['cartTotal']}');
-    print('stripeSessionId: ${html.window.localStorage['stripeSessionId']}');
-
     try {
-      CartService cart;
-      if (kIsWeb) {
-        cart = await _reconstructCartFromLocalStorage();
-      } else {
-        cart = Provider.of<CartService>(context, listen: false);
-      }
+      _logLocalStorageContent();
+
+      final cart = await _getCart();
 
       setState(() {
         _statusMessage = 'Paiement confirmé. Finalisation de la commande...';
       });
+
       await _finalizeOrder(cart);
+
+      _showSuccessMessage();
     } catch (e) {
-      _handleError('Une erreur est survenue: $e', '/home');
+      _handleError('Une erreur est survenue: $e');
     } finally {
       if (kIsWeb) {
         _clearLocalStorage();
@@ -62,20 +57,34 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     }
   }
 
+  void _logLocalStorageContent() {
+    if (kIsWeb) {
+      print('Contenu de localStorage:');
+      print('cartData: ${html.window.localStorage['cartData']}');
+      print('cartTotal: ${html.window.localStorage['cartTotal']}');
+      print('stripeSessionId: ${html.window.localStorage['stripeSessionId']}');
+    }
+  }
+
+  Future<CartService> _getCart() async {
+    if (kIsWeb) {
+      return _reconstructCartFromLocalStorage();
+    } else {
+      return Provider.of<CartService>(context, listen: false);
+    }
+  }
+
   Future<CartService> _reconstructCartFromLocalStorage() async {
     print('Début de la reconstruction du panier');
     final cartDataJson = html.window.localStorage['cartData'];
     if (cartDataJson == null || cartDataJson.isEmpty) {
-      print('Données du panier non trouvées ou vides dans localStorage');
       throw Exception('Données du panier non trouvées ou vides');
     }
 
-    print('Données du panier trouvées: $cartDataJson');
     final cartData = json.decode(cartDataJson) as List<dynamic>;
     final cart = CartService();
 
     for (var item in cartData) {
-      print('Traitement de l\'item: $item');
       if (item['productId'] == null) {
         print(
             'Avertissement: ID de produit manquant dans les données du panier');
@@ -83,41 +92,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       }
 
       try {
-        print('Récupération du produit ${item['productId']} depuis Firestore');
-        final productDoc = await _firestore
-            .collection('products')
-            .doc(item['productId'])
-            .get();
-        if (!productDoc.exists) {
-          print(
-              'Avertissement: Produit ${item['productId']} non trouvé dans Firestore');
-          continue;
-        }
-
-        final productData = productDoc.data();
-        print('Données du produit récupérées: $productData');
-        if (productData == null) {
-          print(
-              'Avertissement: Données nulles pour le produit ${item['productId']}');
-          continue;
-        }
-
-        final product = Product(
-          id: item['productId'],
-          name: productData['name'] ?? 'Nom inconnu',
-          description: productData['description'] ?? '',
-          price: (productData['price'] as num?)?.toDouble() ?? 0.0,
-          imageUrl: List<String>.from(productData['image'] ?? []),
-          sellerId: productData['merchantId'] ?? '',
-          entrepriseId: productData['sellerId'] ?? '',
-          stock: productData['stock'] as int? ?? 0,
-          isActive: productData['isActive'] as bool? ?? false,
-        );
-
-        print('Produit créé: ${product.name}');
-
+        final product = await _fetchProductFromFirestore(item['productId']);
         final quantity = item['quantity'] as int? ?? 1;
-
         await cart.addToCartWithQuantity(product, quantity);
       } catch (e) {
         print(
@@ -126,7 +102,6 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     }
 
     if (cart.items.isEmpty) {
-      print('Aucun produit valide n\'a pu être ajouté au panier');
       throw Exception('Aucun produit valide n\'a pu être ajouté au panier');
     }
 
@@ -135,14 +110,39 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     return cart;
   }
 
+  Future<Product> _fetchProductFromFirestore(String productId) async {
+    final productDoc =
+        await _firestore.collection('products').doc(productId).get();
+    if (!productDoc.exists) {
+      throw Exception('Produit $productId non trouvé dans Firestore');
+    }
+
+    final productData = productDoc.data();
+    if (productData == null) {
+      throw Exception('Données nulles pour le produit $productId');
+    }
+
+    return Product(
+      id: productId,
+      name: productData['name'] ?? 'Nom inconnu',
+      description: productData['description'] ?? '',
+      price: (productData['price'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: List<String>.from(productData['image'] ?? []),
+      sellerId: productData['merchantId'] ?? '',
+      entrepriseId: productData['sellerId'] ?? '',
+      stock: productData['stock'] as int? ?? 0,
+      isActive: productData['isActive'] as bool? ?? false,
+    );
+  }
+
   void _clearLocalStorage() {
     html.window.localStorage.remove('cartData');
     html.window.localStorage.remove('cartTotal');
     html.window.localStorage.remove('stripeSessionId');
   }
 
-  void _handleError(String message, String redirectRoute) {
-    print('Erreur: $message'); // Pour le débogage
+  void _handleError(String message) {
+    print('Erreur: $message');
     setState(() {
       _statusMessage = message;
       _isLoading = false;
@@ -151,7 +151,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       SnackBar(content: Text(message)),
     );
     Future.delayed(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacementNamed(redirectRoute);
+      Navigator.of(context).pushReplacementNamed('/home');
     });
   }
 
@@ -163,6 +163,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
     final address =
         await _fetchCompanyAddress(cart.items.first.product.entrepriseId);
+
+    print('Contenu du panier avant création de la commande:');
+    for (var item in cart.items) {
+      print('Produit: ${item.product.name}, Quantité: ${item.quantity}');
+    }
 
     final orderId = await _orderService.createOrder(Orders(
       id: '',
@@ -183,8 +188,10 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       pickupAddress: address ?? "",
     ));
 
+    print('Commande créée avec l\'ID: $orderId');
+
     cart.clearCart();
-    _clearLocalStorage();
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -194,10 +201,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<String?> _fetchCompanyAddress(String entrepriseId) async {
     try {
-      DocumentSnapshot doc = await FirebaseFirestore.instance
-          .collection('companys')
-          .doc(entrepriseId)
-          .get();
+      DocumentSnapshot doc =
+          await _firestore.collection('companys').doc(entrepriseId).get();
 
       if (doc.exists) {
         Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
@@ -214,6 +219,12 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       print("Erreur lors de la récupération de l'adresse de l'entreprise: $e");
     }
     return null;
+  }
+
+  void _showSuccessMessage() {
+    setState(() {
+      _statusMessage = 'Commande finalisée avec succès!';
+    });
   }
 
   @override
