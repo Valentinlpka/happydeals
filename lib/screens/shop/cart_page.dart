@@ -95,6 +95,7 @@ class CartScreen extends StatelessWidget {
                 'name': item.product.name,
                 'quantity': item.quantity,
                 'price': item.product.price,
+                'tva': item.product.tva,
                 'sellerId': item.product.sellerId,
                 'entrepriseId': item.product.entrepriseId,
                 'imageUrl': item.product.imageUrl,
