@@ -56,6 +56,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         content: Text('Code promo appliqué avec succès')),
                   );
                 } catch (e) {
+                  print(e);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(e.toString())),
                   );
