@@ -249,6 +249,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       status: 'paid',
       createdAt: DateTime.now(),
       pickupAddress: address ?? "",
+      entrepriseId: cart.items.first.product.entrepriseId,
     ));
 
     print('Commande créée avec l\'ID: $orderId');

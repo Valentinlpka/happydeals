@@ -11,6 +11,7 @@ class Orders {
   final DateTime createdAt;
   final String pickupAddress;
   final String? pickupCode;
+  final String entrepriseId;
 
   Orders({
     required this.id,
@@ -21,6 +22,7 @@ class Orders {
     required this.status,
     required this.createdAt,
     required this.pickupAddress,
+    required this.entrepriseId,
     this.pickupCode,
   });
 
@@ -35,6 +37,7 @@ class Orders {
           .toList(),
       totalPrice: (data['totalPrice'] ?? 0).toDouble(),
       status: data['status'] ?? '',
+      entrepriseId: data['entrepriseId'] ?? '',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       pickupAddress: data['pickupAddress'] ?? '',
       pickupCode: data['pickupCode'],

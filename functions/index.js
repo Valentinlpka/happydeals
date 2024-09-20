@@ -910,13 +910,14 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { sellerId, items, totalPrice, pickupAddress } = data;
+  const { sellerId, items, totalPrice, pickupAddress, entrepriseId } = data;
 
   try {
     // Créer la commande dans Firestore
     const orderRef = await admin.firestore().collection("orders").add({
       userId: context.auth.uid,
       sellerId,
+      entrepriseId,
       items,
       totalPrice,
       pickupAddress,

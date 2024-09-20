@@ -20,6 +20,7 @@ class OrderService {
         'items': order.items.map((item) => item.toMap()).toList(),
         'totalPrice': order.totalPrice,
         'pickupAddress': order.pickupAddress,
+        'entrepriseId': order.entrepriseId,
       });
 
       await updateProductStock(order.items);
@@ -62,6 +63,7 @@ class OrderService {
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       pickupAddress: data['pickupAddress'],
       pickupCode: data['pickupCode'],
+      entrepriseId: data['entrepriseId'],
     );
   }
 

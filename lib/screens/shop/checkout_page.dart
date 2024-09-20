@@ -159,25 +159,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         await _fetchCompanyAddress(cart.items.first.product.entrepriseId);
 
     final orderId = await _orderService.createOrder(Orders(
-      id: '',
-      userId: user != null ? user.uid : '',
-      sellerId: cart.items.first.product.sellerId,
-      items: cart.items
-          .map((item) => OrderItem(
-                productId: item.product.id,
-                name: item.product.name,
-                image: item.product.imageUrl[0],
-                quantity: item.quantity,
-                price: item.product.price,
-                tva: item.product.tva,
-              ))
-          .toList(),
-      totalPrice: cart.total,
-      status:
-          'paid', // Le statut reste 'paid' car le paiement a été effectué sur le compte de la plateforme
-      createdAt: DateTime.now(),
-      pickupAddress: address ?? "",
-    ));
+        id: '',
+        userId: user != null ? user.uid : '',
+        sellerId: cart.items.first.product.sellerId,
+        items: cart.items
+            .map((item) => OrderItem(
+                  productId: item.product.id,
+                  name: item.product.name,
+                  image: item.product.imageUrl[0],
+                  quantity: item.quantity,
+                  price: item.product.price,
+                  tva: item.product.tva,
+                ))
+            .toList(),
+        totalPrice: cart.total,
+        status:
+            'paid', // Le statut reste 'paid' car le paiement a été effectué sur le compte de la plateforme
+        createdAt: DateTime.now(),
+        pickupAddress: address ?? "",
+        entrepriseId: cart.items.first.product.entrepriseId));
 
     // Créer une notification pour le vendeur
     await _notificationService.createNotification(NotificationModel(
