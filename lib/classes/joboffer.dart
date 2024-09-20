@@ -11,6 +11,33 @@ class JobOffer extends Post {
   final String benefits;
   final String whyJoin;
   final List<String> keywords;
+  final String? contractType;
+  final String? workingHours;
+  final String? salary;
+  final String industrySector;
+
+  static const List<String> industrySectors = [
+    'Services à domicile',
+    'Bricolage et travaux',
+    'Garde d\'enfants',
+    'Cours particuliers',
+    'Jardinage',
+    'Informatique et multimédia',
+    'Beauté et bien-être',
+    'Sport et fitness',
+    'Événementiel et animation',
+    'Musique et arts',
+    'Cuisine et pâtisserie',
+    'Photographie et vidéo',
+    'Traduction et rédaction',
+    'Conseil et coaching',
+    'Réparation automobile',
+    'Déménagement et manutention',
+    'Couture et retouches',
+    'Services aux animaux',
+    'Soutien scolaire',
+    'Autres services',
+  ];
 
   JobOffer({
     required super.id,
@@ -21,10 +48,14 @@ class JobOffer extends Post {
     required this.description,
     required this.missions,
     required this.profile,
+    required this.industrySector,
     required this.benefits,
     required this.whyJoin,
     required this.keywords,
     required super.companyId,
+    this.contractType,
+    this.workingHours,
+    this.salary,
     super.views,
     super.likes,
     super.likedBy,
@@ -39,25 +70,35 @@ class JobOffer extends Post {
     return JobOffer(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      title: data['title'],
-      searchText: data['searchText'],
-      city: data['city'],
-      description: data['description'],
-      missions: data['missions'],
-      profile: data['profile'],
-      benefits: data['benefits'],
-      whyJoin: data['why_join'],
-      keywords: List<String>.from(data['keywords']),
-      companyId: data['companyId'],
+      title: data['title'] ?? '',
+      searchText: data['searchText'] ?? '',
+      city: data['city'] ?? '',
+      description: data['description'] ?? '',
+      missions: data['missions'] ?? '',
+      profile: data['profile'] ?? '',
+      salary: data['salary'],
+      contractType: data['contractType'],
+      workingHours: data['workingHours'],
+      benefits: data['benefits'] ?? '',
+      whyJoin: data['why_join'] ?? '',
+      keywords: _safeList(data['keywords']),
+      companyId: data['companyId'] ?? '',
+      industrySector: data['industrySector'] ?? '',
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
-      likedBy: List<String>.from(data['likedBy'] ?? []),
+      likedBy: _safeList(data['likedBy']),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)
               ?.map((commentData) => Comment.fromMap(commentData))
               .toList() ??
           [],
     );
+  }
+
+  static List<String> _safeList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) return value.map((e) => e.toString()).toList();
+    return [];
   }
 
   @override
@@ -74,6 +115,10 @@ class JobOffer extends Post {
       'why_join': whyJoin,
       'keywords': keywords,
       'companyId': companyId,
+      'contractType': contractType,
+      'workingHours': workingHours,
+      'salary': salary,
+      'industrySector': industrySector,
     });
     return map;
   }

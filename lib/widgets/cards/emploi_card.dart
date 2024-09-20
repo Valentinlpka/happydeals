@@ -32,8 +32,8 @@ class JobOfferCard extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (context) => DetailsEmploiPage(
                     post: post,
-                    companyName: companyName,
-                    companyLogo: companyLogo,
+                    individualName: companyName,
+                    individualPhoto: companyLogo,
                   ),
                 ),
               );
@@ -138,7 +138,8 @@ class JobOfferCard extends StatelessWidget {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      Text('${(companyName)} - ${post.city}')
+                                      Text(
+                                          '${(companyName)} - ${post.city} - ${post.contractType}')
                                     ],
                                   )
                                 ],

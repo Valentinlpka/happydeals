@@ -12,17 +12,11 @@ class JobOffersPage extends StatefulWidget {
 
 class _JobOffersPageState extends State<JobOffersPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TextEditingController _searchController = TextEditingController();
   String _selectedLocation = 'Tous';
   String _selectedSector = 'Tous';
-  String _selectedDate = 'Tous';
   List<String> _locations = ['Tous'];
   List<String> _sectors = ['Tous'];
-  final List<String> _dates = [
-    'Tous',
-    'Aujourd\'hui',
-    'Cette semaine',
-    'Ce mois-ci'
-  ];
 
   @override
   void initState() {
@@ -37,29 +31,20 @@ class _JobOffersPageState extends State<JobOffersPage> {
           .where('type', isEqualTo: 'job_offer')
           .get();
 
-      print("Nombre total de documents: ${jobOffersSnapshot.docs.length}");
-
-      Set<String> locationsSet = {};
-      Set<String> sectorsSet = {};
+      Set<String> locationsSet = {'Tous'};
+      Set<String> sectorsSet = {'Tous'};
 
       for (var doc in jobOffersSnapshot.docs) {
         final data = doc.data();
-        print("Document data: $data"); // Debugging: print each document's data
-
-        if (data.containsKey('city') && data['city'] != null) {
-          locationsSet.add(data['city'] as String);
-        }
-        if (data.containsKey('sector') && data['sector'] != null) {
-          sectorsSet.add(data['sector'] as String);
+        if (data['city'] != null) locationsSet.add(data['city'] as String);
+        if (data['industrySector'] != null) {
+          sectorsSet.add(data['industrySector'] as String);
         }
       }
 
-      print("Locations trouvées: $locationsSet");
-      print("Secteurs trouvés: $sectorsSet");
-
       setState(() {
-        _locations = ['Tous', ...locationsSet];
-        _sectors = ['Tous', ...sectorsSet];
+        _locations = locationsSet.toList()..sort();
+        _sectors = sectorsSet.toList()..sort();
       });
     } catch (e) {
       print("Erreur lors du chargement des filtres: $e");
@@ -74,6 +59,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
       ),
       body: Column(
         children: [
+          _buildSearchBar(),
           _buildFilters(),
           Expanded(
             child: _buildJobOffersList(),
@@ -83,72 +69,86 @@ class _JobOffersPageState extends State<JobOffersPage> {
     );
   }
 
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Rechercher une offre d\'emploi',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.clear),
+            onPressed: () => _searchController.clear(),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        onChanged: (value) {
+          setState(() {}); // Trigger a rebuild when search text changes
+        },
+      ),
+    );
+  }
+
   Widget _buildFilters() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
         children: [
-          const Text(
-            'Filtres',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Expanded(
+            child: _buildFilterDropdown(
+              'Lieu',
+              _selectedLocation,
+              _locations,
+              (value) => setState(() => _selectedLocation = value!),
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                  child: _buildDropdown('Ville', _selectedLocation, _locations,
-                      (value) => _selectedLocation = value)),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: _buildDropdown('Secteur', _selectedSector, _sectors,
-                      (value) => _selectedSector = value)),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: _buildDropdown('Date', _selectedDate, _dates,
-                      (value) => _selectedDate = value)),
-            ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildFilterDropdown(
+              'Secteur',
+              _selectedSector,
+              _sectors,
+              (value) => setState(() => _selectedSector = value!),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDropdown(String label, String value, List<String> items,
-      Function(String) onChanged) {
-    return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  Widget _buildFilterDropdown(
+    String hint,
+    String value,
+    List<String> items,
+    Function(String?) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey),
       ),
-      value: value,
-      onChanged: (newValue) {
-        if (newValue != null) {
-          setState(() {
-            onChanged(newValue);
-          });
-        }
-      },
-      items: items.map<DropdownMenuItem<String>>((String value) {
-        return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value, style: const TextStyle(fontSize: 14)),
-        );
-      }).toList(),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          hint: Text(hint),
+          value: value == 'Tous' ? null : value,
+          onChanged: onChanged,
+          items: items.map((String item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 
@@ -174,74 +174,67 @@ class _JobOffersPageState extends State<JobOffersPage> {
 
         final jobOffers = snapshot.data!.docs;
 
-        return ListView.builder(
-          itemCount: jobOffers.length,
-          itemBuilder: (context, index) {
-            final jobOfferData =
-                jobOffers[index].data() as Map<String, dynamic>;
+        return Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: ListView.builder(
+            itemCount: jobOffers.length,
+            itemBuilder: (context, index) {
+              final jobOfferData =
+                  jobOffers[index].data() as Map<String, dynamic>;
 
-            if (!_matchesFilters(jobOfferData)) {
-              return const SizedBox.shrink();
-            }
+              if (!_matchesFilters(jobOfferData)) {
+                return const SizedBox.shrink();
+              }
 
-            return FutureBuilder<DocumentSnapshot>(
-              future: _firestore
-                  .collection('companys')
-                  .doc(jobOfferData['companyId'])
-                  .get(),
-              builder: (context, companySnapshot) {
-                if (companySnapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+              return FutureBuilder<DocumentSnapshot>(
+                future: _firestore
+                    .collection('companys')
+                    .doc(jobOfferData['companyId'])
+                    .get(),
+                builder: (context, companySnapshot) {
+                  if (companySnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                final companyData =
-                    companySnapshot.data?.data() as Map<String, dynamic>?;
-                final companyName = companyData?['name'] ?? 'Nom inconnu';
-                final companyLogo = companyData?['logo'] ?? '';
+                  final companyData =
+                      companySnapshot.data?.data() as Map<String, dynamic>?;
+                  final companyName = companyData?['name'] ?? 'Nom inconnu';
+                  final companyLogo = companyData?['logo'] ?? '';
 
-                return JobOfferCard(
-                  post: JobOffer.fromDocument(jobOffers[index]),
-                  companyName: companyName,
-                  companyLogo: companyLogo,
-                );
-              },
-            );
-          },
+                  return JobOfferCard(
+                    post: JobOffer.fromDocument(jobOffers[index]),
+                    companyName: companyName,
+                    companyLogo: companyLogo,
+                  );
+                },
+              );
+            },
+          ),
         );
       },
     );
   }
 
   bool _matchesFilters(Map<String, dynamic> jobOfferData) {
+    final searchText = _searchController.text.toLowerCase();
+    if (searchText.isNotEmpty &&
+        !jobOfferData['title'].toString().toLowerCase().contains(searchText) &&
+        !jobOfferData['description']
+            .toString()
+            .toLowerCase()
+            .contains(searchText)) {
+      return false;
+    }
+
     if (_selectedLocation != 'Tous' &&
         jobOfferData['city'] != _selectedLocation) {
       return false;
     }
 
     if (_selectedSector != 'Tous' &&
-        jobOfferData['sector'] != _selectedSector) {
+        jobOfferData['industrySector'] != _selectedSector) {
       return false;
-    }
-
-    if (_selectedDate != 'Tous') {
-      final publishDate = (jobOfferData['timestamp'] as Timestamp).toDate();
-      final now = DateTime.now();
-
-      switch (_selectedDate) {
-        case 'Aujourd\'hui':
-          if (!DateUtils.isSameDay(publishDate, now)) return false;
-          break;
-        case 'Cette semaine':
-          final weekAgo = now.subtract(const Duration(days: 7));
-          if (publishDate.isBefore(weekAgo)) return false;
-          break;
-        case 'Ce mois-ci':
-          if (publishDate.month != now.month || publishDate.year != now.year) {
-            return false;
-          }
-          break;
-      }
     }
 
     return true;

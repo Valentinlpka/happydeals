@@ -8,6 +8,8 @@ import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
+import 'package:happy/classes/loyalty_card.dart';
+import 'package:happy/classes/loyalty_program.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/providers/company_provider.dart';
@@ -31,9 +33,16 @@ class DetailsEntreprise extends StatefulWidget {
 }
 
 class _DetailsEntrepriseState extends State<DetailsEntreprise> {
+  late Future<LoyaltyProgram?> _loyaltyProgramFuture;
+
+  late Future<LoyaltyCard?> _loyaltyCardFuture;
+
   late Future<Company> _entrepriseFuture;
+
   late Future<List<Map<String, dynamic>>> _postsFuture;
+
   String _currentTab = 'Toutes les publications';
+
   final List<String> _tabs = [
     'Toutes les publications',
     'Boutique',
@@ -52,6 +61,32 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
     super.initState();
     _entrepriseFuture = _fetchEntrepriseData();
     _postsFuture = _fetchAllPosts();
+    _loyaltyProgramFuture = _fetchLoyaltyProgram();
+    _loyaltyCardFuture = _fetchLoyaltyCard();
+  }
+
+  Future<LoyaltyProgram?> _fetchLoyaltyProgram() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('LoyaltyPrograms')
+        .where('companyId', isEqualTo: widget.entrepriseId)
+        .get();
+    if (doc.docs.isNotEmpty) {
+      return LoyaltyProgram.fromFirestore(doc.docs.first);
+    }
+    return null;
+  }
+
+  Future<LoyaltyCard?> _fetchLoyaltyCard() async {
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+    final doc = await FirebaseFirestore.instance
+        .collection('LoyaltyCards')
+        .where('customerId', isEqualTo: userId)
+        .where('companyId', isEqualTo: widget.entrepriseId)
+        .get();
+    if (doc.docs.isNotEmpty) {
+      return LoyaltyCard.fromFirestore(doc.docs.first);
+    }
+    return null;
   }
 
   Future<Company> _fetchEntrepriseData() async {
@@ -268,9 +303,145 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
               "${entreprise.adress.adresse} ${entreprise.adress.codePostal} ${entreprise.adress.ville}"),
           _buildInfoTile(Icons.phone, entreprise.phone),
           _buildInfoTile(Icons.email, entreprise.email),
+          FutureBuilder<LoyaltyProgram?>(
+            future: _loyaltyProgramFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const CircularProgressIndicator();
+              }
+              if (snapshot.hasData && snapshot.data != null) {
+                return InkWell(
+                  onTap: () => _showLoyaltyProgramDetails(snapshot.data!),
+                  child: const Text(
+                    "Programme de fidélité disponible",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
         ],
       ),
     );
+  }
+
+  void _showLoyaltyProgramDetails(LoyaltyProgram program) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return FutureBuilder<LoyaltyCard?>(
+          future: _loyaltyCardFuture,
+          builder: (context, cardSnapshot) {
+            return SingleChildScrollView(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Programme de fidélité",
+                    ),
+                    const SizedBox(height: 16),
+                    Text(_buildProgramDescription(program)),
+                    const SizedBox(height: 16),
+                    if (cardSnapshot.hasData && cardSnapshot.data != null)
+                      Text(
+                          "Votre progression : ${cardSnapshot.data!.currentValue} / ${program.targetValue}"),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      child: Text(
+                          cardSnapshot.hasData && cardSnapshot.data != null
+                              ? "Voir ma carte"
+                              : "S'inscrire"),
+                      onPressed: () =>
+                          cardSnapshot.hasData && cardSnapshot.data != null
+                              ? _showLoyaltyCard(cardSnapshot.data!)
+                              : _subscribeLoyaltyProgram(program),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _buildProgramDescription(LoyaltyProgram program) {
+    switch (program.type) {
+      case LoyaltyProgramType.visits:
+        return "Après ${program.targetValue} visites, obtenez ${program.rewardValue}${program.isPercentage ? '%' : '€'} de réduction!";
+      case LoyaltyProgramType.points:
+        return "Gagnez des points à chaque achat. Paliers de récompenses :\n${program.tiers!.entries.map((e) => "${e.key} points = ${e.value}${program.isPercentage ? '%' : '€'}").join("\n")}";
+      case LoyaltyProgramType.amount:
+        return "Après ${program.targetValue}€ d'achats, obtenez ${program.rewardValue}${program.isPercentage ? '%' : '€'} de réduction!";
+    }
+  }
+
+  void _showLoyaltyCard(LoyaltyCard card) {
+    // Afficher les détails de la carte de fidélité
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Ma carte de fidélité"),
+          content: Text("Progression actuelle : ${card.currentValue}"),
+          actions: [
+            TextButton(
+              child: const Text("Fermer"),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _subscribeLoyaltyProgram(LoyaltyProgram program) async {
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+
+    // Créer une nouvelle carte de fidélité
+    final newCard = LoyaltyCard(
+      id: '', // Sera généré par Firestore
+      customerId: userId,
+      loyaltyProgramId: program.id,
+      companyId: widget.entrepriseId,
+      currentValue: 0,
+    );
+
+    try {
+      // Ajouter la carte à Firestore
+      final docRef = await FirebaseFirestore.instance
+          .collection('LoyaltyCards')
+          .add(newCard.toFirestore());
+
+      // Mettre à jour l'état local
+      setState(() {
+        _loyaltyCardFuture = Future.value(newCard.copyWith(id: docRef.id));
+      });
+
+      // Afficher un message de succès
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Inscription au programme de fidélité réussie!')),
+      );
+
+      // Fermer le bottom sheet
+      Navigator.of(context).pop();
+    } catch (e) {
+      // Gérer les erreurs
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Erreur lors de l\'inscription au programme de fidélité')),
+      );
+    }
   }
 
   Widget _buildInfoTile(IconData icon, String text) {

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:happy/classes/product.dart';
+import 'package:happy/services/promo_service.dart';
 import 'package:universal_html/html.dart' as html;
 
 class CartItem {
@@ -25,6 +26,9 @@ class CartItem {
 }
 
 class CartService extends ChangeNotifier {
+  String? _appliedPromoCode;
+  double _discountAmount = 0;
+
   List<CartItem> _items = [];
   String? _currentSellerId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -34,6 +38,37 @@ class CartService extends ChangeNotifier {
       _loadFromLocalStorage();
     }
   }
+
+  Future<void> applyPromoCode(
+      String code, String companyId, String customerId) async {
+    final promoCodeService = PromoCodeService();
+    final isValid =
+        await promoCodeService.validatePromoCode(code, companyId, customerId);
+
+    if (isValid) {
+      final promoDetails = await promoCodeService.getPromoCodeDetails(code);
+      if (promoDetails != null) {
+        _appliedPromoCode = code;
+        if (promoDetails['isPercentage']) {
+          _discountAmount = total * (promoDetails['value'] / 100);
+        } else {
+          _discountAmount = promoDetails['value'];
+        }
+        notifyListeners();
+      }
+    } else {
+      throw Exception('Code promo invalide ou expiré');
+    }
+  }
+
+  void removePromoCode() {
+    _appliedPromoCode = null;
+    _discountAmount = 0;
+    notifyListeners();
+  }
+
+  double get discountAmount => _discountAmount;
+  double get totalAfterDiscount => total - _discountAmount;
 
   void _loadFromLocalStorage() {
     final cartDataJson = html.window.localStorage['cartData'];

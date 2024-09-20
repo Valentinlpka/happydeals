@@ -26,9 +26,53 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final NotificationService _notificationService = NotificationService();
 
+  final TextEditingController _promoCodeController = TextEditingController();
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final OrderService _orderService = OrderService();
   bool _isLoading = false;
+
+  Widget _buildPromoCodeSection() {
+    return Consumer<CartService>(
+      builder: (context, cart, child) {
+        return Column(
+          children: [
+            TextField(
+              controller: _promoCodeController,
+              decoration: const InputDecoration(
+                labelText: 'Code promo',
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await cart.applyPromoCode(
+                    _promoCodeController.text,
+                    cart.items.first.product.entrepriseId,
+                    FirebaseAuth.instance.currentUser!.uid,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Code promo appliqué avec succès')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString())),
+                  );
+                }
+              },
+              child: const Text('Appliquer'),
+            ),
+            if (cart.discountAmount > 0) ...[
+              Text('Réduction: ${cart.discountAmount.toStringAsFixed(2)}€'),
+              Text(
+                  'Total après réduction: ${cart.totalAfterDiscount.toStringAsFixed(2)}€'),
+            ],
+          ],
+        );
+      },
+    );
+  }
 
   Future<void> _handlePayment(CartService cart) async {
     setState(() {
@@ -47,7 +91,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       final functions = FirebaseFunctions.instance;
       final result = await functions.httpsCallable('createPayment').call({
-        'amount': (cart.total * 100).round(),
+        'amount': (cart.totalAfterDiscount * 100).round(),
         'currency': 'eur',
         'userId': user.uid,
         'isWeb': kIsWeb,
@@ -255,6 +299,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 20),
+                    _buildPromoCodeSection(),
                     const SizedBox(height: 20),
                   ],
                 ),

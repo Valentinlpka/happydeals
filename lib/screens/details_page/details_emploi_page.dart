@@ -8,24 +8,21 @@ import 'package:provider/provider.dart';
 
 class DetailsEmploiPage extends StatefulWidget {
   final JobOffer post;
-  final String companyName;
-  final String companyLogo;
+  final String individualName;
+  final String individualPhoto;
 
   const DetailsEmploiPage({
     super.key,
     required this.post,
-    required this.companyName,
-    required this.companyLogo,
+    required this.individualName,
+    required this.individualPhoto,
   });
 
   @override
   _DetailsEmploiPageState createState() => _DetailsEmploiPageState();
 }
 
-class _DetailsEmploiPageState extends State<DetailsEmploiPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
   void _showApplicationBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -39,18 +36,6 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
   String formatDate(DateTime date) {
     return DateFormat('dd/MM/yyyy').format(date);
   }
@@ -61,28 +46,26 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
         context.watch<UserModel>().likedPosts.contains(widget.post.id);
 
     return Scaffold(
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-              border: Border(
-                  top: BorderSide(
-            width: 0.4,
-            color: Colors.black26,
-          ))),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                style: ButtonStyle(
-                  backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
-                ),
-                onPressed: _showApplicationBottomSheet,
-                child: const Text('Postuler'),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(width: 0.4, color: Colors.black26)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.all(Colors.blue[800]),
               ),
+              onPressed: _showApplicationBottomSheet,
+              child: const Text('Contacter'),
             ),
           ),
         ),
-        body: CustomScrollView(slivers: [
+      ),
+      body: CustomScrollView(
+        slivers: [
           SliverAppBar(
             pinned: true,
             floating: true,
@@ -101,14 +84,9 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.work_outline,
-                      color: Colors.white,
-                      size: 16,
-                    ),
+                    Icon(Icons.work_outline, color: Colors.white, size: 16),
                     Text(
-                      maxLines: 1,
-                      "Offre d'emploi",
+                      "Offre de service",
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -121,13 +99,8 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
             backgroundColor: Colors.blue,
             shadowColor: Colors.grey,
             leading: IconButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              icon: const Icon(
-                Icons.arrow_back_ios_new,
-                color: Colors.white,
-              ),
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
             ),
             actions: [
               IconButton(
@@ -143,16 +116,13 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
               ),
               IconButton(
                 onPressed: () {},
-                icon: const Icon(
-                  Icons.share,
-                  color: Colors.white,
-                ),
+                icon: const Icon(Icons.share, color: Colors.white),
               ),
             ],
             expandedHeight: 200,
             flexibleSpace: FlexibleSpaceBar(
               background: Image.network(
-                widget.companyLogo,
+                widget.individualPhoto,
                 fit: BoxFit.cover,
                 color: Colors.black.withOpacity(0.30),
                 colorBlendMode: BlendMode.darken,
@@ -168,21 +138,17 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      (widget.post.title),
+                      widget.post.title,
                       style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
+                          fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Icon(Icons.business, color: Colors.blue[800], size: 20),
+                        Icon(Icons.person, color: Colors.blue[800], size: 20),
                         const SizedBox(width: 10),
-                        Text(
-                          (widget.companyName),
-                          style: const TextStyle(fontSize: 16),
-                        ),
+                        Text(widget.individualName,
+                            style: const TextStyle(fontSize: 16)),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -191,10 +157,8 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
                         Icon(Icons.location_on,
                             color: Colors.blue[800], size: 20),
                         const SizedBox(width: 10),
-                        Text(
-                          widget.post.city,
-                          style: const TextStyle(fontSize: 16),
-                        ),
+                        Text(widget.post.city,
+                            style: const TextStyle(fontSize: 16)),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -216,138 +180,135 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage>
             ]),
           ),
           SliverFillRemaining(
-              child: SingleChildScrollView(
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Entreprise',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailsEntreprise(
-                            entrepriseId: widget.post.companyId),
-                      ),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 27,
-                        backgroundColor: Colors.blue[700],
-                        child: CircleAvatar(
-                          radius: 25,
-                          backgroundImage: NetworkImage(widget.companyLogo),
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Prestataire',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DetailsEntreprise(
+                              entrepriseId: widget.post.companyId),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              (widget.companyName),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(widget.post.title),
-                          ],
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 27,
+                          backgroundColor: Colors.blue[700],
+                          child: CircleAvatar(
+                            radius: 25,
+                            backgroundImage:
+                                NetworkImage(widget.individualPhoto),
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(widget.individualName,
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold)),
+                              Text(widget.post.title),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Description du poste',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                  const SizedBox(height: 20),
+                  const Text('Description du service',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 10),
+                  Text(widget.post.description),
+                  const SizedBox(height: 20),
+                  const Text('Missions',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 10),
+                  Text(widget.post.missions),
+                  const SizedBox(height: 20),
+                  const Text('Profil recherché',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 10),
+                  Text(widget.post.profile),
+                  const SizedBox(height: 20),
+                  const Text('Compétences',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: widget.post.keywords
+                        .map((keyword) => Chip(
+                              label: Text(keyword),
+                              backgroundColor: Colors.blue.withOpacity(0.1),
+                            ))
+                        .toList(),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(widget.post.description),
-                const SizedBox(height: 20),
-                const Text(
-                  'Profil recherché',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(widget.post.profile),
-                const SizedBox(height: 20),
-                const Text(
-                  'Compétences requises',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.post.keywords
-                      .map((keyword) => Chip(
-                            label: Text(keyword),
-                            backgroundColor: Colors.blue.withOpacity(0.1),
-                          ))
-                      .toList(),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Pourquoi nous rejoindre ?',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                Text(
-                  widget.post.whyJoin,
-                ),
-                const SizedBox(
-                  height: 20,
-                  width: 10,
-                ),
-                const Text(
-                  'Vos avantages',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-                Text(
-                  widget.post.benefits,
-                ),
-                const SizedBox(
-                  height: 10,
-                  width: 10,
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  const Text('Avantages',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Text(widget.post.benefits),
+                  const SizedBox(height: 20),
+                  const Text('Pourquoi me choisir',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Text(widget.post.whyJoin),
+                  if (widget.post.salary != null) ...[
+                    const SizedBox(height: 20),
+                    const Text('Rémunération',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Text(widget.post.salary!),
+                  ],
+                  const SizedBox(height: 20),
+                  const Text('Catégorie de service',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Text(widget.post.industrySector),
+                  if (widget.post.contractType != null &&
+                      widget.post.contractType!.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    const Text('Types de contrat',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Text(widget.post.contractType!),
+                  ],
+                  if (widget.post.workingHours != null) ...[
+                    const SizedBox(height: 20),
+                    const Text('Horaires de travail',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Text(widget.post.workingHours!),
+                  ],
+                ],
+              ),
             ),
-          ))
-        ]));
+          )
+        ],
+      ),
+    );
   }
 }
