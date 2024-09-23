@@ -19,46 +19,350 @@ import 'package:happy/widgets/web_adress_search.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeProvider extends ChangeNotifier {
-  final TextEditingController addressController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TextEditingController addressController = TextEditingController();
 
   Position? _currentPosition;
   String _currentAddress = "Localisation en cours...";
   double _selectedRadius = 40.0;
   bool _isLoading = false;
   String? _errorMessage;
-  bool get hasError => _errorMessage != null;
-  String get errorMessage =>
-      _errorMessage ?? "Une erreur inconnue est survenue";
 
   Position? get currentPosition => _currentPosition;
   String get currentAddress => _currentAddress;
   double get selectedRadius => _selectedRadius;
   bool get isLoading => _isLoading;
+  bool get hasError => _errorMessage != null;
+  String get errorMessage =>
+      _errorMessage ?? "Une erreur inconnue est survenue";
 
-  final Map<String, dynamic> _cache = {};
-  static const int _cacheDuration = 15; // minutes
+  Future<List<CombinedItem>> loadUnifiedFeed(
+      List<String> likedCompanies, List<String> followedUsers) async {
+    try {
+      print("### Début de loadUnifiedFeed ###");
+      print(
+          "Entreprises aimées: ${likedCompanies.length}, Utilisateurs suivis: ${followedUsers.length}");
 
-  Future<List<CombinedItem>> loadAllData() async {
-    await loadSavedLocation();
-    notifyLocationChanges();
+      await loadSavedLocation();
 
-    if (_currentPosition == null) {
+      if (_currentPosition == null) {
+        throw Exception("Position actuelle non disponible");
+      }
+
+      final Set<String> addedPostIds = {};
+      final List<CombinedItem> combinedItems = [];
+
+      print("Chargement des posts à proximité...");
+      final nearbyPosts = await fetchNearbyPostsWithCompanyData();
+      _addUniquePosts(nearbyPosts, addedPostIds, combinedItems);
+
+      print("Chargement des posts des entreprises aimées...");
+      final likedCompanyPosts =
+          await fetchLikedCompanyPostsWithCompanyData(likedCompanies);
+      _addUniquePosts(likedCompanyPosts, addedPostIds, combinedItems);
+
+      print("Chargement des posts partagés...");
+      final sharedPosts = await fetchSharedPostsWithCompanyData(followedUsers);
+      _addUniquePosts(sharedPosts, addedPostIds, combinedItems);
+
+      print("Chargement des entreprises à proximité...");
+      final companies = await fetchNearbyCompanies();
+      combinedItems.addAll(companies.map(
+          (company) => CombinedItem(company, company.createdAt, 'company')));
+
+      combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      print("### Fin de loadUnifiedFeed ###");
+      print("Total d'éléments chargés: ${combinedItems.length}");
+
+      return combinedItems;
+    } catch (e, stackTrace) {
+      print("!!! Erreur dans loadUnifiedFeed: $e");
+      print("StackTrace: $stackTrace");
       return [];
     }
+  }
 
-    final posts = await fetchAllPostsWithCompanyData();
-    final companies = await fetchAllCompanies();
+  void _addUniquePosts(List<Map<String, dynamic>> posts,
+      Set<String> addedPostIds, List<CombinedItem> combinedItems) {
+    for (var postData in posts) {
+      final post = postData['post'] as Post;
+      String uniqueId =
+          post is SharedPost ? '${post.id}_${post.originalPostId}' : post.id;
+      if (!addedPostIds.contains(uniqueId)) {
+        addedPostIds.add(uniqueId);
+        combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
+        print(
+            "Ajout d'un post au feed - Type: ${post.runtimeType}, ID: ${post.id}");
+      }
+    }
+  }
 
-    final combinedItems = [
-      ...posts.map((postData) =>
-          CombinedItem(postData, postData['post'].timestamp, 'post')),
-      ...companies.map(
-          (company) => CombinedItem(company, company.createdAt, 'company')),
-    ];
+  Future<List<Map<String, dynamic>>> fetchNearbyPostsWithCompanyData() async {
+    try {
+      print("--- Début de fetchNearbyPostsWithCompanyData ---");
+      final postsQuery = _firestore
+          .collection('posts')
+          .where('type',
+              isNotEqualTo: 'shared') // Exclure les posts de type 'shared'
+          .orderBy('type') // Nécessaire pour utiliser isNotEqualTo
+          .orderBy('timestamp', descending: true);
+      final postsSnapshot = await postsQuery.get();
 
-    combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return combinedItems;
+      print("Nombre total de posts récupérés: ${postsSnapshot.docs.length}");
+
+      List<Map<String, dynamic>> postsWithCompanyData = [];
+
+      for (var postDoc in postsSnapshot.docs) {
+        try {
+          final post = _createPostFromDocument(postDoc);
+          if (post != null) {
+            final companyDoc = await _firestore
+                .collection('companys')
+                .doc(post.companyId)
+                .get();
+            final companyData = companyDoc.data() as Map<String, dynamic>;
+            if (await _isPostWithinRadius(post.companyId, companyData)) {
+              postsWithCompanyData.add({'post': post, 'company': companyData});
+            }
+          }
+        } catch (e) {
+          print('Erreur lors du traitement du post ${postDoc.id}: $e');
+        }
+      }
+
+      print("--- Fin de fetchNearbyPostsWithCompanyData ---");
+      print("Nombre de posts à proximité: ${postsWithCompanyData.length}");
+      return postsWithCompanyData;
+    } catch (e, stackTrace) {
+      print("!!! Erreur dans fetchNearbyPostsWithCompanyData: $e");
+      print("StackTrace: $stackTrace");
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchLikedCompanyPostsWithCompanyData(
+      List<String> likedCompanies) async {
+    try {
+      print("--- Début de fetchLikedCompanyPostsWithCompanyData ---");
+      if (likedCompanies.isEmpty) {
+        print("Aucune entreprise aimée. Retour d'une liste vide.");
+        return [];
+      }
+
+      final postsQuery = _firestore
+          .collection('posts')
+          .where('companyId', whereIn: likedCompanies)
+          .where('type', isNotEqualTo: 'shared')
+          .orderBy('timestamp', descending: true);
+      final postsSnapshot = await postsQuery.get();
+
+      print(
+          "Nombre de posts des entreprises aimées: ${postsSnapshot.docs.length}");
+
+      List<Map<String, dynamic>> postsWithCompanyData = [];
+
+      for (var postDoc in postsSnapshot.docs) {
+        try {
+          final post = _createPostFromDocument(postDoc);
+          if (post != null) {
+            final companyDoc = await _firestore
+                .collection('companys')
+                .doc(post.companyId)
+                .get();
+            final companyData = companyDoc.data() as Map<String, dynamic>;
+            postsWithCompanyData.add({'post': post, 'company': companyData});
+          }
+        } catch (e) {
+          print('Erreur lors du traitement du post ${postDoc.id}: $e');
+        }
+      }
+
+      print("--- Fin de fetchLikedCompanyPostsWithCompanyData ---");
+      return postsWithCompanyData;
+    } catch (e, stackTrace) {
+      print("!!! Erreur dans fetchLikedCompanyPostsWithCompanyData: $e");
+      print("StackTrace: $stackTrace");
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSharedPostsWithCompanyData(
+      List<String> followedUsers) async {
+    try {
+      print("Nombre d'utilisateurs suivis: ${followedUsers.length}");
+      print("IDs des utilisateurs suivis: $followedUsers");
+      print("--- Début de fetchSharedPostsWithCompanyData ---");
+      if (followedUsers.isEmpty) {
+        print("Aucun utilisateur suivi. Retour d'une liste vide.");
+        return [];
+      }
+
+      final postsQuery = _firestore
+          .collection('posts')
+          .where('type', isEqualTo: 'shared')
+          .where('sharedBy', whereIn: followedUsers)
+          .orderBy('timestamp', descending: true);
+      final postsSnapshot = await postsQuery.get();
+
+      print("Requête Firestore: ${postsQuery.parameters}");
+
+      print("Nombre de posts partagés trouvés: ${postsSnapshot.docs.length}");
+
+      List<Map<String, dynamic>> postsWithCompanyData = [];
+
+      for (var postDoc in postsSnapshot.docs) {
+        try {
+          print("Traitement du post partagé avec ID: ${postDoc.id}");
+          final sharedPost = _createPostFromDocument(postDoc) as SharedPost?;
+          if (sharedPost == null) {
+            print(
+                "Erreur: Impossible de créer un SharedPost à partir du document ${postDoc.id}");
+            continue;
+          }
+
+          final companyDoc = await _firestore
+              .collection('companys')
+              .doc(sharedPost.companyId)
+              .get();
+          if (!companyDoc.exists) {
+            print(
+                "Erreur: Entreprise non trouvée pour l'ID ${sharedPost.companyId}");
+            continue;
+          }
+          final companyData = companyDoc.data() as Map<String, dynamic>;
+
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(sharedPost.sharedBy)
+              .get();
+          if (!userDoc.exists) {
+            print(
+                "Erreur: Utilisateur non trouvé pour l'ID ${sharedPost.sharedBy}");
+            continue;
+          }
+          final userData = userDoc.data() as Map<String, dynamic>;
+
+          final sharedByUserData = {
+            'firstName': userData['firstName'] ?? 'Prénom inconnu',
+            'lastName': userData['lastName'] ?? 'Nom inconnu',
+            'profileImageUrl': userData['profileImageUrl'] ?? '',
+          };
+
+          final originalPostDoc = await _firestore
+              .collection('posts')
+              .doc(sharedPost.originalPostId)
+              .get();
+          if (!originalPostDoc.exists) {
+            print(
+                "Erreur: Post original non trouvé pour l'ID ${sharedPost.originalPostId}");
+            continue;
+          }
+          final originalPost = _createPostFromDocument(originalPostDoc);
+          if (originalPost == null) {
+            print(
+                "Erreur: Impossible de créer le post original à partir du document ${sharedPost.originalPostId}");
+            continue;
+          }
+
+          final originalCompanyDoc = await _firestore
+              .collection('companys')
+              .doc(originalPost.companyId)
+              .get();
+          if (!originalCompanyDoc.exists) {
+            print(
+                "Erreur: Entreprise du post original non trouvée pour l'ID ${originalPost.companyId}");
+            continue;
+          }
+          final originalCompanyData =
+              originalCompanyDoc.data() as Map<String, dynamic>;
+
+          postsWithCompanyData.add({
+            'post': sharedPost,
+            'company': companyData,
+            'sharedByUser': sharedByUserData,
+            'originalPost': originalPost,
+            'originalCompany': originalCompanyData,
+          });
+
+          print("Post partagé ajouté avec succès à la liste");
+        } catch (e) {
+          print('Erreur lors du traitement du post partagé ${postDoc.id}: $e');
+        }
+      }
+
+      print("--- Fin de fetchSharedPostsWithCompanyData ---");
+      print(
+          "Nombre total de posts partagés traités avec succès: ${postsWithCompanyData.length}");
+      return postsWithCompanyData;
+    } catch (e, stackTrace) {
+      print("!!! Erreur dans fetchSharedPostsWithCompanyData: $e");
+      print("StackTrace: $stackTrace");
+      return [];
+    }
+  }
+
+  Future<List<Company>> fetchNearbyCompanies() async {
+    try {
+      print("--- Début de fetchNearbyCompanies ---");
+      final companiesQuery = _firestore
+          .collection('companys')
+          .orderBy('createdAt', descending: true);
+      final companiesSnapshot = await companiesQuery.get();
+
+      print(
+          "Nombre total d'entreprises récupérées: ${companiesSnapshot.docs.length}");
+
+      List<Company> companiesInRange = [];
+
+      for (var doc in companiesSnapshot.docs) {
+        Company company = Company.fromDocument(doc);
+        if (await _isCompanyWithinRadius(company)) {
+          companiesInRange.add(company);
+        }
+      }
+
+      print("--- Fin de fetchNearbyCompanies ---");
+      print("Nombre d'entreprises à proximité: ${companiesInRange.length}");
+      return companiesInRange;
+    } catch (e, stackTrace) {
+      print("!!! Erreur dans fetchNearbyCompanies: $e");
+      print("StackTrace: $stackTrace");
+      return [];
+    }
+  }
+
+  Post? _createPostFromDocument(DocumentSnapshot doc) {
+    try {
+      final data = doc.data() as Map<String, dynamic>;
+      final String type = data['type'] ?? 'unknown';
+
+      switch (type) {
+        case 'job_offer':
+          return JobOffer.fromDocument(doc);
+        case 'contest':
+          return Contest.fromDocument(doc);
+        case 'happy_deal':
+          return HappyDeal.fromDocument(doc);
+        case 'express_deal':
+          return ExpressDeal.fromDocument(doc);
+        case 'referral':
+          return Referral.fromDocument(doc);
+        case 'event':
+          return Event.fromDocument(doc);
+        case 'shared':
+          return SharedPost.fromDocument(doc);
+        default:
+          print('Type de post non supporté: $type pour le document ${doc.id}');
+          return null;
+      }
+    } catch (e, stackTrace) {
+      print(
+          'Erreur lors de la création du post à partir du document ${doc.id}: $e');
+      print('StackTrace: $stackTrace');
+      print('Données du document: ${doc.data()}');
+      return null;
+    }
   }
 
   Future<void> showLocationSelectionBottomSheet(BuildContext context) async {
@@ -134,188 +438,6 @@ class HomeProvider extends ChangeNotifier {
         },
       );
     }
-  }
-
-  Future<List<CombinedItem>> loadFollowingData(
-      List<String> likedCompanies, List<String> followedUsers) async {
-    if (likedCompanies.isEmpty && followedUsers.isEmpty) {
-      return [];
-    }
-
-    final posts =
-        await fetchFollowingPostsWithCompanyData(likedCompanies, followedUsers);
-    final companies = await fetchFollowingCompanies(likedCompanies);
-
-    final combinedItems = [
-      ...posts.map((postData) =>
-          CombinedItem(postData, postData['post'].timestamp, 'post')),
-      ...companies.map(
-          (company) => CombinedItem(company, company.createdAt, 'company')),
-    ];
-
-    combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return combinedItems;
-  }
-
-  Future<List<Map<String, dynamic>>> fetchFollowingPostsWithCompanyData(
-      List<String> likedCompanies, List<String> followedUsers) async {
-    List<Map<String, dynamic>> postsWithCompanyData = [];
-
-    // Requête pour les posts des entreprises aimées
-    if (likedCompanies.isNotEmpty) {
-      final companyPostsQuery = await _firestore
-          .collection('posts')
-          .where('companyId', whereIn: likedCompanies)
-          .orderBy('timestamp', descending: true)
-          .get();
-
-      for (var doc in companyPostsQuery.docs) {
-        await _processPost(doc, postsWithCompanyData);
-      }
-    }
-
-    // Requête pour les posts partagés par les utilisateurs suivis
-    if (followedUsers.isNotEmpty) {
-      final sharedPostsQuery = await _firestore
-          .collection('posts')
-          .where('sharedBy', whereIn: followedUsers)
-          .orderBy('timestamp', descending: true)
-          .get();
-
-      for (var doc in sharedPostsQuery.docs) {
-        await _processPost(doc, postsWithCompanyData);
-      }
-    }
-
-    // Trier tous les posts par timestamp
-    postsWithCompanyData.sort((a, b) =>
-        (b['post'] as Post).timestamp.compareTo((a['post'] as Post).timestamp));
-
-    return postsWithCompanyData;
-  }
-
-  Future<void> _processPost(DocumentSnapshot doc,
-      List<Map<String, dynamic>> postsWithCompanyData) async {
-    try {
-      final post = Post.fromDocument(doc);
-      Map<String, dynamic> postData = {'post': post};
-
-      // Récupérer les données de l'entreprise
-      final companyDoc =
-          await _firestore.collection('companys').doc(post.companyId).get();
-      if (companyDoc.exists) {
-        postData['company'] = companyDoc.data();
-      }
-
-      // Si c'est un post partagé, récupérer le post original
-      if (post is SharedPost) {
-        final originalPostDoc =
-            await _firestore.collection('posts').doc(post.originalPostId).get();
-        if (originalPostDoc.exists) {
-          postData['originalPost'] = Post.fromDocument(originalPostDoc);
-        }
-      }
-
-      // Récupérer les données de l'utilisateur qui a partagé (si applicable)
-      if (post.sharedBy != null) {
-        final userDoc =
-            await _firestore.collection('users').doc(post.sharedBy).get();
-        if (userDoc.exists) {
-          postData['sharedByUser'] = userDoc.data();
-        }
-      }
-
-      postsWithCompanyData.add(postData);
-    } catch (e) {
-      print('Erreur lors du traitement du post ${doc.id}: $e');
-    }
-  }
-
-  Future<List<Company>> fetchFollowingCompanies(
-      List<String> likedCompanies) async {
-    final companiesQuery = _firestore
-        .collection('companys')
-        .where(FieldPath.documentId, whereIn: likedCompanies)
-        .orderBy('createdAt', descending: true);
-    final companiesSnapshot = await companiesQuery.get();
-
-    return companiesSnapshot.docs
-        .map((doc) => Company.fromDocument(doc))
-        .toList();
-  }
-
-  Future<List<Map<String, dynamic>>> fetchAllPostsWithCompanyData() async {
-    final postsQuery =
-        _firestore.collection('posts').orderBy('timestamp', descending: true);
-    final postsSnapshot = await postsQuery.get();
-
-    List<Map<String, dynamic>> postsWithCompanyData = [];
-
-    for (var postDoc in postsSnapshot.docs) {
-      try {
-        final post = _createPostFromDocument(postDoc);
-        if (post != null) {
-          final companyDoc =
-              await _firestore.collection('companys').doc(post.companyId).get();
-          final companyData = companyDoc.data() as Map<String, dynamic>;
-          if (await _isPostWithinRadius(post.companyId, companyData)) {
-            postsWithCompanyData.add({'post': post, 'company': companyData});
-          }
-        }
-      } catch (e) {
-        print('Error processing post: $e');
-      }
-    }
-
-    return postsWithCompanyData;
-  }
-
-  Post? _createPostFromDocument(DocumentSnapshot doc) {
-    try {
-      final data = doc.data() as Map<String, dynamic>;
-      final String type = data['type'] ?? 'unknown';
-
-      switch (type) {
-        case 'job_offer':
-          return JobOffer.fromDocument(doc);
-        case 'contest':
-          return Contest.fromDocument(doc);
-        case 'happy_deal':
-          return HappyDeal.fromDocument(doc);
-        case 'express_deal':
-          return ExpressDeal.fromDocument(doc);
-        case 'referral':
-          return Referral.fromDocument(doc);
-        case 'event':
-          return Event.fromDocument(doc);
-        default:
-          print('Type de post non supporté: $type pour le document ${doc.id}');
-          return null;
-      }
-    } catch (e) {
-      print(
-          'Erreur lors de la création du post à partir du document ${doc.id}: $e');
-      print('Données du document: ${doc.data()}');
-      return null;
-    }
-  }
-
-  Future<List<Company>> fetchAllCompanies() async {
-    final companiesQuery = _firestore
-        .collection('companys')
-        .orderBy('createdAt', descending: true);
-    final companiesSnapshot = await companiesQuery.get();
-
-    List<Company> companiesInRange = [];
-
-    for (var doc in companiesSnapshot.docs) {
-      Company company = Company.fromDocument(doc);
-      if (await _isCompanyWithinRadius(company)) {
-        companiesInRange.add(company);
-      }
-    }
-
-    return companiesInRange;
   }
 
   Future<bool> _isCompanyWithinRadius(Company company) async {
@@ -502,131 +624,17 @@ class HomeProvider extends ChangeNotifier {
         DateTime.now().millisecondsSinceEpoch,
       );
       await _saveLocation(_currentAddress, _currentPosition!);
-      clearCache();
       notifyListeners();
     } else {}
   }
 
-  Future<Map<String, dynamic>> fetchCompanies(
-      DocumentSnapshot? pageKey, int pageSize) async {
-    if (_currentPosition == null) {
-      return {'data': <Company>[], 'lastDocument': null};
-    }
-
-    Query query = _firestore.collection('companys');
-
-    // Utiliser un champ qui existe sûrement dans tous les documents, comme 'id' ou 'createdAt'
-    query = query.orderBy('createdAt', descending: true);
-
-    if (pageKey != null) {
-      // Vérifier si le pageKey est un document d'entreprise
-      if (pageKey.reference.parent.id == 'companys') {
-        query = query.startAfterDocument(pageKey);
-      } else {
-        // Si ce n'est pas une entreprise, commencer depuis le début
-        // mais limiter le nombre de résultats pour maintenir la pagination
-        query = query.limit(pageSize);
-      }
-    } else {
-      query = query.limit(pageSize);
-    }
-
-    final snapshot = await query.get();
-
-    List<Company> companiesInRange = [];
-    DocumentSnapshot? lastDocument;
-
-    for (var doc in snapshot.docs) {
-      Company company = Company.fromDocument(doc);
-      if (await _isCompanyWithinRadius(company)) {
-        companiesInRange.add(company);
-      }
-      lastDocument = doc;
-      if (companiesInRange.length >= pageSize) {
-        break;
-      }
-    }
-
-    return {
-      'data': companiesInRange,
-      'lastDocument': lastDocument,
-    };
-  }
-
-  Future<List<Map<String, dynamic>>> fetchPostsWithCompanyData(
-      DocumentSnapshot? pageKey, int pageSize) async {
-    if (_currentPosition == null) {
-      return [];
-    }
-
-    Query postsQuery =
-        _firestore.collection('posts').orderBy('timestamp', descending: true);
-
-    if (pageKey != null) {
-      postsQuery = postsQuery.startAfterDocument(pageKey);
-    }
-
-    postsQuery = postsQuery.limit(pageSize * 5);
-
-    final postsSnapshot = await postsQuery.get();
-
-    List<Map<String, dynamic>> postsWithCompanyData = [];
-
-    for (var postDoc in postsSnapshot.docs) {
-      try {
-        final post = _createPostFromDocument(postDoc);
-        if (post != null) {
-          Map<String, dynamic> postData = {'post': post};
-
-          if (post.sharedBy != null) {
-            // C'est un post partagé, récupérez les informations de l'utilisateur qui l'a partagé
-            final userDoc =
-                await _firestore.collection('users').doc(post.sharedBy).get();
-            postData['sharedByUser'] = userDoc.data();
-          }
-
-          final companyDoc =
-              await _firestore.collection('companys').doc(post.companyId).get();
-          final companyData = companyDoc.data() as Map<String, dynamic>;
-
-          if (await _isPostWithinRadius(post.companyId, companyData)) {
-            postData['company'] = companyData;
-            postsWithCompanyData.add(postData);
-          }
-        }
-      } catch (e) {
-        print('Error processing post: $e');
-      }
-    }
-
-    return postsWithCompanyData;
-  }
-
-  bool _isCacheValid(String key) {
-    if (_cache.containsKey(key)) {
-      final cachedData = _cache[key];
-      if (DateTime.now().difference(cachedData['timestamp']).inMinutes <
-          _cacheDuration) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  void clearCache() {
-    _cache.clear();
-    notifyListeners();
-  }
-
   Future<void> applyChanges() async {
-    clearCache();
     notifyListeners();
   }
 
   @override
   void dispose() {
     addressController.dispose();
-    clearCache();
     super.dispose();
   }
 }

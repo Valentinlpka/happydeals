@@ -38,7 +38,7 @@ class UserReferral {
       message: data['message'] ?? '',
       companyName: data['companyName'] ?? '',
       type: data['type'] ?? '',
-      status: data['etat'] ?? '',
+      status: data['status'] ?? '',
       refereeContact: data['refereeContact'] ?? '',
       refereeContactType: data['refereeContactType'] ?? '',
       refereeName: data['refereeName'] ?? '',

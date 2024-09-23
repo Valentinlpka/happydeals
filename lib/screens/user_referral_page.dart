@@ -190,13 +190,13 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'envoyé':
+      case 'Envoyé':
         return Colors.blue;
-      case 'en cours':
+      case 'En cours':
         return Colors.orange;
-      case 'refusé':
+      case 'Refusé':
         return Colors.red;
-      case 'validé':
+      case 'Validé':
         return Colors.green;
       default:
         return Colors.grey;
@@ -205,13 +205,13 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
 
   String _getStatusText(String status) {
     switch (status) {
-      case 'envoyé':
+      case 'Envoyé':
         return 'Envoyé';
-      case 'en cours':
+      case 'En cours':
         return 'En cours';
-      case 'refusé':
+      case 'Refusé':
         return 'Refusé';
-      case 'validé':
+      case 'Validé':
         return 'Validé';
       default:
         return 'Inconnu';

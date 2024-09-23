@@ -10,14 +10,15 @@ import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/comments_page.dart';
+import 'package:happy/screens/profile.dart';
 import 'package:happy/widgets/cards/concours_card.dart';
 import 'package:happy/widgets/cards/deals_express_card.dart';
 import 'package:happy/widgets/cards/emploi_card.dart';
 import 'package:happy/widgets/cards/evenement_card.dart';
 import 'package:happy/widgets/cards/happy_deals_card.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class PostWidget extends StatefulWidget {
   final Post post;
@@ -62,15 +63,36 @@ class _PostWidgetState extends State<PostWidget> {
 
   Widget _buildSharedPostHeader() {
     final sharedPost = widget.post as SharedPost;
+    final userData = widget.sharedByUserData;
+
     return ListTile(
-      leading: CircleAvatar(
-        backgroundImage:
-            NetworkImage(widget.sharedByUserData?['profileImageUrl'] ?? ''),
+      leading: GestureDetector(
+        onTap: () => _navigateToUserProfile(sharedPost.sharedBy!),
+        child: CircleAvatar(
+          backgroundImage: NetworkImage(userData?['profileImageUrl'] ?? ''),
+          backgroundColor: Colors.grey, // Fallback color if no image
+        ),
       ),
-      title: Text(
-          '${widget.sharedByUserData?['firstName']} ${widget.sharedByUserData?['lastName']} a partagé'),
-      subtitle: Text(DateFormat.yMMMd()
-          .format(sharedPost.sharedAt ?? sharedPost.timestamp)),
+      title: GestureDetector(
+        onTap: () => _navigateToUserProfile(sharedPost.sharedBy!),
+        child: Text(
+          '${userData?['firstName'] ?? ''} ${userData?['lastName'] ?? ''} a partagé',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      subtitle: Text(timeago.format(sharedPost.sharedAt ?? sharedPost.timestamp,
+          locale: 'fr')),
+    );
+  }
+
+  void _navigateToUserProfile(String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Profile(userId: userId),
+      ),
     );
   }
 

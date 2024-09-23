@@ -55,29 +55,37 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildStatusSection(referralData['status']),
+                if (referralData['status'] != null)
+                  _buildStatusSection(referralData['status']),
                 const SizedBox(height: 24),
                 _buildRewardSection(referralData, isParrain),
                 const SizedBox(height: 24),
                 _buildInfoSection('Informations du filleul', [
-                  'Nom: ${referralData['refereeName']}',
-                  'Contact: ${referralData['refereeContact']}',
-                  'Type de contact: ${referralData['refereeContactType']}',
+                  if (referralData['refereeName'] != null)
+                    'Nom: ${referralData['refereeName']}',
+                  if (referralData['refereeContact'] != null)
+                    'Contact: ${referralData['refereeContact']}',
+                  if (referralData['refereeContactType'] != null)
+                    'Type de contact: ${referralData['refereeContactType']}',
                 ]),
                 const SizedBox(height: 24),
                 _buildInfoSection('Informations du parrain', [
-                  'Nom: ${referralData['sponsorName']}',
-                  'Email: ${referralData['sponsorEmail']}',
+                  if (referralData['sponsorName'] != null)
+                    'Nom: ${referralData['sponsorName']}',
+                  if (referralData['sponsorEmail'] != null)
+                    'Email: ${referralData['sponsorEmail']}',
                 ]),
                 const SizedBox(height: 24),
-                _buildInfoSection(
-                    'Message', [referralData['message'] ?? 'Aucun message']),
+                if (referralData['message'] != null)
+                  _buildInfoSection('Message', [referralData['message']]),
                 const SizedBox(height: 24),
-                _buildInfoSection('Détails du parrainage', [
-                  'Date: ${DateFormat('dd/MM/yyyy HH:mm').format((referralData['timestamp'] as Timestamp).toDate())}',
-                ]),
+                if (referralData['timestamp'] != null)
+                  _buildInfoSection('Détails du parrainage', [
+                    'Date: ${DateFormat('dd/MM/yyyy HH:mm').format((referralData['timestamp'] as Timestamp).toDate())}',
+                  ]),
                 const SizedBox(height: 24),
-                _buildMessagesSection(referralData['messages'] ?? []),
+                _buildMessagesSection(
+                    referralData['messages'] as List<dynamic>? ?? []),
               ],
             ),
           );
@@ -113,6 +121,10 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
     final reward = isParrain
         ? referralData['sponsorReward']
         : referralData['refereeReward'];
+    if (reward == null || (reward is String && reward.isEmpty)) {
+      return const SizedBox
+          .shrink(); // Ne rien afficher si la récompense est null ou vide
+    }
     return Card(
       elevation: 4,
       child: Padding(
@@ -127,7 +139,7 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text(reward ?? 'Récompense non spécifiée'),
+            Text(reward.toString()),
           ],
         ),
       ),
@@ -135,6 +147,9 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
   }
 
   Widget _buildInfoSection(String title, List<String> infos) {
+    if (infos.isEmpty) {
+      return const SizedBox.shrink(); // Ne rien afficher si la liste est vide
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -168,7 +183,7 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: messages.length,
             itemBuilder: (context, index) {
-              final message = messages[index];
+              final message = messages[index] as Map<String, dynamic>;
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: Padding(
@@ -182,13 +197,14 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
                             : 'Vous',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      Text(message['text']),
-                      Text(
-                        DateFormat('dd/MM/yyyy HH:mm').format(
-                            (message['timestamp'] as Timestamp).toDate()),
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
+                      if (message['text'] != null) Text(message['text']),
+                      if (message['timestamp'] != null)
+                        Text(
+                          DateFormat('dd/MM/yyyy HH:mm').format(
+                              (message['timestamp'] as Timestamp).toDate()),
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
                     ],
                   ),
                 ),

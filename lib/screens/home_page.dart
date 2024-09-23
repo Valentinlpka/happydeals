@@ -20,21 +20,19 @@ class Home extends StatefulWidget {
   _HomeState createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> with TickerProviderStateMixin {
-  late TabController _tabController;
+class _HomeState extends State<Home> {
   late String currentUserId;
-
   String _selectedFilter = 'Tous';
-  List<CombinedItem> _forYouItems = [];
-  List<CombinedItem> _followingItems = [];
+  List<CombinedItem> _feedItems = [];
   bool _isLoading = true;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
     _loadData();
+    _scrollController.addListener(_onScroll);
   }
 
   Future<void> _loadData() async {
@@ -46,25 +44,18 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
       final userProvider = Provider.of<UserModel>(context, listen: false);
 
-      // Chargement des données "Pour toi"
       await homeProvider.loadSavedLocation();
       if (homeProvider.currentPosition == null) {
         await homeProvider.showLocationSelectionBottomSheet(context);
       }
-      final forYouItems = await homeProvider.loadAllData();
-
-      // Chargement des données "Suivis"
-      final followingItems = await homeProvider.loadFollowingData(
+      final feedItems = await homeProvider.loadUnifiedFeed(
         userProvider.likedCompanies,
-        userProvider
-            .followedUsers, // Assurez-vous que cette propriété existe dans votre UserModel
+        userProvider.followedUsers,
       );
 
-      // Mise à jour de l'état avec les nouvelles données
       if (mounted) {
         setState(() {
-          _forYouItems = forYouItems;
-          _followingItems = followingItems;
+          _feedItems = feedItems;
           _isLoading = false;
         });
       }
@@ -83,6 +74,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     }
   }
 
+  void _onScroll() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      _loadMoreData();
+    }
+  }
+
+  Future<void> _loadMoreData() async {
+    // Implement pagination logic here
+    // This should call a method in HomeProvider to fetch more data
+    // and append it to _feedItems
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -92,25 +96,14 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             _buildHeader(),
             _buildLocationBar(),
             _buildFilterButtons(),
-            TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Pour toi'),
-                Tab(text: 'Suivis'),
-              ],
-            ),
             if (_isLoading)
               const LinearProgressIndicator()
             else
-              const SizedBox(
-                  height: 4), // Pour maintenir la mise en page cohérente
+              const SizedBox(height: 4),
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildContentList(_forYouItems),
-                  _buildContentList(_followingItems),
-                ],
+              child: RefreshIndicator(
+                onRefresh: _handleRefresh,
+                child: _buildContentList(_feedItems),
               ),
             ),
           ],
@@ -160,7 +153,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     return Consumer<HomeProvider>(
       builder: (context, homeProvider, _) {
         return GestureDetector(
-          onTap: _showLocationBottomSheet,
+          onTap: () => _showLocationBottomSheet(context),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -221,35 +214,36 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   }
 
   Widget _buildContentList(List<CombinedItem> items) {
-    if (_isLoading) {
+    if (_isLoading && items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     } else if (items.isEmpty) {
       return const Center(child: Text('Aucun élément trouvé'));
     } else {
       final filteredItems = _applyFilter(items);
-      return RefreshIndicator(
-        onRefresh: _handleRefresh,
-        child: ListView.builder(
-          itemCount: filteredItems.length,
-          itemBuilder: (context, index) => _buildItem(filteredItems[index]),
-        ),
+      return ListView.builder(
+        controller: _scrollController,
+        itemCount: filteredItems.length + 1,
+        itemBuilder: (context, index) {
+          if (index == filteredItems.length) {
+            return _buildLoadingIndicator();
+          }
+          return _buildItem(filteredItems[index]);
+        },
       );
     }
   }
 
+  Widget _buildLoadingIndicator() {
+    return _isLoading
+        ? const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        : const SizedBox.shrink();
+  }
+
   Future<void> _handleRefresh() async {
-    // Réinitialiser l'état de chargement
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Recharger les données
     await _loadData();
-
-    // Mettre à jour l'état une fois le chargement terminé
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   List<CombinedItem> _applyFilter(List<CombinedItem> items) {
@@ -309,7 +303,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     }
   }
 
-  void _showLocationBottomSheet() {
+  void _showLocationBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -430,7 +424,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }

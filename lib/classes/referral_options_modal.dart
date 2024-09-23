@@ -331,7 +331,7 @@ class _ReferralModalState extends State<ReferralModal> {
               'urgencyLevel': _urgencyLevel,
               'timestamp': FieldValue.serverTimestamp(),
               'type': 'sponsorship',
-              'etat': 'envoyé'
+              'status': 'Envoyé'
             });
 
             transaction.set(notificationRef, {
