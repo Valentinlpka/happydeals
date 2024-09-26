@@ -205,6 +205,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     html.window.localStorage.remove('cartTotal');
     html.window.localStorage.remove('stripeSessionId');
     html.window.localStorage.remove('appliedPromoCode');
+    html.window.localStorage['discountAmount'];
   }
 
   void _handleError(String message) {
@@ -251,6 +252,18 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       _correctCartQuantities(cart);
     }
 
+    // Récupérer les informations du code promo
+    String? promoCode;
+    double? discountAmount;
+    if (kIsWeb) {
+      promoCode = html.window.localStorage['appliedPromoCode'];
+      discountAmount =
+          double.tryParse(html.window.localStorage['discountAmount'] ?? '');
+    } else {
+      promoCode = cart.appliedPromoCode;
+      discountAmount = cart.discountAmount;
+    }
+
     final orderId = await _orderService.createOrder(Orders(
       id: '',
       userId: user.uid,
@@ -270,6 +283,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       createdAt: DateTime.now(),
       pickupAddress: address ?? "",
       entrepriseId: cart.items.first.product.entrepriseId,
+      promoCode: promoCode,
+      discountAmount: discountAmount,
     ));
 
     print('Commande créée avec l\'ID: $orderId');

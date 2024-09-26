@@ -21,6 +21,8 @@ class OrderService {
         'totalPrice': order.totalPrice,
         'pickupAddress': order.pickupAddress,
         'entrepriseId': order.entrepriseId,
+        'promoCode': order.promoCode,
+        'discountAmount': order.discountAmount,
       });
 
       await updateProductStock(order.items);
@@ -64,6 +66,8 @@ class OrderService {
       pickupAddress: data['pickupAddress'],
       pickupCode: data['pickupCode'],
       entrepriseId: data['entrepriseId'],
+      promoCode: data['promoCode'],
+      discountAmount: data['discountAmount'],
     );
   }
 

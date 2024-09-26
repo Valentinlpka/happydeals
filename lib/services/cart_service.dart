@@ -26,7 +26,7 @@ class CartItem {
 }
 
 class CartService extends ChangeNotifier {
-  String? _appliedPromoCode;
+  String? appliedPromoCode;
   double _discountAmount = 0;
 
   List<CartItem> _items = [];
@@ -48,7 +48,7 @@ class CartService extends ChangeNotifier {
     if (isValid) {
       final promoDetails = await _promoCodeService.getPromoCodeDetails(code);
       if (promoDetails != null) {
-        _appliedPromoCode = code;
+        appliedPromoCode = code;
         if (promoDetails['isPercentage']) {
           _discountAmount = total * (promoDetails['value'] / 100);
         } else {
@@ -65,16 +65,16 @@ class CartService extends ChangeNotifier {
   }
 
   Future<void> finalizePromoCodeUsage() async {
-    if (_appliedPromoCode != null) {
-      await _promoCodeService.usePromoCode(_appliedPromoCode!);
-      _appliedPromoCode = null;
+    if (appliedPromoCode != null) {
+      await _promoCodeService.usePromoCode(appliedPromoCode!);
+      appliedPromoCode = null;
       _discountAmount = 0;
       notifyListeners();
     }
   }
 
   void removePromoCode() {
-    _appliedPromoCode = null;
+    appliedPromoCode = null;
     _discountAmount = 0;
     notifyListeners();
   }

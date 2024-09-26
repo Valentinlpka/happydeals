@@ -12,6 +12,8 @@ class Orders {
   final String pickupAddress;
   final String? pickupCode;
   final String entrepriseId;
+  final String? promoCode;
+  final double? discountAmount;
 
   Orders({
     required this.id,
@@ -24,24 +26,27 @@ class Orders {
     required this.pickupAddress,
     required this.entrepriseId,
     this.pickupCode,
+    this.promoCode,
+    this.discountAmount,
   });
 
   factory Orders.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map<String, dynamic>;
     return Orders(
-      id: doc.id,
-      userId: data['userId'] ?? '',
-      sellerId: data['sellerId'] ?? '',
-      items: (data['items'] as List? ?? [])
-          .map((item) => OrderItem.fromMap(item))
-          .toList(),
-      totalPrice: (data['totalPrice'] ?? 0).toDouble(),
-      status: data['status'] ?? '',
-      entrepriseId: data['entrepriseId'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      pickupAddress: data['pickupAddress'] ?? '',
-      pickupCode: data['pickupCode'],
-    );
+        id: doc.id,
+        userId: data['userId'] ?? '',
+        sellerId: data['sellerId'] ?? '',
+        items: (data['items'] as List? ?? [])
+            .map((item) => OrderItem.fromMap(item))
+            .toList(),
+        totalPrice: (data['totalPrice'] ?? 0).toDouble(),
+        status: data['status'] ?? '',
+        entrepriseId: data['entrepriseId'] ?? '',
+        createdAt: (data['createdAt'] as Timestamp).toDate(),
+        pickupAddress: data['pickupAddress'] ?? '',
+        pickupCode: data['pickupCode'],
+        promoCode: data['promoCode'],
+        discountAmount: data['discountAmount']);
   }
 }
 

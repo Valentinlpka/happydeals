@@ -124,6 +124,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         html.window.localStorage['cartData'] = cartDataJson;
         html.window.localStorage['cartTotal'] = cart.total.toString();
 
+        // Ajout du stockage des informations du code promo
+        if (cart.appliedPromoCode != null) {
+          html.window.localStorage['appliedPromoCode'] = cart.appliedPromoCode!;
+          html.window.localStorage['discountAmount'] =
+              cart.discountAmount.toString();
+        }
+
         final sessionId = result.data['sessionId'];
         final sessionUrl = result.data['url'];
 
@@ -173,6 +180,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   tva: item.product.tva,
                 ))
             .toList(),
+        promoCode: cart.appliedPromoCode,
+        discountAmount: cart.discountAmount,
         totalPrice: cart.total,
         status:
             'paid', // Le statut reste 'paid' car le paiement a été effectué sur le compte de la plateforme

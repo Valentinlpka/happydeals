@@ -450,9 +450,20 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Sous-total'),
-              Text('${order.totalPrice.toStringAsFixed(2)}€'),
+              Text(
+                  '${(order.totalPrice + (order.discountAmount ?? 0)).toStringAsFixed(2)}€'),
             ],
           ),
+          if (order.promoCode != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Code promo (${order.promoCode})'),
+                Text('-${order.discountAmount?.toStringAsFixed(2)}€'),
+              ],
+            ),
+          ],
           const SizedBox(height: 4),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
