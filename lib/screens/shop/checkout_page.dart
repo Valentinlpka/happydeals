@@ -191,6 +191,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       timestamp: DateTime.now(),
     ));
 
+    await cart.finalizePromoCodeUsage();
+
     cart.clearCart();
     Navigator.pushReplacement(
       context,

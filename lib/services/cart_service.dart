@@ -32,6 +32,7 @@ class CartService extends ChangeNotifier {
   List<CartItem> _items = [];
   String? _currentSellerId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final PromoCodeService _promoCodeService = PromoCodeService();
 
   CartService() {
     if (kIsWeb) {
@@ -41,12 +42,11 @@ class CartService extends ChangeNotifier {
 
   Future<void> applyPromoCode(
       String code, String companyId, String customerId) async {
-    final promoCodeService = PromoCodeService();
     final isValid =
-        await promoCodeService.validatePromoCode(code, companyId, customerId);
+        await _promoCodeService.validatePromoCode(code, companyId, customerId);
 
     if (isValid) {
-      final promoDetails = await promoCodeService.getPromoCodeDetails(code);
+      final promoDetails = await _promoCodeService.getPromoCodeDetails(code);
       if (promoDetails != null) {
         _appliedPromoCode = code;
         if (promoDetails['isPercentage']) {
@@ -56,8 +56,20 @@ class CartService extends ChangeNotifier {
         }
         notifyListeners();
       }
+      if (kIsWeb) {
+        html.window.localStorage['appliedPromoCode'] = code;
+      }
     } else {
       throw Exception('Code promo invalide ou expiré');
+    }
+  }
+
+  Future<void> finalizePromoCodeUsage() async {
+    if (_appliedPromoCode != null) {
+      await _promoCodeService.usePromoCode(_appliedPromoCode!);
+      _appliedPromoCode = null;
+      _discountAmount = 0;
+      notifyListeners();
     }
   }
 

@@ -9,6 +9,7 @@ import 'package:happy/classes/product.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/order_service.dart';
+import 'package:happy/services/promo_service.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_html/html.dart' as html;
 
@@ -23,6 +24,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final OrderService _orderService = OrderService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final PromoCodeService _promoCodeService = PromoCodeService();
+
   bool _isLoading = true;
   String _statusMessage = 'Vérification du paiement en cours...';
 
@@ -44,6 +47,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
       await _finalizeOrder(cart);
 
+      await _finalizePromoCodeUsage();
+
       _showSuccessMessage();
     } catch (e) {
       _handleError('Une erreur est survenue: $e');
@@ -54,6 +59,20 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _finalizePromoCodeUsage() async {
+    if (kIsWeb) {
+      final appliedPromoCode = html.window.localStorage['appliedPromoCode'];
+      if (appliedPromoCode != null && appliedPromoCode.isNotEmpty) {
+        await _promoCodeService.usePromoCode(appliedPromoCode);
+        html.window.localStorage.remove('appliedPromoCode');
+      }
+    } else {
+      // Pour les applications mobiles, utilisez la méthode existante du CartService
+      final cart = Provider.of<CartService>(context, listen: false);
+      await cart.finalizePromoCodeUsage();
     }
   }
 
@@ -185,6 +204,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     html.window.localStorage.remove('cartData');
     html.window.localStorage.remove('cartTotal');
     html.window.localStorage.remove('stripeSessionId');
+    html.window.localStorage.remove('appliedPromoCode');
   }
 
   void _handleError(String message) {
