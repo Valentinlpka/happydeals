@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/post.dart';
+import 'package:happy/classes/referral.dart';
+import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:intl/intl.dart';
 
 class ReferralDetailPage extends StatefulWidget {
@@ -15,13 +18,38 @@ class ReferralDetailPage extends StatefulWidget {
 class _ReferralDetailPageState extends State<ReferralDetailPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  late Future<DocumentSnapshot> _referralFuture;
+  late Future<Map<String, dynamic>> _dataFuture;
 
   @override
   void initState() {
     super.initState();
-    _referralFuture =
-        _firestore.collection('referrals').doc(widget.referralId).get();
+    _dataFuture = _fetchData();
+  }
+
+  Future<Map<String, dynamic>> _fetchData() async {
+    final referralDoc =
+        await _firestore.collection('referrals').doc(widget.referralId).get();
+    if (!referralDoc.exists) {
+      throw Exception('Parrainage non trouvé');
+    }
+
+    final referralData = referralDoc.data() as Map<String, dynamic>;
+    final postId = referralData['referralId'] as String?;
+
+    if (postId == null) {
+      throw Exception('ID du post non trouvé dans le parrainage');
+    }
+
+    final postDoc = await _firestore.collection('posts').doc(postId).get();
+    if (!postDoc.exists) {
+      throw Exception('Post non trouvé');
+    }
+
+    return {
+      'referralData': referralData,
+      'postData': postDoc.data() as Map<String, dynamic>,
+      'postId': postId,
+    };
   }
 
   @override
@@ -34,21 +62,45 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: FutureBuilder<DocumentSnapshot>(
-        future: _referralFuture,
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _dataFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(
                 child: Text('Une erreur est survenue: ${snapshot.error}'));
-          } else if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Parrainage non trouvé'));
+          } else if (!snapshot.hasData) {
+            return const Center(child: Text('Données non trouvées'));
           }
 
-          final referralData = snapshot.data!.data() as Map<String, dynamic>;
+          final referralData =
+              snapshot.data!['referralData'] as Map<String, dynamic>;
+          final postData = snapshot.data!['postData'] as Map<String, dynamic>;
+          final postId = snapshot.data!['postId'] as String;
           final currentUserId = _auth.currentUser?.uid;
           final isParrain = currentUserId == referralData['sponsorUid'];
+
+          final referral = Referral(
+            id: postId,
+            timestamp: (postData['timestamp'] as Timestamp).toDate(),
+            title: postData['title'] ?? '',
+            searchText: postData['searchText'] ?? '',
+            description: postData['description'] ?? '',
+            sponsorBenefit: postData['sponsorBenefit'] ?? '',
+            refereeBenefit: postData['refereeBenefit'] ?? '',
+            companyId: postData['companyId'] ?? '',
+            image: postData['image'] ?? '',
+            dateFinal: (postData['date_final'] as Timestamp).toDate(),
+            views: postData['views'] ?? 0,
+            likes: postData['likes'] ?? 0,
+            likedBy: List<String>.from(postData['likedBy'] ?? []),
+            commentsCount: postData['commentsCount'] ?? 0,
+            comments: (postData['comments'] as List<dynamic>?)
+                    ?.map((commentData) => Comment.fromMap(commentData))
+                    .toList() ??
+                [],
+          );
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -86,6 +138,8 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
                 const SizedBox(height: 24),
                 _buildMessagesSection(
                     referralData['messages'] as List<dynamic>? ?? []),
+                const SizedBox(height: 24),
+                _buildReferralCard(referral, currentUserId ?? ''),
               ],
             ),
           );
@@ -243,5 +297,32 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
       default:
         return Icons.info;
     }
+  }
+
+  Widget _buildReferralCard(Referral referral, String currentUserId) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: _firestore.collection('companys').doc(referral.companyId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const Text(
+              'Impossible de charger les informations de l\'entreprise');
+        }
+
+        final companyData = snapshot.data!.data() as Map<String, dynamic>;
+        final companyLogo = companyData['logo'] as String? ?? '';
+        final companyName = companyData['name'] as String? ?? '';
+
+        return ParrainageCard(
+          post: referral,
+          currentUserId: currentUserId,
+          companyLogo: companyLogo,
+          companyName: companyName,
+        );
+      },
+    );
   }
 }

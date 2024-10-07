@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/contest.dart';
@@ -33,6 +34,8 @@ class DetailsEntreprise extends StatefulWidget {
 }
 
 class _DetailsEntrepriseState extends State<DetailsEntreprise> {
+  final ScrollController _tabScrollController = ScrollController();
+
   late Future<LoyaltyProgram?> _loyaltyProgramFuture;
 
   late Future<LoyaltyCard?> _loyaltyCardFuture;
@@ -41,10 +44,9 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
 
   late Future<List<Map<String, dynamic>>> _postsFuture;
 
-  String _currentTab = 'Toutes les publications';
+  String _currentTab = 'Boutique';
 
   final List<String> _tabs = [
-    'Toutes les publications',
     'Boutique',
     'Happy Deals',
     'Évenement',
@@ -52,6 +54,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
     'Deal Express',
     "Offres d'emploi",
     'Parrainage',
+    'Toutes les publications',
     'Avis',
     'À Propos'
   ];
@@ -63,6 +66,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
     _postsFuture = _fetchAllPosts();
     _loyaltyProgramFuture = _fetchLoyaltyProgram();
     _loyaltyCardFuture = _fetchLoyaltyCard();
+  }
+
+  @override
+  void dispose() {
+    _tabScrollController.dispose();
+    super.dispose();
   }
 
   Future<LoyaltyProgram?> _fetchLoyaltyProgram() async {
@@ -215,21 +224,33 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
   }
 
   Widget _buildTabBar() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _tabs.map((tab) => _buildTab(tab)).toList(),
+    return SizedBox(
+      height: 55, // Ajustez cette valeur selon vos besoins
+      child: Listener(
+        onPointerSignal: (pointerSignal) {
+          if (pointerSignal is PointerScrollEvent) {
+            final double scrollDelta = pointerSignal.scrollDelta.dy;
+            _tabScrollController.position.moveTo(
+              _tabScrollController.position.pixels + scrollDelta,
+              curve: Curves.linear,
+              duration: const Duration(milliseconds: 100),
+            );
+          }
+        },
+        child: SingleChildScrollView(
+          controller: _tabScrollController,
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _tabs.map((tab) => _buildTab(tab)).toList(),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildTab(String tabName) {
     return Padding(
-      padding: const EdgeInsets.only(
-        left: 10.0,
-        right: 10,
-        top: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Container(
         height: 35,
         decoration: BoxDecoration(
