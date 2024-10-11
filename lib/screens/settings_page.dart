@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/loyalty_card_page.dart';
+import 'package:happy/screens/marketplace/my_ad_page.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
 import 'package:happy/screens/post_type_page/happy_deals_page.dart';
@@ -125,11 +126,11 @@ class ParametrePage extends StatelessWidget {
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
       children: [
-        _buildServiceItem('Mes achats', Icons.shopping_bag, () {
+        _buildServiceItem('Mes deals', Icons.shopping_bag, () {
           Navigator.push(context,
               MaterialPageRoute(builder: (context) => const UserOrdersPages()));
         }),
-        _buildServiceItem('Mes réservations', Icons.calendar_today, () {
+        _buildServiceItem('Mes Deals Express', Icons.calendar_today, () {
           Navigator.push(
               context,
               MaterialPageRoute(
@@ -151,6 +152,10 @@ class ParametrePage extends StatelessWidget {
             'Mes cartes de fidelité', Icons.card_membership_outlined, () {
           Navigator.push(context,
               MaterialPageRoute(builder: (context) => LoyaltyCardsPage()));
+        }),
+        _buildServiceItem('Marketplace', Icons.card_membership_outlined, () {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const MyAdsPage()));
         }),
       ],
     );

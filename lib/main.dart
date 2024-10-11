@@ -88,8 +88,14 @@ class MyApp extends StatelessWidget {
   }
 
   ThemeData _buildTheme(BuildContext context) {
+    const Color lightGrey = Color.fromARGB(255, 238, 238, 238);
+    const Color mediumGrey = Color.fromARGB(255, 200, 200, 200);
+
     return ThemeData(
-      focusColor: Colors.blue,
+      primarySwatch: Colors.blue,
+      splashColor: Colors.transparent, // <- Here
+      highlightColor: Colors.transparent, // <- Here
+      hoverColor: Colors.transparent, // <- Here
       primaryColorLight: Colors.blue,
       primaryColorDark: Colors.blue,
       textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
@@ -107,11 +113,23 @@ class MyApp extends StatelessWidget {
       primaryColor: Colors.blue,
       brightness: Brightness.light,
       appBarTheme: const AppBarTheme(surfaceTintColor: Colors.white),
-      colorScheme: const ColorScheme.light(
-          primary: Colors.blue,
-          surface: Colors.white,
-          surfaceTint: Colors.white),
+
       useMaterial3: true,
+      colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blue),
+
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        focusColor: Colors.grey[200],
+        focusedBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: mediumGrey),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        border: OutlineInputBorder(
+          borderSide: const BorderSide(color: mediumGrey),
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
     );
   }
 }

@@ -189,15 +189,74 @@ class UserModel with ChangeNotifier {
 
   Future<void> followUser(String userIdToFollow) async {
     if (followedUsers.contains(userIdToFollow)) return;
-    await _updateUserField('followedUsers', userIdToFollow, isArray: true);
+
+    await _firestore.runTransaction((transaction) async {
+      final currentUserRef = _firestore.collection('users').doc(userId);
+      final followedUserRef =
+          _firestore.collection('users').doc(userIdToFollow);
+
+      final currentUserDoc = await transaction.get(currentUserRef);
+      final followedUserDoc = await transaction.get(followedUserRef);
+
+      if (!currentUserDoc.exists || !followedUserDoc.exists) {
+        throw Exception('One or both users do not exist');
+      }
+
+      List<String> currentUserFollowing =
+          List<String>.from(currentUserDoc.data()?['followedUsers'] ?? []);
+      List<String> followedUserFollowers =
+          List<String>.from(followedUserDoc.data()?['followers'] ?? []);
+
+      if (!currentUserFollowing.contains(userIdToFollow)) {
+        currentUserFollowing.add(userIdToFollow);
+        transaction
+            .update(currentUserRef, {'followedUsers': currentUserFollowing});
+      }
+
+      if (!followedUserFollowers.contains(userId)) {
+        followedUserFollowers.add(userId);
+        transaction
+            .update(followedUserRef, {'followers': followedUserFollowers});
+      }
+    });
+
     followedUsers.add(userIdToFollow);
     notifyListeners();
   }
 
   Future<void> unfollowUser(String userIdToUnfollow) async {
     if (!followedUsers.contains(userIdToUnfollow)) return;
-    await _updateUserField('followedUsers', userIdToUnfollow,
-        isArray: true, add: false);
+
+    await _firestore.runTransaction((transaction) async {
+      final currentUserRef = _firestore.collection('users').doc(userId);
+      final unfollowedUserRef =
+          _firestore.collection('users').doc(userIdToUnfollow);
+
+      final currentUserDoc = await transaction.get(currentUserRef);
+      final unfollowedUserDoc = await transaction.get(unfollowedUserRef);
+
+      if (!currentUserDoc.exists || !unfollowedUserDoc.exists) {
+        throw Exception('One or both users do not exist');
+      }
+
+      List<String> currentUserFollowing =
+          List<String>.from(currentUserDoc.data()?['followedUsers'] ?? []);
+      List<String> unfollowedUserFollowers =
+          List<String>.from(unfollowedUserDoc.data()?['followers'] ?? []);
+
+      if (currentUserFollowing.contains(userIdToUnfollow)) {
+        currentUserFollowing.remove(userIdToUnfollow);
+        transaction
+            .update(currentUserRef, {'followedUsers': currentUserFollowing});
+      }
+
+      if (unfollowedUserFollowers.contains(userId)) {
+        unfollowedUserFollowers.remove(userId);
+        transaction
+            .update(unfollowedUserRef, {'followers': unfollowedUserFollowers});
+      }
+    });
+
     followedUsers.remove(userIdToUnfollow);
     notifyListeners();
   }

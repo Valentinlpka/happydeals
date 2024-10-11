@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/marketplace/ad_card.dart';
+import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/post_type_page/professional_page.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
@@ -15,9 +18,11 @@ class Profile extends StatefulWidget {
   _ProfileState createState() => _ProfileState();
 }
 
-class _ProfileState extends State<Profile> {
+class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
   late Future<DocumentSnapshot> _userFuture;
   late Stream<QuerySnapshot> _postsStream;
+  late Stream<QuerySnapshot> _adsStream;
+  late TabController _tabController;
 
   @override
   void initState() {
@@ -29,6 +34,21 @@ class _ProfileState extends State<Profile> {
         .where('sharedBy', isEqualTo: widget.userId)
         .orderBy('sharedAt', descending: true)
         .snapshots();
+    _adsStream = FirebaseFirestore.instance
+        .collection('ads')
+        .where('userId', isEqualTo: widget.userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -38,7 +58,27 @@ class _ProfileState extends State<Profile> {
         slivers: [
           _buildSliverAppBar(),
           SliverToBoxAdapter(child: _buildProfileHeader()),
-          SliverToBoxAdapter(child: _buildPostsList()),
+          SliverPersistentHeader(
+            delegate: _SliverAppBarDelegate(
+              TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Posts partagés'),
+                  Tab(text: 'Annonces'),
+                ],
+              ),
+            ),
+            pinned: true,
+          ),
+          SliverFillRemaining(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPostsList(),
+                _buildAdsList(),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -70,28 +110,32 @@ class _ProfileState extends State<Profile> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (snapshot.hasError || !snapshot.hasData) {
-              return const Center(
-                  child: Text('Erreur de chargement du profil'));
+            if (snapshot.hasError) {
+              return Center(child: Text('Erreur: ${snapshot.error}'));
+            }
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const Center(child: Text('Profil non trouvé'));
             }
 
-            final userData = snapshot.data!.data() as Map<String, dynamic>;
+            final userData =
+                snapshot.data!.data() as Map<String, dynamic>? ?? {};
             final bool isCurrentUser = userModel.userId == widget.userId;
 
             return Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  _buildProfileImage(userData['image_profile']),
+                  _buildProfileImage(userData['image_profile'] as String?),
                   const SizedBox(height: 16),
                   Text(
-                    '${userData['firstName']} ${userData['lastName']}',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
+                        .trim(),
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                   if (isCurrentUser) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Identifiant : ${userData['uniqueCode']}',
+                      'Identifiant : ${userData['uniqueCode'] ?? 'Non défini'}',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ],
@@ -121,6 +165,34 @@ class _ProfileState extends State<Profile> {
     );
   }
 
+  Widget _buildUserStats(Map<String, dynamic> userData) {
+    return FutureBuilder<int>(
+      future: _getAdsCount(widget.userId),
+      builder: (context, snapshot) {
+        int adsCount = snapshot.data ?? 0;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildStatItem('Posts', userData['postsCount'] as int? ?? 0),
+            _buildStatItem('Annonces', adsCount),
+            GestureDetector(
+              onTap: () => _showFollowersList(
+                  context, (userData['followers'] as List?) ?? []),
+              child: _buildStatItem(
+                  'Abonnés', (userData['followers'] as List?)?.length ?? 0),
+            ),
+            GestureDetector(
+              onTap: () => _showFollowingList(
+                  context, (userData['followedUsers'] as List?) ?? []),
+              child: _buildStatItem('Abonnements',
+                  (userData['followedUsers'] as List?)?.length ?? 0),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildFollowButton(String profileUserId) {
     return Consumer<UserModel>(
       builder: (context, userModel, child) {
@@ -144,14 +216,13 @@ class _ProfileState extends State<Profile> {
         }
 
         return ElevatedButton.icon(
-          icon: Icon(isFollowing ? Icons.person_remove : Icons.person_add),
-          label: Text(isFollowing ? 'Se désabonner' : 'S\'abonner'),
+          icon: Icon(isFollowing ? Icons.person : Icons.person_add),
+          label: Text(isFollowing ? 'Abonné' : 'S\'abonner'),
           onPressed: () {
-            if (isFollowing) {
-              userModel.unfollowUser(profileUserId);
-            } else {
+            if (!isFollowing) {
               userModel.followUser(profileUserId);
             }
+            // Nous ne permettons plus le unfollow directement depuis ce bouton
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: isFollowing ? Colors.grey : Colors.blue,
@@ -162,17 +233,12 @@ class _ProfileState extends State<Profile> {
     );
   }
 
-  Widget _buildUserStats(Map<String, dynamic> userData) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildStatItem('Posts', userData['postsCount'] ?? 0),
-        _buildStatItem(
-            'Abonnés', (userData['followedUsers'] as List).length ?? 0),
-        _buildStatItem(
-            'Abonnements', (userData['followedUsers'] as List).length ?? 0),
-      ],
-    );
+  Future<int> _getAdsCount(String userId) async {
+    QuerySnapshot adsSnapshot = await FirebaseFirestore.instance
+        .collection('ads')
+        .where('userId', isEqualTo: userId)
+        .get();
+    return adsSnapshot.size;
   }
 
   Widget _buildStatItem(String label, int count) {
@@ -187,6 +253,307 @@ class _ProfileState extends State<Profile> {
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
+    );
+  }
+
+  void _showFollowersList(BuildContext context, List followers) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, controller) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Abonnés',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: controller,
+                      itemCount: followers.length,
+                      itemBuilder: (context, index) {
+                        String userId = followers[index];
+                        return FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(userId)
+                              .get(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.grey,
+                                  child:
+                                      Icon(Icons.person, color: Colors.white),
+                                ),
+                                title: Text('Chargement...'),
+                              );
+                            } else {
+                              print(snapshot.error);
+                            }
+
+                            var userData =
+                                snapshot.data!.data() as Map<String, dynamic>;
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: NetworkImage(
+                                    userData['image_profile'] ?? ''),
+                                backgroundColor: Colors.grey,
+                                child: userData['image_profile'] == null
+                                    ? const Icon(Icons.person,
+                                        color: Colors.white)
+                                    : null,
+                              ),
+                              title: Text(
+                                  '${userData['firstName']} ${userData['lastName']}'),
+                              onTap: () {
+                                // Navigation vers le profil de l'abonné
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        Profile(userId: userId),
+                                  ),
+                                );
+                              },
+                              trailing: widget.userId ==
+                                      Provider.of<UserModel>(context,
+                                              listen: false)
+                                          .userId
+                                  ? IconButton(
+                                      icon: const Icon(Icons.person_remove),
+                                      onPressed: () {
+                                        // Logique pour supprimer l'abonné
+                                        _removeFollower(userId);
+                                      },
+                                    )
+                                  : null,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _removeFollower(String followerId) {
+    // Vérifier si l'utilisateur actuel est bien le propriétaire du profil
+    if (Provider.of<UserModel>(context, listen: false).userId !=
+        widget.userId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Vous n\'êtes pas autorisé à effectuer cette action')),
+      );
+      return;
+    }
+
+    FirebaseFirestore.instance.runTransaction((transaction) async {
+      // Référence du document de l'utilisateur actuel
+      DocumentReference currentUserRef =
+          FirebaseFirestore.instance.collection('users').doc(widget.userId);
+
+      // Référence du document du follower
+      DocumentReference followerRef =
+          FirebaseFirestore.instance.collection('users').doc(followerId);
+
+      // Obtenir les données actuelles
+      DocumentSnapshot currentUserSnapshot =
+          await transaction.get(currentUserRef);
+      DocumentSnapshot followerSnapshot = await transaction.get(followerRef);
+
+      if (!currentUserSnapshot.exists || !followerSnapshot.exists) {
+        throw Exception('Un des utilisateurs n\'existe pas');
+      }
+
+      // Mettre à jour les followers de l'utilisateur actuel
+      List<dynamic> currentUserFollowers =
+          List.from(currentUserSnapshot['followers'] ?? []);
+      if (currentUserFollowers.contains(followerId)) {
+        currentUserFollowers.remove(followerId);
+        transaction.update(currentUserRef, {'followers': currentUserFollowers});
+      }
+
+      // Mettre à jour les followedUsers du follower
+      List<dynamic> followerFollowedUsers =
+          List.from(followerSnapshot['followedUsers'] ?? []);
+      if (followerFollowedUsers.contains(widget.userId)) {
+        followerFollowedUsers.remove(widget.userId);
+        transaction
+            .update(followerRef, {'followedUsers': followerFollowedUsers});
+      }
+    }).then((_) {
+      // Mise à jour de l'interface utilisateur
+      setState(() {
+        // La liste des abonnés sera mise à jour automatiquement si vous utilisez un StreamBuilder
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Abonné supprimé avec succès')),
+      );
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('Erreur lors de la suppression de l\'abonné: $error')),
+      );
+    });
+  }
+
+  void _showFollowingList(BuildContext context, List followedUsers) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Consumer<UserModel>(
+          builder: (context, userModel, child) {
+            bool isCurrentUserProfile = userModel.userId == widget.userId;
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (_, controller) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Abonnements',
+                          style: Theme.of(context).textTheme.headlineSmall),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: ListView.builder(
+                          controller: controller,
+                          itemCount: followedUsers.length,
+                          itemBuilder: (context, index) {
+                            String userId = followedUsers[index];
+                            return FutureBuilder<DocumentSnapshot>(
+                              future: FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(userId)
+                                  .get(),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData)
+                                  return const LinearProgressIndicator();
+
+                                var userData = snapshot.data!.data()
+                                    as Map<String, dynamic>;
+                                return ListTile(
+                                  onTap: () {
+                                    // Navigation vers le profil de l'abonné
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            Profile(userId: userId),
+                                      ),
+                                    );
+                                  },
+                                  leading: CircleAvatar(
+                                    backgroundImage: NetworkImage(
+                                        userData['image_profile'] ?? ''),
+                                  ),
+                                  title: Text(
+                                      '${userData['firstName']} ${userData['lastName']}'),
+                                  trailing: isCurrentUserProfile
+                                      ? ElevatedButton(
+                                          child: const Text('Se désabonner'),
+                                          onPressed: () {
+                                            userModel.unfollowUser(userId);
+                                            setState(() {
+                                              followedUsers.remove(userId);
+                                            });
+                                          },
+                                        )
+                                      : null,
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAdsList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _adsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Erreur: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('Aucune annonce publiée'));
+        }
+
+        return GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.7,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          padding: const EdgeInsets.all(10),
+          itemCount: snapshot.data!.docs.length,
+          itemBuilder: (context, index) {
+            DocumentSnapshot doc = snapshot.data!.docs[index];
+            return FutureBuilder<Ad>(
+              future: Ad.fromFirestore(doc),
+              builder: (context, adSnapshot) {
+                if (adSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Card(
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (adSnapshot.hasError || !adSnapshot.hasData) {
+                  return const SizedBox.shrink();
+                }
+                final ad = adSnapshot.data!;
+                return AdCard(
+                  ad: ad,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AdDetailPage(ad: ad),
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -255,5 +622,30 @@ class _ProfileState extends State<Profile> {
         );
       },
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this._tabBar);
+
+  final TabBar _tabBar;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }
