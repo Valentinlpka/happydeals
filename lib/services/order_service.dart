@@ -15,14 +15,17 @@ class OrderService {
 
   Future<String> createOrder(Orders order) async {
     try {
-      final result = await _functions.httpsCallable('createOrder').call({
+      final result =
+          await FirebaseFunctions.instance.httpsCallable('createOrder').call({
         'sellerId': order.sellerId,
         'items': order.items.map((item) => item.toMap()).toList(),
-        'totalPrice': order.totalPrice,
+        'subtotal': order.subtotal.toDouble(),
+        'happyDealSavings': order.happyDealSavings.toDouble(),
+        'promoCode': order.promoCode,
+        'discountAmount': order.discountAmount?.toDouble(),
+        'totalPrice': order.totalPrice.toDouble(),
         'pickupAddress': order.pickupAddress,
         'entrepriseId': order.entrepriseId,
-        'promoCode': order.promoCode,
-        'discountAmount': order.discountAmount,
       });
 
       await updateProductStock(order.items);

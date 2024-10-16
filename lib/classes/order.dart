@@ -34,7 +34,7 @@ class Orders {
   });
 
   factory Orders.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Orders(
       id: doc.id,
       userId: data['userId'] ?? '',
@@ -42,16 +42,16 @@ class Orders {
       items: (data['items'] as List? ?? [])
           .map((item) => OrderItem.fromMap(item))
           .toList(),
-      subtotal: (data['subtotal'] ?? 0).toDouble(),
-      happyDealSavings: (data['happyDealSavings'] ?? 0).toDouble(),
-      totalPrice: (data['totalPrice'] ?? 0).toDouble(),
+      subtotal: (data['subtotal'] as num?)?.toDouble() ?? 0,
+      happyDealSavings: (data['happyDealSavings'] as num?)?.toDouble() ?? 0,
+      totalPrice: (data['totalPrice'] as num?)?.toDouble() ?? 0,
       status: data['status'] ?? '',
       entrepriseId: data['entrepriseId'] ?? '',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       pickupAddress: data['pickupAddress'] ?? '',
       pickupCode: data['pickupCode'],
       promoCode: data['promoCode'],
-      discountAmount: (data['discountAmount'] ?? 0).toDouble(),
+      discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -99,9 +99,9 @@ class OrderItem {
       image: map['image'] ?? '',
       name: map['name'] ?? '',
       quantity: map['quantity'] ?? 0,
-      originalPrice: (map['originalPrice'] ?? 0).toDouble(),
-      appliedPrice: (map['appliedPrice'] ?? 0).toDouble(),
-      tva: (map['tva'] ?? 0).toDouble(),
+      originalPrice: (map['originalPrice'] as num?)?.toDouble() ?? 0,
+      appliedPrice: (map['appliedPrice'] as num?)?.toDouble() ?? 0,
+      tva: (map['tva'] as num?)?.toDouble() ?? 0,
     );
   }
 

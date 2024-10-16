@@ -31,6 +31,25 @@ class CartItem {
       'isActive': product.isActive,
     };
   }
+
+  static CartItem fromMap(Map<String, dynamic> map) {
+    return CartItem(
+      product: Product(
+        id: map['productId'] ?? '',
+        name: map['name'] ?? '',
+        price: (map['price'] as num?)?.toDouble() ?? 0.0,
+        tva: (map['tva'] as num?)?.toDouble() ?? 0.0,
+        imageUrl: List<String>.from(map['imageUrl'] ?? []),
+        sellerId: map['sellerId'] ?? '',
+        entrepriseId: map['entrepriseId'] ?? '',
+        description: map['description'] ?? '',
+        stock: map['stock'] as int? ?? 0,
+        isActive: map['isActive'] as bool? ?? false,
+      ),
+      quantity: map['quantity'] as int? ?? 1,
+      appliedPrice: (map['appliedPrice'] as num?)?.toDouble() ?? map['price'],
+    );
+  }
 }
 
 class CartService extends ChangeNotifier {
@@ -103,27 +122,15 @@ class CartService extends ChangeNotifier {
     final cartDataJson = html.window.localStorage['cartData'];
     if (cartDataJson != null && cartDataJson.isNotEmpty) {
       final cartData = json.decode(cartDataJson) as List<dynamic>;
-      _items = cartData.map((item) {
-        return CartItem(
-          product: Product(
-            id: item['productId'] ?? '',
-            name: item['name'] ?? '',
-            price: (item['price'] as num?)?.toDouble() ?? 0.0,
-            tva: (item['tva'] as num?)?.toDouble() ?? 0.0,
-            imageUrl: List<String>.from(item['imageUrl'] ?? []),
-            sellerId: item['sellerId'] ?? '',
-            entrepriseId: item['entrepriseId'] ?? '',
-            description: item['description'] ?? '',
-            stock: item['stock'] as int? ?? 0,
-            isActive: item['isActive'] as bool? ?? false,
-          ),
-          quantity: item['quantity'] as int? ?? 1,
-          appliedPrice:
-              (item['appliedPrice'] as num?)?.toDouble() ?? item['price'],
-        );
-      }).toList();
+      _items = cartData.map((item) => CartItem.fromMap(item)).toList();
       _currentSellerId =
           _items.isNotEmpty ? _items.first.product.sellerId : null;
+
+      discountAmount =
+          double.tryParse(html.window.localStorage['discountAmount'] ?? '0') ??
+              0;
+      appliedPromoCode = html.window.localStorage['appliedPromoCode'];
+
       notifyListeners();
     }
   }
@@ -136,6 +143,14 @@ class CartService extends ChangeNotifier {
       html.window.localStorage['cartTotal'] = total.toString();
       html.window.localStorage['cartSubtotal'] = subtotal.toString();
       html.window.localStorage['cartTotalSavings'] = totalSavings.toString();
+      html.window.localStorage['cartTotalAfterDiscount'] =
+          totalAfterDiscount.toString();
+      html.window.localStorage['discountAmount'] = discountAmount.toString();
+      if (appliedPromoCode != null) {
+        html.window.localStorage['appliedPromoCode'] = appliedPromoCode!;
+      } else {
+        html.window.localStorage.remove('appliedPromoCode');
+      }
     }
   }
 

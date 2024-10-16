@@ -479,13 +479,13 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           ),
           if (order.happyDealSavings > 0) ...[
             const SizedBox(height: 4),
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Économies Happy Deals',
+                Text('Économies Happy Deals',
                     style: TextStyle(color: Colors.green)),
-                Text(order.happyDealSavings.toStringAsFixed(2) ?? "0.00",
-                    style: const TextStyle(color: Colors.green)),
+                Text('{order.happyDealSavings.toStringAsFixed(2) ?? "0.00"}€',
+                    style: TextStyle(color: Colors.green)),
               ],
             ),
           ],

@@ -1001,7 +1001,17 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { sellerId, items, totalPrice, pickupAddress, entrepriseId } = data;
+  const {
+    sellerId,
+    items,
+    subtotal,
+    happyDealSavings,
+    promoCode,
+    discountAmount,
+    totalPrice,
+    pickupAddress,
+    entrepriseId,
+  } = data;
 
   try {
     // Créer la commande dans Firestore
@@ -1010,6 +1020,10 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
       sellerId,
       entrepriseId,
       items,
+      subtotal,
+      happyDealSavings,
+      promoCode,
+      discountAmount,
       totalPrice,
       pickupAddress,
       status: "paid", // Ou 'pending', selon votre logique de paiement
@@ -1018,6 +1032,7 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
 
     // Vous pouvez ajouter ici d'autres logiques, comme mettre à jour le stock des produits
 
+    console.log(`Commande créée avec succès. ID: ${orderRef.id}`);
     return { orderId: orderRef.id };
   } catch (error) {
     console.error("Erreur lors de la création de la commande:", error);

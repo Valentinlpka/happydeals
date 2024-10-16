@@ -235,7 +235,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = _auth.currentUser;
     final address =
         await _fetchCompanyAddress(cart.items.first.product.entrepriseId);
-
+    print('subtotal : ${cart.subtotal}');
+    print('subtotal : ${cart.totalSavings}');
     final orderId = await _orderService.createOrder(Orders(
       id: '',
       userId: user?.uid ?? '',
