@@ -187,6 +187,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'https://valentinlpka.github.io/happydeals/#/payment-success',
         'cancelUrl':
             'https://valentinlpka.github.io/happydeals/#/payment-cancel',
+        'cartItems': cart.items
+            .map((item) => item.toMap())
+            .toList(), // Make sure this is passed
       });
 
       if (kIsWeb) {

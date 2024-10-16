@@ -53,6 +53,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
+            print(snapshot.error);
             return const Center(child: Text('Une erreur est survenue'));
           } else if (!snapshot.hasData) {
             return const Center(child: Text('Commande non trouvée'));
@@ -483,7 +484,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               children: [
                 const Text('Économies Happy Deals',
                     style: TextStyle(color: Colors.green)),
-                Text('-${order.happyDealSavings.toStringAsFixed(2)}€',
+                Text('-${order.happyDealSavings.toStringAsFixed(2) ?? "0.00"}€',
                     style: const TextStyle(color: Colors.green)),
               ],
             ),

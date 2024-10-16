@@ -167,6 +167,74 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
 //   }
 // });
 
+// exports.createPayment = functions.https.onCall(async (data, context) => {
+//   if (!context.auth) {
+//     throw new functions.https.HttpsError(
+//       "unauthenticated",
+//       "User must be authenticated."
+//     );
+//   }
+
+//   const { amount, currency, sellerId, userId, isWeb, successUrl, cancelUrl } =
+//     data;
+
+//   try {
+//     let customer;
+//     const userDoc = await admin
+//       .firestore()
+//       .collection("users")
+//       .doc(userId)
+//       .get();
+//     const userData = userDoc.data();
+
+//     if (userData && userData.stripeCustomerId) {
+//       customer = await stripe.customers.retrieve(userData.stripeCustomerId);
+//     } else {
+//       customer = await stripe.customers.create({
+//         metadata: { firebaseUID: userId },
+//       });
+//       await admin.firestore().collection("users").doc(userId).update({
+//         stripeCustomerId: customer.id,
+//       });
+//     }
+
+//     if (isWeb) {
+//       const session = await stripe.checkout.sessions.create({
+//         payment_method_types: ["card"],
+//         line_items: [
+//           {
+//             price_data: {
+//               currency: currency,
+//               unit_amount: amount,
+//               product_data: {
+//                 name: "Achat sur Happy Deals",
+//               },
+//             },
+//             quantity: 1,
+//           },
+//         ],
+//         mode: "payment",
+//         success_url: successUrl,
+//         cancel_url: cancelUrl,
+//         customer: customer.id,
+//       });
+
+//       return { sessionId: session.id, url: session.url };
+//     } else {
+//       const paymentIntent = await stripe.paymentIntents.create({
+//         amount,
+//         currency,
+//         customer: customer.id,
+//       });
+
+//       return { clientSecret: paymentIntent.client_secret };
+//     }
+//   } catch (error) {
+//     console.error("Error creating payment:", error);
+//     throw new functions.https.HttpsError("internal", error.message);
+//   }
+// });
+
 exports.createPayment = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -175,8 +243,16 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { amount, currency, sellerId, userId, isWeb, successUrl, cancelUrl } =
-    data;
+  const {
+    amount,
+    currency,
+    sellerId,
+    userId,
+    isWeb,
+    successUrl,
+    cancelUrl,
+    cartItems,
+  } = data;
 
   try {
     let customer;
@@ -198,21 +274,36 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
       });
     }
 
+    const lineItems = await Promise.all(
+      cartItems.map(async (item) => {
+        const productDoc = await admin
+          .firestore()
+          .collection("products")
+          .doc(item.productId)
+          .get();
+        const productData = productDoc.data();
+        const appliedPrice =
+          productData.hasActiveHappyDeal && productData.discountedPrice
+            ? productData.discountedPrice
+            : productData.price;
+
+        return {
+          price_data: {
+            currency: currency,
+            unit_amount: Math.round(appliedPrice * 100),
+            product_data: {
+              name: productData.name,
+            },
+          },
+          quantity: item.quantity,
+        };
+      })
+    );
+
     if (isWeb) {
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: currency,
-              unit_amount: amount,
-              product_data: {
-                name: "Achat sur Happy Deals",
-              },
-            },
-            quantity: 1,
-          },
-        ],
+        line_items: lineItems,
         mode: "payment",
         success_url: successUrl,
         cancel_url: cancelUrl,
@@ -1069,6 +1160,103 @@ exports.createPaymentAndReservation = functions.https.onCall(
   }
 );
 
+// exports.confirmReservation = functions.https.onCall(async (data, context) => {
+//   if (!context.auth) {
+//     throw new functions.https.HttpsError(
+//       "unauthenticated",
+//       "L'utilisateur doit être authentifié."
+//     );
+//   }
+
+//   const { dealId, paymentIntentId } = data;
+
+//   try {
+//     // Vérifier le statut du paiement
+//     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+//     if (paymentIntent.status !== "succeeded") {
+//       throw new functions.https.HttpsError(
+//         "failed-precondition",
+//         "Le paiement n'a pas été effectué avec succès."
+//       );
+//     }
+
+//     // Récupérer les informations du deal
+//     const dealDoc = await admin
+//       .firestore()
+//       .collection("posts")
+//       .doc(dealId)
+//       .get();
+//     const dealData = dealDoc.data();
+
+//     if (!dealData) {
+//       throw new functions.https.HttpsError("not-found", "Deal non trouvé");
+//     }
+
+//     // Générer un code de validation
+//     const validationCode = Math.random()
+//       .toString(36)
+//       .substr(2, 6)
+//       .toUpperCase();
+
+//     const companyDoc = await admin
+//       .firestore()
+//       .collection("companys")
+//       .doc(dealData.companyId)
+//       .get();
+
+//     const companyData = companyDoc.data();
+
+//     const adress = companyData.adress;
+//     const addressParts = [
+//       adress.adresse,
+//       adress.code_postal,
+//       adress.ville,
+//       adress.pays,
+//     ].filter(Boolean);
+
+//     // Créer la réservation
+//     const reservation = {
+//       buyerId: context.auth.uid,
+//       postId: dealId,
+//       companyId: dealData.companyId,
+//       basketType: dealData.basketType,
+//       price: dealData.price,
+//       pickupDate: dealData.pickupTime,
+//       isValidated: false,
+//       paymentIntentId: paymentIntentId,
+//       validationCode: validationCode,
+//       quantity: 1,
+//       companyName: companyData.name,
+//       pickupAddress: addressParts.join(", "),
+//       timestamp: admin.firestore.FieldValue.serverTimestamp(),
+//     };
+
+//     const reservationRef = await admin
+//       .firestore()
+//       .collection("reservations")
+//       .add(reservation);
+
+//     // Mettre à jour le nombre de paniers disponibles
+//     await admin
+//       .firestore()
+//       .collection("posts")
+//       .doc(dealId)
+//       .update({
+//         basketCount: admin.firestore.FieldValue.increment(-1),
+//       });
+
+//     return {
+//       success: true,
+//       reservationId: reservationRef.id,
+//       validationCode: validationCode,
+//     };
+//   } catch (error) {
+//     console.error("Erreur lors de la confirmation de la réservation:", error);
+//     throw new functions.https.HttpsError("internal", error.message);
+//   }
+// });
+
 exports.confirmReservation = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -1080,7 +1268,6 @@ exports.confirmReservation = functions.https.onCall(async (data, context) => {
   const { dealId, paymentIntentId } = data;
 
   try {
-    // Vérifier le statut du paiement
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status !== "succeeded") {
@@ -1090,7 +1277,6 @@ exports.confirmReservation = functions.https.onCall(async (data, context) => {
       );
     }
 
-    // Récupérer les informations du deal
     const dealDoc = await admin
       .firestore()
       .collection("posts")
@@ -1102,7 +1288,6 @@ exports.confirmReservation = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError("not-found", "Deal non trouvé");
     }
 
-    // Générer un code de validation
     const validationCode = Math.random()
       .toString(36)
       .substr(2, 6)
@@ -1113,7 +1298,6 @@ exports.confirmReservation = functions.https.onCall(async (data, context) => {
       .collection("companys")
       .doc(dealData.companyId)
       .get();
-
     const companyData = companyDoc.data();
 
     const adress = companyData.adress;
@@ -1124,13 +1308,21 @@ exports.confirmReservation = functions.https.onCall(async (data, context) => {
       adress.pays,
     ].filter(Boolean);
 
-    // Créer la réservation
+    const appliedPrice =
+      dealData.hasActiveHappyDeal && dealData.discountedPrice
+        ? dealData.discountedPrice
+        : dealData.price;
+
     const reservation = {
       buyerId: context.auth.uid,
       postId: dealId,
       companyId: dealData.companyId,
       basketType: dealData.basketType,
-      price: dealData.price,
+      price: appliedPrice,
+      originalPrice: dealData.price,
+      discountAmount: dealData.hasActiveHappyDeal
+        ? dealData.price - appliedPrice
+        : 0,
       pickupDate: dealData.pickupTime,
       isValidated: false,
       paymentIntentId: paymentIntentId,
@@ -1146,7 +1338,6 @@ exports.confirmReservation = functions.https.onCall(async (data, context) => {
       .collection("reservations")
       .add(reservation);
 
-    // Mettre à jour le nombre de paniers disponibles
     await admin
       .firestore()
       .collection("posts")
