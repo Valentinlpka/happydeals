@@ -4,10 +4,10 @@ const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
 const RESOURCES = {"flutter.js": "f393d3c16b631f36852323de8e583132",
-"main.dart.js": "7ca7fcfdb8e75e5f42327f4288927c53",
+"main.dart.js": "f48a7ed853e48a3ce2de8e0fe656d3b9",
 "assets/FontManifest.json": "429f2722e17bfc7afe286c39e2af8039",
-"assets/AssetManifest.bin": "bb2d9fde2109ca8af858100ffa16b932",
-"assets/fonts/MaterialIcons-Regular.otf": "486fa2aa968c431365413e734d5b00bc",
+"assets/AssetManifest.bin": "f76d1503b17ae35c92de8f21a9454372",
+"assets/fonts/MaterialIcons-Regular.otf": "2bc1d0c82aae922e38e628d5d3b49e91",
 "assets/packages/syncfusion_flutter_pdfviewer/assets/underline.png": "c94a4441e753e4744e2857f0c4359bf0",
 "assets/packages/syncfusion_flutter_pdfviewer/assets/fonts/RobotoMono-Regular.ttf": "5b04fdfec4c8c36e8ca574e40b7148bb",
 "assets/packages/syncfusion_flutter_pdfviewer/assets/squiggly.png": "c9602bfd4aa99590ca66ce212099885f",
@@ -21,11 +21,12 @@ const RESOURCES = {"flutter.js": "f393d3c16b631f36852323de8e583132",
 "assets/assets/images/mon_profil.png": "566879bf8f23572d0581268bf70f1683",
 "assets/assets/images/mes_reservations.png": "3a99fd53d5f16e2085ffbebd97ab3e5a",
 "assets/assets/images/happy_deals.png": "c3b6e5392ea5048f610902e6e86df635",
+"assets/assets/french_cities.json": "158ffeddfd6f7d91c742fec2707158fa",
 "assets/assets/mon_logo.png": "6b1a70fe3ab7db1bc4cc0fbfd6c2a24a",
-"assets/NOTICES": "3be81925ac15deecd1866e4674d7a06a",
+"assets/NOTICES": "26357c104656864deba155f326483176",
 "assets/shaders/ink_sparkle.frag": "ecc85a2e95f5e9f53123dcaf8cb9b6ce",
-"assets/AssetManifest.json": "376fb9291344cf27ebef96f565df8a7e",
-"assets/AssetManifest.bin.json": "c432b8d80b64b0e22386ab9971ea4611",
+"assets/AssetManifest.json": "1bfbce6d50599332c555fbe02bee8a03",
+"assets/AssetManifest.bin.json": "b7b57ee5a2d7586061e5274de35e68cf",
 "stripe.html": "cbcab0e6d6e559e5a7202820be039fcc",
 "index.html": "2508edf20b4f773c16c676dec1ee64e4",
 "/": "2508edf20b4f773c16c676dec1ee64e4",
@@ -46,7 +47,7 @@ const RESOURCES = {"flutter.js": "f393d3c16b631f36852323de8e583132",
 "icons/Icon-maskable-512.png": "301a7604d45b3e739efc881eb04896ea",
 "favicon.png": "010556730a963fb02dbbb98b3321268c",
 "version.json": "a7fea63afa0364418817d8246079537a",
-"flutter_bootstrap.js": "206c4e05351531c0cee7e5d9e2a3db6e"};
+"flutter_bootstrap.js": "9cdf57009b8b7994575270ff368d86da"};
 // The application shell files that are downloaded before a service worker can
 // start.
 const CORE = ["main.dart.js",
