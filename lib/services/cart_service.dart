@@ -54,7 +54,7 @@ class CartItem {
 
 class CartService extends ChangeNotifier {
   String? appliedPromoCode;
-  double discountAmount = 0;
+  double discountAmount = 0.00;
 
   List<CartItem> _items = [];
   String? _currentSellerId;

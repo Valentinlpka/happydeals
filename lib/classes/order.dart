@@ -35,6 +35,28 @@ class Orders {
 
   factory Orders.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+    print('Raw data from Firestore: $data');
+
+    double safeParseDouble(dynamic value, String fieldName) {
+      if (value == null) {
+        print('Warning: $fieldName is null');
+        return 0.0;
+      }
+      if (value is int) return value.toDouble();
+      if (value is double) return value;
+      if (value is String) {
+        final parsed = double.tryParse(value);
+        if (parsed == null) {
+          print('Warning: Failed to parse $fieldName: $value');
+          return 0.0;
+        }
+        return parsed;
+      }
+      print('Warning: Unexpected type for $fieldName: ${value.runtimeType}');
+      return 0.0;
+    }
+
     return Orders(
       id: doc.id,
       userId: data['userId'] ?? '',
@@ -42,16 +64,17 @@ class Orders {
       items: (data['items'] as List? ?? [])
           .map((item) => OrderItem.fromMap(item))
           .toList(),
-      subtotal: (data['subtotal'] as num?)?.toDouble() ?? 0,
-      happyDealSavings: (data['happyDealSavings'] as num?)?.toDouble() ?? 0,
-      totalPrice: (data['totalPrice'] as num?)?.toDouble() ?? 0,
+      subtotal: safeParseDouble(data['subtotal'], 'subtotal'),
+      happyDealSavings:
+          safeParseDouble(data['happyDealSavings'], 'happyDealSavings'),
+      totalPrice: safeParseDouble(data['totalPrice'], 'totalPrice'),
+      discountAmount: safeParseDouble(data['discountAmount'], 'discountAmount'),
       status: data['status'] ?? '',
       entrepriseId: data['entrepriseId'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       pickupAddress: data['pickupAddress'] ?? '',
       pickupCode: data['pickupCode'],
       promoCode: data['promoCode'],
-      discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -60,7 +83,7 @@ class Orders {
       'userId': userId,
       'sellerId': sellerId,
       'items': items.map((item) => item.toMap()).toList(),
-      'subtotal': subtotal,
+      'subtotal': subtotal.toDouble(),
       'happyDealSavings': happyDealSavings,
       'totalPrice': totalPrice,
       'status': status,
@@ -94,14 +117,36 @@ class OrderItem {
   });
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
+    print('Raw OrderItem data: $map'); // Log raw data
+
+    double safeParseDouble(dynamic value, String fieldName) {
+      if (value == null) {
+        print('Warning: $fieldName is null in OrderItem');
+        return 0.0;
+      }
+      if (value is int) return value.toDouble();
+      if (value is double) return value;
+      if (value is String) {
+        final parsed = double.tryParse(value);
+        if (parsed == null) {
+          print('Warning: Failed to parse $fieldName in OrderItem: $value');
+          return 0.0;
+        }
+        return parsed;
+      }
+      print(
+          'Warning: Unexpected type for $fieldName in OrderItem: ${value.runtimeType}');
+      return 0.0;
+    }
+
     return OrderItem(
       productId: map['productId'] ?? '',
       image: map['image'] ?? '',
       name: map['name'] ?? '',
-      quantity: map['quantity'] ?? 0,
-      originalPrice: (map['originalPrice'] as num?)?.toDouble() ?? 0,
-      appliedPrice: (map['appliedPrice'] as num?)?.toDouble() ?? 0,
-      tva: (map['tva'] as num?)?.toDouble() ?? 0,
+      quantity: (map['quantity'] as num?)?.toInt() ?? 0,
+      originalPrice: safeParseDouble(map['originalPrice'], 'originalPrice'),
+      appliedPrice: safeParseDouble(map['appliedPrice'], 'appliedPrice'),
+      tva: safeParseDouble(map['tva'], 'tva'),
     );
   }
 

@@ -80,6 +80,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     final cartData = json.decode(cartDataJson) as List<dynamic>;
     final cart = CartService();
 
+    // Utiliser un Map pour éviter les doublons
+    Map<String, CartItem> itemMap = {};
+
     for (var item in cartData) {
       try {
         final product = Product(
@@ -94,15 +97,26 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
           stock: item['stock'],
           isActive: item['isActive'],
         );
-        cart.items.add(CartItem(
+
+        final cartItem = CartItem(
           product: product,
           quantity: item['quantity'],
           appliedPrice: (item['appliedPrice'] as num).toDouble(),
-        ));
+        );
+
+        // Si l'article existe déjà, mettez à jour la quantité au lieu d'ajouter un doublon
+        if (itemMap.containsKey(product.id)) {
+          itemMap[product.id]!.quantity += cartItem.quantity;
+        } else {
+          itemMap[product.id] = cartItem;
+        }
       } catch (e) {
         print('Erreur lors de la reconstruction du produit: $e');
       }
     }
+
+    // Ajoutez les articles uniques au panier
+    cart.items.addAll(itemMap.values);
 
     cart.appliedPromoCode = html.window.localStorage['appliedPromoCode'];
     cart.discountAmount =
@@ -128,20 +142,20 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                 image: item.product.imageUrl[0],
                 name: item.product.name,
                 quantity: item.quantity,
-                originalPrice: item.product.price,
-                appliedPrice: item.appliedPrice,
-                tva: item.product.tva,
+                originalPrice: item.product.price.toDouble(),
+                appliedPrice: item.appliedPrice.toDouble(),
+                tva: item.product.tva.toDouble(),
               ))
           .toList(),
-      subtotal: cart.subtotal,
-      happyDealSavings: cart.totalSavings,
-      totalPrice: cart.totalAfterDiscount,
+      subtotal: cart.subtotal.toDouble(),
+      happyDealSavings: cart.totalSavings.toDouble(),
+      totalPrice: cart.totalAfterDiscount.toDouble(),
       status: 'paid',
       createdAt: DateTime.now(),
       pickupAddress: address ?? "",
       entrepriseId: cart.items.first.product.entrepriseId,
       promoCode: cart.appliedPromoCode,
-      discountAmount: cart.discountAmount,
+      discountAmount: cart.discountAmount.toDouble(),
     ));
 
     cart.clearCart();

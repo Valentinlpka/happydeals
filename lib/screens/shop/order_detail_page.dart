@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:happy/classes/order.dart';
@@ -26,6 +27,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   void initState() {
     super.initState();
     _orderFuture = _orderService.getOrder(widget.orderId);
+  }
+
+  double safeParseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is int) return value.toDouble();
+    if (value is double) return value;
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
   }
 
   @override
@@ -134,17 +143,33 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 'Passée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
+              !kIsWeb
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 10.0),
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.download),
+                        label: const Text('Facture'),
+                        onPressed: () => _generateInvoice(order),
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Colors.blue[800],
+                        ),
+                      ),
+                    )
+                  : const Text('')
             ],
           ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.download),
-            label: const Text('Facture'),
-            onPressed: () => _generateInvoice(order),
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: Colors.blue[800],
-            ),
-          ),
+          kIsWeb
+              ? ElevatedButton.icon(
+                  icon: const Icon(Icons.download),
+                  label: const Text('Facture'),
+                  onPressed: () => _generateInvoice(order),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.blue[800],
+                  ),
+                )
+              : const SizedBox(),
         ],
       ),
     );
@@ -474,28 +499,30 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Sous-total'),
-              Text('${order.subtotal.toStringAsFixed(2)}€'),
+              Text('${safeParseDouble(order.subtotal).toStringAsFixed(2)}€'),
             ],
           ),
-          if (order.happyDealSavings > 0) ...[
+          if (safeParseDouble(order.happyDealSavings) > 0) ...[
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Économies Happy Deals',
                     style: TextStyle(color: Colors.green)),
-                Text('${order.happyDealSavings.toStringAsFixed(2)} €',
+                Text(
+                    '${safeParseDouble(order.happyDealSavings).toStringAsFixed(2)}€',
                     style: const TextStyle(color: Colors.green)),
               ],
             ),
           ],
-          if (order.promoCode != null) ...[
+          if (order.promoCode != null && order.discountAmount != null) ...[
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Code promo (${order.promoCode})'),
-                Text('-${order.discountAmount?.toStringAsFixed(2) ?? "0.00"}€'),
+                Text(
+                    '-${safeParseDouble(order.discountAmount).toStringAsFixed(2)}€'),
               ],
             ),
           ],
@@ -505,7 +532,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             children: [
               const Text('Total',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              Text('${order.totalPrice.toStringAsFixed(2)}€',
+              Text('${safeParseDouble(order.totalPrice).toStringAsFixed(2)}€',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
