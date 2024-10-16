@@ -37,32 +37,50 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<void> _verifyPaymentAndFinalizeOrder() async {
     try {
+      print(
+          'Démarrage de la vérification du paiement et de la finalisation de la commande');
       _logLocalStorageContent();
 
+      print('Récupération du panier...');
       final cart = await _getCart();
+      print(
+          "Panier récupéré avec succès. Nombre d'articles: ${cart.items.length}");
 
       setState(() {
         _statusMessage = 'Paiement confirmé. Finalisation de la commande...';
       });
 
+      print('Début de la finalisation de la commande...');
       await _finalizeOrder(cart);
+      print('Commande finalisée avec succès');
 
-      await _finalizePromoCodeUsage();
+      print("Finalisation de l'utilisation du code promo...");
+      await _finalizePromoCodeUsage(cart);
+      print('Utilisation du code promo finalisée');
 
       _showSuccessMessage();
-    } catch (e) {
+      print('Message de succès affiché');
+    } catch (e, stackTrace) {
+      print(
+          'Erreur lors de la vérification du paiement ou de la finalisation de la commande:');
+      print(e);
+      print('Stack trace:');
+      print(stackTrace);
       _handleError('Une erreur est survenue: $e');
     } finally {
       if (kIsWeb) {
+        print('Nettoyage du localStorage...');
         _clearLocalStorage();
+        print('localStorage nettoyé');
       }
       setState(() {
         _isLoading = false;
       });
+      print('État de chargement mis à jour: _isLoading = false');
     }
   }
 
-  Future<void> _finalizePromoCodeUsage() async {
+  Future<void> _finalizePromoCodeUsage(CartService cart) async {
     if (kIsWeb) {
       final appliedPromoCode = html.window.localStorage['appliedPromoCode'];
       if (appliedPromoCode != null && appliedPromoCode.isNotEmpty) {
@@ -70,8 +88,6 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         html.window.localStorage.remove('appliedPromoCode');
       }
     } else {
-      // Pour les applications mobiles, utilisez la méthode existante du CartService
-      final cart = Provider.of<CartService>(context, listen: false);
       await cart.finalizePromoCodeUsage();
     }
   }
@@ -81,7 +97,12 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       print('Contenu de localStorage:');
       print('cartData: ${html.window.localStorage['cartData']}');
       print('cartTotal: ${html.window.localStorage['cartTotal']}');
+      print('cartSubtotal: ${html.window.localStorage['cartSubtotal']}');
+      print(
+          'cartTotalSavings: ${html.window.localStorage['cartTotalSavings']}');
       print('stripeSessionId: ${html.window.localStorage['stripeSessionId']}');
+      print(
+          'appliedPromoCode: ${html.window.localStorage['appliedPromoCode']}');
     }
   }
 
@@ -94,13 +115,15 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   }
 
   Future<CartService> _reconstructCartFromLocalStorage() async {
-    print('Début de la reconstruction du panier');
+    print('Début de la reconstruction du panier depuis localStorage');
     final cartDataJson = html.window.localStorage['cartData'];
     if (cartDataJson == null || cartDataJson.isEmpty) {
+      print(
+          'Erreur: Données du panier non trouvées ou vides dans localStorage');
       throw Exception('Données du panier non trouvées ou vides');
     }
 
-    print('Données brutes du panier: $cartDataJson');
+    print('Données brutes du panier trouvées: $cartDataJson');
     final cartData = json.decode(cartDataJson) as List<dynamic>;
     final cart = CartService();
 
@@ -108,27 +131,37 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       print('Traitement de l\'item: $item');
       if (item['productId'] == null) {
         print(
-            'Avertissement: ID de produit manquant dans les données du panier');
+            'Avertissement: ID de produit manquant dans les données du panier pour l\'item: $item');
         continue;
       }
 
       try {
-        final product = await _fetchProductFromFirestore(item['productId']);
-        final quantity = item['quantity'] as int? ?? 1;
-        print(
-            'Ajout du produit ${product.name} avec une quantité de $quantity');
-
-        // Vérifier si le produit existe déjà dans le panier
-        final existingItem = cart.items.firstWhere(
-          (cartItem) => cartItem.product.id == product.id,
+        final product = Product(
+          id: item['productId'],
+          name: item['name'],
+          price: (item['price'] as num).toDouble(),
+          tva: (item['tva'] as num).toDouble(),
+          imageUrl: List<String>.from(item['imageUrl']),
+          sellerId: item['sellerId'],
+          entrepriseId: item['entrepriseId'],
+          description: item['description'],
+          stock: item['stock'],
+          isActive: item['isActive'],
         );
+        final quantity = item['quantity'] as int;
+        final appliedPrice = (item['appliedPrice'] as num).toDouble();
 
         print(
-            'Le produit ${product.name} existe déjà dans le panier. Mise à jour de la quantité.');
-        existingItem.quantity = quantity;
+            'Produit reconstruit: ${product.name}, quantité: $quantity, prix appliqué: $appliedPrice');
+
+        cart.items.add(CartItem(
+          product: product,
+          quantity: quantity,
+          appliedPrice: appliedPrice,
+        ));
 
         print(
-            'Panier après ajout: ${cart.items.map((i) => "${i.product.name}: ${i.quantity}").join(", ")}');
+            'État actuel du panier: ${cart.items.map((i) => "${i.product.name}: ${i.quantity}").join(", ")}');
       } catch (e) {
         print(
             'Erreur lors de la reconstruction du produit ${item['productId']}: $e');
@@ -136,76 +169,32 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     }
 
     if (cart.items.isEmpty) {
+      print('Erreur: Aucun produit valide n\'a pu être ajouté au panier');
       throw Exception('Aucun produit valide n\'a pu être ajouté au panier');
     }
 
     print('Reconstruction du panier terminée. Contenu final du panier:');
     for (var item in cart.items) {
-      print('${item.product.name}: ${item.quantity} : ${item.product.tva}');
+      print(
+          '${item.product.name}: Quantité=${item.quantity}, Prix appliqué=${item.appliedPrice}, TVA=${item.product.tva}');
     }
 
-    // Mettre à jour le localStorage avec les quantités correctes
-    _updateLocalStorage(cart);
+    // Récupérer les informations du code promo
+    cart.appliedPromoCode = html.window.localStorage['appliedPromoCode'];
+    cart.discountAmount =
+        double.tryParse(html.window.localStorage['discountAmount'] ?? '0') ?? 0;
 
     return cart;
-  }
-
-  void _updateLocalStorage(CartService cart) {
-    final cartData = cart.items
-        .map((item) => {
-              'productId': item.product.id,
-              'name': item.product.name,
-              'quantity': item.quantity,
-              'price': item.product.price,
-              'tva': item.product.tva,
-              'sellerId': item.product.sellerId,
-              'entrepriseId': item.product.entrepriseId,
-              'imageUrl': item.product.imageUrl,
-              'description': item.product.description,
-              'stock': item.product.stock,
-              'isActive': item.product.isActive,
-            })
-        .toList();
-
-    final cartDataJson = json.encode(cartData);
-    html.window.localStorage['cartData'] = cartDataJson;
-    html.window.localStorage['cartTotal'] = cart.total.toString();
-
-    print('localStorage mis à jour avec les nouvelles quantités');
-  }
-
-  Future<Product> _fetchProductFromFirestore(String productId) async {
-    final productDoc =
-        await _firestore.collection('products').doc(productId).get();
-    if (!productDoc.exists) {
-      throw Exception('Produit $productId non trouvé dans Firestore');
-    }
-
-    final productData = productDoc.data();
-    if (productData == null) {
-      throw Exception('Données nulles pour le produit $productId');
-    }
-
-    return Product(
-      id: productId,
-      name: productData['name'] ?? 'Nom inconnu',
-      description: productData['description'] ?? '',
-      price: (productData['price'] as num?)?.toDouble() ?? 0.0,
-      tva: (productData['tva'] as num?)?.toDouble() ?? 0.0,
-      imageUrl: List<String>.from(productData['image'] ?? []),
-      sellerId: productData['merchantId'] ?? '',
-      entrepriseId: productData['sellerId'] ?? '',
-      stock: productData['stock'] as int? ?? 0,
-      isActive: productData['isActive'] as bool? ?? false,
-    );
   }
 
   void _clearLocalStorage() {
     html.window.localStorage.remove('cartData');
     html.window.localStorage.remove('cartTotal');
+    html.window.localStorage.remove('cartSubtotal');
+    html.window.localStorage.remove('cartTotalSavings');
     html.window.localStorage.remove('stripeSessionId');
     html.window.localStorage.remove('appliedPromoCode');
-    html.window.localStorage['discountAmount'];
+    html.window.localStorage.remove('discountAmount');
   }
 
   void _handleError(String message) {
@@ -237,28 +226,6 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
           'Produit: ${item.product.name}, Quantité: ${item.quantity}, Prix appliqué: ${item.appliedPrice}');
     }
 
-    // Vérification et correction des quantités si nécessaire
-    _correctCartQuantities(cart);
-
-    // Calcul du sous-total et des économies
-    double subtotal = cart.items
-        .fold(0, (sum, item) => sum + (item.product.price * item.quantity));
-    double totalWithDiscounts = cart.items
-        .fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
-    double happyDealSavings = subtotal - totalWithDiscounts;
-
-    // Récupérer les informations du code promo
-    String? promoCode;
-    double? discountAmount;
-    if (kIsWeb) {
-      promoCode = html.window.localStorage['appliedPromoCode'];
-      discountAmount =
-          double.tryParse(html.window.localStorage['discountAmount'] ?? '');
-    } else {
-      promoCode = cart.appliedPromoCode;
-      discountAmount = cart.discountAmount;
-    }
-
     final orderId = await _orderService.createOrder(Orders(
       id: '',
       userId: user.uid,
@@ -274,15 +241,15 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                 tva: item.product.tva,
               ))
           .toList(),
-      subtotal: subtotal,
-      happyDealSavings: happyDealSavings,
-      totalPrice: totalWithDiscounts - (discountAmount ?? 0),
+      subtotal: cart.subtotal,
+      happyDealSavings: cart.totalSavings,
+      totalPrice: cart.totalAfterDiscount,
       status: 'paid',
       createdAt: DateTime.now(),
       pickupAddress: address ?? "",
       entrepriseId: cart.items.first.product.entrepriseId,
-      promoCode: promoCode,
-      discountAmount: discountAmount,
+      promoCode: cart.appliedPromoCode,
+      discountAmount: cart.discountAmount,
     ));
 
     print('Commande créée avec l\'ID: $orderId');
@@ -300,39 +267,6 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       MaterialPageRoute(
           builder: (context) => OrderDetailPage(orderId: orderId)),
     );
-  }
-
-  int _getQuantityFromLocalStorage(String productId) {
-    final cartDataJson = html.window.localStorage['cartData'];
-    if (cartDataJson != null) {
-      final cartData = json.decode(cartDataJson) as List<dynamic>;
-      final item = cartData.firstWhere((item) => item['productId'] == productId,
-          orElse: () => null);
-      if (item != null) {
-        return item['quantity'] as int? ?? 0;
-      }
-    }
-    return 0;
-  }
-
-  void _correctCartQuantities(CartService cart) {
-    final cartDataJson = html.window.localStorage['cartData'];
-    if (cartDataJson != null) {
-      final cartData = json.decode(cartDataJson) as List<dynamic>;
-      for (var item in cart.items) {
-        final localStorageItem = cartData.firstWhere(
-            (element) => element['productId'] == item.product.id,
-            orElse: () => null);
-        if (localStorageItem != null) {
-          final correctQuantity = localStorageItem['quantity'] as int? ?? 1;
-          if (item.quantity != correctQuantity) {
-            print(
-                'Correction de la quantité pour ${item.product.name} de ${item.quantity} à $correctQuantity');
-            item.quantity = correctQuantity;
-          }
-        }
-      }
-    }
   }
 
   Future<String?> _fetchCompanyAddress(String entrepriseId) async {

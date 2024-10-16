@@ -19,17 +19,23 @@ class CartItem {
     return {
       'productId': product.id,
       'name': product.name,
-      'images': product.imageUrl[0],
+      'imageUrl': product.imageUrl,
       'price': product.price,
       'tva': product.tva,
       'quantity': quantity,
+      'appliedPrice': appliedPrice,
+      'sellerId': product.sellerId,
+      'entrepriseId': product.entrepriseId,
+      'description': product.description,
+      'stock': product.stock,
+      'isActive': product.isActive,
     };
   }
 }
 
 class CartService extends ChangeNotifier {
   String? appliedPromoCode;
-  double _discountAmount = 0;
+  double discountAmount = 0;
 
   List<CartItem> _items = [];
   String? _currentSellerId;
@@ -52,9 +58,7 @@ class CartService extends ChangeNotifier {
 
   double get totalSavings => subtotal - total;
 
-  double get discountAmount => _discountAmount;
-
-  double get totalAfterDiscount => total - _discountAmount;
+  double get totalAfterDiscount => total - discountAmount;
 
   Future<void> applyPromoCode(
       String code, String companyId, String customerId) async {
@@ -66,9 +70,9 @@ class CartService extends ChangeNotifier {
       if (promoDetails != null) {
         appliedPromoCode = code;
         if (promoDetails['isPercentage']) {
-          _discountAmount = total * (promoDetails['value'] / 100);
+          discountAmount = total * (promoDetails['value'] / 100);
         } else {
-          _discountAmount = promoDetails['value'];
+          discountAmount = promoDetails['value'];
         }
         notifyListeners();
       }
@@ -84,14 +88,14 @@ class CartService extends ChangeNotifier {
     if (appliedPromoCode != null) {
       await _promoCodeService.usePromoCode(appliedPromoCode!);
       appliedPromoCode = null;
-      _discountAmount = 0;
+      discountAmount = 0;
       notifyListeners();
     }
   }
 
   void removePromoCode() {
     appliedPromoCode = null;
-    _discountAmount = 0;
+    discountAmount = 0;
     notifyListeners();
   }
 
@@ -99,24 +103,25 @@ class CartService extends ChangeNotifier {
     final cartDataJson = html.window.localStorage['cartData'];
     if (cartDataJson != null && cartDataJson.isNotEmpty) {
       final cartData = json.decode(cartDataJson) as List<dynamic>;
-      _items = cartData
-          .map((item) => CartItem(
-                product: Product(
-                  id: item['productId'],
-                  name: item['name'],
-                  price: item['price'],
-                  tva: item['tva'],
-                  imageUrl: List<String>.from(item['imageUrl']),
-                  sellerId: item['sellerId'],
-                  entrepriseId: item['entrepriseId'],
-                  description: item['description'],
-                  stock: item['stock'],
-                  isActive: item['isActive'],
-                ),
-                quantity: item['quantity'],
-                appliedPrice: item['appliedPrice'],
-              ))
-          .toList();
+      _items = cartData.map((item) {
+        return CartItem(
+          product: Product(
+            id: item['productId'] ?? '',
+            name: item['name'] ?? '',
+            price: (item['price'] as num?)?.toDouble() ?? 0.0,
+            tva: (item['tva'] as num?)?.toDouble() ?? 0.0,
+            imageUrl: List<String>.from(item['imageUrl'] ?? []),
+            sellerId: item['sellerId'] ?? '',
+            entrepriseId: item['entrepriseId'] ?? '',
+            description: item['description'] ?? '',
+            stock: item['stock'] as int? ?? 0,
+            isActive: item['isActive'] as bool? ?? false,
+          ),
+          quantity: item['quantity'] as int? ?? 1,
+          appliedPrice:
+              (item['appliedPrice'] as num?)?.toDouble() ?? item['price'],
+        );
+      }).toList();
       _currentSellerId =
           _items.isNotEmpty ? _items.first.product.sellerId : null;
       notifyListeners();

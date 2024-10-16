@@ -484,7 +484,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               children: [
                 const Text('Économies Happy Deals',
                     style: TextStyle(color: Colors.green)),
-                Text('-${order.happyDealSavings.toStringAsFixed(2) ?? "0.00"}€',
+                Text(order.happyDealSavings.toStringAsFixed(2) ?? "0.00",
                     style: const TextStyle(color: Colors.green)),
               ],
             ),
