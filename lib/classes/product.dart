@@ -12,6 +12,13 @@ class Product {
   final int stock;
   final bool isActive;
 
+  // Nouveaux champs pour le Happy Deal
+  final bool hasActiveHappyDeal;
+  final double? discountedPrice;
+  final double? discountPercentage;
+  final DateTime? happyDealStartDate;
+  final DateTime? happyDealEndDate;
+
   Product({
     required this.id,
     required this.name,
@@ -23,6 +30,11 @@ class Product {
     required this.entrepriseId,
     required this.stock,
     required this.isActive,
+    this.hasActiveHappyDeal = false,
+    this.discountedPrice,
+    this.discountPercentage,
+    this.happyDealStartDate,
+    this.happyDealEndDate,
   });
 
   factory Product.fromMap(Map<String, dynamic> map, String id) {
@@ -37,6 +49,15 @@ class Product {
       entrepriseId: map['sellerId'] ?? '',
       stock: map['stock'] ?? 0,
       isActive: map['isActive'] ?? false,
+      hasActiveHappyDeal: map['hasActiveHappyDeal'] ?? false,
+      discountedPrice: map['discountedPrice']?.toDouble(),
+      discountPercentage: map['discountPercentage']?.toDouble(),
+      happyDealStartDate: map['happyDealStartDate'] != null
+          ? (map['happyDealStartDate'] as Timestamp).toDate()
+          : null,
+      happyDealEndDate: map['happyDealEndDate'] != null
+          ? (map['happyDealEndDate'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -53,6 +74,15 @@ class Product {
       entrepriseId: data['sellerId'] ?? '',
       stock: data['stock'] ?? 0,
       isActive: data['isActive'] ?? false,
+      hasActiveHappyDeal: data['hasActiveHappyDeal'] ?? false,
+      discountedPrice: data['discountedPrice']?.toDouble(),
+      discountPercentage: data['discountPercentage']?.toDouble(),
+      happyDealStartDate: data['happyDealStartDate'] != null
+          ? (data['happyDealStartDate'] as Timestamp).toDate()
+          : null,
+      happyDealEndDate: data['happyDealEndDate'] != null
+          ? (data['happyDealEndDate'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -72,6 +102,13 @@ class Product {
       'entrepriseId': entrepriseId,
       'stock': stock,
       'isActive': isActive,
+      'discountPercentage': discountPercentage,
+      'happyDealStartDate': happyDealStartDate != null
+          ? Timestamp.fromDate(happyDealStartDate!)
+          : null,
+      'happyDealEndDate': happyDealEndDate != null
+          ? Timestamp.fromDate(happyDealEndDate!)
+          : null,
     };
   }
 }

@@ -26,7 +26,33 @@ class CartScreen extends StatelessWidget {
               return ListTile(
                 leading: Image.network(item.product.imageUrl[0]),
                 title: Text(item.product.name),
-                subtitle: Text('${item.product.price} €'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (item.product.hasActiveHappyDeal &&
+                        item.product.discountedPrice != null)
+                      Text(
+                        '${item.product.price.toStringAsFixed(2)} €',
+                        style: const TextStyle(
+                          decoration: TextDecoration.lineThrough,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    Text(
+                      '${item.appliedPrice.toStringAsFixed(2)} €',
+                      style: TextStyle(
+                        color:
+                            item.product.hasActiveHappyDeal ? Colors.red : null,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (item.product.hasActiveHappyDeal)
+                      Text(
+                        'Happy Deal: -${((1 - item.appliedPrice / item.product.price) * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(color: Colors.green),
+                      ),
+                  ],
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -59,24 +85,38 @@ class CartScreen extends StatelessWidget {
           return SafeArea(
             child: Container(
               decoration: const BoxDecoration(
-                  border: Border(
-                      top: BorderSide(
-                width: 0.4,
-                color: Colors.black26,
-              ))),
+                border:
+                    Border(top: BorderSide(width: 0.4, color: Colors.black26)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
-                child: SizedBox(
-                  height: 50,
-                  child: ElevatedButton(
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (cart.totalSavings > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'Économies totales: ${cart.totalSavings.toStringAsFixed(2)} €',
+                          style: const TextStyle(
+                              color: Colors.green, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    SizedBox(
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ButtonStyle(
+                          backgroundColor:
+                              WidgetStatePropertyAll(Colors.blue[800]),
+                        ),
+                        onPressed: cart.items.isNotEmpty
+                            ? () => _proceedToCheckout(context, cart)
+                            : null,
+                        child: Text(
+                            'Acheter (${cart.total.toStringAsFixed(2)} €)'),
+                      ),
                     ),
-                    onPressed: cart.items.isNotEmpty
-                        ? () => _proceedToCheckout(context, cart)
-                        : null,
-                    child: Text('Acheter (${cart.total.toStringAsFixed(2)} €)'),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -88,13 +128,13 @@ class CartScreen extends StatelessWidget {
 
   void _proceedToCheckout(BuildContext context, CartService cart) {
     if (kIsWeb) {
-      // Sauvegarde des données du panier pour le web
       final cartData = cart.items
           .map((item) => {
                 'productId': item.product.id,
                 'name': item.product.name,
                 'quantity': item.quantity,
-                'price': item.product.price,
+                'price': item.appliedPrice,
+                'originalPrice': item.product.price,
                 'tva': item.product.tva,
                 'sellerId': item.product.sellerId,
                 'entrepriseId': item.product.entrepriseId,
@@ -102,12 +142,14 @@ class CartScreen extends StatelessWidget {
                 'description': item.product.description,
                 'stock': item.product.stock,
                 'isActive': item.product.isActive,
+                'hasActiveHappyDeal': item.product.hasActiveHappyDeal,
               })
           .toList();
 
       final cartDataJson = json.encode(cartData);
       html.window.localStorage['cartData'] = cartDataJson;
       html.window.localStorage['cartTotal'] = cart.total.toString();
+      html.window.localStorage['cartSavings'] = cart.totalSavings.toString();
     }
 
     Navigator.push(

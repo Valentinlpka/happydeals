@@ -101,22 +101,27 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
   Future<List<String>> _uploadPhotos(List<dynamic> photos) async {
     List<String> photoUrls = [];
     for (var photo in photos) {
-      String fileName = const Uuid().v4();
-      Reference storageRef =
-          FirebaseStorage.instance.ref().child('ad_photos/$fileName');
-
-      UploadTask uploadTask;
-      if (photo is XFile) {
-        uploadTask = storageRef.putFile(File(photo.path));
-      } else if (photo is Uint8List) {
-        uploadTask = storageRef.putData(photo);
+      if (photo is String) {
+        // C'est déjà une URL, on la garde telle quelle
+        photoUrls.add(photo);
       } else {
-        continue; // Skip if the photo is not in a recognized format
-      }
+        String fileName = const Uuid().v4();
+        Reference storageRef =
+            FirebaseStorage.instance.ref().child('ad_photos/$fileName');
 
-      await uploadTask.whenComplete(() => null);
-      String downloadUrl = await storageRef.getDownloadURL();
-      photoUrls.add(downloadUrl);
+        UploadTask uploadTask;
+        if (photo is XFile) {
+          uploadTask = storageRef.putFile(File(photo.path));
+        } else if (photo is Uint8List) {
+          uploadTask = storageRef.putData(photo);
+        } else {
+          continue; // Skip if the photo is not in a recognized format
+        }
+
+        await uploadTask.whenComplete(() => null);
+        String downloadUrl = await storageRef.getDownloadURL();
+        photoUrls.add(downloadUrl);
+      }
     }
     return photoUrls;
   }

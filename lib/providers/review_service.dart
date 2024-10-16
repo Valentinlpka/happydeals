@@ -39,15 +39,4 @@ class ReviewService extends ChangeNotifier {
 
     return reviews;
   }
-
-  Future<void> _updateCompanyStats(String companyId) async {
-    final reviews = await getReviewsForCompany(companyId);
-    final totalRating = reviews.fold(0.0, (sum, review) => sum + review.rating);
-    final averageRating = totalRating / reviews.length;
-
-    await _firestore.collection('companys').doc(companyId).update({
-      'averageRating': averageRating,
-      'numberOfReviews': reviews.length,
-    });
-  }
 }

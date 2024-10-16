@@ -134,7 +134,7 @@ class ReferralModal extends StatefulWidget {
       {super.key, required this.companyId, required this.referralId});
 
   @override
-  _ReferralModalState createState() => _ReferralModalState();
+  State<ReferralModal> createState() => _ReferralModalState();
 }
 
 class _ReferralModalState extends State<ReferralModal> {
@@ -286,7 +286,7 @@ class _ReferralModalState extends State<ReferralModal> {
     if (_formKey.currentState!.validate() && _refereeData != null) {
       try {
         final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
+        if (user != null && context.mounted) {
           final userDoc = await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
@@ -344,7 +344,6 @@ class _ReferralModalState extends State<ReferralModal> {
               'isRead': false,
             });
           });
-
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Parrainage enregistré avec succès!')),

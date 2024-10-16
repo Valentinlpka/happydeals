@@ -259,7 +259,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     ],
                   ),
                   ...order.items.map((item) {
-                    final priceHT = item.price / (1 + (item.tva / 100));
+                    final priceHT = item.appliedPrice / (1 + (item.tva / 100));
                     return pw.TableRow(
                       children: [
                         _buildTableCell(item.name, textStyle()),
@@ -268,7 +268,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                             '${priceHT.toStringAsFixed(2)}€', textStyle()),
                         _buildTableCell('${item.tva}%', textStyle()),
                         _buildTableCell(
-                            '${(item.price * item.quantity).toStringAsFixed(2)}€',
+                            '${(item.appliedPrice * item.quantity).toStringAsFixed(2)}€',
                             textStyle()),
                       ],
                     );
@@ -284,6 +284,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
+                      pw.Text(
+                          'Sous-total: ${order.subtotal.toStringAsFixed(2)}€',
+                          style: textStyle()),
+                      if (order.happyDealSavings > 0)
+                        pw.Text(
+                            'Économies Happy Deals: -${order.happyDealSavings.toStringAsFixed(2)}€',
+                            style: textStyle(color: PdfColors.green)),
+                      if (order.discountAmount != null &&
+                          order.discountAmount! > 0)
+                        pw.Text(
+                            'Réduction code promo: -${order.discountAmount!.toStringAsFixed(2)}€',
+                            style: textStyle(color: PdfColors.green)),
                       pw.Text(
                           'Total HT: ${_calculateTotalHT(order.items).toStringAsFixed(2)}€',
                           style: textStyle()),
@@ -329,8 +341,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     Map<double, double> vatSummary = {};
     for (var item in items) {
       vatSummary[item.tva] = (vatSummary[item.tva] ?? 0) +
-          (item.price * item.quantity) -
-          ((item.price / (1 + (item.tva / 100))) * item.quantity);
+          (item.appliedPrice * item.quantity) -
+          ((item.appliedPrice / (1 + (item.tva / 100))) * item.quantity);
     }
 
     return vatSummary.entries.map((entry) {
@@ -342,7 +354,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     return items.fold(
         0,
         (sum, item) =>
-            sum + ((item.price / (1 + (item.tva / 100))) * item.quantity));
+            sum +
+            ((item.appliedPrice / (1 + (item.tva / 100))) * item.quantity));
   }
 
   double _calculateTotalVAT(List<OrderItem> items) {
@@ -350,8 +363,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         0,
         (sum, item) =>
             sum +
-            (item.price * item.quantity) -
-            ((item.price / (1 + (item.tva / 100))) * item.quantity));
+            (item.appliedPrice * item.quantity) -
+            ((item.appliedPrice / (1 + (item.tva / 100))) * item.quantity));
   }
 
   Widget _buildOrderStatus(Orders order) {
@@ -424,8 +437,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                               style:
                                   const TextStyle(fontWeight: FontWeight.bold)),
                           Text('Quantité: ${item.quantity}'),
+                          if (item.originalPrice != item.appliedPrice)
+                            Text('${item.originalPrice.toStringAsFixed(2)}€',
+                                style: const TextStyle(
+                                    decoration: TextDecoration.lineThrough,
+                                    color: Colors.grey)),
+                          Text('${item.appliedPrice.toStringAsFixed(2)}€',
+                              style: TextStyle(
+                                  color: item.originalPrice != item.appliedPrice
+                                      ? Colors.red
+                                      : null)),
                           Text(
-                              '${(item.price * item.quantity).toStringAsFixed(2)}€'),
+                              'Total: ${(item.appliedPrice * item.quantity).toStringAsFixed(2)}€'),
                         ],
                       ),
                     ),
@@ -450,28 +473,31 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Sous-total'),
-              Text(
-                  '${(order.totalPrice + (order.discountAmount ?? 0)).toStringAsFixed(2)}€'),
+              Text('${order.subtotal.toStringAsFixed(2)}€'),
             ],
           ),
+          if (order.happyDealSavings > 0) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Économies Happy Deals',
+                    style: TextStyle(color: Colors.green)),
+                Text('-${order.happyDealSavings.toStringAsFixed(2)}€',
+                    style: const TextStyle(color: Colors.green)),
+              ],
+            ),
+          ],
           if (order.promoCode != null) ...[
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Code promo (${order.promoCode})'),
-                Text('-${order.discountAmount?.toStringAsFixed(2)}€'),
+                Text('-${order.discountAmount?.toStringAsFixed(2) ?? "0.00"}€'),
               ],
             ),
           ],
-          const SizedBox(height: 4),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Frais de livraison'),
-              Text('0.00€'),
-            ],
-          ),
           const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

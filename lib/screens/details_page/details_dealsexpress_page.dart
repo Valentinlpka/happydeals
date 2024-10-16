@@ -29,12 +29,17 @@ class DetailsDealsExpress extends StatefulWidget {
 
 class _DetailsDealsExpressState extends State<DetailsDealsExpress>
     with SingleTickerProviderStateMixin {
+  DateTime? selectedPickupTime;
+
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    if (widget.post.pickupTimes.isNotEmpty) {
+      selectedPickupTime = widget.post.pickupTimes[0];
+    }
   }
 
   @override
@@ -45,6 +50,36 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
 
   String generateValidationCode() {
     return (100000 + Random().nextInt(900000)).toString();
+  }
+
+  Widget _buildPickupTimeSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Créneaux de retrait disponibles:',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue[800],
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...widget.post.pickupTimes.map((time) => RadioListTile<DateTime>(
+                title: Text(formatDateTime(time)),
+                value: time,
+                groupValue: selectedPickupTime,
+                onChanged: (value) {
+                  setState(() {
+                    selectedPickupTime = value;
+                  });
+                },
+              )),
+        ],
+      ),
+    );
   }
 
   Future<DocumentReference> reserveDeal({
@@ -197,16 +232,26 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
               height: 50,
               child: ElevatedButton(
                 style: ButtonStyle(
-                  backgroundColor: WidgetStatePropertyAll(Colors.blue[800]),
+                  backgroundColor: WidgetStateProperty.all(Colors.blue[800]),
                 ),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          ReservationScreen(deal: widget.post),
-                    ),
-                  );
+                  if (selectedPickupTime != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ReservationScreen(
+                          deal: widget.post,
+                          selectedPickupTime: selectedPickupTime!,
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Veuillez sélectionner un créneau de retrait')),
+                    );
+                  }
                 },
                 child: const Text('Réserver'),
               ),
@@ -337,7 +382,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                             softWrap: false,
                             overflow: TextOverflow.ellipsis,
                             maxLines: 2,
-                            "à récuperer ${formatDateTime(widget.post.pickupTime)}",
+                            "à récuperer ${formatDateTime(widget.post.pickupTimes[0])}",
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold),
                           ),
@@ -393,6 +438,8 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress>
                   ],
                 ),
               ),
+              _buildPickupTimeSelector(), // Ajoutez ceci avant le Divider
+
               Divider(color: Colors.grey[300]),
               TabBar(
                 labelPadding: EdgeInsets.zero,

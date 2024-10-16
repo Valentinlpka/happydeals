@@ -10,8 +10,10 @@ import 'package:universal_html/html.dart' as html;
 class CartItem {
   final Product product;
   int quantity;
+  final double appliedPrice;
 
-  CartItem({required this.product, this.quantity = 1});
+  CartItem(
+      {required this.product, required this.appliedPrice, this.quantity = 1});
 
   Map<String, dynamic> toMap() {
     return {
@@ -39,6 +41,20 @@ class CartService extends ChangeNotifier {
       _loadFromLocalStorage();
     }
   }
+
+  List<CartItem> get items => _items;
+
+  double get subtotal =>
+      _items.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
+
+  double get total =>
+      _items.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
+
+  double get totalSavings => subtotal - total;
+
+  double get discountAmount => _discountAmount;
+
+  double get totalAfterDiscount => total - _discountAmount;
 
   Future<void> applyPromoCode(
       String code, String companyId, String customerId) async {
@@ -79,9 +95,6 @@ class CartService extends ChangeNotifier {
     notifyListeners();
   }
 
-  double get discountAmount => _discountAmount;
-  double get totalAfterDiscount => total - _discountAmount;
-
   void _loadFromLocalStorage() {
     final cartDataJson = html.window.localStorage['cartData'];
     if (cartDataJson != null && cartDataJson.isNotEmpty) {
@@ -101,6 +114,7 @@ class CartService extends ChangeNotifier {
                   isActive: item['isActive'],
                 ),
                 quantity: item['quantity'],
+                appliedPrice: item['appliedPrice'],
               ))
           .toList();
       _currentSellerId =
@@ -115,12 +129,10 @@ class CartService extends ChangeNotifier {
       final cartDataJson = json.encode(cartData);
       html.window.localStorage['cartData'] = cartDataJson;
       html.window.localStorage['cartTotal'] = total.toString();
+      html.window.localStorage['cartSubtotal'] = subtotal.toString();
+      html.window.localStorage['cartTotalSavings'] = totalSavings.toString();
     }
   }
-
-  List<CartItem> get items => _items;
-  double get total =>
-      _items.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
 
   Future<bool> checkStock(Product product, int requestedQuantity) async {
     DocumentSnapshot doc =
@@ -145,10 +157,15 @@ class CartService extends ChangeNotifier {
       throw Exception('Stock insuffisant');
     }
 
+    double appliedPrice =
+        product.hasActiveHappyDeal && product.discountedPrice != null
+            ? product.discountedPrice!
+            : product.price;
+
     if (index != -1) {
       _items[index].quantity++;
     } else {
-      _items.add(CartItem(product: product));
+      _items.add(CartItem(product: product, appliedPrice: appliedPrice));
     }
     _saveToLocalStorage();
     notifyListeners();
@@ -185,11 +202,22 @@ class CartService extends ChangeNotifier {
       throw Exception('Stock insuffisant');
     }
 
+    // Déterminer le prix à appliquer (prix normal ou prix réduit du Happy Deal)
+    double appliedPrice =
+        product.hasActiveHappyDeal && product.discountedPrice != null
+            ? product.discountedPrice!
+            : product.price;
+
     if (index != -1) {
-      _items[index].quantity =
-          quantity; // Remplacer la quantité au lieu de l'ajouter
+      // Mettre à jour la quantité si le produit est déjà dans le panier
+      _items[index].quantity = quantity;
+      // Mettre à jour le prix appliqué au cas où le Happy Deal aurait changé
+      _items[index] = CartItem(
+          product: product, quantity: quantity, appliedPrice: appliedPrice);
     } else {
-      _items.add(CartItem(product: product, quantity: quantity));
+      // Ajouter un nouveau CartItem avec le prix appliqué
+      _items.add(CartItem(
+          product: product, quantity: quantity, appliedPrice: appliedPrice));
     }
 
     _saveToLocalStorage();

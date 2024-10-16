@@ -6,7 +6,7 @@ import 'package:happy/classes/post.dart';
 class ExpressDeal extends Post {
   final String title;
   final String searchText;
-  final DateTime pickupTime;
+  List<DateTime> pickupTimes; // Remplace pickupTime
   final String content;
   final int basketCount;
   final int price;
@@ -18,7 +18,7 @@ class ExpressDeal extends Post {
     required super.timestamp,
     required this.title,
     required this.searchText,
-    required this.pickupTime,
+    required this.pickupTimes,
     required this.content,
     required super.companyId,
     required this.basketCount,
@@ -41,7 +41,10 @@ class ExpressDeal extends Post {
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       title: data['title'],
       searchText: data['searchText'],
-      pickupTime: (data['pickupTime'] as Timestamp).toDate(),
+      pickupTimes: (data['pickupTimes'] as List<dynamic>?)
+              ?.map((item) => (item as Timestamp).toDate())
+              .toList() ??
+          [],
       content: data['content'],
       companyId: data['companyId'],
       basketCount: data['basketCount'],
@@ -65,7 +68,8 @@ class ExpressDeal extends Post {
     map.addAll({
       'title': title,
       'searchText': searchText,
-      'pickupTime': Timestamp.fromDate(pickupTime),
+      'pickupTimes':
+          pickupTimes.map((time) => Timestamp.fromDate(time)).toList(),
       'content': content,
       'basketCount': basketCount,
       'price': price,
@@ -74,21 +78,18 @@ class ExpressDeal extends Post {
     return map;
   }
 
-  Future<String?> reserve(String userId) async {
+  Future<String?> reserve(String userId, DateTime selectedPickupTime) async {
     if (availableBaskets > 0) {
       final reservationId =
           FirebaseFirestore.instance.collection('reservations').doc().id;
       final validationCode = generateValidationCode();
-
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final dealRef =
             FirebaseFirestore.instance.collection('express_deals').doc(id);
         final dealSnapshot = await transaction.get(dealRef);
-
         if (dealSnapshot.data()!['availableBaskets'] > 0) {
           transaction
               .update(dealRef, {'availableBaskets': FieldValue.increment(-1)});
-
           transaction.set(
               FirebaseFirestore.instance
                   .collection('reservations')
@@ -101,14 +102,12 @@ class ExpressDeal extends Post {
                 'stripeAccountId': stripeAccountId,
                 'validationCode': validationCode,
                 'isValidated': false,
-                'pickupTime': pickupTime,
+                'selectedPickupTime': Timestamp.fromDate(selectedPickupTime),
               });
-
           availableBaskets--;
           return validationCode;
         }
       });
-
       return validationCode;
     }
     return null;

@@ -27,7 +27,9 @@ class CompanyLikeService extends ChangeNotifier {
       _initialized = true;
       if (!_disposed) notifyListeners();
     } catch (e) {
-      print("Erreur lors du chargement des entreprises aimées : $e");
+      if (kDebugMode) {
+        print("Erreur lors du chargement des entreprises aimées : $e");
+      }
     }
   }
 
@@ -100,7 +102,9 @@ class CompanyLikeService extends ChangeNotifier {
         updatedCompany = company.copyWith(like: company.like + 1);
       }
       if (!_disposed) notifyListeners();
-      print("Erreur lors de la gestion du like : $e");
+      if (kDebugMode) {
+        print("Erreur lors de la gestion du like : $e");
+      }
     }
 
     return updatedCompany;

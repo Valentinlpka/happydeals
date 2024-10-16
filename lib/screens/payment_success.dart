@@ -233,24 +233,19 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
     print('Contenu du panier avant création de la commande:');
     for (var item in cart.items) {
-      print('Produit: ${item.product.name}, Quantité: ${item.quantity}');
+      print(
+          'Produit: ${item.product.name}, Quantité: ${item.quantity}, Prix appliqué: ${item.appliedPrice}');
     }
 
-    // Vérification supplémentaire des quantités
-    bool quantitiesCorrect = cart.items.every((item) {
-      final localStorageQuantity =
-          _getQuantityFromLocalStorage(item.product.id);
-      print(
-          'Produit: ${item.product.name}, Quantité dans le panier: ${item.quantity}, Quantité dans localStorage: $localStorageQuantity');
-      return item.quantity == localStorageQuantity;
-    });
+    // Vérification et correction des quantités si nécessaire
+    _correctCartQuantities(cart);
 
-    if (!quantitiesCorrect) {
-      print(
-          'Erreur: Les quantités dans le panier ne correspondent pas à celles du localStorage');
-      // Correction des quantités si nécessaire
-      _correctCartQuantities(cart);
-    }
+    // Calcul du sous-total et des économies
+    double subtotal = cart.items
+        .fold(0, (sum, item) => sum + (item.product.price * item.quantity));
+    double totalWithDiscounts = cart.items
+        .fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
+    double happyDealSavings = subtotal - totalWithDiscounts;
 
     // Récupérer les informations du code promo
     String? promoCode;
@@ -274,11 +269,14 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                 image: item.product.imageUrl[0],
                 name: item.product.name,
                 quantity: item.quantity,
-                price: item.product.price,
+                originalPrice: item.product.price,
+                appliedPrice: item.appliedPrice,
                 tva: item.product.tva,
               ))
           .toList(),
-      totalPrice: cart.total,
+      subtotal: subtotal,
+      happyDealSavings: happyDealSavings,
+      totalPrice: totalWithDiscounts - (discountAmount ?? 0),
       status: 'paid',
       createdAt: DateTime.now(),
       pickupAddress: address ?? "",
@@ -291,7 +289,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     print('Détails de la commande:');
     final createdOrder = await _orderService.getOrder(orderId);
     for (var item in createdOrder.items) {
-      print('Produit: ${item.name}, Quantité: ${item.quantity}');
+      print(
+          'Produit: ${item.name}, Quantité: ${item.quantity}, Prix original: ${item.originalPrice}, Prix appliqué: ${item.appliedPrice}');
     }
 
     cart.clearCart();

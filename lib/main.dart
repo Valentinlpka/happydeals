@@ -88,7 +88,6 @@ class MyApp extends StatelessWidget {
   }
 
   ThemeData _buildTheme(BuildContext context) {
-    const Color lightGrey = Color.fromARGB(255, 238, 238, 238);
     const Color mediumGrey = Color.fromARGB(255, 200, 200, 200);
 
     return ThemeData(

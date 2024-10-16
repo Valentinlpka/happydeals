@@ -98,46 +98,52 @@ class _ParraiangePageState extends State<ParraiangePage> {
 
         final happyDeals = snapshot.data!.docs;
 
-        return ListView.builder(
-          itemCount: happyDeals.length,
-          itemBuilder: (context, index) {
-            final happyDeal = Referral.fromDocument(happyDeals[index]);
+        return Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: ListView.builder(
+            itemCount: happyDeals.length,
+            itemBuilder: (context, index) {
+              final happyDeal = Referral.fromDocument(happyDeals[index]);
 
-            return FutureBuilder<DocumentSnapshot>(
-              future: _firestore
-                  .collection('companys')
-                  .doc(happyDeal.companyId)
-                  .get(),
-              builder: (context, companySnapshot) {
-                if (companySnapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const SizedBox.shrink();
-                }
+              return FutureBuilder<DocumentSnapshot>(
+                future: _firestore
+                    .collection('companys')
+                    .doc(happyDeal.companyId)
+                    .get(),
+                builder: (context, companySnapshot) {
+                  if (companySnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const SizedBox.shrink();
+                  }
 
-                if (companySnapshot.hasError || !companySnapshot.hasData) {
-                  return const SizedBox.shrink();
-                }
+                  if (companySnapshot.hasError || !companySnapshot.hasData) {
+                    return const SizedBox.shrink();
+                  }
 
-                final companyData =
-                    companySnapshot.data!.data() as Map<String, dynamic>;
-                final companyName = companyData['name'] as String;
-                final companyCategorie = companyData['categorie'] as String;
-                final companyLogo = companyData['logo'] as String;
+                  final companyData =
+                      companySnapshot.data!.data() as Map<String, dynamic>;
+                  final companyName = companyData['name'] as String;
+                  final companyCategorie = companyData['categorie'] as String;
+                  final companyLogo = companyData['logo'] as String;
 
-                if (_selectedCategory != 'Toutes' &&
-                    companyCategorie != _selectedCategory) {
-                  return const SizedBox.shrink();
-                }
+                  if (_selectedCategory != 'Toutes' &&
+                      companyCategorie != _selectedCategory) {
+                    return const SizedBox.shrink();
+                  }
 
-                return ParrainageCard(
-                  post: happyDeal,
-                  companyName: companyName,
-                  companyLogo: companyLogo,
-                  currentUserId: currentUserId,
-                );
-              },
-            );
-          },
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: ParrainageCard(
+                      post: happyDeal,
+                      companyName: companyName,
+                      companyLogo: companyLogo,
+                      currentUserId: currentUserId,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         );
       },
     );

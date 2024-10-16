@@ -54,21 +54,22 @@ class OrderService {
     Map<String, dynamic> data = orderDoc.data() as Map<String, dynamic>;
 
     return Orders(
-      id: orderDoc.id,
-      userId: data['userId'],
-      sellerId: data['sellerId'],
-      items: (data['items'] as List)
-          .map((item) => OrderItem.fromMap(item))
-          .toList(),
-      totalPrice: data['totalPrice'].toDouble(),
-      status: data['status'],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      pickupAddress: data['pickupAddress'],
-      pickupCode: data['pickupCode'],
-      entrepriseId: data['entrepriseId'],
-      promoCode: data['promoCode'],
-      discountAmount: data['discountAmount'],
-    );
+        id: orderDoc.id,
+        userId: data['userId'],
+        sellerId: data['sellerId'],
+        items: (data['items'] as List)
+            .map((item) => OrderItem.fromMap(item))
+            .toList(),
+        totalPrice: data['totalPrice'].toDouble(),
+        status: data['status'],
+        createdAt: (data['createdAt'] as Timestamp).toDate(),
+        pickupAddress: data['pickupAddress'],
+        pickupCode: data['pickupCode'],
+        entrepriseId: data['entrepriseId'],
+        promoCode: data['promoCode'],
+        discountAmount: data['discountAmount'],
+        subtotal: data['subtotal'],
+        happyDealSavings: data['happyDealSavings']);
   }
 
   Future<List<Orders>> getUserOrders(String userId) async {

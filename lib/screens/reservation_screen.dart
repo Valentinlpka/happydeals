@@ -9,8 +9,10 @@ import 'package:intl/intl.dart';
 
 class ReservationScreen extends StatefulWidget {
   final ExpressDeal deal;
+  final DateTime selectedPickupTime;
 
-  const ReservationScreen({super.key, required this.deal});
+  const ReservationScreen(
+      {super.key, required this.deal, required this.selectedPickupTime});
 
   @override
   _ReservationScreenState createState() => _ReservationScreenState();
@@ -249,8 +251,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
             height: 10,
           ),
           _buildInfoRow(Icons.access_time,
-              'À récupérer le ${DateFormat('dd/MM/yyyy à HH:mm').format(widget.deal.pickupTime)}'),
-          const SizedBox(height: 10),
+              'À récupérer le ${DateFormat('dd/MM/yyyy à HH:mm').format(widget.selectedPickupTime)}'),
           _buildInfoRow(
               Icons.location_on, companyAddress ?? 'Adresse non disponible'),
         ],

@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 class PhotoSection extends StatefulWidget {
   const PhotoSection({super.key});
@@ -19,99 +22,123 @@ class PhotoSectionState extends State<PhotoSection> {
   void setExistingPhotos(List<String> existingPhotoUrls) {
     setState(() {
       _photos.clear();
-      _photos.addAll(existingPhotoUrls);
+      _photos.addAll(existingPhotoUrls.map((url) => url as dynamic));
     });
   }
 
   Widget buildPhotoSection() {
+    print('Building photo section with ${_photos.length} photos');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Photos', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 120,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              ..._photos.asMap().entries.map((entry) {
-                int idx = entry.key;
-                dynamic photo = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Stack(
-                    children: [
-                      buildPhotoWidget(photo),
-                      Positioned(
-                        right: 0,
-                        child: IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => removePhoto(idx),
-                        ),
-                      ),
-                      if (idx > 0)
-                        Positioned(
-                          left: 0,
-                          child: IconButton(
-                            icon: const Icon(Icons.arrow_back),
-                            onPressed: () => movePhotoLeft(idx),
-                          ),
-                        ),
-                      if (idx < _photos.length - 1)
-                        Positioned(
-                          right: 0,
-                          child: IconButton(
-                            icon: const Icon(Icons.arrow_forward),
-                            onPressed: () => movePhotoRight(idx),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              }),
-              ElevatedButton(
-                onPressed: addPhoto,
-                style: ElevatedButton.styleFrom(
-                  shape: const CircleBorder(),
-                  padding: const EdgeInsets.all(20),
-                ),
-                child: const Icon(Icons.add_a_photo),
-              ),
-            ],
+        ReorderableGridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            childAspectRatio: 1,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
           ),
+          itemCount: _photos.length + 1,
+          itemBuilder: (context, index) {
+            if (index == _photos.length) {
+              return addPhotoButton(key: const ValueKey('add_photo_button'));
+            }
+            print(
+                'Building photo item at index $index: ${_photos[index].runtimeType}');
+            return buildPhotoItem(_photos[index], index,
+                key: ValueKey(_photos[index]));
+          },
+          onReorder: (oldIndex, newIndex) {
+            setState(() {
+              if (oldIndex < newIndex) {
+                newIndex -= 1;
+              }
+              if (oldIndex < _photos.length && newIndex < _photos.length) {
+                final item = _photos.removeAt(oldIndex);
+                _photos.insert(newIndex, item);
+              }
+            });
+          },
         ),
       ],
     );
   }
 
+  Widget buildPhotoItem(dynamic photo, int index, {required Key key}) {
+    return MouseRegion(
+      key: key,
+      child: Stack(
+        children: [
+          buildPhotoWidget(photo),
+          Positioned.fill(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: 1.0,
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.white),
+                      onPressed: () => removePhoto(index),
+                    ),
+                    const Text("Appuyer pour l'ordre",
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget buildPhotoWidget(dynamic photo) {
     if (photo is XFile) {
-      return Image.network(photo.path,
-          width: 100, height: 100, fit: BoxFit.cover);
+      return Image.file(File(photo.path), fit: BoxFit.cover);
     } else if (photo is Uint8List) {
-      return Image.memory(photo, width: 100, height: 100, fit: BoxFit.cover);
+      return Image.memory(photo, fit: BoxFit.cover);
     } else if (photo is String) {
-      // Pour les URLs des photos existantes
-      return Image.network(photo, width: 100, height: 100, fit: BoxFit.cover);
+      return Image.network(photo, fit: BoxFit.cover);
     } else {
-      return Container(width: 100, height: 100, color: Colors.grey);
+      print('Unsupported photo type: ${photo.runtimeType}');
+      return Container(color: Colors.grey);
     }
+  }
+
+  Widget addPhotoButton({required Key key}) {
+    return ElevatedButton(
+      key: key,
+      onPressed: addPhoto,
+      style: ElevatedButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: EdgeInsets.zero,
+      ),
+      child: const Icon(Icons.add_a_photo, size: 40),
+    );
   }
 
   void addPhoto() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      if (kIsWeb) {
-        final bytes = await image.readAsBytes();
-        setState(() {
-          _photos.add(bytes);
-        });
-      } else {
-        setState(() {
+      setState(() {
+        if (kIsWeb) {
+          image.readAsBytes().then((bytes) {
+            setState(() {
+              _photos.add(bytes);
+            });
+          });
+        } else {
           _photos.add(image);
-        });
-      }
+        }
+      });
     }
   }
 
@@ -119,24 +146,6 @@ class PhotoSectionState extends State<PhotoSection> {
     setState(() {
       _photos.removeAt(index);
     });
-  }
-
-  void movePhotoLeft(int index) {
-    if (index > 0) {
-      setState(() {
-        var photo = _photos.removeAt(index);
-        _photos.insert(index - 1, photo);
-      });
-    }
-  }
-
-  void movePhotoRight(int index) {
-    if (index < _photos.length - 1) {
-      setState(() {
-        var photo = _photos.removeAt(index);
-        _photos.insert(index + 1, photo);
-      });
-    }
   }
 
   @override

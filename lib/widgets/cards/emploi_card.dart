@@ -139,7 +139,8 @@ class JobOfferCard extends StatelessWidget {
                                         ),
                                       ),
                                       Text(
-                                          '${(companyName)} - ${post.city} - ${post.contractType}')
+                                          '${(companyName)} - ${post.contractType}'),
+                                      Text(post.city)
                                     ],
                                   )
                                 ],

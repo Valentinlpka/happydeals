@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
+import 'package:happy/screens/marketplace/city_autocomplete.dart';
 import 'package:happy/screens/marketplace/custom_widget.dart';
 import 'package:happy/screens/marketplace/photo_section.dart';
 
@@ -22,40 +23,6 @@ class ArticleForm extends StatefulWidget {
 }
 
 class ArticleFormState extends State<ArticleForm> {
-  @override
-  void initState() {
-    super.initState();
-    if (widget.existingAd != null) {
-      _prePopulateFields();
-    }
-  }
-
-  void _prePopulateFields() {
-    final ad = widget.existingAd!;
-
-    // Champs principaux
-    _titleController.text = ad.title;
-    _priceController.text = ad.price.toString();
-    _descriptionController.text = ad.description;
-
-    // Champs dans additionalData
-    selectedCategory = ad.additionalData['category'] as String?;
-    selectedState = ad.additionalData['condition'] as String?;
-    _brandController.text = ad.additionalData['brand'] as String? ?? '';
-    _tagsController.text = ad.additionalData['tags'] as String? ?? '';
-    _locationController.text = ad.additionalData['location'] as String? ?? '';
-    selectedMeetingPreference =
-        ad.additionalData['meetingPreference'] as String?;
-
-    // Gestion des photos existantes
-    if (ad.photos.isNotEmpty) {
-      _photoSectionKey.currentState?.setExistingPhotos(ad.photos);
-    }
-
-    // Forcer la mise à jour de l'interface utilisateur
-    setState(() {});
-  }
-
   final GlobalKey<PhotoSectionState> _photoSectionKey =
       GlobalKey<PhotoSectionState>();
 
@@ -71,14 +38,36 @@ class ArticleFormState extends State<ArticleForm> {
   final TextEditingController _locationController = TextEditingController();
 
   @override
-  void dispose() {
-    _titleController.dispose();
-    _priceController.dispose();
-    _brandController.dispose();
-    _descriptionController.dispose();
-    _tagsController.dispose();
-    _locationController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    if (widget.existingAd != null) {
+      _prePopulateFields();
+    }
+  }
+
+  void _prePopulateFields() {
+    final ad = widget.existingAd!;
+
+    _titleController.text = ad.title;
+    _priceController.text = ad.price.toString();
+    _descriptionController.text = ad.description;
+    _brandController.text = ad.additionalData['brand'] as String? ?? '';
+    _tagsController.text = ad.additionalData['tags'] as String? ?? '';
+    _locationController.text = ad.additionalData['location'] as String? ?? '';
+
+    selectedCategory = ad.additionalData['category'] as String?;
+    selectedState = ad.additionalData['condition'] as String?;
+    selectedMeetingPreference =
+        ad.additionalData['meetingPreference'] as String?;
+
+    if (ad.photos.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _photoSectionKey.currentState?.setExistingPhotos(ad.photos);
+      });
+    }
+
+    setState(
+        () {}); // Cette ligne est nécessaire pour mettre à jour les dropdowns
   }
 
   @override
@@ -96,11 +85,17 @@ class ArticleFormState extends State<ArticleForm> {
               Expanded(child: buildTextField('Prix', _priceController)),
               const SizedBox(width: 16),
               Expanded(
-                child: buildDropdown(
-                  'Catégorie',
-                  selectedCategory,
-                  ['Électronique', 'Vêtements', 'Maison', 'Autre'],
-                  (value) => setState(() => selectedCategory = value),
+                child: StatefulBuilder(
+                  builder:
+                      (BuildContext context, StateSetter setDropdownState) {
+                    return buildDropdown(
+                      'Catégorie',
+                      selectedCategory,
+                      ['Électronique', 'Vêtements', 'Maison', 'Autre'],
+                      (value) =>
+                          setDropdownState(() => selectedCategory = value),
+                    );
+                  },
                 ),
               ),
             ],
@@ -109,17 +104,22 @@ class ArticleFormState extends State<ArticleForm> {
           Row(
             children: [
               Expanded(
-                child: buildDropdown(
-                  'État',
-                  selectedState,
-                  [
-                    'Neuf',
-                    'Très bon état',
-                    'Bon état',
-                    'Satisfaisant',
-                    'À rénover'
-                  ],
-                  (value) => setState(() => selectedState = value),
+                child: StatefulBuilder(
+                  builder:
+                      (BuildContext context, StateSetter setDropdownState) {
+                    return buildDropdown(
+                      'État',
+                      selectedState,
+                      [
+                        'Neuf',
+                        'Très bon état',
+                        'Bon état',
+                        'Satisfaisant',
+                        'À rénover'
+                      ],
+                      (value) => setDropdownState(() => selectedState = value),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 16),
@@ -133,14 +133,22 @@ class ArticleFormState extends State<ArticleForm> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: buildTextField('Lieu', _locationController)),
+              Expanded(
+                child: buildCityTextField('Lieu', _locationController),
+              ),
               const SizedBox(width: 16),
               Expanded(
-                child: buildDropdown(
-                  'Préférence de rencontre',
-                  selectedMeetingPreference,
-                  ['En personne', 'Livraison', 'Les deux'],
-                  (value) => setState(() => selectedMeetingPreference = value),
+                child: StatefulBuilder(
+                  builder:
+                      (BuildContext context, StateSetter setDropdownState) {
+                    return buildDropdown(
+                      'Préférence de rencontre',
+                      selectedMeetingPreference,
+                      ['En personne', 'Livraison', 'Les deux'],
+                      (value) => setDropdownState(
+                          () => selectedMeetingPreference = value),
+                    );
+                  },
                 ),
               ),
             ],

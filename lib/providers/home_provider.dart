@@ -1,3 +1,5 @@
+// ignore_for_file: empty_catches
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -39,9 +41,9 @@ class HomeProvider extends ChangeNotifier {
   Future<List<CombinedItem>> loadUnifiedFeed(
       List<String> likedCompanies, List<String> followedUsers) async {
     try {
-      print("### Début de loadUnifiedFeed ###");
-      print(
-          "Entreprises aimées: ${likedCompanies.length}, Utilisateurs suivis: ${followedUsers.length}");
+      if (kDebugMode) {
+        print("### Début de loadUnifiedFeed ###");
+      }
 
       await loadSavedLocation();
 
@@ -52,33 +54,24 @@ class HomeProvider extends ChangeNotifier {
       final Set<String> addedPostIds = {};
       final List<CombinedItem> combinedItems = [];
 
-      print("Chargement des posts à proximité...");
       final nearbyPosts = await fetchNearbyPostsWithCompanyData();
       _addUniquePosts(nearbyPosts, addedPostIds, combinedItems);
 
-      print("Chargement des posts des entreprises aimées...");
       final likedCompanyPosts =
           await fetchLikedCompanyPostsWithCompanyData(likedCompanies);
       _addUniquePosts(likedCompanyPosts, addedPostIds, combinedItems);
 
-      print("Chargement des posts partagés...");
       final sharedPosts = await fetchSharedPostsWithCompanyData(followedUsers);
       _addUniquePosts(sharedPosts, addedPostIds, combinedItems);
 
-      print("Chargement des entreprises à proximité...");
       final companies = await fetchNearbyCompanies();
       combinedItems.addAll(companies.map(
           (company) => CombinedItem(company, company.createdAt, 'company')));
 
       combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-      print("### Fin de loadUnifiedFeed ###");
-      print("Total d'éléments chargés: ${combinedItems.length}");
-
       return combinedItems;
-    } catch (e, stackTrace) {
-      print("!!! Erreur dans loadUnifiedFeed: $e");
-      print("StackTrace: $stackTrace");
+    } catch (e) {
       return [];
     }
   }
@@ -92,15 +85,12 @@ class HomeProvider extends ChangeNotifier {
       if (!addedPostIds.contains(uniqueId)) {
         addedPostIds.add(uniqueId);
         combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
-        print(
-            "Ajout d'un post au feed - Type: ${post.runtimeType}, ID: ${post.id}");
       }
     }
   }
 
   Future<List<Map<String, dynamic>>> fetchNearbyPostsWithCompanyData() async {
     try {
-      print("--- Début de fetchNearbyPostsWithCompanyData ---");
       final postsQuery = _firestore
           .collection('posts')
           .where('type',
@@ -108,8 +98,6 @@ class HomeProvider extends ChangeNotifier {
           .orderBy('type') // Nécessaire pour utiliser isNotEqualTo
           .orderBy('timestamp', descending: true);
       final postsSnapshot = await postsQuery.get();
-
-      print("Nombre total de posts récupérés: ${postsSnapshot.docs.length}");
 
       List<Map<String, dynamic>> postsWithCompanyData = [];
 
@@ -126,17 +114,11 @@ class HomeProvider extends ChangeNotifier {
               postsWithCompanyData.add({'post': post, 'company': companyData});
             }
           }
-        } catch (e) {
-          print('Erreur lors du traitement du post ${postDoc.id}: $e');
-        }
+        } catch (e) {}
       }
 
-      print("--- Fin de fetchNearbyPostsWithCompanyData ---");
-      print("Nombre de posts à proximité: ${postsWithCompanyData.length}");
       return postsWithCompanyData;
-    } catch (e, stackTrace) {
-      print("!!! Erreur dans fetchNearbyPostsWithCompanyData: $e");
-      print("StackTrace: $stackTrace");
+    } catch (e) {
       return [];
     }
   }
@@ -144,9 +126,7 @@ class HomeProvider extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> fetchLikedCompanyPostsWithCompanyData(
       List<String> likedCompanies) async {
     try {
-      print("--- Début de fetchLikedCompanyPostsWithCompanyData ---");
       if (likedCompanies.isEmpty) {
-        print("Aucune entreprise aimée. Retour d'une liste vide.");
         return [];
       }
 
@@ -156,9 +136,6 @@ class HomeProvider extends ChangeNotifier {
           .where('type', isNotEqualTo: 'shared')
           .orderBy('timestamp', descending: true);
       final postsSnapshot = await postsQuery.get();
-
-      print(
-          "Nombre de posts des entreprises aimées: ${postsSnapshot.docs.length}");
 
       List<Map<String, dynamic>> postsWithCompanyData = [];
 
@@ -173,16 +150,11 @@ class HomeProvider extends ChangeNotifier {
             final companyData = companyDoc.data() as Map<String, dynamic>;
             postsWithCompanyData.add({'post': post, 'company': companyData});
           }
-        } catch (e) {
-          print('Erreur lors du traitement du post ${postDoc.id}: $e');
-        }
+        } catch (e) {}
       }
 
-      print("--- Fin de fetchLikedCompanyPostsWithCompanyData ---");
       return postsWithCompanyData;
-    } catch (e, stackTrace) {
-      print("!!! Erreur dans fetchLikedCompanyPostsWithCompanyData: $e");
-      print("StackTrace: $stackTrace");
+    } catch (e) {
       return [];
     }
   }
@@ -190,11 +162,7 @@ class HomeProvider extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> fetchSharedPostsWithCompanyData(
       List<String> followedUsers) async {
     try {
-      print("Nombre d'utilisateurs suivis: ${followedUsers.length}");
-      print("IDs des utilisateurs suivis: $followedUsers");
-      print("--- Début de fetchSharedPostsWithCompanyData ---");
       if (followedUsers.isEmpty) {
-        print("Aucun utilisateur suivi. Retour d'une liste vide.");
         return [];
       }
 
@@ -205,19 +173,12 @@ class HomeProvider extends ChangeNotifier {
           .orderBy('timestamp', descending: true);
       final postsSnapshot = await postsQuery.get();
 
-      print("Requête Firestore: ${postsQuery.parameters}");
-
-      print("Nombre de posts partagés trouvés: ${postsSnapshot.docs.length}");
-
       List<Map<String, dynamic>> postsWithCompanyData = [];
 
       for (var postDoc in postsSnapshot.docs) {
         try {
-          print("Traitement du post partagé avec ID: ${postDoc.id}");
           final sharedPost = _createPostFromDocument(postDoc) as SharedPost?;
           if (sharedPost == null) {
-            print(
-                "Erreur: Impossible de créer un SharedPost à partir du document ${postDoc.id}");
             continue;
           }
 
@@ -226,8 +187,6 @@ class HomeProvider extends ChangeNotifier {
               .doc(sharedPost.companyId)
               .get();
           if (!companyDoc.exists) {
-            print(
-                "Erreur: Entreprise non trouvée pour l'ID ${sharedPost.companyId}");
             continue;
           }
           final companyData = companyDoc.data() as Map<String, dynamic>;
@@ -237,8 +196,6 @@ class HomeProvider extends ChangeNotifier {
               .doc(sharedPost.sharedBy)
               .get();
           if (!userDoc.exists) {
-            print(
-                "Erreur: Utilisateur non trouvé pour l'ID ${sharedPost.sharedBy}");
             continue;
           }
           final userData = userDoc.data() as Map<String, dynamic>;
@@ -254,14 +211,10 @@ class HomeProvider extends ChangeNotifier {
               .doc(sharedPost.originalPostId)
               .get();
           if (!originalPostDoc.exists) {
-            print(
-                "Erreur: Post original non trouvé pour l'ID ${sharedPost.originalPostId}");
             continue;
           }
           final originalPost = _createPostFromDocument(originalPostDoc);
           if (originalPost == null) {
-            print(
-                "Erreur: Impossible de créer le post original à partir du document ${sharedPost.originalPostId}");
             continue;
           }
 
@@ -270,8 +223,6 @@ class HomeProvider extends ChangeNotifier {
               .doc(originalPost.companyId)
               .get();
           if (!originalCompanyDoc.exists) {
-            print(
-                "Erreur: Entreprise du post original non trouvée pour l'ID ${originalPost.companyId}");
             continue;
           }
           final originalCompanyData =
@@ -284,34 +235,21 @@ class HomeProvider extends ChangeNotifier {
             'originalPost': originalPost,
             'originalCompany': originalCompanyData,
           });
-
-          print("Post partagé ajouté avec succès à la liste");
-        } catch (e) {
-          print('Erreur lors du traitement du post partagé ${postDoc.id}: $e');
-        }
+        } catch (e) {}
       }
 
-      print("--- Fin de fetchSharedPostsWithCompanyData ---");
-      print(
-          "Nombre total de posts partagés traités avec succès: ${postsWithCompanyData.length}");
       return postsWithCompanyData;
-    } catch (e, stackTrace) {
-      print("!!! Erreur dans fetchSharedPostsWithCompanyData: $e");
-      print("StackTrace: $stackTrace");
+    } catch (e) {
       return [];
     }
   }
 
   Future<List<Company>> fetchNearbyCompanies() async {
     try {
-      print("--- Début de fetchNearbyCompanies ---");
       final companiesQuery = _firestore
           .collection('companys')
           .orderBy('createdAt', descending: true);
       final companiesSnapshot = await companiesQuery.get();
-
-      print(
-          "Nombre total d'entreprises récupérées: ${companiesSnapshot.docs.length}");
 
       List<Company> companiesInRange = [];
 
@@ -322,12 +260,8 @@ class HomeProvider extends ChangeNotifier {
         }
       }
 
-      print("--- Fin de fetchNearbyCompanies ---");
-      print("Nombre d'entreprises à proximité: ${companiesInRange.length}");
       return companiesInRange;
-    } catch (e, stackTrace) {
-      print("!!! Erreur dans fetchNearbyCompanies: $e");
-      print("StackTrace: $stackTrace");
+    } catch (e) {
       return [];
     }
   }
@@ -353,14 +287,9 @@ class HomeProvider extends ChangeNotifier {
         case 'shared':
           return SharedPost.fromDocument(doc);
         default:
-          print('Type de post non supporté: $type pour le document ${doc.id}');
           return null;
       }
-    } catch (e, stackTrace) {
-      print(
-          'Erreur lors de la création du post à partir du document ${doc.id}: $e');
-      print('StackTrace: $stackTrace');
-      print('Données du document: ${doc.data()}');
+    } catch (e) {
       return null;
     }
   }
@@ -554,7 +483,6 @@ class HomeProvider extends ChangeNotifier {
           timeLimit: const Duration(seconds: 5),
         );
       } catch (e) {
-        print("Erreur lors de l'obtention de la position: $e");
         // Essayez d'obtenir la dernière position connue si la position actuelle échoue
         position = await Geolocator.getLastKnownPosition();
       }
@@ -573,30 +501,11 @@ class HomeProvider extends ChangeNotifier {
           DateTime.now().millisecondsSinceEpoch);
       await _saveLocation(address, position);
     } catch (e) {
-      print("Erreur d'initialisation de la localisation: $e");
       _handleLocationError("Erreur d'initialisation de la localisation", e);
     }
   }
 
-  Future<void> _getCurrentLocation() async {
-    try {
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
-      _currentPosition = position;
-      _currentAddress = placemarks.isNotEmpty
-          ? "${placemarks[0].locality}, ${placemarks[0].country}"
-          : "Adresse inconnue";
-      await _saveLocation(_currentAddress, position);
-    } catch (e) {
-      _handleLocationError("Erreur de localisation", e);
-    }
-    notifyListeners();
-  }
-
   void _handleLocationError(String message, dynamic error) {
-    print("$message: $error");
     _currentAddress = "Localisation non disponible";
     _currentPosition = null;
     _errorMessage =
@@ -610,9 +519,7 @@ class HomeProvider extends ChangeNotifier {
       await prefs.setString('savedAddress', address);
       await prefs.setDouble('savedLat', position.latitude);
       await prefs.setDouble('savedLng', position.longitude);
-    } catch (e) {
-      print("Erreur lors de la sauvegarde de la localisation: $e");
-    }
+    } catch (e) {}
   }
 
   Future<void> updateLocationFromPrediction(Prediction prediction) async {

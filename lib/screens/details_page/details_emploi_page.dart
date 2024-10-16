@@ -220,7 +220,6 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                                   style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold)),
-                              Text(widget.post.title),
                             ],
                           ),
                         ),

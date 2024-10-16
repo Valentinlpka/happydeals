@@ -54,16 +54,16 @@ class ProductListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasActiveHappyDeal =
+        product.hasActiveHappyDeal && product.discountedPrice != null;
+
     return Container(
       decoration: const BoxDecoration(color: Colors.white, boxShadow: [
         BoxShadow(
           color: Color.fromRGBO(149, 157, 165, 0.2),
           blurRadius: 24,
           spreadRadius: 0,
-          offset: Offset(
-            0,
-            8,
-          ),
+          offset: Offset(0, 8),
         ),
       ]),
       child: Padding(
@@ -72,13 +72,34 @@ class ProductListItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image du produit
-            ClipRRect(
-              child: Image.network(
-                product.imageUrl[0],
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-              ),
+            Stack(
+              children: [
+                ClipRRect(
+                  child: Image.network(
+                    product.imageUrl[0],
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                if (hasActiveHappyDeal)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '-${product.discountPercentage?.toStringAsFixed(0)}%',
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 16),
             // Informations du produit
@@ -95,13 +116,31 @@ class ProductListItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${product.price.toStringAsFixed(2)} €',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.blue[800],
+                  if (hasActiveHappyDeal) ...[
+                    Text(
+                      '${product.price.toStringAsFixed(2)} €',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        decoration: TextDecoration.lineThrough,
+                      ),
                     ),
-                  ),
+                    Text(
+                      '${product.discountedPrice!.toStringAsFixed(2)} €',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red[700],
+                      ),
+                    ),
+                  ] else
+                    Text(
+                      '${product.price.toStringAsFixed(2)} €',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.blue[800],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -151,13 +190,10 @@ class ProductListItem extends StatelessWidget {
                             textColor: Colors.white,
                             onPressed: () {
                               Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          const CartScreen()));
-                              // Ajoutez ici la navigation vers le panier
-                              // Par exemple :
-                              // Navigator.push(context, MaterialPageRoute(builder: (context) => PanierPage()));
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const CartScreen()),
+                              );
                             },
                           ),
                         ),
