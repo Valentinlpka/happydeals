@@ -38,7 +38,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   Future<void> _verifyPaymentAndFinalizeOrder() async {
     try {
       print(
-          'Début de la vérification du paiement et de la finalisation de la commande');
+          'Mise à jour Début de la vérification du paiement et de la finalisation de la commande');
       if (kIsWeb) _logLocalStorageContent();
 
       final cart = await _getCart();
@@ -104,12 +104,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
           appliedPrice: (item['appliedPrice'] as num).toDouble(),
         );
 
-        // Si l'article existe déjà, mettez à jour la quantité au lieu d'ajouter un doublon
-        if (itemMap.containsKey(product.id)) {
-          itemMap[product.id]!.quantity += cartItem.quantity;
-        } else {
-          itemMap[product.id] = cartItem;
-        }
+        itemMap[product.id] = cartItem;
       } catch (e) {
         print('Erreur lors de la reconstruction du produit: $e');
       }
@@ -117,6 +112,13 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
     // Ajoutez les articles uniques au panier
     cart.items.addAll(itemMap.values);
+
+    // Ajoutez des logs pour le débogage
+    print('Nombre d\'articles après reconstruction: ${cart.items.length}');
+    for (var item in cart.items) {
+      print(
+          'Article reconstruit: ${item.product.id}, Quantité: ${item.quantity}');
+    }
 
     cart.appliedPromoCode = html.window.localStorage['appliedPromoCode'];
     cart.discountAmount =
