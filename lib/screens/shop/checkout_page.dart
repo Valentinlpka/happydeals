@@ -208,9 +208,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _handleWebPayment(CartService cart, Map<String, dynamic> paymentData) {
+    // Créer une structure de données qui évite les doublons
     final cartData = cart.items.map((item) => item.toMap()).toList();
-    html.window.localStorage['cartData'] = json.encode(cartData);
+    final uniqueCartData = {};
+    for (var item in cartData) {
+      final productId = item['productId'];
+      if (uniqueCartData.containsKey(productId)) {
+        uniqueCartData[productId]['quantity'] += item['quantity'];
+      } else {
+        uniqueCartData[productId] = item;
+      }
+    }
+
+    html.window.localStorage['cartData'] =
+        json.encode(uniqueCartData.values.toList());
     html.window.localStorage['cartTotal'] = cart.total.toString();
+    html.window.localStorage['cartSubtotal'] = cart.subtotal.toString();
     html.window.localStorage['cartSavings'] = cart.totalSavings.toString();
     if (cart.appliedPromoCode != null) {
       html.window.localStorage['appliedPromoCode'] = cart.appliedPromoCode!;
