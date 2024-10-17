@@ -250,4 +250,15 @@ class CartService extends ChangeNotifier {
     _saveToLocalStorage();
     notifyListeners();
   }
+
+  void addItem(CartItem newItem) {
+    final existingIndex =
+        _items.indexWhere((item) => item.product.id == newItem.product.id);
+    if (existingIndex != -1) {
+      _items[existingIndex].quantity += newItem.quantity;
+    } else {
+      _items.add(newItem);
+    }
+    notifyListeners();
+  }
 }

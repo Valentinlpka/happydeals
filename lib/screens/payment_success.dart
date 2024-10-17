@@ -38,7 +38,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   Future<void> _verifyPaymentAndFinalizeOrder() async {
     try {
       print(
-          'Mise à jour Début de la vérification du paiement et de la finalisation de la commande');
+          'Mise à jour 2 Début de la vérification du paiement et de la finalisation de la commande');
       if (kIsWeb) _logLocalStorageContent();
 
       final cart = await _getCart();
@@ -73,15 +73,13 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<CartService> _reconstructCartFromLocalStorage() async {
     final cartDataJson = html.window.localStorage['cartData'];
+    print('Données brutes du localStorage: $cartDataJson'); // Ajout de log
     if (cartDataJson == null || cartDataJson.isEmpty) {
       throw Exception('Données du panier non trouvées ou vides');
     }
 
     final cartData = json.decode(cartDataJson) as List<dynamic>;
     final cart = CartService();
-
-    // Utiliser un Map pour éviter les doublons
-    Map<String, CartItem> itemMap = {};
 
     for (var item in cartData) {
       try {
@@ -104,16 +102,13 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
           appliedPrice: (item['appliedPrice'] as num).toDouble(),
         );
 
-        itemMap[product.id] = cartItem;
+        cart.addItem(
+            cartItem); // Utilisation de la méthode addItem du CartService
       } catch (e) {
         print('Erreur lors de la reconstruction du produit: $e');
       }
     }
 
-    // Ajoutez les articles uniques au panier
-    cart.items.addAll(itemMap.values);
-
-    // Ajoutez des logs pour le débogage
     print('Nombre d\'articles après reconstruction: ${cart.items.length}');
     for (var item in cart.items) {
       print(
