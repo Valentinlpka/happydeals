@@ -27,7 +27,7 @@ import 'package:url_launcher/url_launcher.dart';
 class DetailsEntreprise extends StatefulWidget {
   final String entrepriseId;
 
-  const DetailsEntreprise({super.key, required this.entrepriseId});
+  const DetailsEntreprise({super.key, this.entrepriseId = ''});
 
   @override
   _DetailsEntrepriseState createState() => _DetailsEntrepriseState();

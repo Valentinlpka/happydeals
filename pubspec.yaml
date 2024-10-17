@@ -71,6 +71,9 @@ dependencies:
   carousel_slider: ^5.0.0
   reorderable_grid_view: ^2.2.8
 
+  flutter_web_plugins:
+    sdk: flutter
+
 dev_dependencies:
   flutter_launcher_icons: ^0.13.1
   dependency_validator: ^4.1.0

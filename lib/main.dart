@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/home_provider.dart';
@@ -26,6 +27,7 @@ import 'package:timeago/timeago.dart' as timeago_fr;
 import 'firebase_options.dart';
 
 void main() async {
+  usePathUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
 
   timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
@@ -63,16 +65,6 @@ class MyApp extends StatelessWidget {
         theme: _buildTheme(context),
         home: const AuthWrapper(),
         initialRoute: '/',
-        onGenerateRoute: (settings) {
-          if (settings.name?.startsWith('/company/') ?? false) {
-            final companyId = settings.name!.split('/').last;
-            return MaterialPageRoute(
-              builder: (context) => DetailsEntreprise(entrepriseId: companyId),
-              settings: settings,
-            );
-          }
-          return null;
-        },
         routes: {
           '/signup': (context) => const SignUpPage(),
           '/login': (context) => const Login(),
@@ -82,6 +74,18 @@ class MyApp extends StatelessWidget {
           '/payment-success': (context) => const PaymentSuccessScreen(),
           '/payment-cancel': (context) => const PaymentCancel(),
           '/order-confirmation': (context) => const PaymentSuccessScreen(),
+          '/company/:entrepriseId': (context) => const DetailsEntreprise(),
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name?.startsWith('/company/') ?? false) {
+            final entrepriseId = settings.name!.split('/').last;
+            return MaterialPageRoute(
+              builder: (context) =>
+                  DetailsEntreprise(entrepriseId: entrepriseId),
+              settings: settings,
+            );
+          }
+          return null;
         },
       ),
     );
