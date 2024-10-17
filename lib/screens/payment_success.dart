@@ -38,7 +38,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   Future<void> _verifyPaymentAndFinalizeOrder() async {
     try {
       print(
-          'Mise à jour 2 Début de la vérification du paiement et de la finalisation de la commande');
+          'Mise à jour 3 Début de la vérification du paiement et de la finalisation de la commande');
       if (kIsWeb) _logLocalStorageContent();
 
       final cart = await _getCart();

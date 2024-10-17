@@ -255,7 +255,8 @@ class CartService extends ChangeNotifier {
     final existingIndex =
         _items.indexWhere((item) => item.product.id == newItem.product.id);
     if (existingIndex != -1) {
-      _items[existingIndex].quantity += newItem.quantity;
+      // Au lieu d'ajouter la quantité, remplaçons simplement l'item
+      _items[existingIndex] = newItem;
     } else {
       _items.add(newItem);
     }
