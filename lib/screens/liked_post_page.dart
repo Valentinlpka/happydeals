@@ -140,6 +140,7 @@ class _LikedPostsPageState extends State<LikedPostsPage> {
                   companyName: companyData['name'] ?? '',
                   companyLogo: companyData['logo'] ?? '',
                   currentUserId: currentUserId,
+                  currentProfileUserId: currentUserId,
                   companyData: companyData,
                   onView: () {
                     // Logique d'affichage du détail du post

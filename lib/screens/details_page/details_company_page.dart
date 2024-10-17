@@ -556,6 +556,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
               companyLogo: companyData['logo'] ?? '',
               companyData: companyData,
               currentUserId: FirebaseAuth.instance.currentUser!.uid,
+              currentProfileUserId: FirebaseAuth.instance.currentUser!.uid,
               onView: () {
                 // Logique d'affichage
               },

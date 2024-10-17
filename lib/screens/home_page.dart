@@ -9,6 +9,7 @@ import 'package:happy/classes/post.dart';
 import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/widgets/cards/company_card.dart';
+import 'package:happy/widgets/filtered_button.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/web_adress_search.dart';
 import 'package:provider/provider.dart';
@@ -95,7 +96,14 @@ class _HomeState extends State<Home> {
           children: [
             _buildHeader(),
             _buildLocationBar(),
-            _buildFilterButtons(),
+            FilterButtons(
+              selectedFilter: _selectedFilter,
+              onFilterChanged: (filter) {
+                setState(() {
+                  _selectedFilter = filter;
+                });
+              },
+            ),
             if (_isLoading)
               const LinearProgressIndicator()
             else
@@ -289,6 +297,7 @@ class _HomeState extends State<Home> {
           companyLogo: companyData['logo'] ?? '',
           currentUserId: currentUserId,
           sharedByUserData: sharedByUserData,
+          currentProfileUserId: currentUserId,
           onView: () {
             // Logique d'affichage du post
           },

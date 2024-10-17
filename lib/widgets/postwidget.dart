@@ -17,12 +17,15 @@ import 'package:happy/widgets/cards/emploi_card.dart';
 import 'package:happy/widgets/cards/evenement_card.dart';
 import 'package:happy/widgets/cards/happy_deals_card.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
+import 'package:happy/widgets/share_confirmation_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class PostWidget extends StatefulWidget {
   final Post post;
   final String currentUserId;
+  final String currentProfileUserId; // Ajoutez cette nouvelle propriété
+
   final VoidCallback onView;
   final String companyName;
   final String companyCategorie;
@@ -35,6 +38,7 @@ class PostWidget extends StatefulWidget {
     required Key key,
     required this.post,
     required this.currentUserId,
+    required this.currentProfileUserId,
     required this.onView,
     required this.companyName,
     required this.companyCategorie,
@@ -49,6 +53,14 @@ class PostWidget extends StatefulWidget {
 }
 
 class _PostWidgetState extends State<PostWidget> {
+  BuildContext? _scaffoldContext;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldContext = context;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -64,36 +76,169 @@ class _PostWidgetState extends State<PostWidget> {
   Widget _buildSharedPostHeader() {
     final sharedPost = widget.post as SharedPost;
     final userData = widget.sharedByUserData;
+    final currentUserId = Provider.of<UserModel>(context, listen: false).userId;
 
-    return ListTile(
-      leading: GestureDetector(
-        onTap: () => _navigateToUserProfile(sharedPost.sharedBy!),
-        child: CircleAvatar(
-          backgroundImage: NetworkImage(userData?['profileImageUrl'] ?? ''),
-          backgroundColor: Colors.grey, // Fallback color if no image
-        ),
-      ),
-      title: GestureDetector(
-        onTap: () => _navigateToUserProfile(sharedPost.sharedBy!),
-        child: Text(
-          '${userData?['firstName'] ?? ''} ${userData?['lastName'] ?? ''} a partagé',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          leading: GestureDetector(
+            onTap: () => _navigateToUserProfile(sharedPost.sharedBy),
+            child: CircleAvatar(
+              backgroundImage: NetworkImage(userData?['profileImageUrl'] ?? ''),
+              backgroundColor: Colors.grey, // Fallback color if no image
+            ),
           ),
+          title: GestureDetector(
+            onTap: () => _navigateToUserProfile(sharedPost.sharedBy),
+            child: Text(
+              '${userData?['firstName'] ?? ''} ${userData?['lastName'] ?? ''} a partagé',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          subtitle: Text(timeago.format(
+              sharedPost.sharedAt ?? sharedPost.timestamp,
+              locale: 'fr')),
+          trailing: sharedPost.sharedBy == currentUserId
+              ? IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () => _showOptionsBottomSheet(context, sharedPost),
+                )
+              : null,
         ),
-      ),
-      subtitle: Text(timeago.format(sharedPost.sharedAt ?? sharedPost.timestamp,
-          locale: 'fr')),
+        if (sharedPost.comment != null && sharedPost.comment!.isNotEmpty)
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Text(
+              sharedPost.comment!,
+              style: const TextStyle(fontStyle: FontStyle.normal),
+            ),
+          ),
+      ],
     );
   }
 
-  void _navigateToUserProfile(String userId) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => Profile(userId: userId),
-      ),
+  void _showOptionsBottomSheet(BuildContext context, SharedPost post) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext bc) {
+        return Container(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Modifier le commentaire'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditCommentDialog(context, post);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text('Supprimer le partage'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirmationDialog(context, post);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  void _showEditCommentDialog(BuildContext context, SharedPost post) {
+    final TextEditingController controller =
+        TextEditingController(text: post.comment);
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Modifier le commentaire'),
+          content: TextField(
+            controller: controller,
+            decoration:
+                const InputDecoration(hintText: "Entrez votre commentaire"),
+            maxLines: 3,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Annuler'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Enregistrer'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _updatePostComment(post, controller.text);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context, SharedPost post) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Supprimer le partage'),
+          content:
+              const Text('Êtes-vous sûr de vouloir supprimer ce partage ?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Annuler'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Supprimer'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteSharedPost(post);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _updatePostComment(SharedPost post, String newComment) {
+    Provider.of<UserModel>(context, listen: false)
+        .updateSharedPostComment(post.id, newComment)
+        .then((_) {
+      _showSnackBar('Commentaire mis à jour avec succès');
+    }).catchError((error) {
+      _showSnackBar('Erreur lors de la mise à jour du commentaire');
+    });
+  }
+
+  void _deleteSharedPost(SharedPost post) {
+    Provider.of<UserModel>(context, listen: false)
+        .deleteSharedPost(post.id)
+        .then((_) {
+      _showSnackBar('Partage supprimé avec succès');
+    }).catchError((error) {
+      _showSnackBar('Erreur lors de la suppression du partage');
+    });
+  }
+
+  void _navigateToUserProfile(String userId) {
+    if (userId != widget.currentProfileUserId) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Profile(userId: userId),
+        ),
+      );
+    }
   }
 
   Widget _buildPostContent() {
@@ -211,9 +356,7 @@ class _PostWidgetState extends State<PostWidget> {
                   ],
                 ),
                 IconButton(
-                  onPressed: () async => await context
-                      .read<UserModel>()
-                      .sharePost(widget.post.id, users.userId),
+                  onPressed: () => _showShareConfirmation(context, users),
                   icon: const Icon(Icons.share_outlined),
                 )
               ],
@@ -223,6 +366,37 @@ class _PostWidgetState extends State<PostWidget> {
         );
       },
     );
+  }
+
+  void _showShareConfirmation(BuildContext context, UserModel users) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return ShareConfirmationDialog(
+          post: widget.post,
+          onConfirm: (String comment) async {
+            await users.sharePost(widget.post.id, users.userId,
+                comment: comment);
+            Navigator.of(dialogContext).pop(); // Ferme le dialogue
+            _showSnackBar('Publication partagée avec succès!');
+          },
+        );
+      },
+    );
+  }
+
+  void _showSnackBar(String message) {
+    if (_scaffoldContext != null) {
+      ScaffoldMessenger.of(_scaffoldContext!).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scaffoldContext = null;
+    super.dispose();
   }
 
   void _navigateToComments(BuildContext context) {

@@ -20,6 +20,7 @@ class Post {
   final String? sharedBy; // ID de l'utilisateur qui a partagé le post
   final DateTime? sharedAt; // Date de partage
   final String? originalPostId; // ID du post original si c'est un partage
+  final String? comment;
 
   Post({
     required this.id,
@@ -34,6 +35,7 @@ class Post {
     this.sharedBy,
     this.sharedAt,
     this.originalPostId,
+    this.comment,
   });
 
   factory Post.fromDocument(DocumentSnapshot doc) {
@@ -78,6 +80,7 @@ class Post {
       'sharedBy': sharedBy,
       'sharedAt': sharedAt != null ? Timestamp.fromDate(sharedAt!) : null,
       'originalPostId': originalPostId,
+      'comment': comment,
     };
   }
 }

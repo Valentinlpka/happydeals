@@ -27,8 +27,8 @@ import 'package:timeago/timeago.dart' as timeago_fr;
 import 'firebase_options.dart';
 
 void main() async {
-  usePathUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
 
   timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
 

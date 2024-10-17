@@ -150,6 +150,7 @@ class SearchResults extends StatelessWidget {
         companyLogo: companyData['logo'] ?? '',
         companyData: companyData,
         currentUserId: '',
+        currentProfileUserId: '',
         onView: () {},
       ),
     );

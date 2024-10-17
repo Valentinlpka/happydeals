@@ -224,6 +224,43 @@ class UserModel with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> removeFollower(String followerId) async {
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final currentUserRef = _firestore.collection('users').doc(userId);
+        final followerRef = _firestore.collection('users').doc(followerId);
+
+        final currentUserDoc = await transaction.get(currentUserRef);
+        final followerDoc = await transaction.get(followerRef);
+
+        if (!currentUserDoc.exists || !followerDoc.exists) {
+          throw Exception('One or both users do not exist');
+        }
+
+        List<String> currentUserFollowers =
+            List<String>.from(currentUserDoc.data()?['followers'] ?? []);
+        List<String> followerFollowing =
+            List<String>.from(followerDoc.data()?['followedUsers'] ?? []);
+
+        if (currentUserFollowers.contains(followerId)) {
+          currentUserFollowers.remove(followerId);
+          transaction
+              .update(currentUserRef, {'followers': currentUserFollowers});
+        }
+
+        if (followerFollowing.contains(userId)) {
+          followerFollowing.remove(userId);
+          transaction.update(followerRef, {'followedUsers': followerFollowing});
+        }
+      });
+
+      notifyListeners();
+    } catch (e) {
+      print('Error removing follower: $e');
+      rethrow;
+    }
+  }
+
   Future<void> unfollowUser(String userIdToUnfollow) async {
     if (!followedUsers.contains(userIdToUnfollow)) return;
 
@@ -347,7 +384,8 @@ class UserModel with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sharePost(String postId, String userId) async {
+  Future<void> sharePost(String postId, String userId,
+      {String? comment}) async {
     final postDoc = await _firestore.collection('posts').doc(postId).get();
     if (!postDoc.exists) throw Exception('Post not found');
 
@@ -359,17 +397,50 @@ class UserModel with ChangeNotifier {
       sharedBy: userId,
       sharedAt: DateTime.now(),
       originalPostId: postId,
+      comment: comment, // Ajout du commentaire
     );
 
     await _firestore
         .collection('posts')
         .doc(sharedPost.id)
         .set(sharedPost.toMap());
+
     await _firestore.collection('users').doc(userId).update({
       'sharedPosts': FieldValue.arrayUnion([sharedPost.id])
     });
 
     notifyListeners();
+  }
+
+  Future<void> updateSharedPostComment(String postId, String newComment) async {
+    try {
+      await _firestore.collection('posts').doc(postId).update({
+        'comment': newComment,
+      });
+      notifyListeners();
+    } catch (e) {
+      print('Error updating shared post comment: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteSharedPost(String postId) async {
+    try {
+      await _firestore.runTransaction((transaction) async {
+        // Supprimer le post
+        transaction.delete(_firestore.collection('posts').doc(postId));
+
+        // Supprimer la référence du post dans le document de l'utilisateur
+        transaction.update(_firestore.collection('users').doc(userId), {
+          'sharedPosts': FieldValue.arrayRemove([postId])
+        });
+      });
+
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting shared post: $e');
+      rethrow;
+    }
   }
 }
 
