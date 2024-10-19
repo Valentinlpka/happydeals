@@ -48,8 +48,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
       appBar: AppBar(
         title:
             const Text('Mes commandes', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 3,
       ),
       body: FutureBuilder<List<Orders>>(
         future: _ordersFuture,

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/post.dart';
@@ -497,7 +498,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
             DocumentSnapshot doc = snapshot.data!.docs[index];
-            // Utilisation de Ad.fromDocument au lieu de Ad.fromFirestore pour une meilleure cohérence
             return FutureBuilder<Ad>(
               future: Ad.fromFirestore(doc),
               builder: (context, adSnapshot) {
@@ -520,6 +520,7 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                       ),
                     );
                   },
+                  onSaveTap: () => _toggleSaveAd(ad),
                 );
               },
             );
@@ -527,6 +528,52 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
         );
       },
     );
+  }
+
+  Future<void> _toggleSaveAd(Ad ad) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Vous devez être connecté pour sauvegarder une annonce')),
+      );
+      return;
+    }
+
+    final userRef =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        List<String> savedAds =
+            List<String>.from(userDoc.data()?['savedAds'] ?? []);
+
+        if (savedAds.contains(ad.id)) {
+          savedAds.remove(ad.id);
+        } else {
+          savedAds.add(ad.id);
+        }
+
+        transaction.update(userRef, {'savedAds': savedAds});
+      });
+
+      setState(() {
+        ad.isSaved = !ad.isSaved;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(ad.isSaved
+                ? 'Annonce sauvegardée'
+                : 'Annonce retirée des favoris')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
+      );
+    }
   }
 }
 

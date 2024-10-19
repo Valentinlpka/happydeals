@@ -45,7 +45,7 @@ class FilterButtons extends StatelessWidget {
           onPressed: () => onFilterChanged(title),
           style: ElevatedButton.styleFrom(
             foregroundColor: isSelected ? Colors.white : Colors.black87,
-            backgroundColor: isSelected ? Colors.blue : Colors.grey[200],
+            backgroundColor: isSelected ? Colors.blue : Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(5),
             ),

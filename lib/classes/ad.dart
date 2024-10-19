@@ -13,6 +13,7 @@ class Ad {
   final String userProfilePicture;
   final DateTime createdAt;
   final Map<String, dynamic> additionalData;
+  bool isSaved; // Nouveau champ
 
   Ad({
     required this.id,
@@ -26,6 +27,7 @@ class Ad {
     required this.userProfilePicture,
     required this.createdAt,
     required this.additionalData,
+    this.isSaved = false, // Valeur par défaut
   });
 
   String get formattedDate => formatDate(createdAt);
@@ -43,6 +45,9 @@ class Ad {
     String userName =
         '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
     String userProfilePicture = userData['image_profile'] ?? '';
+
+    bool isSaved =
+        (userData['savedAds'] as List<dynamic>?)?.contains(doc.id) ?? false;
 
     return Ad(
       id: doc.id,
@@ -65,6 +70,7 @@ class Ad {
               'photos',
               'createdAt'
             ].contains(key)),
+      isSaved: isSaved,
     );
   }
 

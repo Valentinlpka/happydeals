@@ -202,13 +202,11 @@ class ParametrePage extends StatelessWidget {
   }
 
   Widget _buildServiceItem(String title, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-        ),
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: InkWell(
+        onTap: onTap,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -229,7 +227,7 @@ class ParametrePage extends StatelessWidget {
         onPressed: () => authService.signOut(context),
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.black,
-          backgroundColor: Colors.grey[300],
+          backgroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 50),
         ),
         child: const Text('Déconnexion'),

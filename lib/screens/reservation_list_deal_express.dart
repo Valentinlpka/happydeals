@@ -15,8 +15,7 @@ class ReservationListDealExpress extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mes réservations',
             style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 3,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance

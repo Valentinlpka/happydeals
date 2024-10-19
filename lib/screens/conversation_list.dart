@@ -10,38 +10,23 @@ class ConversationsListScreen extends StatelessWidget {
 
   const ConversationsListScreen({super.key, required this.userId});
 
-  String formatRelativeTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inSeconds < 60) {
-      return 'À l\'instant';
-    } else if (difference.inMinutes < 60) {
-      return 'Il y a ${difference.inMinutes} min';
-    } else if (difference.inHours < 24) {
-      return 'Il y a ${difference.inHours} h';
-    } else if (difference.inDays < 7) {
-      return 'Il y a ${difference.inDays} j';
-    } else if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
-      return 'Il y a $weeks sem';
-    } else if (difference.inDays < 365) {
-      final months = (difference.inDays / 30).floor();
-      return 'Il y a $months mois';
-    } else {
-      final years = (difference.inDays / 365).floor();
-      return 'Il y a $years an${years > 1 ? 's' : ''}';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final conversationService = Provider.of<ConversationService>(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mes conversations'),
-        automaticallyImplyLeading: false,
+        title: const Text('Conversations',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: Colors.grey[300],
+            height: 1.0,
+          ),
+        ),
       ),
       body: StreamBuilder<List<Conversation>>(
         stream: conversationService.getUserConversations(userId),
@@ -49,32 +34,18 @@ class ConversationsListScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError) {
             return Center(child: Text('Erreur: ${snapshot.error}'));
           }
-
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Aucune conversation trouvée'));
+            return const Center(child: Text('Aucune conversation'));
           }
 
-          // Créer un Map pour stocker les conversations uniques
-          final Map<String, Conversation> uniqueConversations = {};
-          for (var conversation in snapshot.data!) {
-            String key = conversation.particulierId == userId
-                ? conversation.entrepriseId
-                : conversation.particulierId;
-            if (!uniqueConversations.containsKey(key) ||
-                conversation.lastMessageTimestamp
-                    .isAfter(uniqueConversations[key]!.lastMessageTimestamp)) {
-              uniqueConversations[key] = conversation;
-            }
-          }
-
+          final conversations = snapshot.data!;
           return ListView.builder(
-            itemCount: uniqueConversations.length,
+            itemCount: conversations.length,
             itemBuilder: (context, index) {
-              final conversation = uniqueConversations.values.elementAt(index);
+              final conversation = conversations[index];
               final otherUserId = conversation.entrepriseId == userId
                   ? conversation.particulierId
                   : conversation.entrepriseId;
@@ -85,51 +56,110 @@ class ConversationsListScreen extends StatelessWidget {
                     .get(),
                 builder: (context, userSnapshot) {
                   if (userSnapshot.connectionState == ConnectionState.waiting) {
-                    return const ListTile(
-                      leading: CircleAvatar(child: CircularProgressIndicator()),
-                      title: Text('Chargement...'),
-                    );
+                    return const SizedBox.shrink();
                   }
-
                   if (userSnapshot.hasError || !userSnapshot.hasData) {
-                    return ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.error)),
-                      title: Text('Erreur: ${userSnapshot.error}'),
-                    );
+                    return const SizedBox.shrink();
                   }
 
                   final userData =
                       userSnapshot.data!.data() as Map<String, dynamic>;
-                  final String companyName = (userData['name']);
-                  final String profilePicUrl = userData['logo'];
+                  final String companyName = userData['name'] ?? 'Inconnu';
+                  final String profilePicUrl = userData['logo'] ?? '';
 
-                  return Card(
-                    elevation: 1,
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage: profilePicUrl.isNotEmpty
-                            ? NetworkImage(profilePicUrl)
-                            : null,
-                        child: profilePicUrl.isEmpty
-                            ? Text(companyName.isNotEmpty ? companyName[0] : '')
-                            : null,
-                      ),
-                      title: Text(companyName),
-                      subtitle: Text(conversation.lastMessage),
-                      trailing: Text(formatRelativeTime(
-                          conversation.lastMessageTimestamp)),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ConversationDetailScreen(
-                              conversationId: conversation.id,
-                              otherUserName: companyName,
+                  final isUnread = conversation.unreadCount > 0 &&
+                      conversation.unreadBy == userId;
+
+                  return Column(
+                    children: [
+                      Container(
+                          color: isUnread ? Colors.grey[100] : Colors.white,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 8.0),
+                            leading: CircleAvatar(
+                              radius:
+                                  25, // Réduire légèrement la taille de l'avatar
+                              backgroundImage: profilePicUrl.isNotEmpty
+                                  ? NetworkImage(profilePicUrl)
+                                  : null,
+                              child: profilePicUrl.isEmpty
+                                  ? Text(companyName[0],
+                                      style: const TextStyle(fontSize: 18))
+                                  : null,
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                            title: Text(
+                              companyName,
+                              style: TextStyle(
+                                fontWeight: isUnread
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 16,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              conversation.lastMessage,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isUnread
+                                    ? Colors.black87
+                                    : Colors.grey[600],
+                                fontWeight: isUnread
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            trailing: Column(
+                              mainAxisSize: MainAxisSize
+                                  .min, // Utiliser le minimum d'espace vertical
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  _formatRelativeTime(
+                                      conversation.lastMessageTimestamp),
+                                  style: TextStyle(
+                                    color: isUnread
+                                        ? Theme.of(context).primaryColor
+                                        : Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                if (isUnread)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).primaryColor,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${conversation.unreadCount}',
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 12),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ConversationDetailScreen(
+                                    conversationId: conversation.id,
+                                    otherUserName: companyName,
+                                  ),
+                                ),
+                              );
+                            },
+                          )),
+                      Divider(height: 1, color: Colors.grey[300]),
+                    ],
                   );
                 },
               );
@@ -138,5 +168,20 @@ class ConversationsListScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _formatRelativeTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inSeconds < 60) return 'À l\'instant';
+    if (difference.inMinutes < 60) return 'Il y a ${difference.inMinutes} min';
+    if (difference.inHours < 24) return 'Il y a ${difference.inHours} h';
+    if (difference.inDays < 7) return 'Il y a ${difference.inDays} j';
+    if (difference.inDays < 30)
+      return 'Il y a ${(difference.inDays / 7).floor()} sem';
+    if (difference.inDays < 365)
+      return 'Il y a ${(difference.inDays / 30).floor()} mois';
+    return 'Il y a ${(difference.inDays / 365).floor()} an${difference.inDays >= 730 ? 's' : ''}';
   }
 }

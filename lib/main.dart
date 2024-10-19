@@ -95,6 +95,8 @@ class MyApp extends StatelessWidget {
     const Color mediumGrey = Color.fromARGB(255, 200, 200, 200);
 
     return ThemeData(
+      scaffoldBackgroundColor: Colors.grey[50],
+
       primarySwatch: Colors.blue,
       splashColor: Colors.transparent, // <- Here
       highlightColor: Colors.transparent, // <- Here
@@ -115,7 +117,8 @@ class MyApp extends StatelessWidget {
       ),
       primaryColor: Colors.blue,
       brightness: Brightness.light,
-      appBarTheme: const AppBarTheme(surfaceTintColor: Colors.white),
+      appBarTheme: AppBarTheme(
+          surfaceTintColor: Colors.white, backgroundColor: Colors.grey[50]),
 
       useMaterial3: true,
       colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blue),

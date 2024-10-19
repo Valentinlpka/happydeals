@@ -41,6 +41,7 @@ class _SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text("Recherche"),
         elevation: 0,
@@ -49,16 +50,43 @@ class _SearchPageState extends State<SearchPage> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: "Rechercher...",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: ThemeData().colorScheme.copyWith(
+                        primary: Colors
+                            .blue[600], // Couleur de l'indicateur de focus
+                      ),
                 ),
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.grey[200],
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: "Rechercher...",
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    border: InputBorder.none,
+                    focusedBorder: OutlineInputBorder(
+                      borderSide:
+                          BorderSide(color: Colors.grey[400]!, width: 2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.transparent),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    fillColor: Colors.white,
+                    filled: true,
+                    prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                    prefixIconConstraints:
+                        const BoxConstraints(minWidth: 40, maxWidth: 40),
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 12.0, horizontal: 16.0),
+                  ),
+                  style: const TextStyle(fontSize: 16),
+                ),
               ),
             ),
           ),
@@ -162,13 +190,11 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildDiscoverItem(String title, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-        ),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: InkWell(
+        onTap: onTap,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

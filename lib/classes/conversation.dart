@@ -38,6 +38,8 @@ class Conversation {
   final String entrepriseId;
   final String lastMessage;
   final DateTime lastMessageTimestamp;
+  int unreadCount;
+  final String unreadBy;
 
   Conversation({
     required this.id,
@@ -45,18 +47,21 @@ class Conversation {
     required this.entrepriseId,
     required this.lastMessage,
     required this.lastMessageTimestamp,
+    required this.unreadCount,
+    required this.unreadBy,
   });
 
   factory Conversation.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map<String, dynamic>;
     return Conversation(
-      id: doc.id,
-      particulierId: data['particulierId'] ?? '',
-      entrepriseId: data['entrepriseId'] ?? '',
-      lastMessage: data['lastMessage'] ?? '',
-      lastMessageTimestamp:
-          (data['lastMessageTimestamp'] as Timestamp).toDate(),
-    );
+        id: doc.id,
+        particulierId: data['particulierId'] ?? '',
+        entrepriseId: data['entrepriseId'] ?? '',
+        lastMessage: data['lastMessage'] ?? '',
+        lastMessageTimestamp:
+            (data['lastMessageTimestamp'] as Timestamp).toDate(),
+        unreadCount: data['unreadCount'] ?? 0,
+        unreadBy: data['unreadBy'] ?? '');
   }
 
   Map<String, dynamic> toFirestore() {
@@ -65,6 +70,8 @@ class Conversation {
       'entrepriseId': entrepriseId,
       'lastMessage': lastMessage,
       'lastMessageTimestamp': Timestamp.fromDate(lastMessageTimestamp),
+      'unreadCount': unreadCount,
+      'unreadBy': unreadBy,
     };
   }
 }

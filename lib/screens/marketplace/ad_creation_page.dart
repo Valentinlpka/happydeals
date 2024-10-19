@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/screens/marketplace/article_form.dart';
 import 'package:happy/screens/marketplace/exchange_form.dart';
-import 'package:happy/screens/marketplace/property_form.dart';
 import 'package:happy/screens/marketplace/vehicle_form.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
@@ -29,8 +28,7 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
       GlobalKey<ArticleFormState>();
   final GlobalKey<VehicleFormState> _vehicleFormKey =
       GlobalKey<VehicleFormState>();
-  final GlobalKey<PropertyFormState> _propertyFormKey =
-      GlobalKey<PropertyFormState>();
+
   final GlobalKey<ExchangeFormState> _exchangeFormKey =
       GlobalKey<ExchangeFormState>();
 
@@ -48,9 +46,6 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
         return ArticleForm(key: _articleFormKey, existingAd: widget.existingAd);
       case 'vehicle':
         return VehicleForm(key: _vehicleFormKey, existingAd: widget.existingAd);
-      case 'property':
-        return PropertyForm(
-            key: _propertyFormKey, existingAd: widget.existingAd);
       case 'exchange':
         return ExchangeForm(
             key: _exchangeFormKey, existingAd: widget.existingAd);
@@ -135,9 +130,6 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
       isValid = formData.isNotEmpty;
     } else if (_form is VehicleForm) {
       formData = (_vehicleFormKey.currentState)?.getFormData() ?? {};
-      isValid = formData.isNotEmpty;
-    } else if (_form is PropertyForm) {
-      formData = (_propertyFormKey.currentState)?.getFormData() ?? {};
       isValid = formData.isNotEmpty;
     } else if (_form is ExchangeForm) {
       formData = (_exchangeFormKey.currentState)?.getFormData() ?? {};

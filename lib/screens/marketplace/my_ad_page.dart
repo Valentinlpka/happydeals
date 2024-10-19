@@ -87,6 +87,7 @@ class MyAdsPage extends StatelessWidget {
                   return AdCard(
                     ad: ad,
                     onTap: () => _showAdOptions(context, ad),
+                    onSaveTap: () {},
                   );
                 },
               );
