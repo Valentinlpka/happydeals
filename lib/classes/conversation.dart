@@ -40,6 +40,14 @@ class Conversation {
   final DateTime lastMessageTimestamp;
   int unreadCount;
   final String unreadBy;
+  final String? adId;
+  final bool? isAdSold;
+  final DateTime? soldDate;
+  final String lastMessageSenderId;
+  final bool sellerHasRated; // Nouveau champ
+  final bool buyerHasRated; // Nouveau champ
+  final String
+      sellerId; // Nouveau champ pour identifier clairement qui est le vendeur
 
   Conversation({
     required this.id,
@@ -49,19 +57,36 @@ class Conversation {
     required this.lastMessageTimestamp,
     required this.unreadCount,
     required this.unreadBy,
+    this.adId,
+    this.isAdSold = false,
+    this.soldDate,
+    required this.lastMessageSenderId,
+    this.sellerHasRated = false,
+    this.buyerHasRated = false,
+    required this.sellerId,
   });
 
   factory Conversation.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map<String, dynamic>;
     return Conversation(
-        id: doc.id,
-        particulierId: data['particulierId'] ?? '',
-        entrepriseId: data['entrepriseId'] ?? '',
-        lastMessage: data['lastMessage'] ?? '',
-        lastMessageTimestamp:
-            (data['lastMessageTimestamp'] as Timestamp).toDate(),
-        unreadCount: data['unreadCount'] ?? 0,
-        unreadBy: data['unreadBy'] ?? '');
+      id: doc.id,
+      particulierId: data['particulierId'] ?? '',
+      entrepriseId: data['entrepriseId'] ?? '',
+      lastMessage: data['lastMessage'] ?? '',
+      lastMessageTimestamp:
+          (data['lastMessageTimestamp'] as Timestamp).toDate(),
+      unreadCount: data['unreadCount'] ?? 0,
+      unreadBy: data['unreadBy'] ?? '',
+      adId: data['adId'],
+      isAdSold: data['isAdSold'] ?? false,
+      soldDate: data['soldDate'] != null
+          ? (data['soldDate'] as Timestamp).toDate()
+          : null,
+      lastMessageSenderId: data['lastMessageSenderId'] ?? '',
+      sellerHasRated: data['sellerHasRated'] ?? false,
+      buyerHasRated: data['buyerHasRated'] ?? false,
+      sellerId: data['sellerId'] ?? '',
+    );
   }
 
   Map<String, dynamic> toFirestore() {
@@ -72,6 +97,13 @@ class Conversation {
       'lastMessageTimestamp': Timestamp.fromDate(lastMessageTimestamp),
       'unreadCount': unreadCount,
       'unreadBy': unreadBy,
+      'adId': adId,
+      'isAdSold': isAdSold,
+      'soldDate': soldDate != null ? Timestamp.fromDate(soldDate!) : null,
+      'lastMessageSenderId': lastMessageSenderId,
+      'sellerHasRated': sellerHasRated,
+      'buyerHasRated': buyerHasRated,
+      'sellerId': sellerId,
     };
   }
 }

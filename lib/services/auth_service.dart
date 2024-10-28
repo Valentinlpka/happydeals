@@ -44,13 +44,30 @@ class AuthService {
   }
 
   Future<void> signOut(BuildContext context) async {
-    await _auth.signOut();
-    Provider.of<UserModel>(context, listen: false).clearUserData();
+    print('====== SIGN OUT DEBUG ======');
+    try {
+      // D'abord effacer les données
+      final userModel = Provider.of<UserModel>(context, listen: false);
+      print('Current user ID before clear: ${userModel.userId}');
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const Login()),
-      (Route<dynamic> route) => false,
-    );
+      userModel.clearUserData();
+      print('User data cleared');
+
+      // Ensuite se déconnecter de Firebase
+      await _auth.signOut();
+      print('Firebase sign out successful');
+
+      // Naviguer vers la page de connexion
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const Login()),
+        (Route<dynamic> route) => false,
+      );
+
+      print('Navigation to login completed');
+      print('==============================');
+    } catch (e) {
+      print('Error during sign out: $e');
+    }
   }
 
   User? get currentUser => _auth.currentUser;

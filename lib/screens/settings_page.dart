@@ -14,6 +14,7 @@ import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/screens/userApplicationsPage.dart';
 import 'package:happy/screens/user_referral_page.dart';
 import 'package:happy/services/auth_service.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
 class ParametrePage extends StatelessWidget {
@@ -22,6 +23,7 @@ class ParametrePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: const CustomAppBar(title: 'Mon Profil'),
       body: SafeArea(
         child: Consumer<UserModel>(
           builder: (context, userModel, child) {

@@ -99,9 +99,7 @@ class _PostWidgetState extends State<PostWidget> {
               ),
             ),
           ),
-          subtitle: Text(timeago.format(
-              sharedPost.sharedAt ?? sharedPost.timestamp,
-              locale: 'fr')),
+          subtitle: Text(timeago.format(sharedPost.sharedAt, locale: 'fr')),
           trailing: sharedPost.sharedBy == currentUserId
               ? IconButton(
                   icon: const Icon(Icons.more_vert),

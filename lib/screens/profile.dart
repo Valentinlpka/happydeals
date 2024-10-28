@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/classes/rating.dart';
+import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
@@ -28,7 +30,7 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _initStreams();
   }
 
@@ -91,12 +93,120 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
               children: [
                 _buildPostsList(),
                 _buildAdsList(),
+                _buildRatingsList(),
               ],
             ),
           );
         },
       ),
     );
+  }
+
+  Widget _buildRatingsList() {
+    return StreamBuilder<List<Rating>>(
+      stream: Provider.of<ConversationService>(context, listen: false)
+          .getUserRatings(widget.userId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          print(snapshot.error);
+          return Center(child: Text('Erreur: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('Aucune évaluation'));
+        }
+
+        return ListView.builder(
+          itemCount: snapshot.data!.length,
+          itemBuilder: (context, index) {
+            final rating = snapshot.data![index];
+            return _buildRatingCard(rating);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRatingCard(Rating rating) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .doc(rating.fromUserId)
+          .get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final userData = snapshot.data!.data() as Map<String, dynamic>;
+        final userName = '${userData['firstName']} ${userData['lastName']}';
+
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundImage:
+                          NetworkImage(userData['image_profile'] ?? ''),
+                      radius: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(userName,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(rating.isSellerRating ? 'Vendeur' : 'Acheteur',
+                              style: const TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: List.generate(5, (index) {
+                        return Icon(
+                          index < rating.rating
+                              ? Icons.star
+                              : Icons.star_border,
+                          color: Colors.amber,
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+                if (rating.adTitle.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Article : ${rating.adTitle}',
+                      style: const TextStyle(fontStyle: FontStyle.italic)),
+                ],
+                if (rating.comment.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(rating.comment),
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  _formatDate(rating.createdAt),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    // Vous pouvez utiliser le même format que celui utilisé ailleurs dans votre application
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   Widget _buildSliverAppBar(Map<String, dynamic> userData) {
@@ -116,6 +226,7 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
       tabs: const [
         Tab(text: 'Posts partagés'),
         Tab(text: 'Annonces'),
+        Tab(text: 'Évaluations'),
       ],
     );
   }

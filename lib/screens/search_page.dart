@@ -5,6 +5,7 @@ import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/search_result.dart';
 
 class SearchPage extends StatefulWidget {
@@ -42,10 +43,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text("Recherche"),
-        elevation: 0,
-      ),
+      appBar: const CustomAppBar(title: 'Recherche'),
       body: Column(
         children: [
           Padding(

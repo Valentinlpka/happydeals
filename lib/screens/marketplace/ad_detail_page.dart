@@ -1,7 +1,11 @@
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
+import 'package:happy/providers/conversation_provider.dart';
+import 'package:happy/screens/conversation_detail.dart';
 import 'package:happy/screens/profile.dart';
+import 'package:provider/provider.dart';
 
 class AdDetailPage extends StatelessWidget {
   final Ad ad;
@@ -9,6 +13,9 @@ class AdDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final conversationService = Provider.of<ConversationService>(context);
+
     return Scaffold(
       appBar: AppBar(title: Text(ad.title)),
       body: SingleChildScrollView(
@@ -36,9 +43,39 @@ class AdDetailPage extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
+
+                  if (currentUser != null && currentUser.uid != ad.userId)
+                    ElevatedButton(
+                      onPressed: () async {
+                        final conversationId = await conversationService
+                            .getOrCreateConversationForAd(
+                                currentUser.uid, ad.userId, ad.id);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ConversationDetailScreen(
+                              conversationId: conversationId,
+                              otherUserName: ad.userName,
+                              ad: ad, // Passer l'annonce à l'écran de conversation
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.message),
+                          SizedBox(width: 8),
+                          Text('Contacter le vendeur'),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+
                   Text(ad.description),
                   const SizedBox(height: 16),
+
                   Column(children: [
                     const Row(
                       children: [
