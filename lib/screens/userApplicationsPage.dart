@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/modify_application_page.dart';
 import 'package:happy/screens/post_type_page/job_search_profile_page.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
 
 class UserApplicationsPage extends StatelessWidget {
@@ -13,8 +14,8 @@ class UserApplicationsPage extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes candidatures'),
+      appBar: const CustomAppBarBack(
+        title: 'Mes candidatures',
       ),
       body: Column(
         children: [

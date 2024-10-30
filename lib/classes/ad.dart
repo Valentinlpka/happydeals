@@ -11,6 +11,7 @@ class Ad {
   final String userName;
   final List<String> photos;
   final String userProfilePicture;
+  final String status;
   final DateTime createdAt;
   final Map<String, dynamic> additionalData;
   bool isSaved; // Nouveau champ
@@ -27,6 +28,7 @@ class Ad {
     required this.userProfilePicture,
     required this.createdAt,
     required this.additionalData,
+    required this.status,
     this.isSaved = false, // Valeur par défaut
   });
 
@@ -60,6 +62,7 @@ class Ad {
       photos: List<String>.from(data['photos'] ?? []),
       userProfilePicture: userProfilePicture,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      status: data['status'],
       additionalData: Map<String, dynamic>.from(data)
         ..removeWhere((key, value) => [
               'adType',

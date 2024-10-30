@@ -19,7 +19,13 @@ class InvoiceViewerPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Facture #$invoiceId'),
+        title: Text(
+          'Facture #$invoiceId',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),

@@ -50,11 +50,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         },
       ),
       appBar: AppBar(
-        title: const Text('Détails de la commande',
-            style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: Colors.grey[300],
+            height: 1.0,
+          ),
+        ),
+        title: const Text('Détail de la commande',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Colors.black,
+                fontSize: 17,
+                fontWeight: FontWeight.bold)),
       ),
       body: FutureBuilder<Orders>(
         future: _orderFuture,
@@ -71,22 +79,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           final order = snapshot.data!;
           return SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildOrderHeader(order),
-                  const SizedBox(height: 24),
                   _buildOrderStatus(order),
-                  const SizedBox(height: 24),
                   _buildPickupCode(order),
-                  const SizedBox(height: 24),
                   _buildPickupInfo(order),
-                  const SizedBox(height: 24),
                   _buildOrderItems(order),
-                  const SizedBox(height: 24),
                   _buildOrderSummary(order),
-                  const SizedBox(height: 80),
                 ],
               ),
             ),
@@ -125,6 +127,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Widget _buildOrderHeader(Orders order) {
+    // Détecter si c'est un petit écran (smartphone) ou web
+    final isSmallScreen = MediaQuery.of(context).size.width < 600;
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -143,33 +148,33 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 'Passée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
-              !kIsWeb
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 10.0),
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.download),
-                        label: const Text('Facture'),
-                        onPressed: () => _generateInvoice(order),
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: Colors.blue[800],
-                        ),
-                      ),
-                    )
-                  : const Text('')
-            ],
-          ),
-          kIsWeb
-              ? ElevatedButton.icon(
-                  icon: const Icon(Icons.download),
-                  label: const Text('Facture'),
-                  onPressed: () => _generateInvoice(order),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.blue[800],
+              // Afficher le bouton en bas si c'est un petit écran ou mobile
+              if (isSmallScreen || !kIsWeb)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10.0),
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: const Text('Facture'),
+                    onPressed: () => _generateInvoice(order),
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.blue[800],
+                    ),
                   ),
                 )
-              : const SizedBox(),
+            ],
+          ),
+          // Afficher le bouton à droite si c'est un grand écran web
+          if (!isSmallScreen && kIsWeb)
+            ElevatedButton.icon(
+              icon: const Icon(Icons.download),
+              label: const Text('Facture'),
+              onPressed: () => _generateInvoice(order),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue[800],
+              ),
+            ),
         ],
       ),
     );

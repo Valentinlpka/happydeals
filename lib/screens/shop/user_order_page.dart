@@ -46,9 +46,19 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text('Mes commandes', style: TextStyle(color: Colors.black)),
-        elevation: 3,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: Colors.grey[300],
+            height: 1.0,
+          ),
+        ),
+        title: const Text('Mes commandes',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Colors.black,
+                fontSize: 17,
+                fontWeight: FontWeight.bold)),
       ),
       body: FutureBuilder<List<Orders>>(
         future: _ordersFuture,
@@ -63,13 +73,16 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
                 child: Text('Vous n\'avez pas encore de commandes'));
           }
 
-          return ListView.builder(
-            controller: _scrollController,
-            itemCount: snapshot.data!.length,
-            itemBuilder: (context, index) {
-              final order = snapshot.data![index];
-              return _buildOrderCard(order);
-            },
+          return Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 8),
+            child: ListView.builder(
+              controller: _scrollController,
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                final order = snapshot.data![index];
+                return _buildOrderCard(order);
+              },
+            ),
           );
         },
       ),

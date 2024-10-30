@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/user_referral.dart';
 import 'package:happy/screens/referral_detail_page.dart';
 import 'package:happy/services/referral_services.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
 
 class UserReferralsPage extends StatefulWidget {
@@ -33,11 +34,8 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes parrainages',
-            style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
+      appBar: const CustomAppBarBack(
+        title: 'Mes parrainages',
       ),
       body: SingleChildScrollView(
         child: Column(

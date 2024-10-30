@@ -95,6 +95,12 @@ class MyApp extends StatelessWidget {
     const Color mediumGrey = Color.fromARGB(255, 200, 200, 200);
 
     return ThemeData(
+      actionIconTheme: ActionIconThemeData(
+          backButtonIconBuilder: (BuildContext context) => const Icon(
+                Icons.arrow_back_ios_new_outlined,
+                size: 20,
+              )),
+
       scaffoldBackgroundColor: Colors.grey[50],
 
       primarySwatch: Colors.blue,
@@ -103,7 +109,7 @@ class MyApp extends StatelessWidget {
       hoverColor: Colors.transparent, // <- Here
       primaryColorLight: Colors.blue,
       primaryColorDark: Colors.blue,
-      textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
+      textTheme: GoogleFonts.nunitoSansTextTheme(Theme.of(context).textTheme),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(

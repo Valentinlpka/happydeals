@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 
@@ -27,13 +28,7 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Détails de la réservation',
-            style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
+      appBar: const CustomAppBarBack(title: 'Détails de la réservation'),
       body: StreamBuilder<DocumentSnapshot>(
         stream: _reservationStream,
         builder: (context, snapshot) {

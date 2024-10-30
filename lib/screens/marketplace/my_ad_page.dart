@@ -7,6 +7,7 @@ import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_creation_page.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/marketplace/ad_type_selection_page.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 
 class MyAdsPage extends StatelessWidget {
   const MyAdsPage({super.key});
@@ -22,10 +23,7 @@ class MyAdsPage extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes annonces'),
-        elevation: 0,
-      ),
+      appBar: const CustomAppBarBack(title: 'Mes annonces'),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('ads')
@@ -65,7 +63,7 @@ class MyAdsPage extends StatelessWidget {
           return GridView.builder(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.7,
+              childAspectRatio: 0.75,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
             ),

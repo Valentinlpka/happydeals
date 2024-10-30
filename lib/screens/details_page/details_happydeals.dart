@@ -232,9 +232,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals>
                   ],
                 ),
               ),
-              Container(
+              SizedBox(
                 height: 35,
-                color: Colors.white,
                 child: TabBar(
                   labelPadding: EdgeInsets.zero,
                   controller: _tabController,

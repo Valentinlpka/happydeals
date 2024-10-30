@@ -19,6 +19,7 @@ class ConversationsListScreen extends StatelessWidget {
     return Scaffold(
       appBar: const CustomAppBar(
         title: 'Conversations',
+        align: Alignment.centerLeft,
       ),
       body: StreamBuilder<List<Conversation>>(
         stream: conversationService.getUserConversations(userId),

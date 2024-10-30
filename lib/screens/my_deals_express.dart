@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
 
 class ReservationListDealExpress extends StatelessWidget {
@@ -12,11 +13,7 @@ class ReservationListDealExpress extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes réservations',
-            style: TextStyle(color: Colors.black)),
-        elevation: 3,
-      ),
+      appBar: const CustomAppBarBack(title: 'Mes réservations'),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('reservations')

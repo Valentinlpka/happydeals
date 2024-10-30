@@ -35,32 +35,60 @@ class _AdListPageState extends State<AdListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(child: _buildQuickActions()),
-          SliverToBoxAdapter(child: _buildFilterChips()),
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.7,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+      body: Stack(
+        // Ajout d'un Stack pour superposer le loader
+        children: [
+          CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              _buildSliverAppBar(),
+              SliverToBoxAdapter(child: _buildQuickActions()),
+              SliverToBoxAdapter(child: _buildFilterChips()),
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.75,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index >= _ads.length) {
+                        return null; // Ne plus afficher de loader ici
+                      }
+                      return _buildAdCard(_ads[index]);
+                    },
+                    childCount: _ads
+                        .length, // Modifier le childCount pour n'inclure que les annonces
+                  ),
+                ),
               ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  if (index >= _ads.length) {
-                    return _buildLoader();
-                  }
-                  return _buildAdCard(_ads[index]);
-                },
-                childCount: _ads.length + 1,
+            ],
+          ),
+          if (_isLoading) // Afficher le loader en bas au centre
+            Positioned(
+              bottom: 20,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: const CircularProgressIndicator(),
+                ),
               ),
             ),
-          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -75,13 +103,25 @@ class _AdListPageState extends State<AdListPage> {
     );
   }
 
+// Le widget _buildLoader n'est plus nécessaire, vous pouvez le supprimer
   Widget _buildSliverAppBar() {
     return SliverAppBar(
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1.0),
+        child: Container(
+          color: Colors.grey[300],
+          height: 1.0,
+        ),
+      ),
       backgroundColor: Colors.grey[50],
       floating: false,
       pinned: false,
       flexibleSpace: const FlexibleSpaceBar(
-        title: Text('Marketplace', style: TextStyle(color: Colors.black)),
+        title: Text('Marketplace',
+            style: TextStyle(
+                color: Colors.black,
+                fontSize: 17,
+                fontWeight: FontWeight.w600)),
       ),
       actions: [
         IconButton(
@@ -93,18 +133,23 @@ class _AdListPageState extends State<AdListPage> {
   }
 
   Widget _buildQuickActions() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildActionButton(Icons.list, 'Mes annonces', () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const MyAdsPage()));
+          _buildActionButton('Mes annonces', Icons.list, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MyAdsPage()),
+            );
           }),
-          _buildActionButton(Icons.bookmark, 'Sauvegardées', () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const SavedAdsPage()));
+          const SizedBox(width: 8), // Espacement entre les boutons
+          _buildActionButton('Sauvegardées', Icons.bookmark, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SavedAdsPage()),
+            );
           }),
         ],
       ),
@@ -112,93 +157,115 @@ class _AdListPageState extends State<AdListPage> {
   }
 
   Widget _buildActionButton(
-      IconData icon, String label, VoidCallback onPressed) {
-    return ElevatedButton.icon(
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.white,
-        backgroundColor: Colors.blue[600],
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      String title, IconData icon, VoidCallback onPressed) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      child: ElevatedButton.icon(
+        icon: Icon(
+          icon,
+          color: Colors.black87,
+          size: 20,
+        ),
+        label: Text(title),
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          foregroundColor: Colors.black87,
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(5),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          elevation: 1,
+        ),
       ),
     );
   }
 
   Widget _buildFilterChips() {
     final filters = ['Tous', 'Articles', 'Véhicules', 'Troc'];
-    return Padding(
-      padding: const EdgeInsets.only(left: 20.0),
-      child: SizedBox(
-        height: 50,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: filters.length,
-          itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: FilterChip(
-                label: Text(filters[index]),
-                selected: _selectedFilter == filters[index],
-                onSelected: (selected) {
+    final icons = {
+      'Tous': Icons.all_inclusive,
+      'Articles': Icons.shopping_bag,
+      'Véhicules': Icons.directions_car,
+      'Troc': Icons.swap_horiz,
+    };
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        children: filters.map((filter) {
+          final isSelected = _selectedFilter == filter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              child: ElevatedButton.icon(
+                icon: Icon(
+                  icons[filter], // Utiliser l'icône correspondante
+                  color: isSelected ? Colors.white : Colors.black87,
+                  size: 20,
+                ),
+                label: Text(filter),
+                onPressed: () {
                   setState(() {
-                    _selectedFilter = selected ? filters[index] : 'Tous';
+                    _selectedFilter = filter;
                     _resetAndReloadAds();
                   });
                 },
-                backgroundColor: Colors.white,
-                selectedColor: Colors.blue[100],
-                checkmarkColor: Colors.blue[700],
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: isSelected ? Colors.white : Colors.black87,
+                  backgroundColor: isSelected ? Colors.blue : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  elevation: isSelected ? 4 : 1,
+                ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
   Widget _buildAdCard(Ad ad) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: AdCard(
-        ad: ad,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => AdDetailPage(ad: ad)),
-        ),
-        onSaveTap: () => _toggleSaveAd(ad),
+    return AdCard(
+      ad: ad,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => AdDetailPage(ad: ad)),
       ),
+      onSaveTap: () => _toggleSaveAd(ad),
     );
   }
 
   Widget _buildLoader() {
-    return Center(
-      child: _isLoading
-          ? const CircularProgressIndicator()
-          : _hasMore
-              ? ElevatedButton(
-                  onPressed: _loadMoreAds,
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.blue[600],
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
-                  ),
-                  child: const Text('Charger plus'),
-                )
-              : const Text('Fin des résultats',
-                  style: TextStyle(color: Colors.grey)),
+    if (!_hasMore) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child:
+              Text('Fin des résultats', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 
-  // Les autres méthodes (_onScroll, _loadMoreAds, _resetAndReloadAds, _showFilterOptions, _toggleSaveAd)
-  // restent inchangées.
-
   void _onScroll() {
-    if (_scrollController.position.pixels ==
-        _scrollController.position.maxScrollExtent) {
+    // Charger plus tôt, quand on atteint 80% du scroll
+    if (!_isLoading &&
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent * 0.8) {
       _loadMoreAds();
     }
   }
@@ -208,9 +275,10 @@ class _AdListPageState extends State<AdListPage> {
     setState(() {
       _isLoading = true;
     });
-
     Query query = FirebaseFirestore.instance
         .collection('ads')
+        .where('status', isNotEqualTo: 'sold')
+        .orderBy('status')
         .orderBy('createdAt', descending: true);
 
     if (_selectedFilter != 'Tous') {
@@ -230,7 +298,6 @@ class _AdListPageState extends State<AdListPage> {
       }
       query = query.where('adType', isEqualTo: adType);
     }
-
     query = query.limit(_limit);
     if (_lastDocument != null) {
       query = query.startAfterDocument(_lastDocument!);

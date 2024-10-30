@@ -5,6 +5,7 @@ import 'package:happy/classes/ad.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
 import 'package:happy/screens/profile.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:provider/provider.dart';
 
 class AdDetailPage extends StatelessWidget {
@@ -17,7 +18,7 @@ class AdDetailPage extends StatelessWidget {
     final conversationService = Provider.of<ConversationService>(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(ad.title)),
+      appBar: CustomAppBarBack(title: ad.title),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,7 +152,7 @@ class AdDetailPage extends StatelessWidget {
         aspectRatio: 16 / 9,
         child: Image.network(
           ad.photos[0],
-          fit: BoxFit.contain,
+          fit: BoxFit.fill,
         ),
       );
     } else {

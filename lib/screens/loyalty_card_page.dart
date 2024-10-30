@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/loyalty_card.dart';
 import 'package:happy/classes/loyalty_program.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 
 class LoyaltyCardsPage extends StatelessWidget {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -14,8 +15,8 @@ class LoyaltyCardsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes cartes de fidélité'),
+      appBar: const CustomAppBarBack(
+        title: 'Mes cartes de fidélité',
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
@@ -61,39 +62,42 @@ class LoyaltyCardsPage extends StatelessWidget {
         final companyName = companyData['name'] as String;
         final companyLogo = companyData['logo'] as String;
 
-        return Card(
-          margin: const EdgeInsets.all(8.0),
-          child: InkWell(
-            onTap: () => _showLoyaltyCardDetails(context, card),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundImage:
-                            CachedNetworkImageProvider(companyLogo),
-                        radius: 24,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          companyName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+        return Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: Card(
+            margin: const EdgeInsets.all(8.0),
+            child: InkWell(
+              onTap: () => _showLoyaltyCardDetails(context, card),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundImage:
+                              CachedNetworkImageProvider(companyLogo),
+                          radius: 24,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            companyName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Valeur actuelle: ${card.currentValue}'),
-                  const SizedBox(height: 8),
-                  _buildPromoCodesList(card.companyId),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Valeur actuelle: ${card.currentValue}'),
+                    const SizedBox(height: 8),
+                    _buildPromoCodesList(card.companyId),
+                  ],
+                ),
               ),
             ),
           ),

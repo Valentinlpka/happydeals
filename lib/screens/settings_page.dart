@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/loyalty_card_page.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
+import 'package:happy/screens/my_deals_express.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
 import 'package:happy/screens/post_type_page/happy_deals_page.dart';
@@ -9,7 +10,6 @@ import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/profile.dart';
-import 'package:happy/screens/reservation_list_deal_express.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/screens/userApplicationsPage.dart';
 import 'package:happy/screens/user_referral_page.dart';
@@ -23,7 +23,8 @@ class ParametrePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: 'Mon Profil'),
+      appBar:
+          const CustomAppBar(title: 'Mon Profil', align: Alignment.centerLeft),
       body: SafeArea(
         child: Consumer<UserModel>(
           builder: (context, userModel, child) {

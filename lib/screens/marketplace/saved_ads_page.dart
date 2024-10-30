@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 
 class SavedAdsPage extends StatefulWidget {
   const SavedAdsPage({super.key});
@@ -100,8 +101,8 @@ class _SavedAdsPageState extends State<SavedAdsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Annonces sauvegardées'),
+      appBar: const CustomAppBarBack(
+        title: 'Annonces sauvegardées',
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -22,7 +22,8 @@ class LikedPostsPage extends StatelessWidget {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
 
     return Scaffold(
-      appBar: const CustomAppBar(title: 'Posts likés'),
+      appBar:
+          const CustomAppBar(title: 'Posts likés', align: Alignment.centerLeft),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('posts')

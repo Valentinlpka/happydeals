@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
 
 class ReferralDetailPage extends StatefulWidget {
@@ -55,13 +56,7 @@ class _ReferralDetailPageState extends State<ReferralDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Détails du parrainage',
-            style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
+      appBar: const CustomAppBarBack(title: 'Détails du parrainage'),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _dataFuture,
         builder: (context, snapshot) {

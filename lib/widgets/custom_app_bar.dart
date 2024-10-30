@@ -3,12 +3,10 @@ import 'package:flutter/material.dart';
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget>? actions;
+  final AlignmentGeometry align;
 
-  const CustomAppBar({
-    super.key,
-    required this.title,
-    this.actions,
-  });
+  const CustomAppBar(
+      {super.key, required this.title, this.actions, required this.align});
 
   @override
   Widget build(BuildContext context) {
@@ -16,28 +14,15 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       automaticallyImplyLeading: true,
       title: Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.all(
-            10.0,
-          ),
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-            ),
+        alignment: align,
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
       actions: actions,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1.0),
-        child: Container(
-          color: Colors.grey[300],
-          height: 1.0,
-        ),
-      ),
     );
   }
 
