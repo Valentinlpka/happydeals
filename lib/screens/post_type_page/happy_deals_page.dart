@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/widgets/cards/happy_deals_card.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 
 class HappyDealsPage extends StatefulWidget {
   const HappyDealsPage({super.key});
@@ -39,8 +40,8 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Happy Deals'),
+      appBar: const CustomAppBarBack(
+        title: 'Happy Deals',
       ),
       body: Column(
         children: [

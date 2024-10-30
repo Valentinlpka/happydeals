@@ -107,10 +107,10 @@ class _LoginState extends State<Login> {
             child: Column(
               children: [
                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 50.0),
+                  padding: EdgeInsets.symmetric(vertical: 15.0),
                   child: Image(
                     image: AssetImage('assets/mon_logo.png'),
-                    height: 60,
+                    height: 200,
                   ),
                 ),
                 const Text(

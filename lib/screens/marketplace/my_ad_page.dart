@@ -63,7 +63,7 @@ class MyAdsPage extends StatelessWidget {
           return GridView.builder(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.75,
+              childAspectRatio: 0.72,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
             ),

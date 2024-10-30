@@ -39,16 +39,38 @@ class _HomeState extends State<Home> {
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
+      _feedItems.clear();
     });
 
     try {
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
       final userProvider = Provider.of<UserModel>(context, listen: false);
 
-      await homeProvider.loadSavedLocation();
-      if (homeProvider.currentPosition == null) {
-        await homeProvider.showLocationSelectionBottomSheet(context);
+      // 1. S'assurer que les données utilisateur sont chargées en premier
+      if (userProvider.likedCompanies.isEmpty ||
+          userProvider.followedUsers.isEmpty) {
+        if (kDebugMode) {
+          print("Chargement des données utilisateur...");
+        }
+        await userProvider.loadUserData();
       }
+
+      // 2. Vérifier la position et la charger si nécessaire
+      if (homeProvider.currentPosition == null) {
+        if (kDebugMode) {
+          print("Chargement de la position...");
+        }
+        await homeProvider.loadSavedLocation();
+      }
+
+      // 3. Maintenant charger le feed avec les données utilisateur garanties
+      if (kDebugMode) {
+        print(
+            "Nombre d'entreprises likées avant chargement: ${userProvider.likedCompanies.length}");
+        print(
+            "Nombre d'utilisateurs suivis avant chargement: ${userProvider.followedUsers.length}");
+      }
+
       final feedItems = await homeProvider.loadUnifiedFeed(
         userProvider.likedCompanies,
         userProvider.followedUsers,
@@ -68,8 +90,9 @@ class _HomeState extends State<Home> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  'Une erreur est survenue lors du chargement des données.')),
+            content:
+                Text('Une erreur est survenue lors du chargement des données.'),
+          ),
         );
       }
     }
@@ -348,8 +371,6 @@ class _HomeState extends State<Home> {
                         const SizedBox(height: 20),
                         _buildAddressSearch(homeProvider),
                         const SizedBox(height: 20),
-                        _buildRadiusSelector(homeProvider),
-                        const SizedBox(height: 20),
                         ElevatedButton(
                           style: ButtonStyle(
                             backgroundColor:
@@ -357,8 +378,7 @@ class _HomeState extends State<Home> {
                           ),
                           onPressed: () async {
                             Navigator.pop(context);
-                            await homeProvider.applyChanges();
-                            _loadData();
+                            await _loadData(); // Utiliser la même méthode que pour le chargement initial
                           },
                           child: const Text("Appliquer"),
                         ),

@@ -1,5 +1,9 @@
 // ignore_for_file: empty_catches
 
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +21,9 @@ import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
+import 'package:happy/providers/localisation_service.dart';
 import 'package:happy/widgets/web_adress_search.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeProvider extends ChangeNotifier {
@@ -26,7 +32,7 @@ class HomeProvider extends ChangeNotifier {
 
   Position? _currentPosition;
   String _currentAddress = "Localisation en cours...";
-  double _selectedRadius = 40.0;
+  double _selectedRadius = 10.0;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -43,37 +49,86 @@ class HomeProvider extends ChangeNotifier {
     try {
       if (kDebugMode) {
         print("### Début de loadUnifiedFeed ###");
-      }
-
-      await loadSavedLocation();
-
-      if (_currentPosition == null) {
-        throw Exception("Position actuelle non disponible");
+        print(
+            "Position actuelle : ${_currentPosition?.latitude}, ${_currentPosition?.longitude}");
+        print("Adresse actuelle : $_currentAddress");
+        print("Nombre d'entreprises likées : ${likedCompanies.length}");
+        print("Nombre d'utilisateurs suivis : ${followedUsers.length}");
       }
 
       final Set<String> addedPostIds = {};
       final List<CombinedItem> combinedItems = [];
 
-      final nearbyPosts = await fetchNearbyPostsWithCompanyData();
-      _addUniquePosts(nearbyPosts, addedPostIds, combinedItems);
+      // 1. Charger d'abord les posts qui ne dépendent pas de la position
+      await Future.wait([
+        // Posts des entreprises likées
+        _loadLikedCompanyPosts(likedCompanies, addedPostIds, combinedItems),
+        // Posts partagés
+        _loadSharedPosts(followedUsers, addedPostIds, combinedItems),
+      ]);
 
-      final likedCompanyPosts =
-          await fetchLikedCompanyPostsWithCompanyData(likedCompanies);
-      _addUniquePosts(likedCompanyPosts, addedPostIds, combinedItems);
+      // 2. Charger les posts qui dépendent de la position
+      if (_currentPosition != null) {
+        await Future.wait([
+          // Posts à proximité
+          _loadNearbyPosts(addedPostIds, combinedItems),
+          // Entreprises à proximité
+          _loadNearbyCompanies(combinedItems),
+        ]);
+      }
 
-      final sharedPosts = await fetchSharedPostsWithCompanyData(followedUsers);
-      _addUniquePosts(sharedPosts, addedPostIds, combinedItems);
-
-      final companies = await fetchNearbyCompanies();
-      combinedItems.addAll(companies.map(
-          (company) => CombinedItem(company, company.createdAt, 'company')));
-
+      // Trier tous les éléments par date
       combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      if (kDebugMode) {
+        print("Nombre total d'éléments chargés : ${combinedItems.length}");
+      }
 
       return combinedItems;
     } catch (e) {
+      print('Erreur dans loadUnifiedFeed: $e');
       return [];
     }
+  }
+
+  Future<void> _loadNearbyPosts(
+      Set<String> addedPostIds, List<CombinedItem> combinedItems) async {
+    final nearbyPosts = await fetchNearbyPostsWithCompanyData();
+    _addUniquePosts(nearbyPosts, addedPostIds, combinedItems);
+  }
+
+  Future<void> _loadLikedCompanyPosts(List<String> likedCompanies,
+      Set<String> addedPostIds, List<CombinedItem> combinedItems) async {
+    final likedPosts =
+        await fetchLikedCompanyPostsWithCompanyData(likedCompanies);
+    _addUniquePosts(likedPosts, addedPostIds, combinedItems);
+  }
+
+  Future<void> _loadSharedPosts(List<String> followedUsers,
+      Set<String> addedPostIds, List<CombinedItem> combinedItems) async {
+    if (followedUsers.isEmpty) {
+      if (kDebugMode) {
+        print("Pas d'utilisateurs suivis, ignorant les posts partagés");
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      print("Chargement des posts partagés...");
+    }
+
+    final sharedPosts = await fetchSharedPostsWithCompanyData(followedUsers);
+    _addUniquePosts(sharedPosts, addedPostIds, combinedItems);
+
+    if (kDebugMode) {
+      print("${sharedPosts.length} posts partagés chargés");
+    }
+  }
+
+  Future<void> _loadNearbyCompanies(List<CombinedItem> combinedItems) async {
+    final companies = await fetchNearbyCompanies();
+    combinedItems.addAll(companies
+        .map((company) => CombinedItem(company, company.createdAt, 'company')));
   }
 
   void _addUniquePosts(List<Map<String, dynamic>> posts,
@@ -91,14 +146,19 @@ class HomeProvider extends ChangeNotifier {
 
   Future<List<Map<String, dynamic>>> fetchNearbyPostsWithCompanyData() async {
     try {
+      if (_currentPosition == null) {
+        print(
+            'Position actuelle non disponible pour fetchNearbyPostsWithCompanyData');
+        return [];
+      }
+
       final postsQuery = _firestore
           .collection('posts')
-          .where('type',
-              isNotEqualTo: 'shared') // Exclure les posts de type 'shared'
-          .orderBy('type') // Nécessaire pour utiliser isNotEqualTo
+          .where('type', isNotEqualTo: 'shared')
+          .orderBy('type')
           .orderBy('timestamp', descending: true);
-      final postsSnapshot = await postsQuery.get();
 
+      final postsSnapshot = await postsQuery.get();
       List<Map<String, dynamic>> postsWithCompanyData = [];
 
       for (var postDoc in postsSnapshot.docs) {
@@ -109,16 +169,36 @@ class HomeProvider extends ChangeNotifier {
                 .collection('companys')
                 .doc(post.companyId)
                 .get();
+
+            if (!companyDoc.exists) {
+              print('Entreprise ${post.companyId} non trouvée');
+              continue;
+            }
+
             final companyData = companyDoc.data() as Map<String, dynamic>;
+
+            // Vérification du rayon avec logs
             if (await _isPostWithinRadius(post.companyId, companyData)) {
+              if (kDebugMode) {
+                print('Post ${post.id} ajouté (dans le rayon)');
+              }
               postsWithCompanyData.add({'post': post, 'company': companyData});
+            } else if (kDebugMode) {
+              print('Post ${post.id} ignoré (hors rayon)');
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          print('Erreur lors du traitement d\'un post: $e');
+        }
+      }
+
+      if (kDebugMode) {
+        print('Nombre total de posts trouvés: ${postsWithCompanyData.length}');
       }
 
       return postsWithCompanyData;
     } catch (e) {
+      print('Erreur dans fetchNearbyPostsWithCompanyData: $e');
       return [];
     }
   }
@@ -163,7 +243,15 @@ class HomeProvider extends ChangeNotifier {
       List<String> followedUsers) async {
     try {
       if (followedUsers.isEmpty) {
+        if (kDebugMode) {
+          print("Aucun utilisateur suivi, pas de posts partagés à charger");
+        }
         return [];
+      }
+
+      if (kDebugMode) {
+        print(
+            "Récupération des posts partagés pour ${followedUsers.length} utilisateurs suivis");
       }
 
       final postsQuery = _firestore
@@ -171,33 +259,35 @@ class HomeProvider extends ChangeNotifier {
           .where('type', isEqualTo: 'shared')
           .where('sharedBy', whereIn: followedUsers)
           .orderBy('timestamp', descending: true);
+
       final postsSnapshot = await postsQuery.get();
+
+      if (kDebugMode) {
+        print(
+            "Nombre de posts partagés trouvés : ${postsSnapshot.docs.length}");
+      }
 
       List<Map<String, dynamic>> postsWithCompanyData = [];
 
       for (var postDoc in postsSnapshot.docs) {
         try {
           final sharedPost = _createPostFromDocument(postDoc) as SharedPost?;
-          if (sharedPost == null) {
-            continue;
-          }
+          if (sharedPost == null) continue;
 
+          // Récupérer les données de l'entreprise
           final companyDoc = await _firestore
               .collection('companys')
               .doc(sharedPost.companyId)
               .get();
-          if (!companyDoc.exists) {
-            continue;
-          }
+          if (!companyDoc.exists) continue;
           final companyData = companyDoc.data() as Map<String, dynamic>;
 
+          // Récupérer les données de l'utilisateur qui a partagé
           final userDoc = await _firestore
               .collection('users')
               .doc(sharedPost.sharedBy)
               .get();
-          if (!userDoc.exists) {
-            continue;
-          }
+          if (!userDoc.exists) continue;
           final userData = userDoc.data() as Map<String, dynamic>;
 
           final sharedByUserData = {
@@ -206,25 +296,23 @@ class HomeProvider extends ChangeNotifier {
             'profileImageUrl': userData['profileImageUrl'] ?? '',
           };
 
+          // Récupérer le post original
           final originalPostDoc = await _firestore
               .collection('posts')
               .doc(sharedPost.originalPostId)
               .get();
-          if (!originalPostDoc.exists) {
-            continue;
-          }
-          final originalPost = _createPostFromDocument(originalPostDoc);
-          if (originalPost == null) {
-            continue;
-          }
+          if (!originalPostDoc.exists) continue;
 
+          final originalPost = _createPostFromDocument(originalPostDoc);
+          if (originalPost == null) continue;
+
+          // Récupérer l'entreprise du post original
           final originalCompanyDoc = await _firestore
               .collection('companys')
               .doc(originalPost.companyId)
               .get();
-          if (!originalCompanyDoc.exists) {
-            continue;
-          }
+          if (!originalCompanyDoc.exists) continue;
+
           final originalCompanyData =
               originalCompanyDoc.data() as Map<String, dynamic>;
 
@@ -235,11 +323,18 @@ class HomeProvider extends ChangeNotifier {
             'originalPost': originalPost,
             'originalCompany': originalCompanyData,
           });
-        } catch (e) {}
+
+          if (kDebugMode) {
+            print("Post partagé ajouté par : ${sharedByUserData['firstName']}");
+          }
+        } catch (e) {
+          print('Erreur lors du traitement d\'un post partagé: $e');
+        }
       }
 
       return postsWithCompanyData;
     } catch (e) {
+      print('Erreur dans fetchSharedPostsWithCompanyData: $e');
       return [];
     }
   }
@@ -375,14 +470,54 @@ class HomeProvider extends ChangeNotifier {
 
   Future<bool> _isPostWithinRadius(
       String companyId, Map<String, dynamic> companyData) async {
-    Map<String, dynamic>? addressMap =
-        companyData['adress'] as Map<String, dynamic>?;
-    if (addressMap == null ||
-        !addressMap.containsKey('latitude') ||
-        !addressMap.containsKey('longitude')) {
+    try {
+      Map<String, dynamic>? addressMap =
+          companyData['adress'] as Map<String, dynamic>?;
+
+      // Vérification plus stricte des données d'adresse
+      if (addressMap == null ||
+          !addressMap.containsKey('latitude') ||
+          !addressMap.containsKey('longitude') ||
+          addressMap['latitude'] == null ||
+          addressMap['longitude'] == null) {
+        print(
+            'Données d\'adresse invalides pour le post de l\'entreprise $companyId');
+        return false;
+      }
+
+      // Conversion explicite en double pour éviter les erreurs de type
+      double companyLat = (addressMap['latitude'] is int)
+          ? (addressMap['latitude'] as int).toDouble()
+          : addressMap['latitude'] as double;
+      double companyLng = (addressMap['longitude'] is int)
+          ? (addressMap['longitude'] as int).toDouble()
+          : addressMap['longitude'] as double;
+
+      if (_currentPosition == null) {
+        print('Position actuelle non disponible');
+        return false;
+      }
+
+      double distance = Geolocator.distanceBetween(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        companyLat,
+        companyLng,
+      );
+
+      final isInRadius = distance / 1000 <= _selectedRadius;
+      if (kDebugMode) {
+        print(
+            'Distance pour $companyId: ${distance / 1000}km (Rayon: $_selectedRadius km)');
+        print('Est dans le rayon: $isInRadius');
+      }
+
+      return isInRadius;
+    } catch (e) {
+      print(
+          'Erreur lors de la vérification du rayon pour le post $companyId: $e');
       return false;
     }
-    return _isWithinRadius(addressMap['latitude'], addressMap['longitude']);
   }
 
   void notifyLocationChanges() {
@@ -459,58 +594,163 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> _initializeLocation() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception("Services de localisation désactivés");
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception("Permission de localisation refusée");
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception("Permissions de localisation refusées définitivement");
-      }
-
-      Position? position;
-      try {
-        position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
-        );
-      } catch (e) {
-        // Essayez d'obtenir la dernière position connue si la position actuelle échoue
-        position = await Geolocator.getLastKnownPosition();
-      }
-
+      Position? position = await _getCurrentPosition();
       if (position == null) {
-        throw Exception("Impossible d'obtenir la position");
+        throw Exception("Position non disponible");
       }
 
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
-      String address = placemarks.isNotEmpty
-          ? "${placemarks[0].locality}, ${placemarks[0].country}"
-          : "Adresse inconnue";
+      final locationData = await LocationService.getLocationFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
 
-      _updateCurrentLocation(address, position.latitude, position.longitude,
-          DateTime.now().millisecondsSinceEpoch);
-      await _saveLocation(address, position);
+      _updateCurrentLocation(
+        locationData['address'],
+        locationData['latitude'],
+        locationData['longitude'],
+        DateTime.now().millisecondsSinceEpoch,
+      );
+
+      await _saveLocation(
+        locationData['address'],
+        Position(
+          latitude: locationData['latitude'],
+          longitude: locationData['longitude'],
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+          altitudeAccuracy: 0,
+          headingAccuracy: 0,
+        ),
+      );
     } catch (e) {
+      print('Erreur dans _initializeLocation: $e');
       _handleLocationError("Erreur d'initialisation de la localisation", e);
     }
   }
 
+  Future<void> _checkAndRequestPermissions() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw Exception("Permission de localisation refusée");
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Rediriger l'utilisateur vers les paramètres
+      await Geolocator.openAppSettings();
+      throw Exception(
+          "Permissions de localisation refusées définitivement. Veuillez les activer dans les paramètres.");
+    }
+  }
+
+  Future<bool> _requestLocationService() async {
+    // Sur Android, vous pouvez utiliser cette méthode pour ouvrir les paramètres de localisation
+    if (Platform.isAndroid) {
+      await Geolocator.openLocationSettings();
+      // Attendre un peu pour laisser l'utilisateur activer le service
+      await Future.delayed(const Duration(seconds: 2));
+      return await Geolocator.isLocationServiceEnabled();
+    }
+    return false;
+  }
+
+  Future<Position?> _getCurrentPosition() async {
+    if (kIsWeb) {
+      try {
+        LocationPermission permission = await Geolocator.checkPermission();
+
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied) return null;
+        }
+
+        Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium,
+            timeLimit: const Duration(seconds: 10));
+        return position;
+      } catch (e) {
+        print('Erreur géolocalisation : $e');
+        return null;
+      }
+    } else {
+      try {
+        return await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+      } catch (e) {
+        return await Geolocator.getLastKnownPosition();
+      }
+    }
+  }
+
+  Future<String> _getAddressFromPosition(Position position) async {
+    try {
+      print('Tentative de conversion des coordonnées en adresse...');
+      print('Latitude: ${position.latitude}, Longitude: ${position.longitude}');
+
+      const apiKey =
+          'AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc'; // Utilisez la même clé que pour Places
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.latitude},${position.longitude}&key=$apiKey&language=fr&result_type=locality',
+      );
+
+      final response = await http.get(url);
+      final data = json.decode(response.body);
+
+      if (data['status'] == 'OK' && data['results'].isNotEmpty) {
+        // Parcourir les composants d'adresse pour trouver la ville
+        final components = data['results'][0]['address_components'];
+        String? city;
+        String? country;
+
+        for (var component in components) {
+          final types = component['types'] as List;
+          if (types.contains('locality')) {
+            city = component['long_name'];
+          } else if (types.contains('country')) {
+            country = component['long_name'];
+          }
+        }
+
+        if (city != null) {
+          return country != null ? '$city, $country' : city;
+        }
+      }
+
+      // Si on ne trouve pas la ville, essayer avec placemarkFromCoordinates comme fallback
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        if (place.locality?.isNotEmpty ?? false) {
+          return place.country?.isNotEmpty ?? false
+              ? '${place.locality}, ${place.country}'
+              : place.locality!;
+        }
+      }
+
+      return 'Position (${position.latitude.toStringAsFixed(3)}, ${position.longitude.toStringAsFixed(3)})';
+    } catch (e) {
+      print('Erreur lors de la conversion des coordonnées en adresse: $e');
+      return 'Position (${position.latitude.toStringAsFixed(3)}, ${position.longitude.toStringAsFixed(3)})';
+    }
+  }
+
   void _handleLocationError(String message, dynamic error) {
-    _currentAddress = "Localisation non disponible";
-    _currentPosition = null;
-    _errorMessage =
-        "Impossible d'obtenir la localisation automatiquement. Veuillez entrer votre localisation manuellement.";
-    notifyListeners();
+    print('$message: $error');
+    // Vous pouvez ajouter ici une logique pour afficher un message à l'utilisateur
+    // Par exemple avec un SnackBar ou un Dialog
   }
 
   Future<void> _saveLocation(String address, Position position) async {
@@ -519,20 +759,44 @@ class HomeProvider extends ChangeNotifier {
       await prefs.setString('savedAddress', address);
       await prefs.setDouble('savedLat', position.latitude);
       await prefs.setDouble('savedLng', position.longitude);
-    } catch (e) {}
+      // Ne pas recharger les données ici
+    } catch (e) {
+      print('Erreur lors de la sauvegarde de la localisation : $e');
+    }
   }
 
   Future<void> updateLocationFromPrediction(Prediction prediction) async {
-    if (prediction.lat != null && prediction.lng != null) {
+    try {
+      final locationData =
+          await LocationService.getLocationFromPrediction(prediction);
+
       _updateCurrentLocation(
-        prediction.description ?? "",
-        double.parse(prediction.lat!),
-        double.parse(prediction.lng!),
+        locationData['address'],
+        locationData['latitude'],
+        locationData['longitude'],
         DateTime.now().millisecondsSinceEpoch,
       );
-      await _saveLocation(_currentAddress, _currentPosition!);
+
+      await _saveLocation(
+        locationData['address'],
+        Position(
+          latitude: locationData['latitude'],
+          longitude: locationData['longitude'],
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+          altitudeAccuracy: 0,
+          headingAccuracy: 0,
+        ),
+      );
+
       notifyListeners();
-    } else {}
+    } catch (e) {
+      print('Erreur lors de la mise à jour de la localisation : $e');
+    }
   }
 
   Future<void> applyChanges() async {

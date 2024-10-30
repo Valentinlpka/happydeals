@@ -49,7 +49,7 @@ class _AdListPageState extends State<AdListPage> {
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.75,
+                    childAspectRatio: 0.72,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),

@@ -28,11 +28,10 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  usePathUrlStrategy();
 
-  timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
-
-  if (!kIsWeb) {
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  } else {
     Stripe.publishableKey =
         'pk_test_51LTLueEdQ2kxvmjkFjbvo65zeyYFfgfwZJ4yX8msvLiOkHju26pIj77RZ1XaZOoCG6ULyzn95z1irjk18AsNmwZx00OlxLu8Yt';
     await Stripe.instance.applySettings();
@@ -43,6 +42,7 @@ void main() async {
   );
 
   await initializeDateFormatting('fr_FR', null);
+  timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
 
   runApp(const MyApp());
 }

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/widgets/cards/emploi_card.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 
 class JobOffersPage extends StatefulWidget {
   const JobOffersPage({super.key});
@@ -54,8 +55,8 @@ class _JobOffersPageState extends State<JobOffersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Offres d\'emploi'),
+      appBar: const CustomAppBarBack(
+        title: 'Offres d\'emploi',
       ),
       body: Column(
         children: [
@@ -82,7 +83,6 @@ class _JobOffersPageState extends State<JobOffersPage> {
             onPressed: () => _searchController.clear(),
           ),
           filled: true,
-          fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30),
             borderSide: BorderSide.none,

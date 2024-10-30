@@ -43,20 +43,15 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
           final reservation = snapshot.data!.data() as Map<String, dynamic>;
           return SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildReservationHeader(reservation),
-                  const SizedBox(height: 24),
                   _buildReservationStatus(reservation),
-                  const SizedBox(height: 24),
                   _buildValidationCode(reservation),
-                  const SizedBox(height: 24),
                   _buildPickupInfo(reservation),
-                  const SizedBox(height: 24),
                   _buildReservationDetails(reservation),
-                  const SizedBox(height: 24),
                   _buildReservationSummary(reservation),
                   const SizedBox(height: 80),
                 ],

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/widgets/cards/company_card.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 
 class CompaniesPage extends StatefulWidget {
   const CompaniesPage({super.key});
@@ -45,27 +46,27 @@ class _CompaniesPageState extends State<CompaniesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Entreprises'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterBottomSheet,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          Expanded(child: _buildCompaniesList()),
-        ],
-      ),
-    );
+        appBar: CustomAppBar(
+          title: 'Entreprises',
+          align: Alignment.center,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.filter_list),
+              onPressed: _showFilterBottomSheet,
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            _buildSearchBar(),
+            _buildCompaniesList(),
+          ],
+        ));
   }
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.only(top: 20.0, left: 20, right: 20),
       child: TextField(
         decoration: InputDecoration(
           hintText: 'Rechercher une entreprise...',
@@ -236,9 +237,9 @@ class _CompaniesPageState extends State<CompaniesPage> {
           return const Center(child: Text('Aucune entreprise trouvée'));
         }
 
-        return Padding(
-          padding: const EdgeInsets.all(20.0),
+        return Expanded(
           child: ListView.builder(
+            padding: const EdgeInsets.all(20.0),
             itemCount: companies.length,
             itemBuilder: (context, index) {
               return Padding(

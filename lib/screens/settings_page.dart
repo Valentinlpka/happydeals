@@ -23,13 +23,15 @@ class ParametrePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar:
-          const CustomAppBar(title: 'Mon Profil', align: Alignment.centerLeft),
+      backgroundColor: Colors.grey[50],
+      appBar: const CustomAppBar(
+        title: 'Mon Profil',
+        align: Alignment.centerLeft,
+      ),
       body: SafeArea(
         child: Consumer<UserModel>(
           builder: (context, userModel, child) {
             if (userModel.userId.isEmpty) {
-              // L'utilisateur n'est pas connecté ou les données ne sont pas encore chargées
               return const Center(child: CircularProgressIndicator());
             }
             return _buildContent(context, userModel);
@@ -41,13 +43,20 @@ class ParametrePage extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, UserModel user) {
     return ListView(
+      padding: const EdgeInsets.all(20),
       children: [
         _buildProfileHeader(context, user),
+        const SizedBox(height: 30),
+        Padding(
+          padding: const EdgeInsets.only(
+              left: 5), // Même alignement que "Mon Profil"
+          child: _buildSectionTitle('Mes Services'),
+        ),
         _buildServiceGrid(context),
-        const Padding(
-          padding: EdgeInsets.only(left: 16, top: 16, bottom: 8),
-          child: Text('Découvrir',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 30),
+        Padding(
+          padding: const EdgeInsets.only(left: 5),
+          child: _buildSectionTitle('Découvrir'),
         ),
         _buildDiscoverGrid(context),
         _buildLogoutButton(context, AuthService()),
@@ -55,65 +64,155 @@ class ParametrePage extends StatelessWidget {
     );
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfileHeader(BuildContext context, UserModel user) {
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => Profile(userId: user.userId),
-          ),
-        );
+            context,
+            MaterialPageRoute(
+                builder: (context) => Profile(
+                      userId: user.userId,
+                    )));
       },
       child: Container(
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.all(Radius.circular(5)),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue[600]!, Colors.blue[400]!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.1),
-              blurRadius: 3,
-              spreadRadius: 0,
-              offset: Offset(
-                0,
-                1,
-              ),
-            ),
-            BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.06),
-              blurRadius: 2,
-              spreadRadius: 0,
-              offset: Offset(
-                0,
-                1,
-              ),
+              color: Colors.blue.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
-          color: Colors.white,
         ),
-        height: 60,
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: user.profileUrl.isNotEmpty
-                  ? NetworkImage(user.profileUrl)
-                  : null,
-              backgroundColor: Colors.grey,
-              child: user.profileUrl.isEmpty
-                  ? const Icon(Icons.person, size: 30, color: Colors.white)
-                  : null,
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+              ),
+              child: CircleAvatar(
+                radius: 30,
+                backgroundImage: user.profileUrl.isNotEmpty
+                    ? NetworkImage(user.profileUrl)
+                    : null,
+                backgroundColor: Colors.white,
+                child: user.profileUrl.isEmpty
+                    ? const Icon(Icons.person, size: 35, color: Colors.blue)
+                    : null,
+              ),
             ),
-            const SizedBox(
-              height: 10,
-              width: 10,
-            ),
-            Text(
-              '${user.firstName} ${user.lastName}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            const SizedBox(width: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${user.firstName} ${user.lastName}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const Text(
+                  'Voir le profil',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServiceItem(String title, IconData icon, VoidCallback onTap) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 32, color: Colors.blue[600]),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton(BuildContext context, AuthService authService) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      child: ElevatedButton(
+        onPressed: () => authService.signOut(context),
+        style: ElevatedButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: Colors.red[400],
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(5),
+          ),
+          elevation: 2,
+        ),
+        child: const Text(
+          'Déconnexion',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -124,7 +223,7 @@ class ParametrePage extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 2.5,
+      childAspectRatio: 2,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
@@ -169,7 +268,7 @@ class ParametrePage extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 2.5,
+      childAspectRatio: 2,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
@@ -201,40 +300,6 @@ class ParametrePage extends StatelessWidget {
               MaterialPageRoute(builder: (context) => const ParraiangePage()));
         }),
       ],
-    );
-  }
-
-  Widget _buildServiceItem(String title, IconData icon, VoidCallback onTap) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 24, color: Colors.grey[600]),
-            const SizedBox(height: 4),
-            Text(title,
-                style: TextStyle(fontSize: 12, color: Colors.grey[800])),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogoutButton(BuildContext context, AuthService authService) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ElevatedButton(
-        onPressed: () => authService.signOut(context),
-        style: ElevatedButton.styleFrom(
-          foregroundColor: Colors.black,
-          backgroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 50),
-        ),
-        child: const Text('Déconnexion'),
-      ),
     );
   }
 }

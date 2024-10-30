@@ -103,9 +103,12 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
 
     return AppBar(
       title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(widget.otherUserName),
+          Text(
+            widget.otherUserName,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          ),
           if (widget.ad != null)
             Text(widget.ad!.title, style: const TextStyle(fontSize: 12)),
         ],

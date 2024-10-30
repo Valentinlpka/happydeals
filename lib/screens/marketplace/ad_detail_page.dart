@@ -8,17 +8,23 @@ import 'package:happy/screens/profile.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:provider/provider.dart';
 
-class AdDetailPage extends StatelessWidget {
+class AdDetailPage extends StatefulWidget {
   final Ad ad;
   const AdDetailPage({super.key, required this.ad});
 
+  @override
+  State<AdDetailPage> createState() => _AdDetailPageState();
+}
+
+class _AdDetailPageState extends State<AdDetailPage> {
+  int current = 0; // Ajoutez cette variable dans votre state
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final conversationService = Provider.of<ConversationService>(context);
 
     return Scaffold(
-      appBar: CustomAppBarBack(title: ad.title),
+      appBar: CustomAppBarBack(title: widget.ad.title),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -29,16 +35,16 @@ class AdDetailPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(ad.title,
+                  Text(widget.ad.title,
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 23)),
                   const SizedBox(height: 8),
-                  Text('${ad.price.toStringAsFixed(2)} €',
+                  Text('${widget.ad.price.toStringAsFixed(2)} €',
                       style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
 
                   Text(
-                    ad.formattedDate,
+                    widget.ad.formattedDate,
                     style: const TextStyle(
                       color: Colors.grey,
                       fontSize: 14,
@@ -46,19 +52,21 @@ class AdDetailPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  if (currentUser != null && currentUser.uid != ad.userId)
+                  if (currentUser != null &&
+                      currentUser.uid != widget.ad.userId)
                     ElevatedButton(
                       onPressed: () async {
                         final conversationId = await conversationService
-                            .getOrCreateConversationForAd(
-                                currentUser.uid, ad.userId, ad.id);
+                            .getOrCreateConversationForAd(currentUser.uid,
+                                widget.ad.userId, widget.ad.id);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => ConversationDetailScreen(
                               conversationId: conversationId,
-                              otherUserName: ad.userName,
-                              ad: ad, // Passer l'annonce à l'écran de conversation
+                              otherUserName: widget.ad.userName,
+                              ad: widget
+                                  .ad, // Passer l'annonce à l'écran de conversation
                             ),
                           ),
                         );
@@ -74,7 +82,7 @@ class AdDetailPage extends StatelessWidget {
                     ),
                   const SizedBox(height: 8),
 
-                  Text(ad.description),
+                  Text(widget.ad.description),
                   const SizedBox(height: 16),
 
                   Column(children: [
@@ -96,28 +104,23 @@ class AdDetailPage extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                                 builder: (context) =>
-                                    Profile(userId: ad.userId)));
+                                    Profile(userId: widget.ad.userId)));
                       },
-                      child: Container(
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(5),
-                            border: Border.all(
-                                width: 1,
-                                color:
-                                    const Color.fromARGB(235, 189, 189, 189))),
+                      child: Card(
+                        elevation: 1,
                         child: Padding(
                           padding: const EdgeInsets.all(10.0),
                           child: Row(
                             children: [
                               CircleAvatar(
                                 backgroundImage:
-                                    NetworkImage(ad.userProfilePicture),
+                                    NetworkImage(widget.ad.userProfilePicture),
                               ),
                               const SizedBox(
                                 width: 10,
                               ),
                               Text(
-                                ad.userName,
+                                widget.ad.userName,
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold),
                               )
@@ -142,39 +145,56 @@ class AdDetailPage extends StatelessWidget {
   }
 
   Widget _buildPhotoSection() {
-    if (ad.photos.isEmpty) {
-      return AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Container(color: Colors.grey), // Placeholder si pas de photo
-      );
-    } else if (ad.photos.length == 1) {
-      return AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Image.network(
-          ad.photos[0],
-          fit: BoxFit.fill,
-        ),
-      );
-    } else {
-      return CarouselSlider(
-        options: CarouselOptions(
-          aspectRatio: 16 / 9,
-          viewportFraction: 1.0,
-          enlargeCenterPage: false,
-          enableInfiniteScroll: false,
-        ),
-        items: ad.photos.map((photoUrl) {
-          return Builder(
-            builder: (BuildContext context) {
-              return Image.network(
-                photoUrl,
-                fit: BoxFit.cover,
-                width: MediaQuery.of(context).size.width,
-              );
+    return Stack(
+      children: [
+        CarouselSlider(
+          options: CarouselOptions(
+            aspectRatio: 16 / 9,
+            viewportFraction: 1.0,
+            enlargeCenterPage: false,
+            enableInfiniteScroll: false,
+            onPageChanged: (index, reason) {
+              setState(() {
+                current = index;
+              });
             },
-          );
-        }).toList(),
-      );
-    }
+          ),
+          items: widget.ad.photos.map((photoUrl) {
+            return Builder(
+              builder: (BuildContext context) {
+                return Image.network(
+                  photoUrl,
+                  fit: BoxFit.cover,
+                  width: MediaQuery.of(context).size.width,
+                );
+              },
+            );
+          }).toList(),
+        ),
+        Positioned(
+          bottom: 10,
+          left: 0,
+          right: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: widget.ad.photos.asMap().entries.map((entry) {
+              return Container(
+                width: 7.0, // Augmenté
+                height: 7.0, // Augmenté
+                margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: current == entry.key
+                      ? Colors.black
+                      : Colors.white.withOpacity(0.5),
+                  border: Border.all(
+                      color: Colors.black.withOpacity(0.3)), // Ajouté
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
   }
 }
