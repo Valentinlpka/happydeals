@@ -81,91 +81,147 @@ class _MainContainerState extends State<MainContainer> {
   }
 
   Widget _buildBottomNavigationBar(String currentUserId) {
+    // Détection de la plateforme et calcul de la hauteur safe area
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Colors.pink, Colors.blue],
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      // Safe area pour iOS
+      padding: EdgeInsets.only(
+        bottom: isIOS ? bottomPadding : 0,
       ),
       child: StreamBuilder<Map<String, int>>(
-          stream: Provider.of<ConversationService>(context, listen: false)
-              .getDetailedUnreadCount(currentUserId),
-          builder: (context, snapshot) {
-            final unreadCounts =
-                snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
+        stream: Provider.of<ConversationService>(context, listen: false)
+            .getDetailedUnreadCount(currentUserId),
+        builder: (context, snapshot) {
+          final unreadCounts =
+              snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
 
-            return SalomonBottomBar(
-              itemPadding: const EdgeInsets.all(10),
-              currentIndex: _currentIndex,
-              onTap: setCurrentIndex,
-              backgroundColor: Colors.transparent,
-              unselectedItemColor: Colors.white,
-              items: [
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.home),
-                  title: const Text("Accueil"),
-                  selectedColor: Colors.white,
+          return SalomonBottomBar(
+            margin: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+            itemPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 10,
+            ),
+            currentIndex: _currentIndex,
+            onTap: setCurrentIndex,
+            backgroundColor: Colors.transparent,
+            unselectedItemColor: Colors.white.withOpacity(0.7),
+            items: [
+              _buildNavItem(
+                icon: Icons.home,
+                title: "Accueil",
+              ),
+              _buildNavItem(
+                icon: Icons.search,
+                title: "Rechercher",
+              ),
+              _buildNavItem(
+                icon: Icons.favorite_border,
+                title: "Mes Likes",
+              ),
+              _buildMessageNavItem(unreadCounts),
+              _buildNavItem(
+                icon: Icons.person_outline,
+                title: "Profil",
+              ),
+              _buildNavItem(
+                icon: Icons.shopping_bag_outlined,
+                title: "Panier",
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+// Méthode helper pour créer un item de navigation standard
+  SalomonBottomBarItem _buildNavItem({
+    required IconData icon,
+    required String title,
+  }) {
+    return SalomonBottomBarItem(
+      icon: Icon(
+        icon,
+        size: 24,
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      selectedColor: Colors.white,
+      unselectedColor: Colors.white.withOpacity(0.7),
+    );
+  }
+
+// Méthode helper pour créer l'item de navigation des messages avec badge
+  SalomonBottomBarItem _buildMessageNavItem(Map<String, int> unreadCounts) {
+    return SalomonBottomBarItem(
+      icon: badges.Badge(
+        position: badges.BadgePosition.topEnd(top: -8, end: -8),
+        badgeStyle: const badges.BadgeStyle(
+          padding: EdgeInsets.all(6),
+          badgeColor: Colors.red,
+        ),
+        showBadge: unreadCounts['total']! > 0,
+        badgeContent: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${unreadCounts['total']}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (unreadCounts['ads']! > 0 && unreadCounts['business']! > 0)
+              Container(
+                margin: const EdgeInsets.only(left: 2),
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
                 ),
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.search),
-                  title: const Text("Rechercher"),
-                  selectedColor: Colors.white,
-                ),
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.favorite_border),
-                  title: const Text("Mes Likes"),
-                  selectedColor: Colors.white,
-                ),
-                SalomonBottomBarItem(
-                  icon: badges.Badge(
-                    badgeStyle: const badges.BadgeStyle(
-                      padding: EdgeInsets.all(6),
-                      badgeColor: Colors.red, // Plus visible pour les messages
-                    ),
-                    showBadge: unreadCounts['total']! > 0,
-                    badgeContent: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${unreadCounts['total']}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                        if (unreadCounts['ads']! > 0 &&
-                            unreadCounts['business']! > 0)
-                          Container(
-                            margin: const EdgeInsets.only(left: 2),
-                            width: 4,
-                            height: 4,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                      ],
-                    ),
-                    child: const Icon(Icons.message_outlined),
-                  ),
-                  title: const Text("Messages"),
-                  selectedColor: Colors.white,
-                ),
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.person_outline),
-                  title: const Text("Profil"),
-                  selectedColor: Colors.white,
-                ),
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.shopping_bag_outlined),
-                  title: const Text("Panier"),
-                  selectedColor: Colors.white,
-                ),
-              ],
-            );
-          }),
+              ),
+          ],
+        ),
+        child: const Icon(
+          Icons.message_outlined,
+          size: 24,
+        ),
+      ),
+      title: const Text(
+        "Messages",
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      selectedColor: Colors.white,
+      unselectedColor: Colors.white.withOpacity(0.7),
     );
   }
 
@@ -178,6 +234,8 @@ class _MainContainerState extends State<MainContainer> {
         print('Building MainContainer with userId: $currentUserId'); // Debug
 
         return Scaffold(
+          resizeToAvoidBottomInset: true, // Ajout de cette ligne
+
           body: IndexedStack(
             index: _currentIndex,
             children: [
