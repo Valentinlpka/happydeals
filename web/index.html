@@ -14,21 +14,43 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="happydeals">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="icon" type="image/png" href="favicon.ico" />
+
   <title>Up !</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Configuration du service worker et PWA -->
+  <script>
+    window.flutterConfiguration = {
+      serviceWorkerFetchTimeout: 30000,
+      serviceWorkerActivateTimeout: 30000,
+      loader: 'canvaskit',
+    };
+
+    // The value below is injected by flutter build, do not touch.
+    var serviceWorkerVersion = null;
+  </script>
+
+  <!-- External dependencies -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+  <script src="flutter.js" defer></script>
 </head>
 
 <body>
-  <script src="flutter.js" defer></script>
   <script>
     window.addEventListener('load', function () {
-      _flutter.loader.load({
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+          serviceWorkerUrl: 'flutter_service_worker.js?v=' + serviceWorkerVersion,
+        },
         onEntrypointLoaded: async function (engineInitializer) {
           const appRunner = await engineInitializer.initializeEngine();
           await appRunner.runApp();
@@ -36,6 +58,8 @@
       });
     });
   </script>
+
+  <!-- Geolocation script -->
   <script>
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(function (position) {
@@ -46,10 +70,13 @@
       });
     }
   </script>
+
+  <!-- PDF.js setup -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
   </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 
