@@ -219,24 +219,26 @@ class _MainContainerState extends State<MainContainer> {
           final currentUserId = snapshot.data ?? "";
           print('Building MainContainer with userId: $currentUserId'); // Debug
 
-          return Scaffold(
-            body: IndexedStack(
-              index: _currentIndex,
-              children: _children,
-            ),
-            bottomNavigationBar: StreamBuilder<Map<String, int>>(
-              stream: Provider.of<ConversationService>(context, listen: false)
-                  .getDetailedUnreadCount(currentUserId),
-              builder: (context, snapshot) {
-                final unreadCounts =
-                    snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
+          return SafeArea(
+            child: Scaffold(
+              body: IndexedStack(
+                index: _currentIndex,
+                children: _children,
+              ),
+              bottomNavigationBar: StreamBuilder<Map<String, int>>(
+                stream: Provider.of<ConversationService>(context, listen: false)
+                    .getDetailedUnreadCount(currentUserId),
+                builder: (context, snapshot) {
+                  final unreadCounts =
+                      snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
 
-                return CustomBottomNavBar(
-                  currentIndex: _currentIndex,
-                  onTap: setCurrentIndex,
-                  unreadCounts: unreadCounts,
-                );
-              },
+                  return CustomBottomNavBar(
+                    currentIndex: _currentIndex,
+                    onTap: setCurrentIndex,
+                    unreadCounts: unreadCounts,
+                  );
+                },
+              ),
             ),
           );
         });
