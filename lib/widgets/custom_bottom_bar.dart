@@ -22,9 +22,11 @@ class CustomBottomNavBar extends StatelessWidget {
     final isPwa =
         kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches;
 
+    // Utiliser le padding de 25 uniquement si c'est une PWA sur iOS
+    final extraPadding = (isIOS && isPwa) ? 25.0 : 0.0;
+
     return Container(
-      padding: EdgeInsets.only(bottom: isIOS ? 25 : 0),
-      height: isIOS ? 56 + bottomPadding : 56,
+      height: 56 + extraPadding,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -75,7 +77,7 @@ class CustomBottomNavBar extends StatelessWidget {
               ],
             ),
           ),
-          if (isIOS) SizedBox(height: bottomPadding),
+          if (isIOS && isPwa) const SizedBox(height: 25),
         ],
       ),
     );

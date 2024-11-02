@@ -217,7 +217,6 @@ class _MainContainerState extends State<MainContainer> {
         stream: _currentUserIdStream,
         builder: (context, snapshot) {
           final currentUserId = snapshot.data ?? "";
-          print('Building MainContainer with userId: $currentUserId'); // Debug
 
           return SafeArea(
             child: Scaffold(
