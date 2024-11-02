@@ -23,7 +23,7 @@ class CustomBottomNavBar extends StatelessWidget {
         kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: isPwa ? 25.0 : 0),
+      padding: EdgeInsets.only(bottom: isIOS ? 25.0 : 0),
       child: Container(
         height: isIOS ? 56 + bottomPadding : 56,
         decoration: const BoxDecoration(
