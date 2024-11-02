@@ -1,5 +1,7 @@
 import 'package:badges/badges.dart' as badges;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:universal_html/html.dart' as html;
 
 class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -17,61 +19,66 @@ class CustomBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    final isPwa =
+        kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches;
 
-    return Container(
-      height: isIOS ? 56 + bottomPadding : 56,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.pink, Colors.blue],
-        ),
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildNavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: 'Accueil',
-                  index: 0,
-                ),
-                _buildNavItem(
-                  icon: Icons.search,
-                  activeIcon: Icons.search,
-                  label: 'Rechercher',
-                  index: 1,
-                ),
-                _buildNavItem(
-                  icon: Icons.favorite_outline,
-                  activeIcon: Icons.favorite,
-                  label: 'Likes',
-                  index: 2,
-                ),
-                _buildMessageItem(
-                  index: 3,
-                  unreadCount: unreadCounts['total'] ?? 0,
-                ),
-                _buildNavItem(
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: 'Profil',
-                  index: 4,
-                ),
-                _buildNavItem(
-                  icon: Icons.shopping_bag_outlined,
-                  activeIcon: Icons.shopping_bag,
-                  label: 'Panier',
-                  index: 5,
-                ),
-              ],
-            ),
+    return Padding(
+      padding: EdgeInsets.only(bottom: isPwa ? 25.0 : 0),
+      child: Container(
+        height: isIOS ? 56 + bottomPadding : 56,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.pink, Colors.blue],
           ),
-          if (isIOS) SizedBox(height: bottomPadding),
-        ],
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavItem(
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home,
+                    label: 'Accueil',
+                    index: 0,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.search,
+                    activeIcon: Icons.search,
+                    label: 'Rechercher',
+                    index: 1,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.favorite_outline,
+                    activeIcon: Icons.favorite,
+                    label: 'Likes',
+                    index: 2,
+                  ),
+                  _buildMessageItem(
+                    index: 3,
+                    unreadCount: unreadCounts['total'] ?? 0,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.person_outline,
+                    activeIcon: Icons.person,
+                    label: 'Profil',
+                    index: 4,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.shopping_bag_outlined,
+                    activeIcon: Icons.shopping_bag,
+                    label: 'Panier',
+                    index: 5,
+                  ),
+                ],
+              ),
+            ),
+            if (isIOS) SizedBox(height: bottomPadding),
+          ],
+        ),
       ),
     );
   }
