@@ -10,6 +10,7 @@ import 'package:happy/screens/liked_post_page.dart';
 import 'package:happy/screens/search_page.dart';
 import 'package:happy/screens/settings_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
+import 'package:happy/widgets/custom_bottom_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
@@ -81,74 +82,74 @@ class _MainContainerState extends State<MainContainer> {
   }
 
   Widget _buildBottomNavigationBar(String currentUserId) {
-    // Détection de la plateforme et calcul de la hauteur safe area
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
 
     return Container(
+      height: isIOS ? 50 + bottomPadding : 50, // Hauteur fixe comme Facebook
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Colors.pink, Colors.blue],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey.withOpacity(0.2),
+            width: 0.5,
           ),
-        ],
+        ),
       ),
-      // Safe area pour iOS
-      padding: EdgeInsets.only(
-        bottom: isIOS ? bottomPadding : 0,
-      ),
-      child: StreamBuilder<Map<String, int>>(
-        stream: Provider.of<ConversationService>(context, listen: false)
-            .getDetailedUnreadCount(currentUserId),
-        builder: (context, snapshot) {
-          final unreadCounts =
-              snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
+      child: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<Map<String, int>>(
+              stream: Provider.of<ConversationService>(context, listen: false)
+                  .getDetailedUnreadCount(currentUserId),
+              builder: (context, snapshot) {
+                final unreadCounts =
+                    snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
 
-          return SalomonBottomBar(
-            margin: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
+                return SalomonBottomBar(
+                  itemPadding: const EdgeInsets.symmetric(
+                    horizontal: 0,
+                    vertical: 6,
+                  ),
+                  currentIndex: _currentIndex,
+                  onTap: setCurrentIndex,
+                  backgroundColor: Colors.transparent,
+                  selectedItemColor: Colors.white,
+                  unselectedItemColor: Colors.white.withOpacity(0.7),
+                  items: [
+                    _buildNavItem(
+                      icon: Icons.home,
+                      title: "Accueil",
+                    ),
+                    _buildNavItem(
+                      icon: Icons.search,
+                      title: "Rechercher",
+                    ),
+                    _buildNavItem(
+                      icon: Icons.favorite_border,
+                      title: "Mes Likes",
+                    ),
+                    _buildMessageNavItem(unreadCounts),
+                    _buildNavItem(
+                      icon: Icons.person_outline,
+                      title: "Profil",
+                    ),
+                    _buildNavItem(
+                      icon: Icons.shopping_bag_outlined,
+                      title: "Panier",
+                    ),
+                  ],
+                );
+              },
             ),
-            itemPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 10,
-            ),
-            currentIndex: _currentIndex,
-            onTap: setCurrentIndex,
-            backgroundColor: Colors.transparent,
-            unselectedItemColor: Colors.white.withOpacity(0.7),
-            items: [
-              _buildNavItem(
-                icon: Icons.home,
-                title: "Accueil",
-              ),
-              _buildNavItem(
-                icon: Icons.search,
-                title: "Rechercher",
-              ),
-              _buildNavItem(
-                icon: Icons.favorite_border,
-                title: "Mes Likes",
-              ),
-              _buildMessageNavItem(unreadCounts),
-              _buildNavItem(
-                icon: Icons.person_outline,
-                title: "Profil",
-              ),
-              _buildNavItem(
-                icon: Icons.shopping_bag_outlined,
-                title: "Panier",
-              ),
-            ],
-          );
-        },
+          ),
+          // Ajouter le padding bottom pour iOS
+          if (isIOS) SizedBox(height: bottomPadding),
+        ],
       ),
     );
   }
@@ -161,12 +162,12 @@ class _MainContainerState extends State<MainContainer> {
     return SalomonBottomBarItem(
       icon: Icon(
         icon,
-        size: 24,
+        size: 22, // Taille réduite comme Facebook
       ),
       title: Text(
         title,
         style: const TextStyle(
-          fontSize: 13,
+          fontSize: 11, // Taille réduite comme Facebook
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -179,44 +180,29 @@ class _MainContainerState extends State<MainContainer> {
   SalomonBottomBarItem _buildMessageNavItem(Map<String, int> unreadCounts) {
     return SalomonBottomBarItem(
       icon: badges.Badge(
-        position: badges.BadgePosition.topEnd(top: -8, end: -8),
+        position: badges.BadgePosition.topEnd(top: -4, end: -4),
         badgeStyle: const badges.BadgeStyle(
-          padding: EdgeInsets.all(6),
+          padding: EdgeInsets.all(4),
           badgeColor: Colors.red,
         ),
         showBadge: unreadCounts['total']! > 0,
-        badgeContent: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${unreadCounts['total']}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            if (unreadCounts['ads']! > 0 && unreadCounts['business']! > 0)
-              Container(
-                margin: const EdgeInsets.only(left: 2),
-                width: 4,
-                height: 4,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-              ),
-          ],
+        badgeContent: Text(
+          '${unreadCounts['total']}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         child: const Icon(
           Icons.message_outlined,
-          size: 24,
+          size: 22,
         ),
       ),
       title: const Text(
         "Messages",
         style: TextStyle(
-          fontSize: 13,
+          fontSize: 11,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -228,28 +214,31 @@ class _MainContainerState extends State<MainContainer> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<String>(
-      stream: _currentUserIdStream,
-      builder: (context, snapshot) {
-        final currentUserId = snapshot.data ?? "";
-        print('Building MainContainer with userId: $currentUserId'); // Debug
+        stream: _currentUserIdStream,
+        builder: (context, snapshot) {
+          final currentUserId = snapshot.data ?? "";
+          print('Building MainContainer with userId: $currentUserId'); // Debug
 
-        return Scaffold(
-          resizeToAvoidBottomInset: true, // Ajout de cette ligne
+          return Scaffold(
+            body: IndexedStack(
+              index: _currentIndex,
+              children: _children,
+            ),
+            bottomNavigationBar: StreamBuilder<Map<String, int>>(
+              stream: Provider.of<ConversationService>(context, listen: false)
+                  .getDetailedUnreadCount(currentUserId),
+              builder: (context, snapshot) {
+                final unreadCounts =
+                    snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
 
-          body: IndexedStack(
-            index: _currentIndex,
-            children: [
-              const Home(),
-              const SearchPage(),
-              const LikedPostsPage(),
-              ConversationsListScreen(userId: currentUserId),
-              const ParametrePage(),
-              const CartScreen(),
-            ],
-          ),
-          bottomNavigationBar: _buildBottomNavigationBar(currentUserId),
-        );
-      },
-    );
+                return CustomBottomNavBar(
+                  currentIndex: _currentIndex,
+                  onTap: setCurrentIndex,
+                  unreadCounts: unreadCounts,
+                );
+              },
+            ),
+          );
+        });
   }
 }

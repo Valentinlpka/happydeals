@@ -227,43 +227,122 @@ class ParametrePage extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 2,
+      childAspectRatio: 1.4, // Ajusté pour accommoder le texte sur 2 lignes
       padding: const EdgeInsets.symmetric(horizontal: 16),
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
       children: [
-        _buildServiceItem('Mes deals', Icons.shopping_bag, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const UserOrdersPages()));
-        }),
-        _buildServiceItem('Mes Deals Express', Icons.calendar_today, () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const ReservationListDealExpress()));
-        }),
-        _buildServiceItem('Mes parrainages', Icons.people, () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const UserReferralsPage()));
-        }),
-        _buildServiceItem('Mes candidatures', Icons.work, () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const UserApplicationsPage()));
-        }),
-        _buildServiceItem(
-            'Mes cartes de fidelité', Icons.card_membership_outlined, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => LoyaltyCardsPage()));
-        }),
-        _buildServiceItem('Marketplace', Icons.card_membership_outlined, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const AdListPage()));
-        }),
+        _buildServiceCard(
+          icon: Icons.shopping_bag,
+          title: 'Mes deals',
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const UserOrdersPages()));
+          },
+        ),
+        _buildServiceCard(
+          icon: Icons.calendar_today,
+          title: 'Mes Deals Express',
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const ReservationListDealExpress()));
+          },
+        ),
+        _buildServiceCard(
+          icon: Icons.people,
+          title: 'Mes parrainages',
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const UserReferralsPage()));
+          },
+        ),
+        _buildServiceCard(
+          icon: Icons.work,
+          title: 'Mes candidatures',
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const UserApplicationsPage()));
+          },
+        ),
+        _buildServiceCard(
+          icon: Icons.card_membership,
+          title: 'Mes cartes de fidélité',
+          onTap: () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => LoyaltyCardsPage()));
+          },
+        ),
+        _buildServiceCard(
+          icon: Icons.store,
+          title: 'Marketplace',
+          onTap: () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => const AdListPage()));
+          },
+        ),
       ],
+    );
+  }
+
+  Widget _buildServiceCard({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 32,
+                  color: Colors.blue[600],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[800],
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
