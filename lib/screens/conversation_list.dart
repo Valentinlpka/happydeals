@@ -58,8 +58,14 @@ class ConversationsListScreen extends StatelessWidget {
 
                   final userData =
                       userSnapshot.data!.data() as Map<String, dynamic>;
-                  final String userName =
-                      '${userData['firstName']} ${userData['lastName']}';
+                  // Détermine si on doit utiliser le nom de l'entreprise
+                  final bool shouldUseCompanyName = conversation.adId == null &&
+                      otherUserId == conversation.entrepriseId;
+
+                  final String userName = shouldUseCompanyName
+                      ? userData['companyName'] ?? 'Entreprise'
+                      : '${userData['firstName']} ${userData['lastName']}';
+
                   final String profilePicUrl = userData['image_profile'] ?? '';
 
                   return FutureBuilder<DocumentSnapshot?>(
@@ -84,20 +90,8 @@ class ConversationsListScreen extends StatelessWidget {
                         adThumbnail = photos.isNotEmpty ? photos[0] : null;
                       }
 
-                      print('====== CONVERSATION LIST ITEM DEBUG ======');
-                      print('Current user ID: $userId');
-                      print(
-                          'Conversation unreadCount: ${conversation.unreadCount}');
-                      print('Conversation unreadBy: ${conversation.unreadBy}');
-                      print(
-                          'Conversation lastMessageSenderId: ${conversation.lastMessageSenderId}');
-
-                      // Modification de la condition isUnread
                       final isUnread = conversation.unreadCount > 0 &&
-                          conversation.unreadBy == userId; // Simplifié
-
-                      print('Is unread? $isUnread');
-                      print('==============================');
+                          conversation.unreadBy == userId;
 
                       return Column(
                         children: [

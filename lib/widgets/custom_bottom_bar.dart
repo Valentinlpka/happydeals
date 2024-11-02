@@ -22,63 +22,61 @@ class CustomBottomNavBar extends StatelessWidget {
     final isPwa =
         kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: isIOS ? 25.0 : 0),
-      child: Container(
-        height: isIOS ? 56 + bottomPadding : 56,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.pink, Colors.blue],
-          ),
+    return Container(
+      padding: EdgeInsets.only(bottom: isIOS ? 25 : 0),
+      height: isIOS ? 56 + bottomPadding : 56,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.pink, Colors.blue],
         ),
-        child: Column(
-          children: [
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavItem(
-                    icon: Icons.home_outlined,
-                    activeIcon: Icons.home,
-                    label: 'Accueil',
-                    index: 0,
-                  ),
-                  _buildNavItem(
-                    icon: Icons.search,
-                    activeIcon: Icons.search,
-                    label: 'Rechercher',
-                    index: 1,
-                  ),
-                  _buildNavItem(
-                    icon: Icons.favorite_outline,
-                    activeIcon: Icons.favorite,
-                    label: 'Likes',
-                    index: 2,
-                  ),
-                  _buildMessageItem(
-                    index: 3,
-                    unreadCount: unreadCounts['total'] ?? 0,
-                  ),
-                  _buildNavItem(
-                    icon: Icons.person_outline,
-                    activeIcon: Icons.person,
-                    label: 'Profil',
-                    index: 4,
-                  ),
-                  _buildNavItem(
-                    icon: Icons.shopping_bag_outlined,
-                    activeIcon: Icons.shopping_bag,
-                    label: 'Panier',
-                    index: 5,
-                  ),
-                ],
-              ),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildNavItem(
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home,
+                  label: 'Accueil',
+                  index: 0,
+                ),
+                _buildNavItem(
+                  icon: Icons.search,
+                  activeIcon: Icons.search,
+                  label: 'Rechercher',
+                  index: 1,
+                ),
+                _buildNavItem(
+                  icon: Icons.favorite_outline,
+                  activeIcon: Icons.favorite,
+                  label: 'Likes',
+                  index: 2,
+                ),
+                _buildMessageItem(
+                  index: 3,
+                  unreadCount: unreadCounts['total'] ?? 0,
+                ),
+                _buildNavItem(
+                  icon: Icons.person_outline,
+                  activeIcon: Icons.person,
+                  label: 'Profil',
+                  index: 4,
+                ),
+                _buildNavItem(
+                  icon: Icons.shopping_bag_outlined,
+                  activeIcon: Icons.shopping_bag,
+                  label: 'Panier',
+                  index: 5,
+                ),
+              ],
             ),
-            if (isIOS) SizedBox(height: bottomPadding),
-          ],
-        ),
+          ),
+          if (isIOS) SizedBox(height: bottomPadding),
+        ],
       ),
     );
   }
