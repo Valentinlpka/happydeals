@@ -103,7 +103,7 @@ flutter:
   assets:
     - assets/images/
     - assets/mon_logo.png
-    - assets/UP.png
+    - assets/images/UP.png
     - assets/french_cities.json
 
   #   - images/a_dot_ham.jpeg
