@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
+import 'package:happy/classes/category.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/marketplace/ad_type_selection_page.dart';
@@ -16,6 +17,22 @@ class AdListPage extends StatefulWidget {
 }
 
 class _AdListPageState extends State<AdListPage> {
+  // ... autres variables existantes ...
+
+  // Variables pour les filtres
+  String? selectedType;
+  RangeValues priceRange = const RangeValues(0, 1000);
+  String? selectedCondition;
+  RangeValues yearRange = RangeValues(
+    DateTime.now().year - 20.0,
+    DateTime.now().year.toDouble(),
+  );
+  String? selectedBrand;
+  String? selectedCategory;
+  String? selectedSubCategory;
+  double? minPrice;
+  double? maxPrice;
+
   final ScrollController _scrollController = ScrollController();
   final int _limit = 10;
   DocumentSnapshot? _lastDocument;
@@ -270,57 +287,6 @@ class _AdListPageState extends State<AdListPage> {
     }
   }
 
-  void _loadMoreAds() async {
-    if (_isLoading || !_hasMore) return;
-    setState(() {
-      _isLoading = true;
-    });
-    Query query = FirebaseFirestore.instance
-        .collection('ads')
-        .where('status', isNotEqualTo: 'sold')
-        .orderBy('status')
-        .orderBy('createdAt', descending: true);
-
-    if (_selectedFilter != 'Tous') {
-      String adType;
-      switch (_selectedFilter.toLowerCase()) {
-        case 'articles':
-          adType = 'article';
-          break;
-        case 'véhicules':
-          adType = 'vehicle';
-          break;
-        case 'troc':
-          adType = 'exchange';
-          break;
-        default:
-          adType = _selectedFilter.toLowerCase();
-      }
-      query = query.where('adType', isEqualTo: adType);
-    }
-    query = query.limit(_limit);
-    if (_lastDocument != null) {
-      query = query.startAfterDocument(_lastDocument!);
-    }
-
-    final snapshot = await query.get();
-    if (snapshot.docs.isEmpty) {
-      setState(() {
-        _hasMore = false;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    _lastDocument = snapshot.docs.last;
-    final newAds = await Future.wait(
-        snapshot.docs.map((doc) => Ad.fromFirestore(doc)).toList());
-    setState(() {
-      _ads.addAll(newAds);
-      _isLoading = false;
-    });
-  }
-
   void _resetAndReloadAds() {
     setState(() {
       _ads.clear();
@@ -333,22 +299,723 @@ class _AdListPageState extends State<AdListPage> {
   void _showFilterOptions() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Filtres avancés',
-                  style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              // Ajoutez ici des options de filtrage plus avancées
-              // Par exemple, des sliders pour la fourchette de prix, des checkboxes pour les catégories, etc.
-            ],
-          ),
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.9,
+              maxChildSize: 0.9,
+              minChildSize: 0.5,
+              expand: false,
+              builder: (context, scrollController) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Filtres',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Type de l'annonce
+                      Text(
+                        'Type d\'annonce',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _buildTypeChip(
+                            'Articles',
+                            Icons.shopping_bag,
+                            selectedType == 'article',
+                            () => setState(() => selectedType = 'article'),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildTypeChip(
+                            'Véhicules',
+                            Icons.directions_car,
+                            selectedType == 'vehicle',
+                            () => setState(() => selectedType = 'vehicle'),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildTypeChip(
+                            'Troc',
+                            Icons.swap_horiz,
+                            selectedType == 'exchange',
+                            () => setState(() => selectedType = 'exchange'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Filtres spécifiques selon le type
+                      if (selectedType != null) ...[
+                        _buildSpecificFilters(selectedType!, setState),
+                      ],
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  selectedType = null;
+                                  priceRange = const RangeValues(0, 1000);
+                                  selectedCondition = null;
+                                  yearRange = RangeValues(
+                                    DateTime.now().year - 20.0,
+                                    DateTime.now().year.toDouble(),
+                                  );
+                                  selectedBrand = null;
+                                  selectedCategory = null;
+                                  selectedSubCategory = null;
+                                });
+                              },
+                              child: const Text('Réinitialiser'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                // Appliquer les filtres
+                                Navigator.pop(context);
+                                _applyFilters();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue[600],
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: const Text('Appliquer'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
       },
+    );
+  }
+
+// Pour gérer les variables des filtres au niveau de la classe
+  Map<String, dynamic> _activeFilters = {};
+
+  void _applyFilters() {
+    setState(() {
+      _ads.clear();
+      _lastDocument = null;
+      _hasMore = true;
+      _activeFilters = {
+        if (selectedType != null) 'type': selectedType,
+        if (priceRange.start > 0) 'minPrice': priceRange.start,
+        if (priceRange.end < 1000) 'maxPrice': priceRange.end,
+        if (selectedCondition != null) 'condition': selectedCondition,
+        if (selectedBrand != null) 'brand': selectedBrand,
+        if (selectedCategory != null) 'category': selectedCategory,
+        if (selectedSubCategory != null) 'subCategory': selectedSubCategory,
+      };
+    });
+    _loadMoreAds();
+  }
+
+// Mettre à jour _loadMoreAds pour prendre en compte les filtres
+  void _loadMoreAds() async {
+    if (_isLoading || !_hasMore) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    Query query = FirebaseFirestore.instance
+        .collection('ads')
+        .where('status', isNotEqualTo: 'sold')
+        .orderBy('status')
+        .orderBy('createdAt', descending: true);
+
+    // Appliquer les filtres
+    if (_activeFilters.isNotEmpty) {
+      if (_activeFilters['type'] != null) {
+        query = query.where('adType', isEqualTo: _activeFilters['type']);
+      }
+      if (_activeFilters['category'] != null) {
+        query = query.where('category', isEqualTo: _activeFilters['category']);
+      }
+      if (_activeFilters['condition'] != null) {
+        query =
+            query.where('condition', isEqualTo: _activeFilters['condition']);
+      }
+      if (_activeFilters['minPrice'] != null) {
+        query = query.where('price',
+            isGreaterThanOrEqualTo: _activeFilters['minPrice']);
+      }
+      if (_activeFilters['maxPrice'] != null) {
+        query = query.where('price',
+            isLessThanOrEqualTo: _activeFilters['maxPrice']);
+      }
+      if (_activeFilters['brand'] != null) {
+        query = query.where('brand', isEqualTo: _activeFilters['brand']);
+      }
+    }
+
+    query = query.limit(_limit);
+    if (_lastDocument != null) {
+      query = query.startAfterDocument(_lastDocument!);
+    }
+
+    try {
+      final snapshot = await query.get();
+      if (snapshot.docs.isEmpty) {
+        setState(() {
+          _hasMore = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      _lastDocument = snapshot.docs.last;
+      final newAds = await Future.wait(
+          snapshot.docs.map((doc) => Ad.fromFirestore(doc)).toList());
+
+      setState(() {
+        _ads.addAll(newAds);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      print('Erreur lors du chargement des annonces: $e');
+    }
+  }
+
+  Widget _buildTypeChip(
+      String label, IconData icon, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue[600] : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.blue[600]! : Colors.grey[300]!,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? Colors.white : Colors.grey[600],
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey[600],
+                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpecificFilters(String type, StateSetter setState) {
+    switch (type) {
+      case 'article':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildPriceRangeFilter(setState),
+            const SizedBox(height: 20),
+            _buildConditionFilter(setState),
+            const SizedBox(height: 20),
+            _buildCategoryFilter(setState),
+          ],
+        );
+      case 'vehicle':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildPriceRangeFilter(setState),
+            const SizedBox(height: 20),
+            _buildBrandFilter(setState),
+            const SizedBox(height: 20),
+            _buildYearFilter(setState),
+          ],
+        );
+      case 'exchange':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCategoryFilter(setState),
+            const SizedBox(height: 20),
+            _buildConditionFilter(setState),
+          ],
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildPriceRangeFilter(StateSetter setBottomSheetState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Fourchette de prix',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${priceRange.start.round()}€'),
+                  Text('${priceRange.end.round()}€'),
+                ],
+              ),
+              RangeSlider(
+                values: priceRange,
+                min: 0,
+                max: 1000,
+                divisions: 20,
+                labels: RangeLabels(
+                  '${priceRange.start.round()}€',
+                  '${priceRange.end.round()}€',
+                ),
+                onChanged: (RangeValues values) {
+                  setBottomSheetState(() {
+                    priceRange = values;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConditionFilter(StateSetter setBottomSheetState) {
+    final conditions = [
+      'Neuf',
+      'Très bon état',
+      'Bon état',
+      'État satisfaisant',
+      'Pour pièces'
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'État',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: conditions.length,
+            separatorBuilder: (context, index) => Divider(
+              height: 1,
+              color: Colors.grey[300],
+            ),
+            itemBuilder: (context, index) {
+              final condition = conditions[index];
+              return RadioListTile<String>(
+                title: Text(condition),
+                value: condition,
+                groupValue: selectedCondition,
+                onChanged: (value) {
+                  setBottomSheetState(() {
+                    selectedCondition = value;
+                  });
+                },
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryFilter(StateSetter setState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Catégorie',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () {
+                // Utiliser votre sélecteur de catégorie existant
+                _showCategoryPicker();
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      selectedSubCategory ?? 'Sélectionner une catégorie',
+                      style: TextStyle(
+                        color: selectedSubCategory != null
+                            ? Colors.black
+                            : Colors.grey[600],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios,
+                        size: 16, color: Colors.grey[600]),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCategoryPicker() {
+    // Charger les catégories depuis votre JSON
+    final categories = [
+      Category.fromJson({
+        "nom": "Véhicules",
+        "sous-catégories": ["Voitures", "Motos", "Caravaning", "Nautisme"]
+      }),
+      Category.fromJson({
+        "nom": "Équipements",
+        "sous-catégories": [
+          "Équipement auto",
+          "Équipement moto",
+          "Équipement vélo",
+          "Équipements pour bureau",
+          "Équipements pour restaurants",
+          "Équipements pour hôtels",
+          "Équipements médicaux"
+        ]
+      }),
+      // ... autres catégories
+    ];
+
+    String? tempCategory;
+    String? tempSubCategory;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.grey[50],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return SizedBox(
+              height: MediaQuery.of(context).size.height * 0.8,
+              child: Column(
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey[300]!),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Sélectionner une catégorie',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Content
+                  Expanded(
+                    child: Row(
+                      children: [
+                        // Catégories principales
+                        Expanded(
+                          child: Container(
+                            color: Colors.white,
+                            child: ListView.builder(
+                              itemCount: categories.length,
+                              itemBuilder: (context, index) {
+                                final category = categories[index];
+                                final isSelected =
+                                    category.name == tempCategory;
+                                return Container(
+                                  color: isSelected
+                                      ? Colors.blue.withOpacity(0.1)
+                                      : null,
+                                  child: ListTile(
+                                    title: Text(
+                                      category.name,
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? Colors.blue[600]
+                                            : Colors.black,
+                                        fontWeight:
+                                            isSelected ? FontWeight.bold : null,
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      setState(() {
+                                        tempCategory = category.name;
+                                        tempSubCategory = null;
+                                      });
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        // Sous-catégories
+                        Expanded(
+                          child: Container(
+                            color: Colors.grey[50],
+                            child: tempCategory == null
+                                ? const Center(
+                                    child: Text('Sélectionnez une catégorie'),
+                                  )
+                                : ListView.builder(
+                                    itemCount: categories
+                                        .firstWhere(
+                                            (cat) => cat.name == tempCategory)
+                                        .subCategories
+                                        .length,
+                                    itemBuilder: (context, index) {
+                                      final subCategories = categories
+                                          .firstWhere(
+                                              (cat) => cat.name == tempCategory)
+                                          .subCategories;
+                                      final subCategory = subCategories[index];
+                                      final isSelected =
+                                          subCategory == tempSubCategory;
+
+                                      return ListTile(
+                                        title: Text(
+                                          subCategory,
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? Colors.blue[600]
+                                                : Colors.black,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : null,
+                                          ),
+                                        ),
+                                        onTap: () {
+                                          setState(() {
+                                            tempSubCategory = subCategory;
+                                          });
+                                          // Mettre à jour les sélections et fermer
+                                          this.setState(() {
+                                            selectedCategory = tempCategory;
+                                            selectedSubCategory =
+                                                tempSubCategory;
+                                          });
+                                          Navigator.pop(context);
+                                        },
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBrandFilter(StateSetter setState) {
+    List<String> brands = []; // À remplir selon le type de véhicule
+    String? selectedBrand;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Marque',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: selectedBrand,
+              isExpanded: true,
+              hint: const Text('Sélectionner une marque'),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              items: brands.map((brand) {
+                return DropdownMenuItem(
+                  value: brand,
+                  child: Text(brand),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedBrand = value;
+                });
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildYearFilter(StateSetter setState) {
+    RangeValues? currentYearRange = RangeValues(
+      DateTime.now().year - 20.0,
+      DateTime.now().year.toDouble(),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Année',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${currentYearRange.start.round()}'),
+                  Text('${currentYearRange.end.round()}'),
+                ],
+              ),
+              RangeSlider(
+                values: currentYearRange,
+                min: DateTime.now().year - 50.0,
+                max: DateTime.now().year.toDouble(),
+                divisions: 50,
+                labels: RangeLabels(
+                  '${currentYearRange.start.round()}',
+                  '${currentYearRange.end.round()}',
+                ),
+                onChanged: (RangeValues values) {
+                  setState(() {
+                    currentYearRange = values;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
