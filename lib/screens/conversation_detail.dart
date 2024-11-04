@@ -482,7 +482,7 @@ class MessageBubble extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
               decoration: BoxDecoration(
-                color: isMe ? Theme.of(context).primaryColor : Colors.grey[300],
+                color: isMe ? Colors.blue[600] : Colors.grey[300],
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(

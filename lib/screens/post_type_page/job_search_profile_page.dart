@@ -86,25 +86,26 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                         'Partager le téléphone',
                         userModel.showPhone,
                         (value) => userModel.showPhone = value),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildTextField(
                         'Poste recherché',
                         userModel.desiredPosition,
                         (value) => userModel.desiredPosition = value),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildDropdownField(
-                      'Secteur d\'activité',
-                      userModel.industrySector,
-                      (value) => userModel.industrySector = value!,
-                      _industrySectors,
-                    ),
-                    const SizedBox(height: 16),
+                        'Secteur d\'activité',
+                        userModel.industrySector,
+                        (value) => userModel.industrySector = value!,
+                        _industrySectors),
+                    const SizedBox(height: 24),
                     _buildCVUpload(userModel),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildTextField('Description', userModel.description,
                         (value) => userModel.description = value,
                         maxLines: 3),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
+                    // ... le reste des champs avec le même espacement
+
                     _buildDropdownField('Disponibilité', userModel.availability,
                         (value) => userModel.availability = value!, [
                       'Tout de suite',
@@ -112,9 +113,9 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                       'Dans 3 mois',
                       'À définir'
                     ]),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildContractTypes(userModel),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildDropdownField(
                         'Horaire',
                         userModel.workingHours,
@@ -178,24 +179,48 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
   Widget _buildTextField(
       String label, String initialValue, Function(String) onSaved,
       {int maxLines = 1}) {
-    return TextFormField(
-      initialValue: initialValue,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
         ),
-        filled: true,
-        fillColor: Colors.grey[100],
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Ce champ ne peut pas être vide';
-        }
-        return null;
-      },
-      onSaved: (value) => onSaved(value!),
+        const SizedBox(height: 8),
+        TextFormField(
+          initialValue: initialValue,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.blue[600]!),
+            ),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Ce champ ne peut pas être vide';
+            }
+            return null;
+          },
+          onSaved: (value) => onSaved(value!),
+        ),
+      ],
     );
   }
 
@@ -311,30 +336,50 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
 
   Widget _buildDropdownField(String label, String? value,
       Function(String?) onChanged, List<String> items) {
-    // Assurez-vous que la valeur actuelle est dans la liste des éléments
-    if (value != null && !items.contains(value)) {
-      value = null; // Réinitialisez la valeur si elle n'est pas dans la liste
-    }
-
-    return DropdownButtonFormField<String>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
         ),
-        filled: true,
-        fillColor: Colors.grey[100],
-      ),
-      items: items.map((String item) {
-        return DropdownMenuItem<String>(
-          value: item,
-          child: Text(item),
-        );
-      }).toList(),
-      onChanged: onChanged,
-      // Ajoutez un hint pour gérer le cas où la valeur est null
-      hint: Text('Sélectionnez $label'),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: value,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.blue[600]!),
+            ),
+          ),
+          items: items.map((String item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item),
+            );
+          }).toList(),
+          onChanged: onChanged,
+          hint: Text('Sélectionnez $label'),
+          icon: const Icon(Icons.arrow_drop_down),
+          isExpanded: true,
+        ),
+      ],
     );
   }
 

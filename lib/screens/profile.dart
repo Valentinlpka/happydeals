@@ -57,8 +57,9 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    const double coverHeight = 200.0; // Hauteur de l'image de couverture
+
     return Scaffold(
-      appBar: AppBar(),
       body: StreamBuilder<DocumentSnapshot>(
         stream: _userStream,
         builder: (context, snapshot) {
@@ -73,11 +74,61 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
           }
 
           final userData = snapshot.data!.data() as Map<String, dynamic>;
+          final userName =
+              '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
+                  .trim();
 
           return NestedScrollView(
             headerSliverBuilder:
                 (BuildContext context, bool innerBoxIsScrolled) {
               return <Widget>[
+                SliverAppBar(
+                  floating: false,
+                  pinned: true,
+                  expandedHeight: coverHeight,
+                  flexibleSpace: FlexibleSpaceBar(
+                    title: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 300),
+                      opacity: innerBoxIsScrolled ? 1.0 : 0.0,
+                      child: Text(userName),
+                    ),
+                    background: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Image de couverture
+                        userData['coverImage'] != null &&
+                                userData['coverImage'].isNotEmpty
+                            ? Image.network(
+                                userData['coverImage'],
+                                fit: BoxFit.cover,
+                              )
+                            : Image.asset(
+                                'images/UP.png', // Créez une image par défaut
+                                fit: BoxFit.cover,
+                              ),
+                        // Overlay avec dégradé
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withOpacity(0.3),
+                                Colors.black.withOpacity(0.5),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Overlay avec opacité
+                        Container(
+                          color: Colors.white.withOpacity(0.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  elevation: innerBoxIsScrolled ? 1 : 0,
+                ),
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
@@ -236,26 +287,64 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
       builder: (context, userModel, _) {
         final bool isCurrentUser = userModel.userId == widget.userId;
         return Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
             children: [
-              _buildProfileImage(userData['image_profile'] as String?),
-              const SizedBox(height: 16),
-              Text(
-                '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
-                    .trim(),
-                style: Theme.of(context).textTheme.titleLarge,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start, // Changé en start
+                children: [
+                  _buildProfileImage(userData['image_profile'] as String?),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
+                              .trim(),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (isCurrentUser) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                '${userData['uniqueCode'] ?? 'Non défini'}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              IconButton(
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(),
+                                icon: Icon(
+                                  Icons.help_outline,
+                                  size: 16,
+                                  color: Colors.grey[600],
+                                ),
+                                onPressed: () => _showIdentifierInfo(context),
+                              ),
+                            ],
+                          ),
+                          _buildFollowButton(widget.userId, userModel),
+                        ] else ...[
+                          const SizedBox(height: 8),
+                          _buildFollowButton(widget.userId, userModel),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              if (isCurrentUser) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Identifiant : ${userData['uniqueCode'] ?? 'Non défini'}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-              const SizedBox(height: 16),
-              _buildFollowButton(widget.userId, userModel),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _buildUserStats(userData),
             ],
           ),
@@ -264,16 +353,116 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
     );
   }
 
+  void _showIdentifierInfo(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'À propos de l\'identifiant',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Votre identifiant unique est un code qui vous permet d\'être facilement identifiable par d\'autres utilisateurs. Il peut être utilisé pour :',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[800],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildInfoPoint('Partager votre profil facilement'),
+              _buildInfoPoint('Être retrouvé par vos amis'),
+              _buildInfoPoint('Sécuriser votre compte'),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, size: 20, color: Colors.blue[600]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, int count) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          count.toString(),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
   Widget _buildProfileImage(String? imageUrl) {
-    return CircleAvatar(
-      radius: 50,
-      backgroundColor: Colors.grey[200],
-      backgroundImage: imageUrl != null && imageUrl.isNotEmpty
-          ? NetworkImage(imageUrl)
-          : null,
-      child: imageUrl == null || imageUrl.isEmpty
-          ? const Icon(Icons.person, size: 50, color: Colors.grey)
-          : null,
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.blue[600]!,
+          width: 3,
+        ),
+      ),
+      child: CircleAvatar(
+        radius: 40,
+        backgroundColor: Colors.grey[200],
+        backgroundImage: imageUrl != null && imageUrl.isNotEmpty
+            ? NetworkImage(imageUrl)
+            : null,
+        child: imageUrl == null || imageUrl.isEmpty
+            ? const Icon(Icons.person, size: 50, color: Colors.grey)
+            : null,
+      ),
     );
   }
 
@@ -330,21 +519,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
     };
   }
 
-  Widget _buildStatItem(String label, int count) {
-    return Column(
-      children: [
-        Text(
-          count.toString(),
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
-    );
-  }
-
   Future<int> _getAdsCount(String userId) async {
     QuerySnapshot adsSnapshot = await FirebaseFirestore.instance
         .collection('ads')
@@ -358,31 +532,55 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
     bool isCurrentUser = userModel.userId == profileUserId;
 
     if (isCurrentUser) {
-      return ElevatedButton.icon(
-        icon: const Icon(Icons.edit),
-        label: const Text('Modifier mon profil'),
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const GeneralProfilePage()),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue[700],
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      return Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: TextButton.icon(
+          icon: const Icon(
+            Icons.edit_outlined,
+            size: 16,
+            color: Colors.black,
+          ),
+          label: const Text(
+            'Modifier mon profil',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const GeneralProfilePage()),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey[100],
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            alignment: Alignment.centerLeft,
+          ),
         ),
       );
     }
 
     return ElevatedButton.icon(
-      icon: Icon(isFollowing ? Icons.person : Icons.person_add),
-      label: Text(isFollowing ? 'Abonné' : 'S\'abonner'),
+      icon: Icon(
+        isFollowing ? Icons.person : Icons.person_add,
+        size: 18,
+        color: Colors.black,
+      ),
+      label: Text(
+        isFollowing ? 'Abonné' : 'S\'abonner',
+        style: const TextStyle(fontSize: 14, color: Colors.black),
+      ),
       onPressed: () {
         if (!isFollowing) {
           userModel.followUser(profileUserId);
         }
       },
       style: ElevatedButton.styleFrom(
-        backgroundColor: isFollowing ? Colors.grey : Colors.blue,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        backgroundColor: isFollowing ? Colors.grey[100] : Colors.blue[600],
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }

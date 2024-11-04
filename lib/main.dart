@@ -115,8 +115,8 @@ class MyApp extends StatelessWidget {
       splashColor: Colors.transparent, // <- Here
       highlightColor: Colors.transparent, // <- Here
       hoverColor: Colors.transparent, // <- Here
-      primaryColorLight: Colors.blue,
-      primaryColorDark: Colors.blue,
+      primaryColorLight: Colors.white,
+      primaryColorDark: Colors.black,
       textTheme: GoogleFonts.nunitoSansTextTheme(Theme.of(context).textTheme),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -129,10 +129,16 @@ class MyApp extends StatelessWidget {
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
-      primaryColor: Colors.blue,
+      primaryColor: Colors.blue[600],
       brightness: Brightness.light,
       appBarTheme: AppBarTheme(
-          surfaceTintColor: Colors.white, backgroundColor: Colors.grey[50]),
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.grey[50],
+            statusBarBrightness: Brightness.light,
+            statusBarIconBrightness: Brightness.dark,
+          ),
+          surfaceTintColor: Colors.white,
+          backgroundColor: Colors.grey[50]),
 
       useMaterial3: true,
       colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blue),

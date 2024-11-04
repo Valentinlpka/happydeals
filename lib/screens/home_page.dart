@@ -190,7 +190,7 @@ class _HomeState extends State<Home> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                const Icon(Icons.location_on, color: Colors.blue),
+                Icon(Icons.location_on, color: Colors.blue[600]),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -340,7 +340,7 @@ class _HomeState extends State<Home> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.grey[50],
       builder: (context) => Consumer<HomeProvider>(
         builder: (context, homeProvider, _) {
           return StatefulBuilder(
@@ -349,9 +349,9 @@ class _HomeState extends State<Home> {
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom,
                 ),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(20),
                     topRight: Radius.circular(20),
                   ),
@@ -374,7 +374,7 @@ class _HomeState extends State<Home> {
                         ElevatedButton(
                           style: ButtonStyle(
                             backgroundColor:
-                                WidgetStateProperty.all(Colors.blue[800]),
+                                WidgetStateProperty.all(Colors.blue[700]),
                           ),
                           onPressed: () async {
                             Navigator.pop(context);
@@ -401,30 +401,56 @@ class _HomeState extends State<Home> {
         onLocationUpdated: () {},
       );
     } else {
-      return GooglePlaceAutoCompleteTextField(
-        textEditingController: homeProvider.addressController,
-        googleAPIKey: "AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc",
-        inputDecoration: const InputDecoration(
-          hintText: "Rechercher une ville",
-          alignLabelWithHint: true,
-          icon: Padding(
-            padding: EdgeInsets.only(left: 10.0),
-            child: Icon(Icons.location_on),
-          ),
-          isCollapsed: false,
-          contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 10),
-          border: InputBorder.none,
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05), // Ombre très légère
+              spreadRadius: 0,
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        debounceTime: 800,
-        countries: const ["fr"],
-        isLatLngRequired: true,
-        seperatedBuilder: const Divider(color: Colors.black12, height: 2),
-        getPlaceDetailWithLatLng: (Prediction prediction) async {
-          await homeProvider.updateLocationFromPrediction(prediction);
-        },
-        itemClick: (Prediction prediction) {
-          homeProvider.addressController.text = prediction.description ?? "";
-        },
+        child: GooglePlaceAutoCompleteTextField(
+          textEditingController: homeProvider.addressController,
+          googleAPIKey: "AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc",
+          inputDecoration: InputDecoration(
+            hintText: "Rechercher une ville",
+            hintStyle: TextStyle(color: Colors.grey[400]),
+            alignLabelWithHint: true,
+            prefixIcon: const Icon(Icons.location_on, color: Colors.grey),
+            filled: true,
+            fillColor: Colors.white,
+            isCollapsed: false,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+            // Suppression complète des bordures
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none, // Pas de bordure
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none, // Pas de bordure au focus
+            ),
+          ),
+          debounceTime: 800,
+          countries: const ["fr"],
+          isLatLngRequired: true,
+          seperatedBuilder: Divider(
+            color: Colors.grey[100],
+            height: 1,
+          ),
+          getPlaceDetailWithLatLng: (Prediction prediction) async {
+            await homeProvider.updateLocationFromPrediction(prediction);
+          },
+          itemClick: (Prediction prediction) {
+            homeProvider.addressController.text = prediction.description ?? "";
+          },
+        ),
       );
     }
   }

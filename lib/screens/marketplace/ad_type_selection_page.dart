@@ -45,14 +45,6 @@ class AdTypeSelectionScreen extends StatelessWidget {
                   ),
                   _buildAdTypeCard(
                     context,
-                    'Bien immobilier à vendre ou à louer',
-                    'Passez une annonce pour une maison ou un appartement à vendre ou à louer.',
-                    Icons.home,
-                    Colors.orange.shade100,
-                    () => _navigateToAdCreation(context, 'property'),
-                  ),
-                  _buildAdTypeCard(
-                    context,
                     'Troc et Échange',
                     'Échangez des articles ou des services avec d\'autres utilisateurs.',
                     Icons.swap_horiz,

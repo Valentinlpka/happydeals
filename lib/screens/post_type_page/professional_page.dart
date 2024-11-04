@@ -80,7 +80,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
                           }
                         },
                         child: const Text('Enregistrer',
-                            style: TextStyle(fontSize: 18)),
+                            style: TextStyle(fontSize: 16)),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -117,11 +117,26 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
         initialValue: initialValue,
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+          labelStyle: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 14,
           ),
           filled: true,
-          fillColor: Colors.grey[100],
+          fillColor: Colors.white,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: Colors.blue[600]!),
+          ),
         ),
         validator: (value) {
           if (value == null || value.isEmpty) {

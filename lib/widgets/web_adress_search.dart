@@ -61,34 +61,75 @@ class _WebAddressSearchState extends State<WebAddressSearch> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        TextField(
-          controller: widget.homeProvider.addressController,
-          decoration: const InputDecoration(
-            hintText: "Rechercher une ville",
-            prefixIcon: Icon(Icons.location_on),
-            border: OutlineInputBorder(),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 0,
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          onChanged: (value) {
-            _getAddressPredictions(value);
-          },
+          child: TextField(
+            controller: widget.homeProvider.addressController,
+            decoration: InputDecoration(
+              hintText: "Rechercher une ville",
+              hintStyle: TextStyle(color: Colors.grey[400]),
+              prefixIcon: const Icon(Icons.location_on, color: Colors.grey),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onChanged: (value) {
+              _getAddressPredictions(value);
+            },
+          ),
         ),
         if (_predictions.isNotEmpty)
-          SizedBox(
-            height: 200,
-            child: ListView.builder(
-              itemCount: _predictions.length,
-              itemBuilder: (context, index) {
-                final prediction = _predictions[index];
-                return ListTile(
-                  title: Text(prediction['place_name'] ?? ''),
-                  onTap: () async {
-                    await _selectPlace(prediction);
-                    setState(() {
-                      _predictions = [];
-                    });
-                  },
-                );
-              },
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  spreadRadius: 0,
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: SizedBox(
+              height: 200,
+              child: ListView.builder(
+                itemCount: _predictions.length,
+                itemBuilder: (context, index) {
+                  final prediction = _predictions[index];
+                  return ListTile(
+                    title: Text(prediction['place_name'] ?? ''),
+                    onTap: () async {
+                      await _selectPlace(prediction);
+                      setState(() {
+                        _predictions = [];
+                      });
+                    },
+                  );
+                },
+              ),
             ),
           ),
       ],
