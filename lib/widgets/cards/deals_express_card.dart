@@ -80,7 +80,7 @@ class DealsExpressCard extends StatelessWidget {
                             BlendMode.darken),
                         alignment: Alignment.center,
                         fit: BoxFit.cover,
-                        image: const AssetImage('images/UP.png'),
+                        image: const AssetImage('assets/images/UP.png'),
                       ),
                     ),
                     height: 123,

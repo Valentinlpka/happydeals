@@ -103,7 +103,7 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                                 fit: BoxFit.cover,
                               )
                             : Image.asset(
-                                'images/UP.png', // Créez une image par défaut
+                                'assets/images/UP.png', // Créez une image par défaut
                                 fit: BoxFit.cover,
                               ),
                         // Overlay avec dégradé
