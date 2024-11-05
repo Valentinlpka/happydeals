@@ -390,7 +390,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'userId': user.uid,
         'isWeb': kIsWeb,
         'successUrl':
-            'https://valentinlpka.github.io/happydeals/payment-success',
+            'https://valentinlpka.github.io/happydeals/#/payment-success',
         'cancelUrl':
             'https://valentinlpka.github.io/happydeals/#/payment-cancel',
       });
