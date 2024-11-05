@@ -27,10 +27,4 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: gh-pages
-      - name: Update base href in index.html
-        run: |
-          sed -i 's/<base href="\/happydeals\/">//' index.html
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git commit -am "Update base href in index.html"
-          git push
+     
