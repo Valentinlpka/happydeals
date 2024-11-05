@@ -390,7 +390,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'userId': user.uid,
         'isWeb': kIsWeb,
         'successUrl':
-            'https://valentinlpka.github.io/happydeals/#/payment-success',
+            'https://valentinlpka.github.io/happydeals/payment-success',
         'cancelUrl':
             'https://valentinlpka.github.io/happydeals/#/payment-cancel',
       });
@@ -398,6 +398,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (kIsWeb) {
         final url = result.data['url'] as String;
         final redirectUrl = Uri.parse(url).toString();
+
         html.window.location.href = redirectUrl;
       } else {
         await _handleMobilePayment(result.data);
