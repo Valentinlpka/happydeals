@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 import 'package:happy/classes/combined_item.dart';
@@ -32,8 +33,24 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+    _requestLocation();
+
     _loadData();
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _requestLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      // Mettez à jour la position dans votre provider
+      Provider.of<HomeProvider>(context, listen: false)
+          .updateLocation(position);
+    } catch (e) {
+      print('Erreur de géolocalisation : $e');
+      // Gérer l'erreur de géolocalisation
+    }
   }
 
   Future<void> _loadData() async {

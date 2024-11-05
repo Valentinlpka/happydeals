@@ -29,6 +29,7 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -38,7 +39,6 @@ void main() async {
   );
 
   if (kIsWeb) {
-    usePathUrlStrategy();
   } else {
     Stripe.publishableKey =
         'pk_test_51LTLueEdQ2kxvmjkFjbvo65zeyYFfgfwZJ4yX8msvLiOkHju26pIj77RZ1XaZOoCG6ULyzn95z1irjk18AsNmwZx00OlxLu8Yt';
@@ -51,8 +51,6 @@ void main() async {
 
   await initializeDateFormatting('fr_FR', null);
   timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
-
-  usePathUrlStrategy();
 
   runApp(const MyApp());
 }

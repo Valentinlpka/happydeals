@@ -44,6 +44,13 @@ class HomeProvider extends ChangeNotifier {
   String get errorMessage =>
       _errorMessage ?? "Une erreur inconnue est survenue";
 
+  void updateLocation(Position position) {
+    _currentPosition = position;
+    // Mettre à jour l'adresse et d'autres données liées à la position
+    // ...
+    notifyListeners();
+  }
+
   Future<List<CombinedItem>> loadUnifiedFeed(
       List<String> likedCompanies, List<String> followedUsers) async {
     try {
