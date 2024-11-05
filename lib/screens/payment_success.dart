@@ -7,8 +7,14 @@ import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:happy/services/promo_service.dart';
 
+
 class PaymentSuccessScreen extends StatefulWidget {
-  const PaymentSuccessScreen({super.key});
+  final String? sessionId;
+  
+  const PaymentSuccessScreen({
+    this.sessionId,
+    super.key,
+  });
 
   @override
   _PaymentSuccessScreenState createState() => _PaymentSuccessScreenState();
@@ -24,9 +30,16 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   String _statusMessage = 'Vérification du paiement en cours...';
 
   @override
-  void initState() {
+    void initState() {
     super.initState();
-    _verifyPaymentAndFinalizeOrder();
+    if (widget.sessionId == null) {
+      // Si pas de sessionId, rediriger vers la page d'accueil
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacementNamed('/home');
+      });
+    } else {
+      _verifyPaymentAndFinalizeOrder();
+    }
   }
 
   Future<void> _verifyPaymentAndFinalizeOrder() async {
@@ -38,15 +51,15 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       }
 
       // Récupérer le cartId de la session Stripe
-      final stripeSessionId = Uri.base.queryParameters['session_id'];
-      if (stripeSessionId == null) {
+
+      if (widget.sessionId == null) {
         throw Exception('Session de paiement non trouvée');
       }
 
       // Trouver le panier correspondant dans Firestore
       final cartSnapshot = await _firestore
           .collection('carts')
-          .where('stripeSessionId', isEqualTo: stripeSessionId)
+          .where('stripeSessionId', isEqualTo: widget.sessionId)
           .limit(1)
           .get();
 
