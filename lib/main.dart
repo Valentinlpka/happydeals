@@ -29,7 +29,7 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-setHashUrlStrategy();
+	setHashUrlStrategy();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
