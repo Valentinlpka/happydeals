@@ -79,22 +79,31 @@ class MyApp extends StatelessWidget {
           '/profile_completion': (context) => const ProfileCompletionPage(),
           '/home': (context) => const MainContainer(),
           '/cart': (context) => const CartScreen(),
-          '/payment-success': (context) => const PaymentSuccessScreen(),
           '/payment-cancel': (context) => const PaymentCancel(),
           '/order-confirmation': (context) => const PaymentSuccessScreen(),
           '/company/:entrepriseId': (context) => const DetailsEntreprise(),
         },
         onGenerateRoute: (settings) {
-          if (settings.name?.startsWith('/company/') ?? false) {
-            final entrepriseId = settings.name!.split('/').last;
-            return MaterialPageRoute(
-              builder: (context) =>
-                  DetailsEntreprise(entrepriseId: entrepriseId),
-              settings: settings,
-            );
-          }
-          return null;
-        },
+  if (settings.name?.startsWith('/company/') ?? false) {
+    final entrepriseId = settings.name!.split('/').last;
+    return MaterialPageRoute(
+      builder: (context) => DetailsEntreprise(entrepriseId: entrepriseId),
+      settings: settings,
+    );
+  }
+  
+  // Ajoutez cette condition
+  if (settings.name?.startsWith('/payment-success') ?? false) {
+    return MaterialPageRoute(
+      builder: (context) => PaymentSuccessScreen(
+        sessionId: Uri.base.queryParameters['session_id'],
+      ),
+      settings: settings,
+    );
+  }
+  
+  return null;
+},
       ),
     );
   }
