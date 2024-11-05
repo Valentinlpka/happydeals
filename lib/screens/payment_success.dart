@@ -1,17 +1,11 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/order.dart';
-import 'package:happy/classes/product.dart';
+import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
-import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:happy/services/promo_service.dart';
-import 'package:provider/provider.dart';
-import 'package:universal_html/html.dart' as html;
 
 class PaymentSuccessScreen extends StatefulWidget {
   const PaymentSuccessScreen({super.key});
@@ -37,12 +31,39 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<void> _verifyPaymentAndFinalizeOrder() async {
     try {
-      print(
-          'Mise à jour 3 Début de la vérification du paiement et de la finalisation de la commande');
-      if (kIsWeb) _logLocalStorageContent();
+      print('Début de la vérification du paiement');
 
-      final cart = await _getCart();
-      print("Panier récupéré. Nombre d'articles: ${cart.items.length}");
+      if (_auth.currentUser == null) {
+        throw Exception('Utilisateur non authentifié');
+      }
+
+      // Récupérer le cartId de la session Stripe
+      final stripeSessionId = Uri.base.queryParameters['session_id'];
+      if (stripeSessionId == null) {
+        throw Exception('Session de paiement non trouvée');
+      }
+
+      // Trouver le panier correspondant dans Firestore
+      final cartSnapshot = await _firestore
+          .collection('carts')
+          .where('stripeSessionId', isEqualTo: stripeSessionId)
+          .limit(1)
+          .get();
+
+      if (cartSnapshot.docs.isEmpty) {
+        throw Exception('Panier non trouvé');
+      }
+
+      final cartDoc = cartSnapshot.docs.first;
+      final cart = await Cart.fromFirestore(cartDoc);
+
+      if (cart == null) {
+        throw Exception('Erreur lors de la récupération du panier');
+      }
+
+      if (cart.isExpired) {
+        throw Exception('Le panier a expiré');
+      }
 
       setState(() =>
           _statusMessage = 'Paiement confirmé. Finalisation de la commande...');
@@ -53,86 +74,26 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       await _finalizePromoCodeUsage(cart);
       print('Utilisation du code promo finalisée');
 
+      // Supprimer le panier de Firestore
+      await cartDoc.reference.delete();
+
       _showSuccessMessage();
     } catch (e) {
       print('Erreur: $e');
       _handleError('Une erreur est survenue: $e');
     } finally {
-      if (kIsWeb) _clearLocalStorage();
       setState(() => _isLoading = false);
     }
   }
 
-  Future<CartService> _getCart() async {
-    if (kIsWeb) {
-      return _reconstructCartFromLocalStorage();
-    } else {
-      return Provider.of<CartService>(context, listen: false);
-    }
-  }
-
-  Future<CartService> _reconstructCartFromLocalStorage() async {
-    final cartDataJson = html.window.localStorage['cartData'];
-    print('Données brutes du localStorage: $cartDataJson'); // Ajout de log
-    if (cartDataJson == null || cartDataJson.isEmpty) {
-      throw Exception('Données du panier non trouvées ou vides');
-    }
-
-    final cartData = json.decode(cartDataJson) as List<dynamic>;
-    final cart = CartService();
-
-    for (var item in cartData) {
-      try {
-        final product = Product(
-          id: item['productId'],
-          name: item['name'],
-          price: (item['price'] as num).toDouble(),
-          tva: (item['tva'] as num).toDouble(),
-          imageUrl: List<String>.from(item['imageUrl']),
-          sellerId: item['sellerId'],
-          entrepriseId: item['entrepriseId'],
-          description: item['description'],
-          stock: item['stock'],
-          isActive: item['isActive'],
-        );
-
-        final cartItem = CartItem(
-          product: product,
-          quantity: item['quantity'],
-          appliedPrice: (item['appliedPrice'] as num).toDouble(),
-        );
-
-        cart.addItem(
-            cartItem); // Utilisation de la méthode addItem du CartService
-      } catch (e) {
-        print('Erreur lors de la reconstruction du produit: $e');
-      }
-    }
-
-    print('Nombre d\'articles après reconstruction: ${cart.items.length}');
-    for (var item in cart.items) {
-      print(
-          'Article reconstruit: ${item.product.id}, Quantité: ${item.quantity}');
-    }
-
-    cart.appliedPromoCode = html.window.localStorage['appliedPromoCode'];
-    cart.discountAmount =
-        double.tryParse(html.window.localStorage['discountAmount'] ?? '0') ?? 0;
-
-    return cart;
-  }
-
-  Future<void> _finalizeOrder(CartService cart) async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('Utilisateur non authentifié');
-
-    final address =
-        await _fetchCompanyAddress(cart.items.first.product.entrepriseId);
+  Future<void> _finalizeOrder(Cart cart) async {
+    final user = _auth.currentUser!;
+    final address = await _fetchCompanyAddress(cart.sellerId);
 
     final orderId = await _orderService.createOrder(Orders(
       id: '',
       userId: user.uid,
-      sellerId: cart.items.first.product.sellerId,
+      sellerId: cart.sellerId,
       items: cart.items
           .map((item) => OrderItem(
                 productId: item.product.id,
@@ -150,12 +111,10 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       status: 'paid',
       createdAt: DateTime.now(),
       pickupAddress: address ?? "",
-      entrepriseId: cart.items.first.product.entrepriseId,
+      entrepriseId: cart.sellerId,
       promoCode: cart.appliedPromoCode,
       discountAmount: cart.discountAmount.toDouble(),
     ));
-
-    cart.clearCart();
 
     Navigator.pushReplacement(
       context,
@@ -164,14 +123,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     );
   }
 
-  Future<void> _finalizePromoCodeUsage(CartService cart) async {
-    if (kIsWeb) {
-      final appliedPromoCode = html.window.localStorage['appliedPromoCode'];
-      if (appliedPromoCode != null && appliedPromoCode.isNotEmpty) {
-        await _promoCodeService.usePromoCode(appliedPromoCode);
-      }
-    } else {
-      await cart.finalizePromoCodeUsage();
+  Future<void> _finalizePromoCodeUsage(Cart cart) async {
+    if (cart.appliedPromoCode != null) {
+      await _promoCodeService.usePromoCode(cart.appliedPromoCode!);
     }
   }
 
@@ -188,29 +142,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         }
       }
     } catch (e) {
-      print("Erreur lors de la récupération de l'adresse de l'entreprise: $e");
+      print("Erreur lors de la récupération de l'adresse: $e");
     }
     return null;
-  }
-
-  void _logLocalStorageContent() {
-    print('Contenu de localStorage:');
-    print('cartData: ${html.window.localStorage['cartData']}');
-    print('cartTotal: ${html.window.localStorage['cartTotal']}');
-    print('cartSubtotal: ${html.window.localStorage['cartSubtotal']}');
-    print('cartTotalSavings: ${html.window.localStorage['cartTotalSavings']}');
-    print('stripeSessionId: ${html.window.localStorage['stripeSessionId']}');
-    print('appliedPromoCode: ${html.window.localStorage['appliedPromoCode']}');
-  }
-
-  void _clearLocalStorage() {
-    html.window.localStorage.remove('cartData');
-    html.window.localStorage.remove('cartTotal');
-    html.window.localStorage.remove('cartSubtotal');
-    html.window.localStorage.remove('cartTotalSavings');
-    html.window.localStorage.remove('stripeSessionId');
-    html.window.localStorage.remove('appliedPromoCode');
-    html.window.localStorage.remove('discountAmount');
   }
 
   void _handleError(String message) {

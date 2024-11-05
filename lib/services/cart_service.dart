@@ -1,265 +1,370 @@
-// lib/services/cart_service.dart
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:happy/classes/product.dart';
+import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/services/promo_service.dart';
-import 'package:universal_html/html.dart' as html;
-
-class CartItem {
-  final Product product;
-  int quantity;
-  final double appliedPrice;
-
-  CartItem(
-      {required this.product, required this.appliedPrice, this.quantity = 1});
-
-  Map<String, dynamic> toMap() {
-    return {
-      'productId': product.id,
-      'name': product.name,
-      'imageUrl': product.imageUrl,
-      'price': product.price,
-      'tva': product.tva,
-      'quantity': quantity,
-      'appliedPrice': appliedPrice,
-      'sellerId': product.sellerId,
-      'entrepriseId': product.entrepriseId,
-      'description': product.description,
-      'stock': product.stock,
-      'isActive': product.isActive,
-    };
-  }
-
-  static CartItem fromMap(Map<String, dynamic> map) {
-    return CartItem(
-      product: Product(
-        id: map['productId'] ?? '',
-        name: map['name'] ?? '',
-        price: (map['price'] as num?)?.toDouble() ?? 0.0,
-        tva: (map['tva'] as num?)?.toDouble() ?? 0.0,
-        imageUrl: List<String>.from(map['imageUrl'] ?? []),
-        sellerId: map['sellerId'] ?? '',
-        entrepriseId: map['entrepriseId'] ?? '',
-        description: map['description'] ?? '',
-        stock: map['stock'] as int? ?? 0,
-        isActive: map['isActive'] as bool? ?? false,
-      ),
-      quantity: map['quantity'] as int? ?? 1,
-      appliedPrice: (map['appliedPrice'] as num?)?.toDouble() ?? map['price'],
-    );
-  }
-}
 
 class CartService extends ChangeNotifier {
-  String? appliedPromoCode;
-  double discountAmount = 0.00;
-
-  List<CartItem> _items = [];
-  String? _currentSellerId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final PromoCodeService _promoCodeService = PromoCodeService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final PromoCodeService _promoService = PromoCodeService();
+
+  final Map<String, Cart> _carts = {};
+  StreamSubscription<QuerySnapshot>? _cartsSubscription;
+  Timer? _cleanupTimer;
 
   CartService() {
-    if (kIsWeb) {
-      _loadFromLocalStorage();
-    }
+    _initialize();
   }
 
-  List<CartItem> get items => _items;
+  List<Cart> get activeCarts =>
+      _carts.values.where((cart) => !cart.isExpired).toList();
 
-  double get subtotal =>
-      _items.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
+  Future<void> _initialize() async {
+    if (_auth.currentUser != null) {
+      await _subscribeToUserCarts();
+    }
 
-  double get total =>
-      _items.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
+    // Configurer le timer de nettoyage
+    _cleanupTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => _cleanExpiredCarts(),
+    );
+  }
 
-  double get totalSavings => subtotal - total;
+  Future<void> _cleanExpiredCarts() async {
+    if (_auth.currentUser != null) {
+      final snapshot = await _firestore
+          .collection('carts')
+          .where('userId', isEqualTo: _auth.currentUser!.uid)
+          .where('expiresAt', isLessThan: Timestamp.fromDate(DateTime.now()))
+          .get();
 
-  double get totalAfterDiscount => total - discountAmount;
-
-  Future<void> applyPromoCode(
-      String code, String companyId, String customerId) async {
-    final isValid =
-        await _promoCodeService.validatePromoCode(code, companyId, customerId);
-
-    if (isValid) {
-      final promoDetails = await _promoCodeService.getPromoCodeDetails(code);
-      if (promoDetails != null) {
-        appliedPromoCode = code;
-        if (promoDetails['isPercentage']) {
-          discountAmount = total * (promoDetails['value'] / 100);
-        } else {
-          discountAmount = promoDetails['value'];
-        }
-        notifyListeners();
+      final batch = _firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
       }
-      if (kIsWeb) {
-        html.window.localStorage['appliedPromoCode'] = code;
-      }
-    } else {
-      throw Exception('Code promo invalide ou expiré');
+      await batch.commit();
     }
-  }
 
-  Future<void> finalizePromoCodeUsage() async {
-    if (appliedPromoCode != null) {
-      await _promoCodeService.usePromoCode(appliedPromoCode!);
-      appliedPromoCode = null;
-      discountAmount = 0;
-      notifyListeners();
-    }
-  }
-
-  void removePromoCode() {
-    appliedPromoCode = null;
-    discountAmount = 0;
+    // Nettoyer les paniers locaux expirés
+    _carts.removeWhere((_, cart) => cart.isExpired);
     notifyListeners();
   }
 
-  void _loadFromLocalStorage() {
-    final cartDataJson = html.window.localStorage['cartData'];
-    if (cartDataJson != null && cartDataJson.isNotEmpty) {
-      final cartData = json.decode(cartDataJson) as List<dynamic>;
-      _items = cartData.map((item) => CartItem.fromMap(item)).toList();
-      _currentSellerId =
-          _items.isNotEmpty ? _items.first.product.sellerId : null;
+  Future<void> _subscribeToUserCarts() async {
+    _cartsSubscription?.cancel();
 
-      discountAmount =
-          double.tryParse(html.window.localStorage['discountAmount'] ?? '0') ??
-              0;
-      appliedPromoCode = html.window.localStorage['appliedPromoCode'];
+    _cartsSubscription = _firestore
+        .collection('carts')
+        .where('userId', isEqualTo: _auth.currentUser!.uid)
+        .snapshots()
+        .listen((snapshot) async {
+      // Ne pas vider _carts complètement pour éviter de perdre les paniers existants
+      final currentCartIds = Set<String>.from(_carts.keys);
+      final updatedCartIds = <String>{};
 
+      for (var doc in snapshot.docs) {
+        try {
+          final cart = await Cart.fromFirestore(doc);
+          if (cart != null) {
+            if (cart.isExpired) {
+              await doc.reference.delete();
+              _carts.remove(cart.sellerId);
+            } else {
+              _carts[cart.sellerId] = cart;
+              updatedCartIds.add(cart.sellerId);
+            }
+          }
+        } catch (e) {
+          print('Erreur lors du chargement du panier: $e');
+        }
+      }
+
+      // Supprimer uniquement les paniers qui n'existent plus dans Firestore
+      currentCartIds
+          .difference(updatedCartIds)
+          .forEach((sellerId) => _carts.remove(sellerId));
+
+      notifyListeners();
+    });
+  }
+
+  Future<void> _saveCart(Cart cart) async {
+    if (_auth.currentUser != null) {
+      try {
+        final cartData = {
+          ...cart.toMap(),
+          'userId': _auth.currentUser!.uid,
+        };
+
+        // Vérifier si un panier existe déjà pour ce vendeur
+        final existingCartQuery = await _firestore
+            .collection('carts')
+            .where('userId', isEqualTo: _auth.currentUser!.uid)
+            .where('sellerId', isEqualTo: cart.sellerId)
+            .get();
+
+        if (existingCartQuery.docs.isNotEmpty) {
+          // Utiliser l'ID existant
+          String existingId = existingCartQuery.docs.first.id;
+          await _firestore
+              .collection('carts')
+              .doc(existingId)
+              .set(cartData, SetOptions(merge: true));
+
+          // Créer un nouveau Cart avec l'ID existant
+          final updatedCart = Cart(
+            id: existingId,
+            sellerId: cart.sellerId,
+            sellerName: cart.sellerName,
+            items: cart.items,
+            createdAt: cart.createdAt,
+            appliedPromoCode: cart.appliedPromoCode,
+            discountAmount: cart.discountAmount,
+          );
+          _carts[cart.sellerId] = updatedCart;
+        } else {
+          // Créer un nouveau panier
+          final docRef = _firestore.collection('carts').doc();
+          // Créer un nouveau Cart avec le nouvel ID
+          final newCart = Cart(
+            id: docRef.id,
+            sellerId: cart.sellerId,
+            sellerName: cart.sellerName,
+            items: cart.items,
+            createdAt: cart.createdAt,
+            appliedPromoCode: cart.appliedPromoCode,
+            discountAmount: cart.discountAmount,
+          );
+          await docRef.set(cartData);
+          _carts[cart.sellerId] = newCart;
+        }
+
+        notifyListeners();
+      } catch (e) {
+        print('Erreur lors de la sauvegarde du panier: $e');
+        throw Exception('Impossible de sauvegarder le panier');
+      }
+    } else {
+      _carts[cart.sellerId] = cart;
       notifyListeners();
     }
   }
 
-  void _saveToLocalStorage() {
-    if (kIsWeb) {
-      final cartData = _items.map((item) => item.toMap()).toList();
-      final cartDataJson = json.encode(cartData);
-      html.window.localStorage['cartData'] = cartDataJson;
-      html.window.localStorage['cartTotal'] = total.toString();
-      html.window.localStorage['cartSubtotal'] = subtotal.toString();
-      html.window.localStorage['cartTotalSavings'] = totalSavings.toString();
-      html.window.localStorage['cartTotalAfterDiscount'] =
-          totalAfterDiscount.toString();
-      html.window.localStorage['discountAmount'] = discountAmount.toString();
-      if (appliedPromoCode != null) {
-        html.window.localStorage['appliedPromoCode'] = appliedPromoCode!;
-      } else {
-        html.window.localStorage.remove('appliedPromoCode');
+  // Modifions également addToCart pour mieux gérer les paniers multiples
+  Future<void> addToCart(Product product) async {
+    // Vérifier si un panier existe déjà pour ce vendeur
+    var cart = _carts[product.sellerId];
+
+    if (cart == null || cart.isExpired) {
+      cart = await _getOrCreateCart(product);
+    }
+
+    bool isAvailable = await _checkStock(
+      product,
+      cart.items
+              .firstWhere(
+                (item) => item.product.id == product.id,
+                orElse: () => CartItem(
+                  product: product,
+                  appliedPrice: product.price,
+                ),
+              )
+              .quantity +
+          1,
+    );
+
+    if (!isAvailable) {
+      throw Exception('Stock insuffisant');
+    }
+
+    int index = cart.items.indexWhere((item) => item.product.id == product.id);
+    if (index != -1) {
+      cart.items[index].quantity++;
+    } else {
+      double appliedPrice =
+          product.hasActiveHappyDeal && product.discountedPrice != null
+              ? product.discountedPrice!
+              : product.price;
+
+      cart.items.add(CartItem(
+        product: product,
+        appliedPrice: appliedPrice,
+      ));
+    }
+
+    await _saveCart(cart);
+  }
+
+  // Assurons-nous que la méthode deleteCart gère correctement la suppression
+  Future<void> deleteCart(String sellerId) async {
+    final cart = _carts[sellerId];
+    if (cart == null) return;
+
+    if (_auth.currentUser != null) {
+      // Rechercher le document par sellerId et userId
+      final cartQuery = await _firestore
+          .collection('carts')
+          .where('userId', isEqualTo: _auth.currentUser!.uid)
+          .where('sellerId', isEqualTo: sellerId)
+          .get();
+
+      for (var doc in cartQuery.docs) {
+        await doc.reference.delete();
       }
+    }
+
+    _carts.remove(sellerId);
+    notifyListeners();
+  }
+
+  Future<Cart> _getOrCreateCart(Product product) async {
+    // Vérifier si un panier actif existe pour ce vendeur
+    var existingCart = _carts[product.sellerId];
+    if (existingCart != null && !existingCart.isExpired) {
+      return existingCart;
+    }
+
+    try {
+      // Récupérer les informations du vendeur d'abord dans companys
+      String sellerName;
+      final companyDoc = await _firestore
+          .collection('companys')
+          .doc(
+              product.entrepriseId) // Utiliser entrepriseId au lieu de sellerId
+          .get();
+
+      if (companyDoc.exists) {
+        sellerName = companyDoc.data()?['name'] ?? 'Unknown Company';
+      } else {
+        // Si pas trouvé dans companys, chercher dans users
+        final userDoc =
+            await _firestore.collection('users').doc(product.sellerId).get();
+
+        if (!userDoc.exists) {
+          print('Vendeur non trouvé ni dans companys ni dans users');
+          sellerName = 'Unknown Seller';
+        } else {
+          sellerName = userDoc.data()?['name'] ?? 'Unknown User';
+        }
+      }
+
+      if (_auth.currentUser != null) {
+        // Vérifier si un panier existe déjà dans Firestore
+        final existingCartQuery = await _firestore
+            .collection('carts')
+            .where('userId', isEqualTo: _auth.currentUser!.uid)
+            .where('sellerId', isEqualTo: product.sellerId)
+            .get();
+
+        if (existingCartQuery.docs.isNotEmpty) {
+          // Utiliser le panier existant
+          final existingCartDoc = existingCartQuery.docs.first;
+          final existingCart = await Cart.fromFirestore(existingCartDoc);
+          if (existingCart != null && !existingCart.isExpired) {
+            _carts[product.sellerId] = existingCart;
+            return existingCart;
+          }
+          // Si le panier existe mais est expiré, le supprimer
+          await existingCartDoc.reference.delete();
+        }
+
+        // Créer un nouveau document dans Firestore
+        final cartRef = _firestore.collection('carts').doc();
+        final newCart = Cart(
+          id: cartRef.id,
+          sellerId: product.sellerId,
+          sellerName: sellerName,
+          createdAt: DateTime.now(),
+        );
+
+        await cartRef.set({
+          ...newCart.toMap(),
+          'userId': _auth.currentUser!.uid,
+        });
+
+        _carts[product.sellerId] = newCart;
+        notifyListeners();
+        return newCart;
+      } else {
+        // Version locale pour les utilisateurs non connectés
+        final newCart = Cart(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          sellerId: product.sellerId,
+          sellerName: sellerName,
+          createdAt: DateTime.now(),
+        );
+
+        _carts[product.sellerId] = newCart;
+        notifyListeners();
+        return newCart;
+      }
+    } catch (e) {
+      print('Erreur lors de la création du panier: $e');
+      throw Exception('Impossible de créer le panier: $e');
     }
   }
 
-  Future<bool> checkStock(Product product, int requestedQuantity) async {
+  Future<bool> _checkStock(Product product, int requestedQuantity) async {
     DocumentSnapshot doc =
         await _firestore.collection('products').doc(product.id).get();
-    int currentStock = doc.get('stock') as int;
-    return currentStock >= requestedQuantity;
+    return (doc.get('stock') as int) >= requestedQuantity;
   }
 
-  Future<void> addToCart(Product product) async {
-    if (_currentSellerId == null) {
-      _currentSellerId = product.sellerId;
-    } else if (_currentSellerId != product.sellerId) {
-      throw Exception(
-          'Vous ne pouvez ajouter que des produits du même vendeur');
-    }
+  Future<void> removeFromCart(String sellerId, String productId) async {
+    final cart = _carts[sellerId];
+    if (cart == null) return;
 
-    int index = _items.indexWhere((item) => item.product.id == product.id);
-    int newQuantity = index != -1 ? _items[index].quantity + 1 : 1;
+    final index = cart.items.indexWhere((item) => item.product.id == productId);
+    if (index == -1) return;
 
-    bool isAvailable = await checkStock(product, newQuantity);
-    if (!isAvailable) {
-      throw Exception('Stock insuffisant');
-    }
-
-    double appliedPrice =
-        product.hasActiveHappyDeal && product.discountedPrice != null
-            ? product.discountedPrice!
-            : product.price;
-
-    if (index != -1) {
-      _items[index].quantity++;
+    if (cart.items[index].quantity > 1) {
+      cart.items[index].quantity--;
     } else {
-      _items.add(CartItem(product: product, appliedPrice: appliedPrice));
+      cart.items.removeAt(index);
     }
-    _saveToLocalStorage();
-    notifyListeners();
+
+    if (cart.items.isEmpty) {
+      await deleteCart(sellerId);
+    } else {
+      await _saveCart(cart);
+    }
   }
 
-  void removeFromCart(Product product) {
-    int index = _items.indexWhere((item) => item.product.id == product.id);
-    if (index != -1) {
-      if (_items[index].quantity > 1) {
-        _items[index].quantity--;
+  Future<void> applyPromoCode(String sellerId, String code) async {
+    final cart = _carts[sellerId];
+    if (cart == null) return;
+
+    final isValid = await _promoService.validatePromoCode(
+      code,
+      cart.sellerId,
+      _auth.currentUser?.uid ?? '',
+    );
+
+    if (!isValid) {
+      throw Exception('Code promo invalide ou expiré');
+    }
+
+    final promoDetails = await _promoService.getPromoCodeDetails(code);
+    if (promoDetails != null) {
+      cart.appliedPromoCode = code;
+      if (promoDetails['isPercentage']) {
+        cart.discountAmount = cart.total * (promoDetails['value'] / 100);
       } else {
-        _items.removeAt(index);
+        cart.discountAmount = promoDetails['value'];
       }
-      if (_items.isEmpty) {
-        _currentSellerId = null;
-      }
-      _saveToLocalStorage();
-      notifyListeners();
+      await _saveCart(cart);
     }
   }
 
-  Future<void> addToCartWithQuantity(Product product, int quantity) async {
-    if (_currentSellerId == null) {
-      _currentSellerId = product.sellerId;
-    } else if (_currentSellerId != product.sellerId) {
-      throw Exception(
-          'Vous ne pouvez ajouter que des produits du même vendeur');
-    }
-
-    int index = _items.indexWhere((item) => item.product.id == product.id);
-
-    bool isAvailable = await checkStock(product, quantity);
-    if (!isAvailable) {
-      throw Exception('Stock insuffisant');
-    }
-
-    // Déterminer le prix à appliquer (prix normal ou prix réduit du Happy Deal)
-    double appliedPrice =
-        product.hasActiveHappyDeal && product.discountedPrice != null
-            ? product.discountedPrice!
-            : product.price;
-
-    if (index != -1) {
-      // Mettre à jour la quantité si le produit est déjà dans le panier
-      _items[index].quantity = quantity;
-      // Mettre à jour le prix appliqué au cas où le Happy Deal aurait changé
-      _items[index] = CartItem(
-          product: product, quantity: quantity, appliedPrice: appliedPrice);
-    } else {
-      // Ajouter un nouveau CartItem avec le prix appliqué
-      _items.add(CartItem(
-          product: product, quantity: quantity, appliedPrice: appliedPrice));
-    }
-
-    _saveToLocalStorage();
-    notifyListeners();
-  }
-
-  void clearCart() {
-    _items.clear();
-    _currentSellerId = null;
-    _saveToLocalStorage();
-    notifyListeners();
-  }
-
-  void addItem(CartItem newItem) {
-    final existingIndex =
-        _items.indexWhere((item) => item.product.id == newItem.product.id);
-    if (existingIndex != -1) {
-      // Au lieu d'ajouter la quantité, remplaçons simplement l'item
-      _items[existingIndex] = newItem;
-    } else {
-      _items.add(newItem);
-    }
-    notifyListeners();
+  @override
+  void dispose() {
+    _cartsSubscription?.cancel();
+    _cleanupTimer?.cancel();
+    super.dispose();
   }
 }

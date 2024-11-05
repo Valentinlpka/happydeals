@@ -1,23 +1,27 @@
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as material show Card;
+import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:happy/classes/notification.dart';
-import 'package:happy/screens/shop/order_detail_page.dart';
+import 'package:happy/screens/payment_success.dart';
+import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/services/notification_service.dart';
-import 'package:provider/provider.dart';
+import 'package:happy/services/order_service.dart';
+import 'package:happy/services/promo_service.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:universal_html/html.dart' as html;
 
-import '../../classes/order.dart';
-import '../../services/cart_service.dart';
-import '../../services/order_service.dart';
-
 class CheckoutScreen extends StatefulWidget {
-  const CheckoutScreen({super.key});
+  final Cart cart;
+
+  const CheckoutScreen({
+    super.key,
+    required this.cart,
+  });
 
   @override
   _CheckoutScreenState createState() => _CheckoutScreenState();
@@ -27,138 +31,331 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final NotificationService _notificationService = NotificationService();
   final TextEditingController _promoCodeController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final OrderService _orderService = OrderService();
-  bool _isLoading = false;
+  final PromoCodeService _promoService = PromoCodeService();
 
-  Widget _buildOrderSummary(CartService cart) {
+  bool _isLoading = false;
+  late Cart _cart;
+  Timer? _expirationTimer;
+  StreamSubscription<DocumentSnapshot>? _cartSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _cart = widget.cart;
+    _startExpirationTimer();
+    _listenToCartChanges();
+  }
+
+  @override
+  void dispose() {
+    _expirationTimer?.cancel();
+    _cartSubscription?.cancel();
+    _promoCodeController.dispose();
+    super.dispose();
+  }
+
+  void _startExpirationTimer() {
+    _expirationTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {
+          // Force UI update for remaining time
+          if (_cart.isExpired) {
+            Navigator.of(context).pop();
+          }
+        });
+      }
+    });
+  }
+
+  void _listenToCartChanges() {
+    _cartSubscription = _firestore
+        .collection('carts')
+        .doc(_cart.id)
+        .snapshots()
+        .listen((snapshot) async {
+      if (!snapshot.exists) {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+
+      final updatedCart = await Cart.fromFirestore(snapshot);
+      if (updatedCart != null && mounted) {
+        setState(() {
+          _cart = updatedCart;
+        });
+      }
+    });
+  }
+
+  Widget _buildOrderSummary() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Récapitulatif de la commande',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Commande chez ${_cart.sellerName}',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            _buildExpirationBadge(),
+          ],
         ),
         const SizedBox(height: 20),
-        ...cart.items.map((item) => _buildOrderItem(item)),
+        ..._cart.items.map((item) => _buildOrderItem(item)),
         const Divider(),
-        _buildTotalSection(cart),
+        _buildTotalSection(),
       ],
+    );
+  }
+
+  Widget _buildExpirationBadge() {
+    final remainingMinutes =
+        _cart.expiresAt.difference(DateTime.now()).inMinutes;
+    final isNearExpiration = remainingMinutes < 30;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isNearExpiration
+            ? Colors.red.withOpacity(0.1)
+            : Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isNearExpiration ? Colors.red : Colors.grey,
+          width: 1,
+        ),
+      ),
+      child: Text(
+        'Expire dans: ${remainingMinutes}min',
+        style: TextStyle(
+          color: isNearExpiration ? Colors.red : Colors.grey[800],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
   Widget _buildOrderItem(CartItem item) {
-    return ListTile(
-      leading: Image.network(item.product.imageUrl[0],
-          width: 50, height: 50, fit: BoxFit.cover),
-      title: Text(item.product.name),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Quantité: ${item.quantity}'),
-          if (item.product.hasActiveHappyDeal &&
-              item.product.discountedPrice != null)
-            Text(
-              'Prix original: ${item.product.price.toStringAsFixed(2)} €',
-              style: const TextStyle(
-                  decoration: TextDecoration.lineThrough, color: Colors.grey),
+    return material.Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                item.product.imageUrl[0],
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+              ),
             ),
-        ],
-      ),
-      trailing: Text(
-        '${(item.appliedPrice * item.quantity).toStringAsFixed(2)} €',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: item.product.hasActiveHappyDeal ? Colors.red : null,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.product.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Quantité: ${item.quantity}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  if (item.product.hasActiveHappyDeal &&
+                      item.product.discountedPrice != null)
+                    Text(
+                      '${item.product.price.toStringAsFixed(2)} €',
+                      style: const TextStyle(
+                        decoration: TextDecoration.lineThrough,
+                        color: Colors.grey,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Text(
+              '${(item.appliedPrice * item.quantity).toStringAsFixed(2)} €',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: item.product.hasActiveHappyDeal ? Colors.red : null,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTotalSection(CartService cart) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildTotalSection() {
+    return material.Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Sous-total'),
-            Text('${cart.subtotal.toStringAsFixed(2)} €'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Sous-total'),
+                Text('${_cart.subtotal.toStringAsFixed(2)} €'),
+              ],
+            ),
+            if (_cart.totalSavings > 0) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Économies Happy Deals',
+                    style: TextStyle(color: Colors.green),
+                  ),
+                  Text(
+                    '-${_cart.totalSavings.toStringAsFixed(2)} €',
+                    style: const TextStyle(color: Colors.green),
+                  ),
+                ],
+              ),
+            ],
+            if (_cart.discountAmount > 0) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Code promo (${_cart.appliedPromoCode})'),
+                  Text('-${_cart.discountAmount.toStringAsFixed(2)} €'),
+                ],
+              ),
+            ],
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Total à payer',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '${_cart.totalAfterDiscount.toStringAsFixed(2)} €',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        if (cart.totalSavings > 0) ...[
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Économies Happy Deals',
-                  style: TextStyle(color: Colors.green)),
-              Text('-${cart.totalSavings.toStringAsFixed(2)} €',
-                  style: const TextStyle(color: Colors.green)),
-            ],
-          ),
-        ],
-        if (cart.discountAmount > 0) ...[
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Code promo (${cart.appliedPromoCode})'),
-              Text('-${cart.discountAmount.toStringAsFixed(2)} €'),
-            ],
-          ),
-        ],
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('${cart.total.toStringAsFixed(2)} €',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildPromoCodeSection() {
-    return Consumer<CartService>(
-      builder: (context, cart, child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return material.Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Code promo',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            const Text(
+              'Code promo',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _promoCodeController,
                     decoration: const InputDecoration(
-                      hintText: 'Entrez votre code promo',
+                      hintText: 'Entrez votre code',
                       border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: () => _applyPromoCode(cart),
+                  onPressed: _applyPromoCode,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
                   child: const Text('Appliquer'),
                 ),
               ],
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Future<void> _applyPromoCode(CartService cart) async {
-    try {
-      await cart.applyPromoCode(
-        _promoCodeController.text,
-        cart.items.first.product.entrepriseId,
-        FirebaseAuth.instance.currentUser!.uid,
+  Future<void> _applyPromoCode() async {
+    final code = _promoCodeController.text.trim();
+    if (code.isEmpty) return;
+
+    if (_cart.isExpired) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ce panier a expiré')),
       );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final isValid = await _promoService.validatePromoCode(
+        code,
+        _cart.sellerId,
+        _auth.currentUser!.uid,
+      );
+
+      if (!isValid) {
+        throw Exception('Code promo invalide ou expiré');
+      }
+
+      final promoDetails = await _promoService.getPromoCodeDetails(code);
+      if (promoDetails == null) {
+        throw Exception('Erreur lors de la récupération du code promo');
+      }
+
+      final discountAmount = promoDetails['isPercentage']
+          ? _cart.total * (promoDetails['value'] / 100)
+          : promoDetails['value'].toDouble();
+
+      await _firestore.collection('carts').doc(_cart.id).update({
+        'appliedPromoCode': code,
+        'discountAmount': discountAmount,
+      });
+
+      _promoCodeController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Code promo appliqué avec succès')),
       );
@@ -166,189 +363,239 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _handlePayment(CartService cart) async {
+  Future<void> _handlePayment() async {
+    if (_cart.isExpired) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ce panier a expiré')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
       final user = _auth.currentUser;
-      if (user == null) throw Exception("User not authenticated");
-      if (cart.items.isEmpty) throw Exception("Cart is empty");
+      if (user == null) throw Exception('Utilisateur non connecté');
 
-      final functions = FirebaseFunctions.instance;
-      final result = await functions.httpsCallable('createPayment').call({
-        'amount': (cart.total * 100).round(),
+      final result =
+          await FirebaseFunctions.instance.httpsCallable('createPayment').call({
+        'amount': (_cart.totalAfterDiscount * 100).round(),
         'currency': 'eur',
+        'cartId': _cart.id,
         'userId': user.uid,
         'isWeb': kIsWeb,
         'successUrl':
             'https://valentinlpka.github.io/happydeals/#/payment-success',
         'cancelUrl':
             'https://valentinlpka.github.io/happydeals/#/payment-cancel',
-        'cartItems': cart.items
-            .map((item) => item.toMap())
-            .toList(), // Make sure this is passed
       });
 
       if (kIsWeb) {
-        _handleWebPayment(cart, result.data);
+        final url = result.data['url'] as String;
+        final redirectUrl = Uri.parse(url).toString();
+        html.window.location.href = redirectUrl;
       } else {
         await _handleMobilePayment(result.data);
-        await _finalizeOrder(cart);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Une erreur est survenue: $e')),
+        SnackBar(content: Text('Erreur: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _handleWebPayment(CartService cart, Map<String, dynamic> paymentData) {
-    // Créer une structure de données qui évite les doublons
-    final cartData = cart.items.map((item) => item.toMap()).toList();
-    final uniqueCartData = {};
-    for (var item in cartData) {
-      final productId = item['productId'];
-      if (uniqueCartData.containsKey(productId)) {
-        uniqueCartData[productId]['quantity'] += item['quantity'];
-      } else {
-        uniqueCartData[productId] = item;
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
-
-    html.window.localStorage['cartData'] =
-        json.encode(uniqueCartData.values.toList());
-    html.window.localStorage['cartTotal'] = cart.total.toString();
-    html.window.localStorage['cartSubtotal'] = cart.subtotal.toString();
-    html.window.localStorage['cartSavings'] = cart.totalSavings.toString();
-    if (cart.appliedPromoCode != null) {
-      html.window.localStorage['appliedPromoCode'] = cart.appliedPromoCode!;
-      html.window.localStorage['discountAmount'] =
-          cart.discountAmount.toString();
-    }
-    html.window.localStorage['stripeSessionId'] = paymentData['sessionId'];
-    html.window.location.href = paymentData['url'];
   }
 
   Future<void> _handleMobilePayment(Map<String, dynamic> paymentData) async {
-    await Stripe.instance.initPaymentSheet(
-      paymentSheetParameters: SetupPaymentSheetParameters(
-        paymentIntentClientSecret: paymentData['clientSecret'],
-        merchantDisplayName: 'Happy Deals',
-      ),
-    );
-    await Stripe.instance.presentPaymentSheet();
-  }
-
-  Future<void> _finalizeOrder(CartService cart) async {
-    final user = _auth.currentUser;
-    final address =
-        await _fetchCompanyAddress(cart.items.first.product.entrepriseId);
-    print('subtotal : ${cart.subtotal}');
-    print('subtotal : ${cart.totalSavings}');
-    final orderId = await _orderService.createOrder(Orders(
-      id: '',
-      userId: user?.uid ?? '',
-      sellerId: cart.items.first.product.sellerId,
-      items: cart.items
-          .map((item) => OrderItem(
-                productId: item.product.id,
-                name: item.product.name,
-                image: item.product.imageUrl[0],
-                quantity: item.quantity,
-                originalPrice: item.product.price.toDouble(),
-                appliedPrice: item.appliedPrice.toDouble(),
-                tva: item.product.tva.toDouble(),
-              ))
-          .toList(),
-      subtotal: cart.subtotal.toDouble(),
-      happyDealSavings: cart.totalSavings.toDouble(),
-      promoCode: cart.appliedPromoCode,
-      discountAmount: cart.discountAmount.toDouble(),
-      totalPrice: cart.totalAfterDiscount.toDouble(),
-      status: 'paid',
-      createdAt: DateTime.now(),
-      pickupAddress: address ?? "",
-      entrepriseId: cart.items.first.product.entrepriseId,
-    ));
-
-    await _notificationService.createNotification(NotificationModel(
-      id: '',
-      userId: cart.items.first.product.entrepriseId,
-      type: 'new_order',
-      message:
-          'Nouvelle commande reçue pour un montant de ${cart.totalAfterDiscount.toStringAsFixed(2)} €',
-      relatedId: orderId,
-      timestamp: DateTime.now(),
-    ));
-
-    await cart.finalizePromoCodeUsage();
-    cart.clearCart();
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-          builder: (context) => OrderDetailPage(orderId: orderId)),
-    );
-  }
-
-  Future<String?> _fetchCompanyAddress(String entrepriseId) async {
     try {
-      DocumentSnapshot doc = await FirebaseFirestore.instance
-          .collection('companys')
-          .doc(entrepriseId)
-          .get();
-      if (doc.exists) {
-        Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
-        if (data != null && data.containsKey('adress')) {
-          Map<String, dynamic> addressMap =
-              data['adress'] as Map<String, dynamic>;
-          return '${addressMap['adresse'] ?? ''}, ${addressMap['codePostal'] ?? ''} ${addressMap['ville'] ?? ''}';
-        }
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          paymentIntentClientSecret: paymentData['clientSecret'],
+          merchantDisplayName: 'Happy Deals',
+          style: ThemeMode.system,
+        ),
+      );
+
+      await Stripe.instance.presentPaymentSheet();
+
+      // After successful payment, navigate to success screen
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const PaymentSuccessScreen(),
+          ),
+        );
       }
     } catch (e) {
-      print('Erreur lors de la récupération de l\'adresse: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de paiement: $e')),
+        );
+      }
     }
-    return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final cart = Provider.of<CartService>(context);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Paiement')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+      appBar: const CustomAppBarBack(
+        title: 'Paiement',
+      ),
+      body: _cart.isExpired
+          ? Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildOrderSummary(cart),
-                  const SizedBox(height: 20),
-                  _buildPromoCodeSection(),
+                  const Icon(
+                    Icons.timer_off,
+                    size: 64,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Ce panier a expiré',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Veuillez retourner à la boutique',
+                    style: TextStyle(
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Retourner à la boutique'),
+                  ),
                 ],
               ),
+            )
+          : Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: () async {
+                    // Reload cart data
+                    final doc = await _firestore
+                        .collection('carts')
+                        .doc(_cart.id)
+                        .get();
+
+                    if (doc.exists) {
+                      final updatedCart = await Cart.fromFirestore(doc);
+                      if (updatedCart != null && mounted) {
+                        setState(() {
+                          _cart = updatedCart;
+                        });
+                      }
+                    }
+                  },
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildOrderSummary(),
+                        const SizedBox(height: 16),
+                        if (!_cart.isExpired) _buildPromoCodeSection(),
+                        const SizedBox(height: 100), // Space for bottom button
+                      ],
+                    ),
+                  ),
+                ),
+                if (_isLoading)
+                  Container(
+                    color: Colors.black.withOpacity(0.3),
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+              ],
             ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[800],
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            onPressed:
-                cart.items.isNotEmpty ? () => _handlePayment(cart) : null,
-            child: Text('Payer ${cart.total.toStringAsFixed(2)} €'),
-          ),
-        ),
-      ),
+      bottomNavigationBar: !_cart.isExpired
+          ? SafeArea(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      offset: const Offset(0, -4),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total à payer',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          '${_cart.totalAfterDiscount.toStringAsFixed(2)} €',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 50,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handlePayment,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue[800],
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                'Payer ${_cart.totalAfterDiscount.toStringAsFixed(2)} €',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

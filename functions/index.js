@@ -83,7 +83,116 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
   return { url: accountLink.url };
 });
 
-// Création d'un paiement
+exports.createPayment = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be authenticated."
+    );
+  }
+
+  const { amount, currency, cartId, userId, isWeb, successUrl, cancelUrl } =
+    data;
+
+  try {
+    // Vérifier que le panier existe et n'est pas expiré
+    const cartDoc = await admin
+      .firestore()
+      .collection("carts")
+      .doc(cartId)
+      .get();
+
+    if (!cartDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Cart not found");
+    }
+
+    const cartData = cartDoc.data();
+    const expiresAt = cartData.expiresAt.toDate();
+
+    if (Date.now() > expiresAt) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Cart has expired"
+      );
+    }
+
+    // Récupérer ou créer le client Stripe
+    let customer;
+    const userDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .get();
+    const userData = userDoc.data();
+
+    if (userData && userData.stripeCustomerId) {
+      customer = await stripe.customers.retrieve(userData.stripeCustomerId);
+    } else {
+      customer = await stripe.customers.create({
+        metadata: { firebaseUID: userId },
+      });
+      await admin.firestore().collection("users").doc(userId).update({
+        stripeCustomerId: customer.id,
+      });
+    }
+
+    // Créer les line items à partir des articles du panier
+    const lineItems = cartData.items.map((item) => ({
+      price_data: {
+        currency: currency,
+        unit_amount: Math.round(item.appliedPrice * 100),
+        product_data: {
+          name: item.name,
+          images: item.imageUrl ? [item.imageUrl[0]] : [],
+        },
+      },
+      quantity: item.quantity,
+    }));
+
+    if (isWeb) {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: lineItems,
+        mode: "payment",
+        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl,
+        customer: customer.id,
+        metadata: {
+          cartId: cartId,
+        },
+      });
+
+      // Mettre à jour le panier avec l'ID de session Stripe
+      await cartDoc.ref.update({
+        stripeSessionId: session.id,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { sessionId: session.id, url: session.url };
+    } else {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency,
+        customer: customer.id,
+        metadata: {
+          cartId: cartId,
+        },
+      });
+
+      // Mettre à jour le panier avec l'ID de payment intent
+      await cartDoc.ref.update({
+        stripePaymentIntentId: paymentIntent.id,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { clientSecret: paymentIntent.client_secret };
+    }
+  } catch (error) {
+    console.error("Error creating payment:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
 // exports.createPayment = functions.https.onCall(async (data, context) => {
 //   if (!context.auth) {
 //     throw new functions.https.HttpsError(
@@ -95,11 +204,12 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
 //   const {
 //     amount,
 //     currency,
-//     connectAccountId,
+//     sellerId,
 //     userId,
 //     isWeb,
 //     successUrl,
 //     cancelUrl,
+//     cartItems,
 //   } = data;
 
 //   try {
@@ -122,97 +232,36 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
 //       });
 //     }
 
-// if (isWeb) {
-//   // Pour les paiements web, créer une session de paiement
-//   const session = await stripe.checkout.sessions.create({
-//     payment_method_types: ["card"],
-//     line_items: [
-//       {
-//         price_data: {
-//           currency: currency,
-//           unit_amount: amount,
-//           product_data: {
-//             name: "Achat sur Happy Deals",
+//     const lineItems = await Promise.all(
+//       cartItems.map(async (item) => {
+//         const productDoc = await admin
+//           .firestore()
+//           .collection("products")
+//           .doc(item.productId)
+//           .get();
+//         const productData = productDoc.data();
+//         const appliedPrice =
+//           productData.hasActiveHappyDeal && productData.discountedPrice
+//             ? productData.discountedPrice
+//             : productData.price;
+
+//         return {
+//           price_data: {
+//             currency: currency,
+//             unit_amount: Math.round(appliedPrice * 100),
+//             product_data: {
+//               name: productData.name,
+//             },
 //           },
-//         },
-//         quantity: 1,
-//       },
-//     ],
-//     mode: "payment",
-//     success_url: successUrl,
-//     cancel_url: cancelUrl,
-//     customer: customer.id,
-//     payment_intent_data: {
-//       transfer_data: {
-//         destination: connectAccountId,
-//       },
-//     },
-//   });
-
-//   return { sessionId: session.id, url: session.url };
-// } else {
-//   // Pour les paiements mobiles, créer une intention de paiement
-//   const paymentIntent = await stripe.paymentIntents.create({
-//     amount,
-//     currency,
-//     customer: customer.id,
-//     transfer_data: { destination: connectAccountId },
-//   });
-
-//   return { clientSecret: paymentIntent.client_secret };
-// }
-//   } catch (error) {
-//     console.error("Error creating payment:", error);
-//     throw new functions.https.HttpsError("internal", error.message);
-//   }
-// });
-
-// exports.createPayment = functions.https.onCall(async (data, context) => {
-//   if (!context.auth) {
-//     throw new functions.https.HttpsError(
-//       "unauthenticated",
-//       "User must be authenticated."
+//           quantity: item.quantity,
+//         };
+//       })
 //     );
-//   }
-
-//   const { amount, currency, sellerId, userId, isWeb, successUrl, cancelUrl } =
-//     data;
-
-//   try {
-//     let customer;
-//     const userDoc = await admin
-//       .firestore()
-//       .collection("users")
-//       .doc(userId)
-//       .get();
-//     const userData = userDoc.data();
-
-//     if (userData && userData.stripeCustomerId) {
-//       customer = await stripe.customers.retrieve(userData.stripeCustomerId);
-//     } else {
-//       customer = await stripe.customers.create({
-//         metadata: { firebaseUID: userId },
-//       });
-//       await admin.firestore().collection("users").doc(userId).update({
-//         stripeCustomerId: customer.id,
-//       });
-//     }
 
 //     if (isWeb) {
 //       const session = await stripe.checkout.sessions.create({
 //         payment_method_types: ["card"],
-//         line_items: [
-//           {
-//             price_data: {
-//               currency: currency,
-//               unit_amount: amount,
-//               product_data: {
-//                 name: "Achat sur Happy Deals",
-//               },
-//             },
-//             quantity: 1,
-//           },
-//         ],
+//         line_items: lineItems,
 //         mode: "payment",
 //         success_url: successUrl,
 //         cancel_url: cancelUrl,
@@ -234,97 +283,6 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
 //     throw new functions.https.HttpsError("internal", error.message);
 //   }
 // });
-
-exports.createPayment = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "User must be authenticated."
-    );
-  }
-
-  const {
-    amount,
-    currency,
-    sellerId,
-    userId,
-    isWeb,
-    successUrl,
-    cancelUrl,
-    cartItems,
-  } = data;
-
-  try {
-    let customer;
-    const userDoc = await admin
-      .firestore()
-      .collection("users")
-      .doc(userId)
-      .get();
-    const userData = userDoc.data();
-
-    if (userData && userData.stripeCustomerId) {
-      customer = await stripe.customers.retrieve(userData.stripeCustomerId);
-    } else {
-      customer = await stripe.customers.create({
-        metadata: { firebaseUID: userId },
-      });
-      await admin.firestore().collection("users").doc(userId).update({
-        stripeCustomerId: customer.id,
-      });
-    }
-
-    const lineItems = await Promise.all(
-      cartItems.map(async (item) => {
-        const productDoc = await admin
-          .firestore()
-          .collection("products")
-          .doc(item.productId)
-          .get();
-        const productData = productDoc.data();
-        const appliedPrice =
-          productData.hasActiveHappyDeal && productData.discountedPrice
-            ? productData.discountedPrice
-            : productData.price;
-
-        return {
-          price_data: {
-            currency: currency,
-            unit_amount: Math.round(appliedPrice * 100),
-            product_data: {
-              name: productData.name,
-            },
-          },
-          quantity: item.quantity,
-        };
-      })
-    );
-
-    if (isWeb) {
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: lineItems,
-        mode: "payment",
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        customer: customer.id,
-      });
-
-      return { sessionId: session.id, url: session.url };
-    } else {
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount,
-        currency,
-        customer: customer.id,
-      });
-
-      return { clientSecret: paymentIntent.client_secret };
-    }
-  } catch (error) {
-    console.error("Error creating payment:", error);
-    throw new functions.https.HttpsError("internal", error.message);
-  }
-});
 
 // Mettre à jour le plafond du pro
 
