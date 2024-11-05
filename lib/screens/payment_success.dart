@@ -7,7 +7,8 @@ import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:happy/services/promo_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:html' as html;
+import 'dart:html' if (dart.library.html) 'dart:ui' as ui;
+
 
 class PaymentSuccessScreen extends StatefulWidget {
   final String? sessionId;
@@ -24,13 +25,11 @@ class PaymentSuccessScreen extends StatefulWidget {
 class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 String? _getSessionId() {
     if (kIsWeb) {
-      final uri = Uri.parse(window.location.href);
-      return uri.fragment.isNotEmpty 
-          ? Uri.parse('?' + uri.fragment).queryParameters['session_id']
-          : uri.queryParameters['session_id'];
+      final uri = Uri.base;
+      return uri.queryParameters['session_id'];
     }
     return null;
-  }
+}
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final OrderService _orderService = OrderService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -62,7 +61,7 @@ String? _getSessionId() {
       // Trouver le panier correspondant dans Firestore
       final cartSnapshot = await _firestore
           .collection('carts')
-          .where('stripeSessionId', isEqualTo: widget.sessionId)
+          .where('stripeSessionId', isEqualTo: stripeSessionId)
           .limit(1)
           .get();
 
