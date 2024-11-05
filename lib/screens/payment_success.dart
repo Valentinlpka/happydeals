@@ -6,7 +6,8 @@ import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:happy/services/promo_service.dart';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html;
 
 class PaymentSuccessScreen extends StatefulWidget {
   final String? sessionId;
