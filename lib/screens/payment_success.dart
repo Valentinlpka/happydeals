@@ -21,6 +21,15 @@ class PaymentSuccessScreen extends StatefulWidget {
 }
 
 class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
+String? _getSessionId() {
+    if (kIsWeb) {
+      final uri = Uri.parse(window.location.href);
+      return uri.fragment.isNotEmpty 
+          ? Uri.parse('?' + uri.fragment).queryParameters['session_id']
+          : uri.queryParameters['session_id'];
+    }
+    return null;
+  }
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final OrderService _orderService = OrderService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -29,17 +38,10 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   bool _isLoading = true;
   String _statusMessage = 'Vérification du paiement en cours...';
 
-  @override
-    void initState() {
+ @override
+  void initState() {
     super.initState();
-    if (widget.sessionId == null) {
-      // Si pas de sessionId, rediriger vers la page d'accueil
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      });
-    } else {
-      _verifyPaymentAndFinalizeOrder();
-    }
+    _verifyPaymentAndFinalizeOrder();
   }
 
   Future<void> _verifyPaymentAndFinalizeOrder() async {
@@ -50,9 +52,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         throw Exception('Utilisateur non authentifié');
       }
 
-      // Récupérer le cartId de la session Stripe
-
-      if (widget.sessionId == null) {
+      // Utiliser la nouvelle méthode pour obtenir le sessionId
+      final stripeSessionId = _getSessionId();
+      if (stripeSessionId == null) {
         throw Exception('Session de paiement non trouvée');
       }
 
