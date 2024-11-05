@@ -52,6 +52,8 @@ void main() async {
   await initializeDateFormatting('fr_FR', null);
   timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
 
+  usePathUrlStrategy();
+
   runApp(const MyApp());
 }
 
