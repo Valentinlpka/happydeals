@@ -41,6 +41,7 @@ class CartItem {
 class Cart {
   String id;
   final String sellerId;
+  final String entrepriseId;
   final String sellerName;
   final List<CartItem> items;
   final DateTime createdAt;
@@ -51,6 +52,7 @@ class Cart {
   Cart({
     required this.id,
     required this.sellerId,
+    required this.entrepriseId,
     required this.sellerName,
     List<CartItem>? items,
     DateTime? createdAt,
@@ -76,6 +78,7 @@ class Cart {
     return {
       'id': id,
       'sellerId': sellerId,
+      'entrepriseId': entrepriseId,
       'sellerName': sellerName,
       'items': items.map((item) => item.toMap()).toList(),
       'createdAt': Timestamp.fromDate(createdAt),
@@ -93,6 +96,7 @@ class Cart {
       // Créer d'abord le Cart avec les données de base
       final cart = Cart(
         id: doc.id,
+        entrepriseId: data['entrepriseId'] as String? ?? '',
         sellerId: data['sellerId'] as String? ?? '',
         sellerName: data['sellerName'] as String? ?? '',
         createdAt:

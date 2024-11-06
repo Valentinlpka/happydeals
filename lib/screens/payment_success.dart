@@ -120,7 +120,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<void> _finalizeOrder(Cart cart) async {
     final user = _auth.currentUser!;
-    final address = await _fetchCompanyAddress(cart.sellerId);
+    final address = await _fetchCompanyAddress(cart.entrepriseId);
 
     final orderId = await _orderService.createOrder(Orders(
       id: '',
@@ -143,7 +143,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       status: 'paid',
       createdAt: DateTime.now(),
       pickupAddress: address ?? "",
-      entrepriseId: cart.sellerId,
+      entrepriseId: cart.entrepriseId,
       promoCode: cart.appliedPromoCode,
       discountAmount: cart.discountAmount.toDouble(),
     ));

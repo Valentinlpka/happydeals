@@ -120,6 +120,7 @@ class CartService extends ChangeNotifier {
           final updatedCart = Cart(
             id: existingId,
             sellerId: cart.sellerId,
+            entrepriseId: cart.entrepriseId,
             sellerName: cart.sellerName,
             items: cart.items,
             createdAt: cart.createdAt,
@@ -135,6 +136,7 @@ class CartService extends ChangeNotifier {
             id: docRef.id,
             sellerId: cart.sellerId,
             sellerName: cart.sellerName,
+            entrepriseId: cart.entrepriseId,
             items: cart.items,
             createdAt: cart.createdAt,
             appliedPromoCode: cart.appliedPromoCode,
@@ -278,6 +280,7 @@ class CartService extends ChangeNotifier {
         final newCart = Cart(
           id: cartRef.id,
           sellerId: product.sellerId,
+          entrepriseId: product.entrepriseId,
           sellerName: sellerName,
           createdAt: DateTime.now(),
         );
@@ -295,6 +298,7 @@ class CartService extends ChangeNotifier {
         final newCart = Cart(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           sellerId: product.sellerId,
+          entrepriseId: product.entrepriseId,
           sellerName: sellerName,
           createdAt: DateTime.now(),
         );
