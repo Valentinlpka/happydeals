@@ -1,18 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:happy/classes/order.dart';
 import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:happy/services/promo_service.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:html' if (dart.library.html) 'dart:ui' as ui;
-
 
 class PaymentSuccessScreen extends StatefulWidget {
   final String? sessionId;
-  
+
   const PaymentSuccessScreen({
     this.sessionId,
     super.key,
@@ -23,13 +21,21 @@ class PaymentSuccessScreen extends StatefulWidget {
 }
 
 class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
-String? _getSessionId() {
+  String? _getSessionId() {
     if (kIsWeb) {
+      // Utiliser d'abord le sessionId passé en paramètre du widget
+      if (widget.sessionId != null) {
+        return widget.sessionId;
+      }
+      // Sinon, essayer de récupérer depuis l'URL
       final uri = Uri.base;
-      return uri.queryParameters['session_id'];
+      final sessionId = uri.queryParameters['session_id'];
+      print('SessionID from URL: $sessionId'); // Pour le débogage
+      return sessionId;
     }
     return null;
-}
+  }
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final OrderService _orderService = OrderService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -38,7 +44,7 @@ String? _getSessionId() {
   bool _isLoading = true;
   String _statusMessage = 'Vérification du paiement en cours...';
 
- @override
+  @override
   void initState() {
     super.initState();
     _verifyPaymentAndFinalizeOrder();

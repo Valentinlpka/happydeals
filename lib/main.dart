@@ -29,7 +29,7 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-	setUrlStrategy(HashUrlStrategy());
+  setUrlStrategy(const HashUrlStrategy());
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -84,26 +84,27 @@ class MyApp extends StatelessWidget {
           '/company/:entrepriseId': (context) => const DetailsEntreprise(),
         },
         onGenerateRoute: (settings) {
-  if (settings.name?.startsWith('/company/') ?? false) {
-    final entrepriseId = settings.name!.split('/').last;
-    return MaterialPageRoute(
-      builder: (context) => DetailsEntreprise(entrepriseId: entrepriseId),
-      settings: settings,
-    );
-  }
-  
-  // Ajoutez cette condition
-  if (settings.name?.startsWith('/payment-success') ?? false) {
-    return MaterialPageRoute(
-      builder: (context) => PaymentSuccessScreen(
-        sessionId: Uri.base.queryParameters['session_id'],
-      ),
-      settings: settings,
-    );
-  }
-  
-  return null;
-},
+          if (settings.name?.startsWith('/company/') ?? false) {
+            final entrepriseId = settings.name!.split('/').last;
+            return MaterialPageRoute(
+              builder: (context) =>
+                  DetailsEntreprise(entrepriseId: entrepriseId),
+              settings: settings,
+            );
+          }
+
+          if (settings.name?.startsWith('/payment-success') ?? false) {
+            // Récupérer le sessionId depuis les paramètres d'URL
+            final sessionId = Uri.base.queryParameters['session_id'];
+            return MaterialPageRoute(
+              builder: (context) => PaymentSuccessScreen(sessionId: sessionId),
+              settings: settings,
+            );
+          }
+
+          // Ajoutez cette condition
+          return null;
+        },
       ),
     );
   }
