@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:happy/screens/marketplace/ad_list_page.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
 import 'package:happy/screens/post_type_page/happy_deals_page.dart';
@@ -43,8 +44,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar:
-          const CustomAppBar(title: 'Recherche', align: Alignment.centerLeft),
+      appBar: const CustomAppBar(title: 'Rechercher', align: Alignment.center),
       body: Column(
         children: [
           Padding(
@@ -183,6 +183,10 @@ class _SearchPageState extends State<SearchPage> {
         _buildDiscoverItem('Offres de parrainage', Icons.card_giftcard, () {
           Navigator.push(context,
               MaterialPageRoute(builder: (context) => const ParraiangePage()));
+        }),
+        _buildDiscoverItem('Marketplace', Icons.store, () {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const AdListPage()));
         }),
       ],
     );

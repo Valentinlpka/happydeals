@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/happydeal.dart';
+import 'package:happy/classes/product.dart';
 import 'package:happy/screens/details_page/details_happydeals.dart';
 import 'package:intl/intl.dart';
 
@@ -23,6 +25,26 @@ class HappyDealsCard extends StatelessWidget {
   String formatDateTime(DateTime dateTime) {
     return DateFormat('dd/MM/yyyy')
         .format(dateTime); // Format comme "2024-06-13"
+  }
+
+  Future<String?> _getProductImage(String productId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('products')
+          .doc(productId)
+          .get();
+
+      if (doc.exists) {
+        final product = Product.fromDocument(doc);
+        if (product.imageUrl.isNotEmpty) {
+          return product.imageUrl[0];
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Erreur lors de la récupération de l\'image du produit: $e');
+      return null;
+    }
   }
 
   @override
@@ -51,101 +73,108 @@ class HappyDealsCard extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(8),
-                      topRight: Radius.circular(8),
-                    ),
-                    image: DecorationImage(
-                      colorFilter: ColorFilter.mode(
-                          Colors.transparent.withOpacity(0.40),
-                          BlendMode.darken),
-                      alignment: Alignment.center,
-                      fit: BoxFit.cover,
-                      image: NetworkImage(companyCover),
-                    ),
-                  ),
-                  height: 123,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+                FutureBuilder<String?>(
+                  future: _getProductImage(post.productId),
+                  builder: (context, snapshot) {
+                    final imageUrl = snapshot.data ?? companyCover;
+
+                    return Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(8),
+                          topRight: Radius.circular(8),
+                        ),
+                        image: DecorationImage(
+                          colorFilter: ColorFilter.mode(
+                              Colors.transparent.withOpacity(0.40),
+                              BlendMode.darken),
+                          alignment: Alignment.center,
+                          fit: BoxFit.cover,
+                          image: NetworkImage(imageUrl),
+                        ),
+                      ),
+                      height: 123,
+                      child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          ClipRRect(
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(15)),
-                            child: Container(
-                              padding: const EdgeInsets.only(
-                                  top: 3, bottom: 3, right: 7, left: 5),
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Colors.pink, Colors.blue],
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Icon(
-                                    Icons.battery_1_bar,
-                                    size: 18,
-                                    color: Colors.white,
-                                  ),
-                                  Text(
-                                    'Happy Deals',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              ClipRRect(
+                                borderRadius:
+                                    const BorderRadius.all(Radius.circular(15)),
+                                child: Container(
+                                  padding: const EdgeInsets.only(
+                                      top: 3, bottom: 3, right: 7, left: 5),
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [Colors.pink, Colors.blue],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 15.0),
-                            child: CircleAvatar(
-                              radius: 26,
-                              backgroundColor: Colors.blue,
-                              child: CircleAvatar(
-                                radius: 24,
-                                backgroundImage: NetworkImage(companyLogo),
-                              ),
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                (companyName),
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 18),
-                              ),
-                              const Text(
-                                "Valenciennes",
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold),
+                                  child: const Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Icon(
+                                        Icons.battery_1_bar,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                      Text(
+                                        'Happy Deals',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
-                          )
+                          ),
+                          Row(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(right: 15.0),
+                                child: CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor: Colors.blue,
+                                  child: CircleAvatar(
+                                    radius: 24,
+                                    backgroundImage: NetworkImage(companyLogo),
+                                  ),
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    (companyName),
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 18),
+                                  ),
+                                  const Text(
+                                    "Valenciennes",
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 Container(
                   width: double.infinity,

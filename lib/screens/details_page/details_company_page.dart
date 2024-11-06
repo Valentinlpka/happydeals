@@ -186,6 +186,18 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
                   (BuildContext context, bool innerBoxIsScrolled) {
                 return <Widget>[
                   _buildSliverAppBar(entreprise),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 200, // Hauteur fixe pour l'image de couverture
+                      width: double.infinity,
+                      child: CachedNetworkImage(
+                        imageUrl: entreprise.cover,
+                        fit: BoxFit.cover,
+                        colorBlendMode: BlendMode.darken,
+                        color: Colors.black.withOpacity(0.2),
+                      ),
+                    ),
+                  ),
                   SliverToBoxAdapter(child: _buildCompanyInfo(entreprise)),
                   SliverToBoxAdapter(child: _buildActionButtons(entreprise)),
                   SliverToBoxAdapter(child: _buildTabBar()),
@@ -201,23 +213,31 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
 
   Widget _buildSliverAppBar(Company entreprise) {
     return SliverAppBar(
-      expandedHeight: 150.0,
-      automaticallyImplyLeading: true,
-      leading: IconButton(
-        icon:
-            const Icon(Icons.arrow_back_ios_new_outlined, color: Colors.white),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-      ),
-      floating: false,
+      backgroundColor: Colors.white,
+      elevation: 1,
       pinned: true,
-      flexibleSpace: FlexibleSpaceBar(
-        background: CachedNetworkImage(
-          imageUrl: entreprise.cover,
-          fit: BoxFit.cover,
-          colorBlendMode: BlendMode.darken,
-          color: Colors.black.withOpacity(0.2),
+      centerTitle: true,
+      titleSpacing: 0,
+      title: Text(
+        entreprise.name,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 20,
+          color: Colors.black,
+        ),
+      ),
+      leading: IconButton(
+        icon: const Icon(
+          Icons.arrow_back_ios_new,
+          color: Colors.black,
+        ),
+        onPressed: () => Navigator.pop(context),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          color: Colors.grey[300],
         ),
       ),
     );
@@ -250,7 +270,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
 
   Widget _buildTab(String tabName) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.only(left: 15),
       child: Container(
         height: 35,
         decoration: BoxDecoration(
@@ -599,82 +619,141 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
   Widget _buildActionButtons(Company entreprise) {
     return Consumer<CompanyLikeService>(
       builder: (context, companyLikeService, child) {
-        final isLiked = companyLikeService.isCompanyLiked(entreprise.id);
+        final isFollowed = companyLikeService.isCompanyLiked(entreprise.id);
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0),
           child: Row(
             children: [
               Expanded(
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  height: 38, // Hauteur réduite
                   decoration: BoxDecoration(
+                    color: isFollowed ? Colors.white : const Color(0xFF0B7FE9),
                     border: Border.all(
-                      width: isLiked ? 0 : 2,
-                      color: isLiked
-                          ? Colors.blue
-                          : const Color.fromARGB(255, 21, 108, 179),
+                      color: isFollowed
+                          ? const Color(0xFF0B7FE9)
+                          : Colors.transparent,
+                      width: 1.2, // Bordure plus fine
                     ),
-                    gradient: isLiked
-                        ? const LinearGradient(
-                            colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
-                            stops: [0.0, 1.0],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          )
-                        : const LinearGradient(
-                            colors: [
-                              Color.fromARGB(255, 251, 251, 251),
-                              Color.fromARGB(255, 255, 255, 255)
-                            ],
-                            stops: [0.0, 1.0],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(8), // Radius réduit
+                    boxShadow: [
+                      if (!isFollowed)
+                        BoxShadow(
+                          color: const Color(0xFF0B7FE9).withOpacity(0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                    ],
                   ),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      textStyle: TextStyle(
-                        color: isLiked ? Colors.white : Colors.black,
-                      ),
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                    ),
-                    onPressed: () async {
-                      final updatedCompany =
-                          await companyLikeService.handleLike(entreprise);
-                      setState(() {
-                        _entrepriseFuture = Future.value(updatedCompany);
-                      });
-                    },
-                    child: Text(
-                      isLiked ? 'Aimé' : 'Aimer l\'entreprise',
-                      style: TextStyle(
-                        color: isLiked ? Colors.white : Colors.black,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () async {
+                        final updatedCompany =
+                            await companyLikeService.handleLike(entreprise);
+                        setState(() {
+                          _entrepriseFuture = Future.value(updatedCompany);
+                        });
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isFollowed
+                                    ? 'Vous ne suivez plus ${entreprise.name}'
+                                    : 'Vous suivez maintenant ${entreprise.name}',
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              margin: const EdgeInsets.all(10),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isFollowed ? Icons.check_circle : Icons.add,
+                            size: 18, // Icône plus petite
+                            color: isFollowed
+                                ? const Color(0xFF0B7FE9)
+                                : Colors.white,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isFollowed ? 'Suivi' : 'Suivre',
+                            style: TextStyle(
+                              color: isFollowed
+                                  ? const Color(0xFF0B7FE9)
+                                  : Colors.white,
+                              fontSize: 14, // Texte plus petit
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12), // Espacement réduit
               Expanded(
                 child: Container(
+                  height: 38, // Hauteur réduite
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
-                      stops: [0.0, 1.0],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(8), // Radius réduit
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0B7FE9).withOpacity(0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _startConversation(
+                        context,
+                        entreprise,
+                        FirebaseAuth.instance.currentUser!.uid,
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.message_outlined,
+                            size: 18, // Icône plus petite
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Message',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14, // Texte plus petit
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    onPressed: () => _startConversation(context, entreprise,
-                        FirebaseAuth.instance.currentUser!.uid),
-                    child: const Text('Envoyer un message'),
                   ),
                 ),
               ),

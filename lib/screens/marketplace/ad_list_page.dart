@@ -137,7 +137,7 @@ class _AdListPageState extends State<AdListPage> {
         title: Text('Marketplace',
             style: TextStyle(
                 color: Colors.black,
-                fontSize: 17,
+                fontSize: 20,
                 fontWeight: FontWeight.w600)),
       ),
       actions: [

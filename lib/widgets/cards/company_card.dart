@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/company_provider.dart';
-import 'package:happy/widgets/average_rating.dart';
+import 'package:happy/widgets/average_rating_page.dart';
 import 'package:provider/provider.dart';
 
 import '../../classes/company.dart';
@@ -81,8 +81,10 @@ class CompanyCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildLocationTag(),
-                  _buildLikeButton(context),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10.0),
+                    child: _buildLocationTag(),
+                  ),
                 ],
               ),
             ],
@@ -125,24 +127,6 @@ class CompanyCard extends StatelessWidget {
     );
   }
 
-  Widget _buildLikeButton(BuildContext context) {
-    return Consumer<CompanyLikeService>(
-      builder: (context, companyLikeService, child) {
-        final isLiked = companyLikeService.isCompanyLiked(company.id);
-        return IconButton(
-          onPressed: () async {
-            companyLikeService.handleLike(company);
-            // Vous pouvez ajouter ici une logique pour mettre à jour l'état global si nécessaire
-          },
-          icon: isLiked
-              ? const Icon(Icons.favorite)
-              : const Icon(Icons.favorite_border),
-          color: isLiked ? Colors.red : Colors.white,
-        );
-      },
-    );
-  }
-
   Widget _buildCompanyLogo() {
     return Positioned(
       bottom: -40,
@@ -179,20 +163,8 @@ class CompanyCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              buildAverageRating(company.averageRating),
-              const SizedBox(
-                height: 5,
-                width: 5,
-              ),
-              Text(
-                '(${company.numberOfReviews} avis)',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
+          // Remplacer la ligne existante avec le nouveau widget
+          AverageRatingWidget(companyId: company.id),
           Text(
             (company.categorie),
             style: const TextStyle(

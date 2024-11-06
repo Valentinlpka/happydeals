@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/liked_post_page.dart';
 import 'package:happy/screens/loyalty_card_page.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
 import 'package:happy/screens/my_deals_express.dart';
@@ -26,7 +27,7 @@ class ParametrePage extends StatelessWidget {
       backgroundColor: Colors.grey[50],
       appBar: const CustomAppBar(
         title: 'Mon Profil',
-        align: Alignment.centerLeft,
+        align: Alignment.center,
       ),
       body: SafeArea(
         child: Consumer<UserModel>(
@@ -286,6 +287,16 @@ class ParametrePage extends StatelessWidget {
           onTap: () {
             Navigator.push(context,
                 MaterialPageRoute(builder: (context) => const AdListPage()));
+          },
+        ),
+        _buildServiceCard(
+          icon: Icons.favorite,
+          title: "Mes Likes",
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const LikedPostsPage()));
           },
         ),
       ],

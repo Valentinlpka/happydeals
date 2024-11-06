@@ -9,6 +9,7 @@ import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/widgets/bottom_sheet_profile.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/filtered_button.dart';
 import 'package:happy/widgets/postwidget.dart';
@@ -168,9 +169,33 @@ class _HomeState extends State<Home> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundImage: NetworkImage(usersProvider.profileUrl),
+              GestureDetector(
+                onTap: () => showProfileBottomSheet(context),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.all(2), // Épaisseur du bord en dégradé
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color:
+                            Colors.white, // Fond blanc entre le bord et l'image
+                      ),
+                      child: CircleAvatar(
+                        radius: 25,
+                        backgroundImage: NetworkImage(usersProvider.profileUrl),
+                      ),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -180,7 +205,9 @@ class _HomeState extends State<Home> {
                     Text(
                       "Salut ${usersProvider.firstName} !",
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 18),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                     Text(
                       usersProvider.dailyQuote,

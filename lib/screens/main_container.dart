@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_list.dart';
 import 'package:happy/screens/home_page.dart';
-import 'package:happy/screens/liked_post_page.dart';
+import 'package:happy/screens/marketplace/ad_list_page.dart';
 import 'package:happy/screens/search_page.dart';
 import 'package:happy/screens/settings_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
@@ -56,7 +56,7 @@ class _MainContainerState extends State<MainContainer> {
   final List<Widget> _children = [
     const Home(),
     const SearchPage(),
-    const LikedPostsPage(),
+    const AdListPage(),
     ConversationsListScreen(userId: currentUserIds),
     const ParametrePage(),
     const CartScreen(),
@@ -69,7 +69,7 @@ class _MainContainerState extends State<MainContainer> {
       case 1:
         return const SearchPage();
       case 2:
-        return const LikedPostsPage();
+        return const AdListPage();
       case 3:
         return ConversationsListScreen(userId: currentUserId);
       case 4:
@@ -130,8 +130,8 @@ class _MainContainerState extends State<MainContainer> {
                       title: "Rechercher",
                     ),
                     _buildNavItem(
-                      icon: Icons.favorite_border,
-                      title: "Mes Likes",
+                      icon: Icons.store,
+                      title: "Marketplace",
                     ),
                     _buildMessageNavItem(unreadCounts),
                     _buildNavItem(

@@ -53,9 +53,9 @@ class CustomBottomNavBar extends StatelessWidget {
                   index: 1,
                 ),
                 _buildNavItem(
-                  icon: Icons.favorite_outline,
-                  activeIcon: Icons.favorite,
-                  label: 'Likes',
+                  icon: Icons.store_outlined,
+                  activeIcon: Icons.store,
+                  label: 'Marketplace',
                   index: 2,
                 ),
                 _buildMessageItem(

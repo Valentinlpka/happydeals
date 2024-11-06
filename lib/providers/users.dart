@@ -15,6 +15,7 @@ class UserModel with ChangeNotifier {
   String _profileUrl = '';
   String _email = '';
   String _phone = '';
+  String _uniqueCode = '';
   bool _showEmail = false;
   bool _showPhone = false;
   String _desiredPosition = '';
@@ -44,8 +45,15 @@ class UserModel with ChangeNotifier {
   List<String> get contractTypes => _contractTypes;
   String get workingHours => _workingHours;
 
+  String get uniqueCode => _uniqueCode;
+
   set firstName(String value) {
     _firstName = value;
+    notifyListeners();
+  }
+
+  set uniqueCode(String value) {
+    _uniqueCode = value;
     notifyListeners();
   }
 
@@ -144,6 +152,7 @@ class UserModel with ChangeNotifier {
       final data = userSnapshot.data() as Map<String, dynamic>;
 
       _firstName = data['firstName'] ?? '';
+      _uniqueCode = data['uniqueCode'] ?? '';
       _lastName = data['lastName'] ?? '';
       _profileUrl = data['image_profile'] ?? '';
       _email = data['email'] ?? '';

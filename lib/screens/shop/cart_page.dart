@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/screens/shop/checkout_page.dart';
 import 'package:happy/services/cart_service.dart';
-import 'package:happy/widgets/custom_app_bar_back.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
 class CartScreen extends StatelessWidget {
@@ -111,7 +111,8 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBarBack(
+      appBar: const CustomAppBar(
+        align: Alignment.center,
         title: 'Mes Paniers',
       ),
       body: Consumer<CartService>(
