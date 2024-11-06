@@ -7,6 +7,7 @@ import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:happy/services/promo_service.dart';
+import 'package:universal_html/html.dart' as html;
 
 class PaymentSuccessScreen extends StatefulWidget {
   final String? sessionId;
@@ -23,15 +24,25 @@ class PaymentSuccessScreen extends StatefulWidget {
 class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
   String? _getSessionId() {
     if (kIsWeb) {
-      // Utiliser d'abord le sessionId passé en paramètre du widget
-      if (widget.sessionId != null) {
-        return widget.sessionId;
+      // Récupérer l'URL complète
+      String url = html.window.location.href;
+      print('URL complète: $url'); // Pour déboguer
+
+      // Parser l'URL pour extraire le session_id après le hash
+      try {
+        // Trouver la partie après le hash
+        String hashPart = url.split('#')[1];
+        // Trouver la partie après le ?
+        String queryPart = hashPart.split('?')[1];
+        // Parser les paramètres
+        Map<String, String> params = Uri.splitQueryString(queryPart);
+        String? sessionId = params['session_id'];
+        print('Session ID trouvé: $sessionId'); // Pour déboguer
+        return sessionId;
+      } catch (e) {
+        print('Erreur parsing URL: $e');
+        return null;
       }
-      // Sinon, essayer de récupérer depuis l'URL
-      final uri = Uri.base;
-      final sessionId = uri.queryParameters['session_id'];
-      print('SessionID from URL: $sessionId'); // Pour le débogage
-      return sessionId;
     }
     return null;
   }

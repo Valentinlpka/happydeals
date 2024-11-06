@@ -24,6 +24,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:timeago/timeago.dart' as timeago_fr;
+import 'package:universal_html/html.dart' as html;
 
 import 'firebase_options.dart';
 
@@ -69,43 +70,53 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ReviewService())
       ],
       child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: _buildTheme(context),
-        home: const AuthWrapper(),
-        initialRoute: '/',
-        routes: {
-          '/signup': (context) => const SignUpPage(),
-          '/login': (context) => const Login(),
-          '/profile_completion': (context) => const ProfileCompletionPage(),
-          '/home': (context) => const MainContainer(),
-          '/cart': (context) => const CartScreen(),
-          '/payment-cancel': (context) => const PaymentCancel(),
-          '/order-confirmation': (context) => const PaymentSuccessScreen(),
-          '/company/:entrepriseId': (context) => const DetailsEntreprise(),
-        },
-        onGenerateRoute: (settings) {
-          if (settings.name?.startsWith('/company/') ?? false) {
-            final entrepriseId = settings.name!.split('/').last;
-            return MaterialPageRoute(
-              builder: (context) =>
-                  DetailsEntreprise(entrepriseId: entrepriseId),
-              settings: settings,
-            );
-          }
+          debugShowCheckedModeBanner: false,
+          theme: _buildTheme(context),
+          home: const AuthWrapper(),
+          initialRoute: '/',
+          routes: {
+            '/signup': (context) => const SignUpPage(),
+            '/login': (context) => const Login(),
+            '/profile_completion': (context) => const ProfileCompletionPage(),
+            '/home': (context) => const MainContainer(),
+            '/cart': (context) => const CartScreen(),
+            '/payment-cancel': (context) => const PaymentCancel(),
+            '/order-confirmation': (context) => const PaymentSuccessScreen(),
+            '/company/:entrepriseId': (context) => const DetailsEntreprise(),
+          },
+          onGenerateRoute: (settings) {
+            if (settings.name?.startsWith('/company/') ?? false) {
+              final entrepriseId = settings.name!.split('/').last;
+              return MaterialPageRoute(
+                builder: (context) =>
+                    DetailsEntreprise(entrepriseId: entrepriseId),
+                settings: settings,
+              );
+            }
 
-          if (settings.name?.startsWith('/payment-success') ?? false) {
-            // Récupérer le sessionId depuis les paramètres d'URL
-            final sessionId = Uri.base.queryParameters['session_id'];
-            return MaterialPageRoute(
-              builder: (context) => PaymentSuccessScreen(sessionId: sessionId),
-              settings: settings,
-            );
-          }
+            if (settings.name?.startsWith('/payment-success') ?? false) {
+              // Extraire le session_id de l'URL complète
+              String fullUrl = html.window.location.href;
+              String? sessionId;
 
-          // Ajoutez cette condition
-          return null;
-        },
-      ),
+              try {
+                String hashPart = fullUrl.split('#')[1];
+                String queryPart = hashPart.split('?')[1];
+                Map<String, String> params = Uri.splitQueryString(queryPart);
+                sessionId = params['session_id'];
+              } catch (e) {
+                print('Erreur extraction session_id: $e');
+              }
+
+              return MaterialPageRoute(
+                builder: (context) => PaymentSuccessScreen(
+                  sessionId: sessionId,
+                ),
+                settings: settings,
+              );
+            }
+            return null;
+          }),
     );
   }
 
