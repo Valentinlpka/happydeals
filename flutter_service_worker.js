@@ -4,10 +4,10 @@ const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
 const RESOURCES = {"flutter.js": "f393d3c16b631f36852323de8e583132",
-"main.dart.js": "42814716ef25f1528d208d31d767fa3d",
+"main.dart.js": "b74f0bbc6fa3978a68e1adf8a2df9ce1",
 "assets/FontManifest.json": "ea9dc826036577df024fd0fe176dd298",
 "assets/AssetManifest.bin": "a94fceb5b245bf14fdbb18540d1e6910",
-"assets/fonts/MaterialIcons-Regular.otf": "27d70c4d2ab0de6ff048707450738ccc",
+"assets/fonts/MaterialIcons-Regular.otf": "d3fe807b908192a1d8d98a9b5c4a2331",
 "assets/packages/syncfusion_flutter_pdfviewer/assets/underline.png": "c94a4441e753e4744e2857f0c4359bf0",
 "assets/packages/syncfusion_flutter_pdfviewer/assets/fonts/RobotoMono-Regular.ttf": "5b04fdfec4c8c36e8ca574e40b7148bb",
 "assets/packages/syncfusion_flutter_pdfviewer/assets/squiggly.png": "c9602bfd4aa99590ca66ce212099885f",
@@ -46,7 +46,7 @@ const RESOURCES = {"flutter.js": "f393d3c16b631f36852323de8e583132",
 "icons/Icon-512.png": "b89118f035f8161b5fa5a0cb468d2e87",
 "404.html": "ab579ad9dc729d0d05bd8c606381e9b0",
 "version.json": "a7fea63afa0364418817d8246079537a",
-"flutter_bootstrap.js": "2ac31d7ec973e449c37583073fa80d68"};
+"flutter_bootstrap.js": "1d737a428840d18829bc293a2aa42198"};
 // The application shell files that are downloaded before a service worker can
 // start.
 const CORE = ["main.dart.js",
