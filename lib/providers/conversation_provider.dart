@@ -20,6 +20,180 @@ class ConversationService extends ChangeNotifier {
   // Initialize service for user
 // Dans ConversationService, modifiez la méthode initializeForUser :
 
+// Ajoutez ces méthodes dans la classe ConversationService
+
+  Future<String> createGroupConversation(
+    String creatorId,
+    List<Map<String, dynamic>> members,
+    String groupName,
+  ) async {
+    if (_currentUserId == null) throw Exception('Service not initialized');
+
+    // Créer la liste des membres avec leurs types
+    final List<Map<String, dynamic>> allMembers = [
+      {
+        'id': creatorId,
+        'type': 'user', // Le créateur est toujours un utilisateur
+        'name': await _getUserName(creatorId),
+      },
+      ...members,
+    ];
+
+    // Créer le document de conversation de groupe
+    final groupConversation = {
+      'isGroup': true,
+      'groupName': groupName,
+      'creatorId': creatorId,
+      'members': allMembers,
+      'memberIds': allMembers.map((m) => m['id']).toList(),
+      'lastMessage': '',
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+      'lastMessageSenderId': '',
+      'unreadCount': 0,
+      'unreadBy': [],
+      'createdAt': FieldValue.serverTimestamp(),
+      'type': 'group', // Pour différencier des conversations normales
+    };
+
+    // Créer la conversation
+    final docRef =
+        await _firestore.collection('conversations').add(groupConversation);
+
+    // Envoyer le message système de création
+    await sendSystemMessage(
+      docRef.id,
+      'Groupe "$groupName" créé par ${await _getUserName(creatorId)}',
+    );
+
+    return docRef.id;
+  }
+
+// Modifiez la méthode sendMessage pour gérer les groupes
+  Future<void> sendMessage(
+    String conversationId,
+    String senderId,
+    String content,
+  ) async {
+    if (_currentUserId != senderId) return;
+
+    final message = Message(
+      id: '',
+      senderId: senderId,
+      content: content,
+      timestamp: DateTime.now(),
+    );
+
+    final conversationDoc =
+        await _firestore.collection('conversations').doc(conversationId).get();
+    final conversationData = conversationDoc.data() as Map<String, dynamic>;
+
+    if (conversationData['isGroup'] == true) {
+      // Pour les groupes, marquer comme non lu pour tous les membres sauf l'expéditeur
+      final members =
+          List<Map<String, dynamic>>.from(conversationData['members']);
+      final unreadBy = members
+          .where((m) => m['id'] != senderId)
+          .map((m) => m['id'])
+          .toList();
+
+      await _firestore.collection('conversations').doc(conversationId).update({
+        'lastMessage': content,
+        'lastMessageTimestamp': Timestamp.fromDate(message.timestamp),
+        'lastMessageSenderId': senderId,
+        'unreadCount': 1,
+        'unreadBy': unreadBy,
+      });
+    } else {
+      // Logique existante pour les conversations individuelles
+      final recipientId = conversationData['particulierId'] == senderId
+          ? conversationData['entrepriseId']
+          : conversationData['particulierId'];
+
+      await _firestore.collection('conversations').doc(conversationId).update({
+        'lastMessage': content,
+        'lastMessageTimestamp': Timestamp.fromDate(message.timestamp),
+        'lastMessageSenderId': senderId,
+        'unreadCount': 1,
+        'unreadBy': recipientId,
+      });
+    }
+
+    await _firestore
+        .collection('conversations')
+        .doc(conversationId)
+        .collection('messages')
+        .add(message.toFirestore());
+
+    notifyListeners();
+  }
+
+// Modifiez la méthode markMessageAsRead pour gérer les groupes
+  Future<void> markMessageAsRead(String conversationId, String userId) async {
+    if (_currentUserId != userId) return;
+
+    final conversationDoc =
+        await _firestore.collection('conversations').doc(conversationId).get();
+    final conversationData = conversationDoc.data() as Map<String, dynamic>;
+
+    if (conversationData['isGroup'] == true) {
+      // Pour les groupes, retirer l'utilisateur de la liste unreadBy
+      final List<dynamic> unreadBy =
+          List.from(conversationData['unreadBy'] ?? []);
+      if (unreadBy.contains(userId)) {
+        unreadBy.remove(userId);
+        await _firestore
+            .collection('conversations')
+            .doc(conversationId)
+            .update({
+          'unreadBy': unreadBy,
+          'unreadCount': unreadBy.isEmpty ? 0 : conversationData['unreadCount'],
+        });
+      }
+    } else {
+      // Logique existante pour les conversations individuelles
+      if (conversationData['unreadBy'] == userId) {
+        await _firestore
+            .collection('conversations')
+            .doc(conversationId)
+            .update({
+          'unreadCount': 0,
+          'unreadBy': null,
+        });
+      }
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> sendSystemMessage(String conversationId, String content) async {
+    final message = {
+      'content': content,
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'system',
+      'senderId': null,
+    };
+
+    await _firestore
+        .collection('conversations')
+        .doc(conversationId)
+        .collection('messages')
+        .add(message);
+
+    await _firestore.collection('conversations').doc(conversationId).update({
+      'lastMessage': content,
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+      'lastMessageSenderId': null,
+    });
+  }
+
+  Future<String> _getUserName(String userId) async {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    if (!userDoc.exists) return 'Utilisateur inconnu';
+
+    final userData = userDoc.data()!;
+    return '${userData['firstName']} ${userData['lastName']}';
+  }
+
   Future<void> initializeForUser(String userId) async {
     print('Initializing ConversationService for user: $userId');
     if (_currentUserId == userId) {
@@ -32,12 +206,13 @@ class ConversationService extends ChangeNotifier {
     _conversationsController = BehaviorSubject<List<Conversation>>();
 
     try {
-      // Subscribe to user conversations
+      // Subscribe to user conversations - both direct and group conversations
       final query = _firestore
           .collection('conversations')
           .where(Filter.or(
             Filter('particulierId', isEqualTo: userId),
             Filter('entrepriseId', isEqualTo: userId),
+            Filter('memberIds', arrayContains: userId), // Pour les groupes
           ))
           .orderBy('lastMessageTimestamp', descending: true);
 
@@ -57,7 +232,6 @@ class ConversationService extends ChangeNotifier {
         },
         onError: (error) {
           print('Error in Firestore subscription: $error');
-          // Si c'est une erreur d'index manquant, elle apparaîtra ici
           if (error.toString().contains('indexes?create_composite=')) {
             print('Index missing. Create the following index:');
             print(error.toString());
@@ -70,7 +244,6 @@ class ConversationService extends ChangeNotifier {
       print('ConversationService initialized successfully');
     } catch (e) {
       print('Error during initialization: $e');
-      // Réinitialiser en cas d'erreur
       await cleanUp();
       rethrow;
     }
@@ -146,58 +319,6 @@ class ConversationService extends ChangeNotifier {
             snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList());
   }
 
-  Future<void> sendMessage(
-      String conversationId, String senderId, String content) async {
-    if (_currentUserId != senderId) return;
-
-    final message = Message(
-      id: '',
-      senderId: senderId,
-      content: content,
-      timestamp: DateTime.now(),
-    );
-
-    final conversationDoc =
-        await _firestore.collection('conversations').doc(conversationId).get();
-    final conversationData = conversationDoc.data() as Map<String, dynamic>;
-
-    final recipientId = conversationData['particulierId'] == senderId
-        ? conversationData['entrepriseId']
-        : conversationData['particulierId'];
-
-    await _firestore.collection('conversations').doc(conversationId).update({
-      'lastMessage': content,
-      'lastMessageTimestamp': Timestamp.fromDate(message.timestamp),
-      'lastMessageSenderId': senderId,
-      'unreadCount': 1,
-      'unreadBy': recipientId,
-    });
-
-    await _firestore
-        .collection('conversations')
-        .doc(conversationId)
-        .collection('messages')
-        .add(message.toFirestore());
-
-    notifyListeners();
-  }
-
-  Future<void> markMessageAsRead(String conversationId, String userId) async {
-    if (_currentUserId != userId) return;
-
-    final conversationDoc =
-        await _firestore.collection('conversations').doc(conversationId).get();
-    final conversationData = conversationDoc.data() as Map<String, dynamic>;
-
-    if (conversationData['unreadBy'] == userId) {
-      await _firestore.collection('conversations').doc(conversationId).update({
-        'unreadCount': 0,
-        'unreadBy': null,
-      });
-      notifyListeners();
-    }
-  }
-
   Future<String> getOrCreateConversationForAd(
       String buyerId, String sellerId, String adId) async {
     if (_currentUserId == null) throw Exception('Service not initialized');
@@ -245,14 +366,16 @@ class ConversationService extends ChangeNotifier {
 
   // Notifications
   Stream<Map<String, int>> getDetailedUnreadCount(String userId) {
-    if (_currentUserId != userId)
+    if (_currentUserId != userId) {
       return Stream.value({'total': 0, 'ads': 0, 'business': 0});
+    }
 
     return _firestore
         .collection('conversations')
         .where(Filter.or(
           Filter('particulierId', isEqualTo: userId),
           Filter('entrepriseId', isEqualTo: userId),
+          Filter('memberIds', arrayContains: userId),
         ))
         .snapshots()
         .map((snapshot) {
@@ -263,16 +386,27 @@ class ConversationService extends ChangeNotifier {
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final unreadCount = (data['unreadCount'] as num?)?.toInt() ?? 0;
-        final isUnreadByCurrentUser = data['unreadBy'] == userId;
-        final lastMessageSenderId = data['lastMessageSenderId'] ?? '';
 
-        if (isUnreadByCurrentUser && lastMessageSenderId != userId) {
-          if (data['adId'] != null) {
-            adMessagesUnread += unreadCount;
-          } else {
-            businessMessagesUnread += unreadCount;
+        // Pour les groupes
+        if (data['isGroup'] == true) {
+          final List<dynamic> unreadBy = List.from(data['unreadBy'] ?? []);
+          if (unreadBy.contains(userId)) {
+            businessMessagesUnread += 1;
+            totalUnread += 1;
           }
-          totalUnread += unreadCount;
+        } else {
+          // Pour les conversations individuelles
+          final isUnreadByCurrentUser = data['unreadBy'] == userId;
+          final lastMessageSenderId = data['lastMessageSenderId'] ?? '';
+
+          if (isUnreadByCurrentUser && lastMessageSenderId != userId) {
+            if (data['adId'] != null) {
+              adMessagesUnread += unreadCount;
+            } else {
+              businessMessagesUnread += unreadCount;
+            }
+            totalUnread += unreadCount;
+          }
         }
       }
 

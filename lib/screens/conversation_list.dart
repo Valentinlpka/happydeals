@@ -5,6 +5,7 @@ import 'package:happy/classes/conversation.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/new_chat_bottom_sheet.dart';
 import 'package:provider/provider.dart';
 
 class ConversationsListScreen extends StatefulWidget {
@@ -37,9 +38,22 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(
+      appBar: CustomAppBar(
         title: 'Conversations',
         align: Alignment.center,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => const NewChatBottomSheet(),
+              );
+            },
+          ),
+        ],
       ),
       body: Consumer<ConversationService>(
         builder: (context, service, _) {
@@ -119,6 +133,22 @@ class ConversationListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Si c'est une conversation de groupe, on utilise directement les données du groupe
+    if (conversation.isGroup) {
+      return ConversationTile(
+        conversation: conversation,
+        userData: {
+          'name': conversation.groupName,
+          'image_profile':
+              null, // On pourrait ajouter une image de groupe plus tard
+          'isGroup': true,
+          'members': conversation.members,
+        },
+        userId: userId,
+      );
+    }
+
+    // Sinon, on charge les données de l'autre utilisateur comme avant
     return FutureBuilder<Map<String, dynamic>>(
       future: _loadConversationData(conversation, userId),
       builder: (context, snapshot) {
@@ -145,6 +175,41 @@ class ConversationListItem extends StatelessWidget {
         ? conversation.particulierId
         : conversation.entrepriseId;
 
+    // Vérifions d'abord si l'autre utilisateur est un professionnel (dans la collection companys)
+    if (otherUserId == conversation.entrepriseId) {
+      final companyDoc = await FirebaseFirestore.instance
+          .collection('companys')
+          .doc(otherUserId)
+          .get();
+
+      if (companyDoc.exists) {
+        final companyData = companyDoc.data() as Map<String, dynamic>;
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(otherUserId)
+            .get();
+
+        DocumentSnapshot? adDoc;
+        if (conversation.adId != null) {
+          adDoc = await FirebaseFirestore.instance
+              .collection('ads')
+              .doc(conversation.adId)
+              .get();
+        }
+
+        // Combiner les données de company et user
+        final userData = userDoc.data() as Map<String, dynamic>;
+        userData['logo'] =
+            companyData['logo']; // Ajouter le logo aux données utilisateur
+
+        return {
+          'userData': userData,
+          'adData': adDoc?.data() as Map<String, dynamic>?,
+        };
+      }
+    }
+
+    // Si ce n'est pas une entreprise ou si elle n'existe pas, charger normalement
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(otherUserId)
@@ -181,20 +246,34 @@ class ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final otherUserId = conversation.entrepriseId == userId
-        ? conversation.particulierId
-        : conversation.entrepriseId;
+    final bool isGroup = conversation.isGroup || userData['isGroup'] == true;
+    String userName;
+    String? profilePicUrl; // Changé en nullable
+    bool isPro = false;
 
-    final bool shouldUseCompanyName =
-        conversation.adId == null && otherUserId == conversation.entrepriseId;
+    if (isGroup) {
+      userName = conversation.groupName ?? 'Groupe';
+      profilePicUrl = '';
+    } else {
+      final otherUserId = conversation.entrepriseId == userId
+          ? conversation.particulierId
+          : conversation.entrepriseId;
 
-    final String userName = shouldUseCompanyName
-        ? userData['companyName'] ?? 'Entreprise'
-        : '${userData['firstName']} ${userData['lastName']}';
-    final String profilePicUrl = userData['image_profile'] ?? '';
+      final bool shouldUseCompanyName =
+          conversation.adId == null && otherUserId == conversation.entrepriseId;
 
-    final isUnread =
-        conversation.unreadCount > 0 && conversation.unreadBy == userId;
+      isPro = otherUserId == conversation.entrepriseId;
+
+      userName = shouldUseCompanyName
+          ? userData['companyName'] ?? 'Entreprise'
+          : '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
+      profilePicUrl =
+          isPro ? (userData['logo'] ?? '') : (userData['image_profile'] ?? '');
+    }
+
+    final isUnread = isGroup
+        ? (conversation.unreadBy as List?)?.contains(userId) ?? false
+        : conversation.unreadCount > 0 && conversation.unreadBy == userId;
 
     return Column(
       children: [
@@ -206,17 +285,22 @@ class ConversationTile extends StatelessWidget {
               vertical: 8.0,
             ),
             leading: UserAvatar(
-              profilePicUrl: profilePicUrl,
+              profilePicUrl: profilePicUrl ??
+                  '', // Utilisation de l'opérateur ?? pour garantir une chaîne vide
               userName: userName,
               isAdSold: conversation.isAdSold,
+              isGroup: isGroup,
+              isPro: isPro,
             ),
             title: ConversationTitle(
               userName: userName,
               adTitle: adData?['title'],
               isUnread: isUnread,
+              isGroup: isGroup,
+              memberCount: isGroup ? (conversation.members?.length ?? 0) : null,
             ),
             subtitle: MessagePreview(
-              message: conversation.lastMessage,
+              message: conversation.lastMessage ?? '',
               adThumbnail: adData?['photos']?.first,
               adPrice: adData?['price']?.toDouble(),
               isUnread: isUnread,
@@ -234,8 +318,22 @@ class ConversationTile extends StatelessWidget {
   }
 
   Future<void> _onTapConversation(BuildContext context, String userName) async {
+    if (conversation.isGroup) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ConversationDetailScreen(
+            conversationId: conversation.id,
+            otherUserName: userName,
+            isGroup: true,
+          ),
+        ),
+      );
+      return; // Ajout du return pour éviter la suite du code
+    }
+
+    // Code pour les conversations normales
     if (conversation.adId != null && adData != null) {
-      // Créer un DocumentSnapshot manuellement
       final adDoc = await FirebaseFirestore.instance
           .collection('ads')
           .doc(conversation.adId)
@@ -275,12 +373,16 @@ class UserAvatar extends StatelessWidget {
   final String profilePicUrl;
   final String userName;
   final bool? isAdSold;
+  final bool isGroup;
+  final bool isPro;
 
   const UserAvatar({
     super.key,
     required this.profilePicUrl,
     required this.userName,
     this.isAdSold,
+    this.isGroup = false,
+    this.isPro = false,
   });
 
   @override
@@ -289,10 +391,17 @@ class UserAvatar extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 25,
+          backgroundColor: isGroup ? Colors.grey[300] : Colors.grey[500],
           backgroundImage:
               profilePicUrl.isNotEmpty ? NetworkImage(profilePicUrl) : null,
           child: profilePicUrl.isEmpty
-              ? Text(userName[0], style: const TextStyle(fontSize: 18))
+              ? Icon(
+                  isGroup
+                      ? Icons.group
+                      : (isPro ? Icons.business : Icons.person),
+                  size: 24,
+                  color: Colors.white,
+                )
               : null,
         ),
         if (isAdSold == true)
@@ -317,12 +426,16 @@ class ConversationTitle extends StatelessWidget {
   final String userName;
   final String? adTitle;
   final bool isUnread;
+  final bool isGroup;
+  final int? memberCount;
 
   const ConversationTitle({
     super.key,
     required this.userName,
     required this.isUnread,
     this.adTitle,
+    this.isGroup = false,
+    this.memberCount,
   });
 
   @override
@@ -339,7 +452,15 @@ class ConversationTitle extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        if (adTitle != null)
+        if (isGroup && memberCount != null)
+          Text(
+            '$memberCount membres',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          )
+        else if (adTitle != null)
           Text(
             adTitle!,
             style: const TextStyle(

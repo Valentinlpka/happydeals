@@ -1,25 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// Dans classes/conversation.dart ou là où se trouve votre classe Message
+
 class Message {
   final String id;
-  final String senderId;
+  final String? senderId;
   final String content;
   final DateTime timestamp;
+  final String? type; // Ajout du champ type
 
   Message({
     required this.id,
     required this.senderId,
     required this.content,
     required this.timestamp,
+    this.type, // Peut être 'system' ou null pour les messages normaux
   });
 
   factory Message.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
     return Message(
       id: doc.id,
-      senderId: data['senderId'] ?? '',
+      senderId: data['senderId'],
       content: data['content'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
+      type: data['type'], // Récupération du type depuis Firestore
     );
   }
 
@@ -28,64 +33,77 @@ class Message {
       'senderId': senderId,
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
+      'type': type, // Inclusion du type dans les données Firestore
     };
   }
 }
 
+// Dans classes/conversation.dart
+
 class Conversation {
   final String id;
-  final String particulierId;
-  final String entrepriseId;
+  final String? particulierId;
+  final String? entrepriseId;
+  final String? adId;
   final String lastMessage;
   final DateTime lastMessageTimestamp;
-  int unreadCount;
-  final String unreadBy;
-  final String? adId;
+  final int unreadCount;
+  final dynamic unreadBy; // Peut être String ou List<String>
   final bool? isAdSold;
-  final DateTime? soldDate;
   final String lastMessageSenderId;
-  final bool sellerHasRated; // Nouveau champ
-  final bool buyerHasRated; // Nouveau champ
-  final String
-      sellerId; // Nouveau champ pour identifier clairement qui est le vendeur
+  final bool sellerHasRated;
+  final bool buyerHasRated;
+  final String? sellerId;
+  // Nouveaux champs pour les groupes
+  final bool isGroup;
+  final String? groupName;
+  final List<Map<String, dynamic>>? members;
+  final String? creatorId;
 
   Conversation({
     required this.id,
-    required this.particulierId,
-    required this.entrepriseId,
+    this.particulierId,
+    this.entrepriseId,
     required this.lastMessage,
     required this.lastMessageTimestamp,
     required this.unreadCount,
     required this.unreadBy,
     this.adId,
-    this.isAdSold = false,
-    this.soldDate,
+    this.isAdSold,
     required this.lastMessageSenderId,
-    this.sellerHasRated = false,
-    this.buyerHasRated = false,
-    required this.sellerId,
+    required this.sellerHasRated,
+    required this.buyerHasRated,
+    this.sellerId,
+    this.isGroup = false,
+    this.groupName,
+    this.members,
+    this.creatorId,
   });
 
   factory Conversation.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
+
     return Conversation(
       id: doc.id,
-      particulierId: data['particulierId'] ?? '',
-      entrepriseId: data['entrepriseId'] ?? '',
+      particulierId: data['particulierId'],
+      entrepriseId: data['entrepriseId'],
       lastMessage: data['lastMessage'] ?? '',
       lastMessageTimestamp:
           (data['lastMessageTimestamp'] as Timestamp).toDate(),
-      unreadCount: data['unreadCount'] ?? 0,
-      unreadBy: data['unreadBy'] ?? '',
+      unreadCount: (data['unreadCount'] as num?)?.toInt() ?? 0,
+      unreadBy: data['unreadBy'], // Peut être String ou List<String>
       adId: data['adId'],
-      isAdSold: data['isAdSold'] ?? false,
-      soldDate: data['soldDate'] != null
-          ? (data['soldDate'] as Timestamp).toDate()
-          : null,
+      isAdSold: data['isAdSold'],
       lastMessageSenderId: data['lastMessageSenderId'] ?? '',
       sellerHasRated: data['sellerHasRated'] ?? false,
       buyerHasRated: data['buyerHasRated'] ?? false,
-      sellerId: data['sellerId'] ?? '',
+      sellerId: data['sellerId'],
+      isGroup: data['isGroup'] ?? false,
+      groupName: data['groupName'],
+      members: data['members'] != null
+          ? List<Map<String, dynamic>>.from(data['members'])
+          : null,
+      creatorId: data['creatorId'],
     );
   }
 
@@ -99,11 +117,14 @@ class Conversation {
       'unreadBy': unreadBy,
       'adId': adId,
       'isAdSold': isAdSold,
-      'soldDate': soldDate != null ? Timestamp.fromDate(soldDate!) : null,
       'lastMessageSenderId': lastMessageSenderId,
       'sellerHasRated': sellerHasRated,
       'buyerHasRated': buyerHasRated,
       'sellerId': sellerId,
+      'isGroup': isGroup,
+      'groupName': groupName,
+      'members': members,
+      'creatorId': creatorId,
     };
   }
 }

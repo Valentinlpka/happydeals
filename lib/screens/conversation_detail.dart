@@ -11,12 +11,14 @@ class ConversationDetailScreen extends StatefulWidget {
   final String conversationId;
   final String otherUserName;
   final Ad? ad;
+  final bool isGroup;
 
   const ConversationDetailScreen({
     super.key,
     required this.conversationId,
     required this.otherUserName,
     this.ad,
+    this.isGroup = false,
   });
 
   @override
@@ -28,11 +30,40 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isFirstLoad = true;
+  Map<String, String> _memberNames = {};
 
   @override
   void initState() {
     super.initState();
     _initializeChat();
+    if (widget.isGroup) {
+      _loadGroupMembers();
+    }
+  }
+
+  Future<void> _loadGroupMembers() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('conversations')
+        .doc(widget.conversationId)
+        .get();
+
+    if (!doc.exists) return;
+
+    final data = doc.data()!;
+    if (data['members'] != null) {
+      final members = data['members'] as List<dynamic>;
+      setState(() {
+        _memberNames = Map.fromEntries(
+          members.map((member) {
+            final memberData = member as Map<String, dynamic>;
+            return MapEntry(
+              memberData['id'] as String,
+              memberData['name'] as String,
+            );
+          }),
+        );
+      });
+    }
   }
 
   void _initializeChat() {
@@ -81,26 +112,72 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final conversation = Conversation.fromFirestore(snapshot.data!);
-          final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+          if (!snapshot.data!.exists) {
+            return const Center(child: Text('Conversation introuvable'));
+          }
 
-          return Column(
-            children: [
-              if (widget.ad != null) _buildAdInfo(widget.ad!),
-              if (conversation.isAdSold!)
-                _buildRatingButton(conversation, currentUserId),
-              _buildMessageList(currentUserId),
-              _buildMessageInput(currentUserId),
-            ],
-          );
+          try {
+            final data = snapshot.data!.data() as Map<String, dynamic>?;
+
+            if (data == null) {
+              return const Center(
+                  child: Text('Données de conversation invalides'));
+            }
+
+            final isGroup = data['isGroup'] ?? false;
+
+            if (isGroup) {
+              return Column(
+                children: [
+                  _buildMessageList(
+                      FirebaseAuth.instance.currentUser?.uid ?? ""),
+                  _buildMessageInput(
+                      FirebaseAuth.instance.currentUser?.uid ?? ""),
+                ],
+              );
+            }
+
+            // Pour les conversations normales, ajoutons des vérifications supplémentaires
+            try {
+              final conversation = Conversation.fromFirestore(snapshot.data!);
+              final currentUserId =
+                  FirebaseAuth.instance.currentUser?.uid ?? "";
+
+              return Column(
+                children: [
+                  if (widget.ad != null) _buildAdInfo(widget.ad!),
+                  if (!widget.isGroup &&
+                      conversation.isAdSold != null &&
+                      conversation.isAdSold!)
+                    _buildRatingButton(conversation, currentUserId),
+                  _buildMessageList(currentUserId),
+                  _buildMessageInput(currentUserId),
+                ],
+              );
+            } catch (e) {
+              print('Erreur lors de la conversion de la conversation: $e');
+              // Retourner une version simplifiée en cas d'erreur
+              return Column(
+                children: [
+                  if (widget.ad != null) _buildAdInfo(widget.ad!),
+                  _buildMessageList(
+                      FirebaseAuth.instance.currentUser?.uid ?? ""),
+                  _buildMessageInput(
+                      FirebaseAuth.instance.currentUser?.uid ?? ""),
+                ],
+              );
+            }
+          } catch (e) {
+            print('Erreur lors du traitement des données: $e');
+            return const Center(
+                child: Text('Erreur lors du chargement de la conversation'));
+          }
         },
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar() {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
-
     return AppBar(
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -109,14 +186,100 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
             widget.otherUserName,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
           ),
-          if (widget.ad != null)
+          if (widget.isGroup)
+            Text(
+              '${_memberNames.length} membres',
+              style: const TextStyle(fontSize: 12),
+            )
+          else if (widget.ad != null)
             Text(widget.ad!.title, style: const TextStyle(fontSize: 12)),
         ],
       ),
       actions: [
-        if (widget.ad != null && currentUserId == widget.ad!.userId)
+        if (widget.isGroup)
+          IconButton(
+            icon: const Icon(Icons.group),
+            onPressed: _showGroupInfo,
+          )
+        else if (widget.ad != null &&
+            FirebaseAuth.instance.currentUser?.uid == widget.ad!.userId)
           _buildSellActionButton(),
       ],
+    );
+  }
+
+  void _showGroupInfo() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                widget.otherUserName,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${_memberNames.length} membres',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Membres du groupe',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: _memberNames.length,
+                  itemBuilder: (context, index) {
+                    final entry = _memberNames.entries.elementAt(index);
+                    return ListTile(
+                      title: Text(entry.value),
+                      leading: CircleAvatar(
+                        child: Text(entry.value[0]),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -193,28 +356,39 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
+            print('Erreur dans _buildMessageList: ${snapshot.error}');
             return Center(child: Text('Erreur: ${snapshot.error}'));
           }
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text('Aucun message'));
           }
 
-          final messages = snapshot.data!.reversed.toList();
-          return ListView.builder(
-            controller: _scrollController,
-            itemCount: messages.length,
-            itemBuilder: (context, index) {
-              final message = messages[index];
-              final previousMessage =
-                  index < messages.length - 1 ? messages[index + 1] : null;
+          try {
+            final messages = snapshot.data!.reversed.toList();
+            return ListView.builder(
+              controller: _scrollController,
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                final previousMessage =
+                    index < messages.length - 1 ? messages[index + 1] : null;
 
-              return MessageBubble(
-                message: message,
-                isMe: message.senderId == currentUserId,
-                previousMessage: previousMessage,
-              );
-            },
-          );
+                return MessageBubble(
+                  message: message,
+                  isMe: message.senderId == currentUserId,
+                  previousMessage: previousMessage,
+                  isGroup: widget.isGroup,
+                  senderName: widget.isGroup && message.senderId != null
+                      ? _memberNames[message.senderId] ?? 'Membre'
+                      : null,
+                );
+              },
+            );
+          } catch (e) {
+            print('Erreur dans la construction de la liste des messages: $e');
+            return const Center(
+                child: Text('Erreur lors de l\'affichage des messages'));
+          }
         },
       ),
     );
@@ -363,7 +537,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
     print('Conversation Particulier ID: ${conversation.particulierId}');
 
     // Détermine le destinataire de l'évaluation
-    String toUserId;
+    String? toUserId;
     if (isCurrentUserSeller) {
       // Si le vendeur évalue, le destinataire est l'acheteur (particulier)
       toUserId = conversation.particulierId;
@@ -374,7 +548,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
       print('Buyer rating seller - toUserId: $toUserId');
     }
 
-    if (toUserId.isEmpty) {
+    if (toUserId == null || toUserId.isEmpty) {
       print('ERROR: toUserId is empty!');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -471,21 +645,54 @@ class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
   final Message? previousMessage;
+  final bool isGroup;
+  final String? senderName;
 
   const MessageBubble({
     super.key,
     required this.message,
     required this.isMe,
     this.previousMessage,
+    this.isGroup = false,
+    this.senderName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool showDateDivider = _shouldShowDateDivider();
+    // Pour les messages système
+    if (message.type == 'system') {
+      return Column(
+        children: [
+          if (_shouldShowDateDivider()) _buildDateDivider(message.timestamp),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  message.content ?? '',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
+    // Pour les messages normaux
     return Column(
       children: [
-        if (showDateDivider) _buildDateDivider(message.timestamp),
+        if (_shouldShowDateDivider()) _buildDateDivider(message.timestamp),
         Align(
           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
@@ -494,17 +701,35 @@ class MessageBubble extends StatelessWidget {
               crossAxisAlignment:
                   isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
+                if (isGroup && !isMe && senderName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, bottom: 4),
+                    child: Text(
+                      senderName!,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                   decoration: BoxDecoration(
                     color: isMe ? Colors.blue[600] : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(isMe ? 16 : 4),
+                      bottomRight: Radius.circular(isMe ? 4 : 16),
+                    ),
                   ),
                   child: Text(
-                    message.content,
-                    style:
-                        TextStyle(color: isMe ? Colors.white : Colors.black87),
+                    message.content ?? '',
+                    style: TextStyle(
+                      color: isMe ? Colors.white : Colors.black87,
+                    ),
                   ),
                 ),
                 Padding(
