@@ -395,46 +395,48 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
   }
 
   Widget _buildMessageInput(String currentUserId) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            offset: const Offset(0, -2),
-            blurRadius: 6.0,
-            color: Colors.black.withOpacity(0.1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: InputDecoration(
-                hintText: 'Écrivez votre message...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25.0),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: 10.0,
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              offset: const Offset(0, -2),
+              blurRadius: 6.0,
+              color: Colors.black.withOpacity(0.1),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                decoration: InputDecoration(
+                  hintText: 'Écrivez votre message...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20.0,
+                    vertical: 10.0,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 8.0),
-          FloatingActionButton(
-            onPressed: () => _sendMessage(currentUserId),
-            mini: true,
-            elevation: 0,
-            child: const Icon(Icons.send),
-          ),
-        ],
+            const SizedBox(width: 8.0),
+            FloatingActionButton(
+              onPressed: () => _sendMessage(currentUserId),
+              mini: true,
+              elevation: 0,
+              child: const Icon(Icons.send),
+            ),
+          ],
+        ),
       ),
     );
   }
