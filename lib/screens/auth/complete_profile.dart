@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -21,8 +22,9 @@ class ProfileCompletionPage extends StatefulWidget {
 class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   bool _isLoading = false;
-  File? _imageFile;
+  dynamic _imageFile;
   bool _isImageUploaded = false;
 
   @override
@@ -87,9 +89,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(placeholder),
-        const SizedBox(
-          height: 8,
-        ),
+        const SizedBox(height: 8),
         TextField(
           controller: controller,
           decoration: InputDecoration(
@@ -123,30 +123,28 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
             shape: BoxShape.circle,
             image: _imageFile != null
                 ? DecorationImage(
-                    image: FileImage(_imageFile!),
+                    image: kIsWeb
+                        ? MemoryImage(_imageFile as Uint8List)
+                        : FileImage(_imageFile as File) as ImageProvider,
                     fit: BoxFit.cover,
                   )
                 : null,
           ),
-          child: _imageFile == null
-              ? const Icon(
-                  CupertinoIcons.camera,
-                  size: 40,
-                  color: CupertinoColors.systemGrey,
-                )
-              : _isImageUploaded
-                  ? Container(
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.activeGreen.withOpacity(0.7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.checkmark_alt,
-                        color: CupertinoColors.white,
-                        size: 40,
-                      ),
-                    )
-                  : null,
+          child: Container(
+            decoration: BoxDecoration(
+              color: _isImageUploaded
+                  ? CupertinoColors.activeGreen.withOpacity(0.7)
+                  : CupertinoColors.black.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _isImageUploaded
+                  ? CupertinoIcons.checkmark_alt
+                  : CupertinoIcons.camera,
+              color: CupertinoColors.white,
+              size: 40,
+            ),
+          ),
         ),
       ),
     );
@@ -175,51 +173,52 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
     if (image != null) {
-      CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: image.path,
-        uiSettings: [
-          IOSUiSettings(
-            title: 'Recadrer la photo',
-            cancelButtonTitle: 'Annuler',
-            doneButtonTitle: 'Terminer',
-          ),
-        ],
-      );
-
-      if (croppedFile != null) {
-        setState(() {
-          _imageFile = File(croppedFile.path);
-          _isImageUploaded = false;
-        });
-        await _uploadImage();
+      if (kIsWeb) {
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+          uiSettings: [
+            WebUiSettings(
+              context: context,
+            ),
+          ],
+        );
+        if (croppedFile != null) {
+          final bytes = await croppedFile.readAsBytes();
+          setState(() {
+            _imageFile = bytes;
+            _isImageUploaded = false;
+          });
+          await _uploadImage();
+        }
+      } else {
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Recadrer la photo',
+              toolbarColor: Theme.of(context).primaryColor,
+              toolbarWidgetColor: Colors.white,
+              initAspectRatio: CropAspectRatioPreset.square,
+              lockAspectRatio: true,
+            ),
+            IOSUiSettings(
+              title: 'Recadrer la photo',
+              cancelButtonTitle: 'Annuler',
+              doneButtonTitle: 'Terminer',
+            ),
+          ],
+        );
+        if (croppedFile != null) {
+          setState(() {
+            _imageFile = File(croppedFile.path);
+            _isImageUploaded = false;
+          });
+          await _uploadImage();
+        }
       }
     }
-  }
-
-  Future<String> generateUniqueCode() async {
-    final random = Random();
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    String code;
-    bool isUnique = false;
-
-    while (!isUnique) {
-      code = String.fromCharCodes(Iterable.generate(
-          5, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
-
-      // Vérifier si le code existe déjà dans Firestore
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('uniqueCode', isEqualTo: code)
-          .get();
-
-      if (querySnapshot.docs.isEmpty) {
-        isUnique = true;
-        return code;
-      }
-    }
-
-    // Cette ligne ne devrait jamais être atteinte, mais Dart l'exige pour la compilation
-    throw Exception('Impossible de générer un code unique');
   }
 
   Future<void> _uploadImage() async {
@@ -229,21 +228,25 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
 
     try {
       final userModel = Provider.of<UserModel>(context, listen: false);
-      String userId = userModel.userId;
+      String fileName = '${userModel.userId}_profile_picture.jpg';
+      Reference storageRef = _storage.ref().child('profile_pictures/$fileName');
 
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('user_profile_images')
-          .child('$userId.jpg');
+      UploadTask uploadTask;
+      if (kIsWeb) {
+        uploadTask = storageRef.putData(_imageFile);
+      } else {
+        uploadTask = storageRef.putFile(_imageFile);
+      }
 
-      await ref.putFile(_imageFile!);
-      final url = await ref.getDownloadURL();
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      await userModel.updateUserProfile({'image_profile': url});
+      await userModel.updateUserProfile({
+        'image_profile': downloadUrl,
+      });
 
       setState(() => _isImageUploaded = true);
     } catch (e) {
-      // Afficher une alerte d'erreur
       showCupertinoDialog(
         context: context,
         builder: (BuildContext context) => CupertinoAlertDialog(
@@ -263,7 +266,29 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     }
   }
 
-  // ... (les autres méthodes restent inchangées)
+  Future<String> generateUniqueCode() async {
+    final random = Random();
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    String code;
+    bool isUnique = false;
+
+    while (!isUnique) {
+      code = String.fromCharCodes(Iterable.generate(
+          5, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('uniqueCode', isEqualTo: code)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        isUnique = true;
+        return code;
+      }
+    }
+
+    throw Exception('Impossible de générer un code unique');
+  }
 
   Future<void> _completeProfile() async {
     setState(() => _isLoading = true);
@@ -273,12 +298,9 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
       String firstName = _firstNameController.text.trim();
       String lastName = _lastNameController.text.trim();
 
-      // Générer searchName
       List<String> searchName = generateSearchKeywords('$firstName $lastName');
-
       String uniqueCode = await generateUniqueCode();
 
-      // Mettre à jour le profil utilisateur
       await userModel.updateUserProfile({
         'firstName': firstName,
         'lastName': lastName,
@@ -287,7 +309,6 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
         'uniqueCode': uniqueCode,
       });
 
-      // Créer un client Stripe
       final FirebaseFunctions functions = FirebaseFunctions.instance;
       final result =
           await functions.httpsCallable('createStripeCustomer').call();
@@ -299,7 +320,6 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
 
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      // Afficher une alerte d'erreur
       showCupertinoDialog(
         context: context,
         builder: (BuildContext context) => CupertinoAlertDialog(
@@ -322,7 +342,6 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
   List<String> generateSearchKeywords(String fullName) {
     List<String> keywords = [];
     String name = fullName.toLowerCase();
-
     List<String> nameParts = name.split(' ');
 
     for (String part in nameParts) {
@@ -331,10 +350,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
       }
     }
 
-    // Ajoutez le nom complet
     keywords.add(name);
-
-    // Retirez les doublons
     return keywords.toSet().toList();
   }
 }

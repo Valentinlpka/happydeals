@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users.dart';
 import 'package:provider/provider.dart';
 
@@ -35,6 +36,9 @@ class _LoginState extends State<Login> {
 
     try {
       final userModel = Provider.of<UserModel>(context, listen: false);
+      final conversationService =
+          Provider.of<ConversationService>(context, listen: false);
+
       String? result = await _auth.signIn(
         context: context,
         email: _emailController.text,
@@ -44,6 +48,9 @@ class _LoginState extends State<Login> {
       if (!mounted) return;
 
       if (result == 'Success') {
+        // Initialiser le service de conversation après une connexion réussie
+        await conversationService.initializeForUser(userModel.userId);
+
         bool isComplete = await userModel.isProfileComplete();
         if (isComplete) {
           Navigator.pushReplacementNamed(context, '/home');

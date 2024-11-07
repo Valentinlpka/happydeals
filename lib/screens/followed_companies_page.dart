@@ -15,6 +15,70 @@ class FollowedCompaniesPage extends StatelessWidget {
     final userModel = Provider.of<UserModel>(context);
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
 
+    // Vérifier si l'utilisateur suit des entreprises
+    if (userModel.likedCompanies.isEmpty) {
+      return Scaffold(
+        appBar: const CustomAppBar(
+          title: 'Entreprises suivies',
+          align: Alignment.center,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.business_outlined,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Vous ne suivez aucune entreprise',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Explorez notre catalogue d\'entreprises\npour en découvrir de nouvelles',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/companies');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Explorer les entreprises',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: const CustomAppBar(
         title: 'Entreprises suivies',
@@ -32,9 +96,52 @@ class FollowedCompaniesPage extends StatelessWidget {
 
           if (snapshot.hasError) {
             return Center(
-              child: Text(
-                'Erreur: ${snapshot.error}',
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.red[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Une erreur est survenue',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[800],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Veuillez réessayer plus tard',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Retour',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
               ),
             );
           }
@@ -51,7 +158,7 @@ class FollowedCompaniesPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Vous ne suivez aucune entreprise',
+                    'Les entreprises que vous suiviez ne sont plus disponibles',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
@@ -59,19 +166,9 @@ class FollowedCompaniesPage extends StatelessWidget {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Explorez notre catalogue d\'entreprises\npour en découvrir de nouvelles',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () {
-                      // Navigation vers le catalogue d'entreprises
                       Navigator.of(context).pushNamed('/companies');
                     },
                     style: ElevatedButton.styleFrom(
@@ -85,7 +182,7 @@ class FollowedCompaniesPage extends StatelessWidget {
                       ),
                     ),
                     child: const Text(
-                      'Explorer les entreprises',
+                      'Découvrir d\'autres entreprises',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -101,13 +198,18 @@ class FollowedCompaniesPage extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
-              final doc = snapshot.data!.docs[index];
-              final company = Company.fromDocument(doc);
+              try {
+                final doc = snapshot.data!.docs[index];
+                final company = Company.fromDocument(doc);
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: CompanyCard(company),
-              );
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: CompanyCard(company),
+                );
+              } catch (e) {
+                print('Error building company card: $e');
+                return const SizedBox.shrink();
+              }
             },
           );
         },

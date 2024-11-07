@@ -931,6 +931,7 @@ exports.createStripeCustomer = functions.https.onCall(async (data, context) => {
       const customer = await stripe.customers.create({
         email: userData.email,
         metadata: { firebaseUID: context.auth.uid },
+        name: userData.firstName + " " + userData.lastName,
       });
 
       await admin.firestore().collection("users").doc(context.auth.uid).update({

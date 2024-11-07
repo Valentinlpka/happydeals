@@ -1,15 +1,107 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:happy/classes/conversation.dart';
 import 'package:happy/classes/rating.dart';
+import 'package:rxdart/rxdart.dart';
 
 class ConversationService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Messages
+  String? _currentUserId;
+  BehaviorSubject<List<Conversation>>? _conversationsController;
+  final List<StreamSubscription> _subscriptions = [];
 
+  // Getters
+  String? get currentUserId => _currentUserId;
+  bool get isInitialized => _currentUserId != null;
+
+  // Initialize service for user
+// Dans ConversationService, modifiez la méthode initializeForUser :
+
+  Future<void> initializeForUser(String userId) async {
+    print('Initializing ConversationService for user: $userId');
+    if (_currentUserId == userId) {
+      print('Service already initialized for this user');
+      return;
+    }
+
+    await cleanUp();
+    _currentUserId = userId;
+    _conversationsController = BehaviorSubject<List<Conversation>>();
+
+    try {
+      // Subscribe to user conversations
+      final query = _firestore
+          .collection('conversations')
+          .where(Filter.or(
+            Filter('particulierId', isEqualTo: userId),
+            Filter('entrepriseId', isEqualTo: userId),
+          ))
+          .orderBy('lastMessageTimestamp', descending: true);
+
+      print('Creating Firestore query: ${query.parameters}');
+
+      final conversationsSubscription = query.snapshots().listen(
+        (snapshot) {
+          print(
+              'Received Firestore snapshot with ${snapshot.docs.length} documents');
+          if (_currentUserId == userId) {
+            final conversations = snapshot.docs
+                .map((doc) => Conversation.fromFirestore(doc))
+                .toList();
+            print('Parsed ${conversations.length} conversations');
+            _conversationsController?.add(conversations);
+          }
+        },
+        onError: (error) {
+          print('Error in Firestore subscription: $error');
+          // Si c'est une erreur d'index manquant, elle apparaîtra ici
+          if (error.toString().contains('indexes?create_composite=')) {
+            print('Index missing. Create the following index:');
+            print(error.toString());
+          }
+        },
+      );
+
+      _subscriptions.add(conversationsSubscription);
+      notifyListeners();
+      print('ConversationService initialized successfully');
+    } catch (e) {
+      print('Error during initialization: $e');
+      // Réinitialiser en cas d'erreur
+      await cleanUp();
+      rethrow;
+    }
+  }
+
+// Et dans ConversationsListScreen, modifiez le StreamBuilder :
+
+  Future<void> cleanUp() async {
+    for (var subscription in _subscriptions) {
+      await subscription.cancel();
+    }
+    _subscriptions.clear();
+    await _conversationsController?.close();
+    _conversationsController = null;
+    _currentUserId = null;
+    notifyListeners();
+  }
+
+  // Conversations streams
+  Stream<List<Conversation>> getUserConversationsStream() {
+    if (_conversationsController == null || _currentUserId == null) {
+      return Stream.value([]);
+    }
+    return _conversationsController!.stream;
+  }
+
+  // Messages
   Future<String> getOrCreateConversation(
       String particulierId, String entrepriseId) async {
+    if (_currentUserId == null) throw Exception('Service not initialized');
+
     final querySnapshot = await _firestore
         .collection('conversations')
         .where('particulierId', isEqualTo: particulierId)
@@ -31,7 +123,7 @@ class ConversationService extends ChangeNotifier {
         lastMessageSenderId: '',
         sellerHasRated: false,
         buyerHasRated: false,
-        sellerId: entrepriseId, // Par défaut, l'entreprise est le vendeur
+        sellerId: entrepriseId,
       );
 
       final docRef = await _firestore
@@ -42,6 +134,8 @@ class ConversationService extends ChangeNotifier {
   }
 
   Stream<List<Message>> getConversationMessages(String conversationId) {
+    if (_currentUserId == null) return Stream.value([]);
+
     return _firestore
         .collection('conversations')
         .doc(conversationId)
@@ -54,6 +148,8 @@ class ConversationService extends ChangeNotifier {
 
   Future<void> sendMessage(
       String conversationId, String senderId, String content) async {
+    if (_currentUserId != senderId) return;
+
     final message = Message(
       id: '',
       senderId: senderId,
@@ -65,12 +161,10 @@ class ConversationService extends ChangeNotifier {
         await _firestore.collection('conversations').doc(conversationId).get();
     final conversationData = conversationDoc.data() as Map<String, dynamic>;
 
-    // Déterminer le destinataire
     final recipientId = conversationData['particulierId'] == senderId
         ? conversationData['entrepriseId']
         : conversationData['particulierId'];
 
-    // Mise à jour de la conversation
     await _firestore.collection('conversations').doc(conversationId).update({
       'lastMessage': content,
       'lastMessageTimestamp': Timestamp.fromDate(message.timestamp),
@@ -79,7 +173,6 @@ class ConversationService extends ChangeNotifier {
       'unreadBy': recipientId,
     });
 
-    // Ajouter le message
     await _firestore
         .collection('conversations')
         .doc(conversationId)
@@ -90,6 +183,8 @@ class ConversationService extends ChangeNotifier {
   }
 
   Future<void> markMessageAsRead(String conversationId, String userId) async {
+    if (_currentUserId != userId) return;
+
     final conversationDoc =
         await _firestore.collection('conversations').doc(conversationId).get();
     final conversationData = conversationDoc.data() as Map<String, dynamic>;
@@ -103,23 +198,10 @@ class ConversationService extends ChangeNotifier {
     }
   }
 
-  // Conversations
-  Stream<List<Conversation>> getUserConversations(String userId) {
-    return _firestore
-        .collection('conversations')
-        .where(Filter.or(
-          Filter('particulierId', isEqualTo: userId),
-          Filter('entrepriseId', isEqualTo: userId),
-        ))
-        .orderBy('lastMessageTimestamp', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Conversation.fromFirestore(doc))
-            .toList());
-  }
-
   Future<String> getOrCreateConversationForAd(
       String buyerId, String sellerId, String adId) async {
+    if (_currentUserId == null) throw Exception('Service not initialized');
+
     final querySnapshot = await _firestore
         .collection('conversations')
         .where('particulierId', isEqualTo: buyerId)
@@ -132,7 +214,6 @@ class ConversationService extends ChangeNotifier {
       return querySnapshot.docs.first.id;
     }
 
-    // Récupérer l'annonce pour vérifier le vendeur
     final adDoc = await _firestore.collection('ads').doc(adId).get();
     if (!adDoc.exists) throw Exception('Annonce non trouvée');
 
@@ -152,7 +233,7 @@ class ConversationService extends ChangeNotifier {
       lastMessageSenderId: '',
       sellerHasRated: false,
       buyerHasRated: false,
-      sellerId: sellerId, // Définir le sellerId lors de la création
+      sellerId: sellerId,
     );
 
     final docRef = await _firestore
@@ -164,6 +245,9 @@ class ConversationService extends ChangeNotifier {
 
   // Notifications
   Stream<Map<String, int>> getDetailedUnreadCount(String userId) {
+    if (_currentUserId != userId)
+      return Stream.value({'total': 0, 'ads': 0, 'business': 0});
+
     return _firestore
         .collection('conversations')
         .where(Filter.or(
@@ -201,21 +285,25 @@ class ConversationService extends ChangeNotifier {
   }
 
   Stream<int> getTotalUnreadCount(String userId) {
+    if (_currentUserId != userId) return Stream.value(0);
     return getDetailedUnreadCount(userId).map((counts) => counts['total'] ?? 0);
   }
 
   Stream<int> getAdUnreadCount(String userId) {
+    if (_currentUserId != userId) return Stream.value(0);
     return getDetailedUnreadCount(userId).map((counts) => counts['ads'] ?? 0);
   }
 
   Stream<int> getBusinessUnreadCount(String userId) {
+    if (_currentUserId != userId) return Stream.value(0);
     return getDetailedUnreadCount(userId)
         .map((counts) => counts['business'] ?? 0);
   }
 
   // Gestion des annonces
   Future<void> markAdAsSold(String conversationId) async {
-    // Récupérer d'abord la conversation pour avoir l'ID de l'annonce
+    if (_currentUserId == null) return;
+
     final conversationDoc =
         await _firestore.collection('conversations').doc(conversationId).get();
     if (!conversationDoc.exists) return;
@@ -224,24 +312,20 @@ class ConversationService extends ChangeNotifier {
     final adId = conversationData['adId'] as String?;
     if (adId == null) return;
 
-    // Récupérer l'annonce pour avoir l'ID du vendeur
     final adDoc = await _firestore.collection('ads').doc(adId).get();
     if (!adDoc.exists) return;
 
     final adData = adDoc.data() as Map<String, dynamic>;
-    final sellerId =
-        adData['userId'] as String; // L'ID du vendeur est l'userId de l'annonce
+    final sellerId = adData['userId'] as String;
 
-    // Mettre à jour la conversation
     await _firestore.collection('conversations').doc(conversationId).update({
       'isAdSold': true,
       'soldDate': Timestamp.fromDate(DateTime.now()),
-      'sellerId': sellerId, // Définir le sellerId correctement
+      'sellerId': sellerId,
       'sellerHasRated': false,
       'buyerHasRated': false,
     });
 
-    // Mettre à jour l'annonce
     await _firestore.collection('ads').doc(adId).update({
       'status': 'sold',
       'buyerId': conversationData['particulierId'],
@@ -253,10 +337,10 @@ class ConversationService extends ChangeNotifier {
 
   // Système d'évaluation
   Future<void> submitRating(Rating rating) async {
-    // Ajouter l'évaluation
+    if (_currentUserId == null) return;
+
     await _firestore.collection('ratings').add(rating.toFirestore());
 
-    // Mettre à jour le statut de la conversation
     await _firestore
         .collection('conversations')
         .doc(rating.conversationId)
@@ -264,7 +348,6 @@ class ConversationService extends ChangeNotifier {
       rating.isSellerRating ? 'sellerHasRated' : 'buyerHasRated': true,
     });
 
-    // Mettre à jour la moyenne des évaluations de l'utilisateur
     await _updateUserRating(rating.toUserId);
 
     notifyListeners();
@@ -291,6 +374,8 @@ class ConversationService extends ChangeNotifier {
   }
 
   Stream<List<Rating>> getUserRatings(String userId) {
+    if (_currentUserId == null) return Stream.value([]);
+
     return _firestore
         .collection('ratings')
         .where('toUserId', isEqualTo: userId)
@@ -301,6 +386,8 @@ class ConversationService extends ChangeNotifier {
   }
 
   Stream<List<Conversation>> getAdConversations(String adId) {
+    if (_currentUserId == null) return Stream.value([]);
+
     return _firestore
         .collection('conversations')
         .where('adId', isEqualTo: adId)

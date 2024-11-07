@@ -205,9 +205,13 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
             itemCount: messages.length,
             itemBuilder: (context, index) {
               final message = messages[index];
+              final previousMessage =
+                  index < messages.length - 1 ? messages[index + 1] : null;
+
               return MessageBubble(
                 message: message,
                 isMe: message.senderId == currentUserId,
+                previousMessage: previousMessage,
               );
             },
           );
@@ -466,48 +470,185 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
 class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
+  final Message? previousMessage;
 
-  const MessageBubble({super.key, required this.message, required this.isMe});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isMe,
+    this.previousMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        child: Column(
-          crossAxisAlignment:
-              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-              decoration: BoxDecoration(
-                color: isMe ? Colors.blue[600] : Colors.grey[300],
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                message.content,
-                style: TextStyle(color: isMe ? Colors.white : Colors.black87),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-              child: Text(
-                _formatTimestamp(message.timestamp),
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
+    final bool showDateDivider = _shouldShowDateDivider();
+
+    return Column(
+      children: [
+        if (showDateDivider) _buildDateDivider(message.timestamp),
+        Align(
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            child: Column(
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: isMe ? Colors.blue[600] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    message.content,
+                    style:
+                        TextStyle(color: isMe ? Colors.white : Colors.black87),
+                  ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+                  child: Text(
+                    _formatMessageTime(message.timestamp),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _shouldShowDateDivider() {
+    if (previousMessage == null) return true;
+
+    final previousDate = DateTime(
+      previousMessage!.timestamp.year,
+      previousMessage!.timestamp.month,
+      previousMessage!.timestamp.day,
+    );
+
+    final currentDate = DateTime(
+      message.timestamp.year,
+      message.timestamp.month,
+      message.timestamp.day,
+    );
+
+    return previousDate != currentDate;
+  }
+
+  Widget _buildDateDivider(DateTime date) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Colors.grey[300])),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              _formatDateDivider(date),
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ],
-        ),
+          ),
+          Expanded(child: Divider(color: Colors.grey[300])),
+        ],
       ),
     );
   }
 
-  String _formatTimestamp(DateTime timestamp) {
+  String _formatMessageTime(DateTime timestamp) {
     return '${timestamp.hour.toString().padLeft(2, '0')}:'
         '${timestamp.minute.toString().padLeft(2, '0')}';
   }
+
+  String _formatDateDivider(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    if (messageDate == today) {
+      return "Aujourd'hui";
+    } else if (messageDate == yesterday) {
+      return "Hier";
+    } else if (now.difference(date).inDays < 7) {
+      return _getWeekDay(date);
+    } else {
+      return _formatFullDate(date);
+    }
+  }
+
+  String _getWeekDay(DateTime date) {
+    switch (date.weekday) {
+      case 1:
+        return 'Lundi';
+      case 2:
+        return 'Mardi';
+      case 3:
+        return 'Mercredi';
+      case 4:
+        return 'Jeudi';
+      case 5:
+        return 'Vendredi';
+      case 6:
+        return 'Samedi';
+      case 7:
+        return 'Dimanche';
+      default:
+        return '';
+    }
+  }
+
+  String _formatFullDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = _getMonthName(date.month);
+    final year = date.year != DateTime.now().year ? ' ${date.year}' : '';
+    return '$day $month$year';
+  }
+
+  String _getMonthName(int month) {
+    switch (month) {
+      case 1:
+        return 'janvier';
+      case 2:
+        return 'février';
+      case 3:
+        return 'mars';
+      case 4:
+        return 'avril';
+      case 5:
+        return 'mai';
+      case 6:
+        return 'juin';
+      case 7:
+        return 'juillet';
+      case 8:
+        return 'août';
+      case 9:
+        return 'septembre';
+      case 10:
+        return 'octobre';
+      case 11:
+        return 'novembre';
+      case 12:
+        return 'décembre';
+      default:
+        return '';
+    }
+  }
+}
+
+String _formatTimestamp(DateTime timestamp) {
+  return '${timestamp.hour.toString().padLeft(2, '0')}:'
+      '${timestamp.minute.toString().padLeft(2, '0')}';
 }

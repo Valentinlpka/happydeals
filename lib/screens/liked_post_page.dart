@@ -21,6 +21,19 @@ class LikedPostsPage extends StatelessWidget {
     final userModel = Provider.of<UserModel>(context);
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
 
+    // Vérifier si l'utilisateur a des posts likés
+    if (userModel.likedPosts.isEmpty) {
+      return const Scaffold(
+        appBar: CustomAppBar(title: 'Posts likés', align: Alignment.center),
+        body: Center(
+          child: Text(
+            'Vous n\'avez pas encore liké de posts',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: const CustomAppBar(title: 'Posts likés', align: Alignment.center),
       body: StreamBuilder<QuerySnapshot>(
@@ -41,7 +54,7 @@ class LikedPostsPage extends StatelessWidget {
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
               child: Text(
-                'Vous n\'avez pas encore liké de posts',
+                'Les posts que vous avez likés ne sont plus disponibles',
                 textAlign: TextAlign.center,
               ),
             );
@@ -59,10 +72,14 @@ class LikedPostsPage extends StatelessWidget {
                 builder: (context, companySnapshot) {
                   if (companySnapshot.connectionState ==
                       ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const SizedBox(height: 200); // Placeholder height
                   }
 
-                  final companyData = companySnapshot.data ?? {};
+                  if (!companySnapshot.hasData || companySnapshot.hasError) {
+                    return const SizedBox.shrink();
+                  }
+
+                  final companyData = companySnapshot.data!;
 
                   return Padding(
                     padding: const EdgeInsets.all(15.0),
@@ -112,16 +129,26 @@ class LikedPostsPage extends StatelessWidget {
           return null;
       }
     } catch (e) {
+      print('Error creating post from document: $e');
       return null;
     }
   }
 
   Future<Map<String, dynamic>> _getCompanyData(String companyId) async {
-    DocumentSnapshot companyDoc = await FirebaseFirestore.instance
-        .collection('companys')
-        .doc(companyId)
-        .get();
+    try {
+      DocumentSnapshot companyDoc = await FirebaseFirestore.instance
+          .collection('companys')
+          .doc(companyId)
+          .get();
 
-    return companyDoc.data() as Map<String, dynamic>;
+      if (!companyDoc.exists) {
+        return {};
+      }
+
+      return companyDoc.data() as Map<String, dynamic>;
+    } catch (e) {
+      print('Error fetching company data: $e');
+      return {};
+    }
   }
 }
