@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/review_service.dart';
@@ -63,9 +64,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => UserModel()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
+        ChangeNotifierProvider(create: (_) => UserModel()),
         ChangeNotifierProvider(create: (_) => ConversationService()),
+        ChangeNotifierProvider(create: (_) => SavedAdsProvider()),
         ChangeNotifierProvider(create: (_) => CartService()),
         ChangeNotifierProvider(create: (_) => ReviewService())
       ],

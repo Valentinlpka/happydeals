@@ -8,6 +8,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/main_container.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -318,7 +319,12 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
             .updateUserProfile({'stripeCustomerId': result.data['customerId']});
       }
 
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const MainContainer(),
+        ),
+      );
     } catch (e) {
       showCupertinoDialog(
         context: context,

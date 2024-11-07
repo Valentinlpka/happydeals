@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/auth/complete_profile.dart';
+import 'package:happy/screens/auth/register_page.dart';
+import 'package:happy/screens/main_container.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
@@ -53,7 +56,12 @@ class _LoginState extends State<Login> {
 
         bool isComplete = await userModel.isProfileComplete();
         if (isComplete) {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MainContainer(),
+            ),
+          );
         } else {
           _showProfileCompletionDialog();
         }
@@ -88,14 +96,24 @@ class _LoginState extends State<Login> {
               child: const Text('Plus tard'),
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.pushReplacementNamed(context, '/home');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MainContainer(),
+                  ),
+                );
               },
             ),
             TextButton(
               child: const Text('Compléter'),
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.pushReplacementNamed(context, '/profile_completion');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileCompletionPage(),
+                  ),
+                );
               },
             ),
           ],
@@ -201,8 +219,12 @@ class _LoginState extends State<Login> {
                   children: [
                     const Text("Vous n'avez pas encore de compte ? "),
                     GestureDetector(
-                      onTap: () =>
-                          Navigator.pushReplacementNamed(context, '/signup'),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SignUpPage(),
+                        ),
+                      ),
                       child: Text(
                         "Je m'inscris",
                         style: TextStyle(

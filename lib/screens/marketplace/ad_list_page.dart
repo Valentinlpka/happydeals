@@ -3,11 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/category.dart';
+import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/marketplace/ad_type_selection_page.dart';
 import 'package:happy/screens/marketplace/my_ad_page.dart';
 import 'package:happy/screens/marketplace/saved_ads_page.dart';
+import 'package:provider/provider.dart';
 
 class AdListPage extends StatefulWidget {
   const AdListPage({super.key});
@@ -16,7 +18,21 @@ class AdListPage extends StatefulWidget {
   _AdListPageState createState() => _AdListPageState();
 }
 
+class ActiveFilter {
+  final String type;
+  final String value;
+  final String displayText;
+
+  ActiveFilter({
+    required this.type,
+    required this.value,
+    required this.displayText,
+  });
+}
+
 class _AdListPageState extends State<AdListPage> {
+  final List<ActiveFilter> _activeFiltersList = [];
+
   // ... autres variables existantes ...
 
   // Variables pour les filtres
@@ -39,7 +55,6 @@ class _AdListPageState extends State<AdListPage> {
   bool _hasMore = true;
   bool _isLoading = false;
   final List<Ad> _ads = [];
-  String _selectedFilter = 'Tous';
 
   @override
   void initState() {
@@ -140,12 +155,6 @@ class _AdListPageState extends State<AdListPage> {
                 fontSize: 20,
                 fontWeight: FontWeight.w600)),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.filter_list),
-          onPressed: _showFilterOptions,
-        ),
-      ],
     );
   }
 
@@ -199,51 +208,83 @@ class _AdListPageState extends State<AdListPage> {
   }
 
   Widget _buildFilterChips() {
-    final filters = ['Tous', 'Articles', 'Véhicules', 'Troc'];
-    final icons = {
-      'Tous': Icons.all_inclusive,
-      'Articles': Icons.shopping_bag,
-      'Véhicules': Icons.directions_car,
-      'Troc': Icons.swap_horiz,
-    };
-
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
-        children: filters.map((filter) {
-          final isSelected = _selectedFilter == filter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              child: ElevatedButton.icon(
-                icon: Icon(
-                  icons[filter], // Utiliser l'icône correspondante
-                  color: isSelected ? Colors.white : Colors.black87,
-                  size: 20,
+        children: [
+          // Bouton Filtrer
+          if (_activeFiltersList.isEmpty)
+            ElevatedButton.icon(
+              icon: const Icon(Icons.filter_list),
+              label: const Text('Filtrer'),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.black87,
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                label: Text(filter),
-                onPressed: () {
-                  setState(() {
-                    _selectedFilter = filter;
-                    _resetAndReloadAds();
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: isSelected ? Colors.white : Colors.black87,
-                  backgroundColor: isSelected ? Colors.blue : Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  elevation: isSelected ? 4 : 1,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              onPressed: _showFilterOptions,
+            ),
+
+          // Filtres actifs
+          if (_activeFiltersList.isNotEmpty) ...[
+            Wrap(
+              spacing: 8,
+              children: _activeFiltersList.map((filter) {
+                return Chip(
+                  label: Text(filter.displayText),
+                  deleteIcon: const Icon(Icons.close, size: 18),
+                  onDeleted: () {
+                    setState(() {
+                      _activeFiltersList.remove(filter);
+                      // Réinitialiser le filtre correspondant
+                      switch (filter.type) {
+                        case 'type':
+                          selectedType = null;
+                          break;
+                        case 'condition':
+                          selectedCondition = null;
+                          break;
+                        case 'price':
+                          priceRange = const RangeValues(
+                              0, 1000); // Réinitialiser la fourchette de prix
+                          break;
+                        case 'category':
+                          selectedCategory = null;
+                          selectedSubCategory = null;
+                          break;
+                        case 'brand':
+                          selectedBrand = null;
+                          break;
+                      }
+                      _applyFilters(); // Réappliquer les filtres
+                    });
+                  },
+                  backgroundColor: Colors.blue[100],
+                  deleteIconColor: Colors.blue[800],
+                  labelStyle: TextStyle(color: Colors.blue[800]),
+                );
+              }).toList(),
+            ),
+            const SizedBox(width: 8),
+            // Bouton pour ajouter plus de filtres
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _showFilterOptions,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: Colors.grey[300]!),
                 ),
               ),
             ),
-          );
-        }).toList(),
+          ],
+        ],
       ),
     );
   }
@@ -427,12 +468,54 @@ class _AdListPageState extends State<AdListPage> {
 
 // Pour gérer les variables des filtres au niveau de la classe
   Map<String, dynamic> _activeFilters = {};
+  String _getDisplayTextForType(String type) {
+    switch (type) {
+      case 'article':
+        return 'Articles';
+      case 'vehicle':
+        return 'Véhicules';
+      case 'exchange':
+        return 'Troc';
+      default:
+        return type;
+    }
+  }
 
   void _applyFilters() {
     setState(() {
       _ads.clear();
       _lastDocument = null;
       _hasMore = true;
+      _activeFiltersList.clear(); // Réinitialiser la liste des filtres actifs
+
+      // Ajouter les filtres actifs à la liste
+      if (selectedType != null) {
+        _activeFiltersList.add(ActiveFilter(
+          type: 'type',
+          value: selectedType!,
+          displayText: _getDisplayTextForType(selectedType!),
+        ));
+      }
+
+      if (selectedCondition != null) {
+        _activeFiltersList.add(ActiveFilter(
+          type: 'condition',
+          value: selectedCondition!,
+          displayText: selectedCondition!,
+        ));
+      }
+
+      if (priceRange.start > 0 || priceRange.end < 1000) {
+        _activeFiltersList.add(ActiveFilter(
+          type: 'price',
+          value: '${priceRange.start}-${priceRange.end}',
+          displayText:
+              '${priceRange.start.round()}€ - ${priceRange.end.round()}€',
+        ));
+      }
+
+      // Ajoutez d'autres filtres selon vos besoins
+
       _activeFilters = {
         if (selectedType != null) 'type': selectedType,
         if (priceRange.start > 0) 'minPrice': priceRange.start,
@@ -1024,33 +1107,17 @@ class _AdListPageState extends State<AdListPage> {
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                Text('Vous devez être connecté pour sauvegarder une annonce')),
+          content:
+              Text('Vous devez être connecté pour sauvegarder une annonce'),
+        ),
       );
       return;
     }
 
-    final userRef =
-        FirebaseFirestore.instance.collection('users').doc(user.uid);
-
     try {
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final userDoc = await transaction.get(userRef);
-        List<String> savedAds =
-            List<String>.from(userDoc.data()?['savedAds'] ?? []);
-
-        if (savedAds.contains(ad.id)) {
-          savedAds.remove(ad.id);
-        } else {
-          savedAds.add(ad.id);
-        }
-
-        transaction.update(userRef, {'savedAds': savedAds});
-      });
-
-      setState(() {
-        ad.isSaved = !ad.isSaved;
-      });
+      final savedAdsProvider =
+          Provider.of<SavedAdsProvider>(context, listen: false);
+      await savedAdsProvider.toggleSaveAd(user.uid, ad.id);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),

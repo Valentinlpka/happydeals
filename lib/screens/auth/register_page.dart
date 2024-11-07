@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:happy/screens/auth/complete_profile.dart';
+import 'package:happy/screens/auth/login_page.dart';
 import 'package:happy/services/auth_service.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -23,7 +25,12 @@ class _SignUpPageState extends State<SignUpPage> {
     );
 
     if (result == 'Success') {
-      Navigator.pushReplacementNamed(context, '/profile_completion');
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const ProfileCompletionPage(),
+        ),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Erreur lors de l'inscription")));
@@ -115,7 +122,12 @@ class _SignUpPageState extends State<SignUpPage> {
                     const Text("Vous avez déjà un compte ? "),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pushReplacementNamed(context, '/login');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const Login(),
+                          ),
+                        );
                       },
                       child: Text(
                         "Se connecter",

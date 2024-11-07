@@ -2,6 +2,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
+import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
 import 'package:happy/screens/profile.dart';
@@ -23,125 +24,210 @@ class _AdDetailPageState extends State<AdDetailPage> {
     final currentUser = FirebaseAuth.instance.currentUser;
     final conversationService = Provider.of<ConversationService>(context);
 
-    return Scaffold(
-      appBar: CustomAppBarBack(title: widget.ad.title),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPhotoSection(),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.ad.title,
+    return Consumer<SavedAdsProvider>(builder: (context, savedAdsProvider, _) {
+      final isSaved = savedAdsProvider.isAdSaved(widget.ad.id);
+
+      return Scaffold(
+        appBar: CustomAppBarBack(
+          title: widget.ad.title,
+          actions: [
+            if (currentUser !=
+                null) // N'afficher que si l'utilisateur est connecté
+              IconButton(
+                icon: Icon(
+                  isSaved ? Icons.bookmark : Icons.bookmark_border,
+                  color: isSaved ? Colors.blue[600] : Colors.black,
+                ),
+                onPressed: () async {
+                  try {
+                    await savedAdsProvider.toggleSaveAd(
+                      currentUser.uid,
+                      widget.ad.id,
+                    );
+
+                    if (!mounted) return;
+
+                    // Afficher la confirmation
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isSaved
+                              ? 'Annonce retirée des favoris'
+                              : 'Annonce ajoutée aux favoris',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        backgroundColor: Colors.blue[600],
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        margin: const EdgeInsets.all(16),
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text(
+                          'Erreur lors de la sauvegarde',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        backgroundColor: Colors.red[400],
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        margin: const EdgeInsets.all(16),
+                      ),
+                    );
+                  }
+                },
+              ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPhotoSection(),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.ad.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 23)),
+                    const SizedBox(height: 8),
+                    Text('${widget.ad.price.toStringAsFixed(2)} €',
+                        style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 8),
+
+                    Text(
+                      widget.ad.formattedDate,
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 23)),
-                  const SizedBox(height: 8),
-                  Text('${widget.ad.price.toStringAsFixed(2)} €',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 8),
-
-                  Text(
-                    widget.ad.formattedDate,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  if (currentUser != null &&
-                      currentUser.uid != widget.ad.userId)
-                    ElevatedButton(
-                      onPressed: () async {
-                        final conversationId = await conversationService
-                            .getOrCreateConversationForAd(currentUser.uid,
-                                widget.ad.userId, widget.ad.id);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ConversationDetailScreen(
-                              conversationId: conversationId,
-                              otherUserName: widget.ad.userName,
-                              ad: widget
-                                  .ad, // Passer l'annonce à l'écran de conversation
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.message),
-                          SizedBox(width: 8),
-                          Text('Contacter le vendeur'),
-                        ],
+                        color: Colors.grey,
+                        fontSize: 14,
                       ),
                     ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
-                  Text(widget.ad.description),
-                  const SizedBox(height: 16),
-
-                  Column(children: [
-                    const Row(
-                      children: [
-                        Text(
-                          'Information sur le vendeur : ',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                    if (currentUser != null &&
+                        currentUser.uid != widget.ad.userId)
+                      ElevatedButton(
+                        onPressed: () async {
+                          final conversationId = await conversationService
+                              .getOrCreateConversationForAd(currentUser.uid,
+                                  widget.ad.userId, widget.ad.id);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ConversationDetailScreen(
+                                conversationId: conversationId,
+                                otherUserName: widget.ad.userName,
+                                ad: widget
+                                    .ad, // Passer l'annonce à l'écran de conversation
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.message),
+                            SizedBox(width: 8),
+                            Text('Contacter le vendeur'),
+                          ],
                         ),
-                      ],
+                      ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Description : ',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
+                    const SizedBox(height: 8),
+
+                    Text(widget.ad.description),
+
+                    const SizedBox(height: 8),
+                    const Text(
+                      'État : ',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+
+                    Text(widget.ad.additionalData['condition']),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Localisation : ',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+
+                    Text(widget.ad.additionalData['location']),
+                    const SizedBox(height: 16),
+
+                    Column(children: [
+                      const Row(
+                        children: [
+                          Text(
+                            'Vendeur : ',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(
+                        height: 8,
+                      ),
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      Profile(userId: widget.ad.userId)));
+                        },
+                        child: Card(
+                          elevation: 1,
+                          child: Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundImage: NetworkImage(
+                                      widget.ad.userProfilePicture),
+                                ),
+                                const SizedBox(
+                                  width: 10,
+                                ),
+                                Text(
+                                  widget.ad.userName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    ]),
                     const SizedBox(
                       height: 10,
                     ),
-                    InkWell(
-                      onTap: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    Profile(userId: widget.ad.userId)));
-                      },
-                      child: Card(
-                        elevation: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundImage:
-                                    NetworkImage(widget.ad.userProfilePicture),
-                              ),
-                              const SizedBox(
-                                width: 10,
-                              ),
-                              Text(
-                                widget.ad.userName,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              )
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  ]),
-                  const SizedBox(
-                    height: 10,
-                  ),
 
-                  // Ajouter d'autres détails spécifiques au type d'annonce ici
-                ],
+                    // Ajouter d'autres détails spécifiques au type d'annonce ici
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildPhotoSection() {
