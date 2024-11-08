@@ -66,6 +66,25 @@ class Post {
     }
   }
 
+  static Post fromMap(Map<String, dynamic> map, String id) {
+    return Post(
+      id: id,
+      companyId: map['companyId'] ?? '',
+      timestamp: (map['timestamp'] as Timestamp).toDate(),
+      type: map['type'] ?? 'unknown',
+      views: map['views'] ?? 0,
+      likes: map['likes'] ?? 0,
+      likedBy: List<String>.from(map['likedBy'] ?? []),
+      commentsCount: map['commentsCount'] ?? 0,
+      sharedBy: map['sharedBy'],
+      sharedAt: map['sharedAt'] != null
+          ? (map['sharedAt'] as Timestamp).toDate()
+          : null,
+      originalPostId: map['originalPostId'],
+      comment: map['comment'],
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'companyId': companyId, // Ajoutez cette ligne

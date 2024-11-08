@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
+import 'package:happy/classes/share_post.dart';
 import 'package:happy/screens/marketplace/article_form.dart';
 import 'package:happy/screens/marketplace/exchange_form.dart';
 import 'package:happy/screens/marketplace/vehicle_form.dart';
@@ -149,6 +150,7 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
         formData.addAll({
           'adType': widget.adType,
           'userId': currentUser.uid,
+          'status': 'new',
         });
 
         if (widget.existingAd != null) {
@@ -160,7 +162,27 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
         } else {
           // Création d'une nouvelle annonce
           formData['createdAt'] = FieldValue.serverTimestamp();
-          await FirebaseFirestore.instance.collection('ads').add(formData);
+          DocumentReference newAdRef =
+              await FirebaseFirestore.instance.collection('ads').add(formData);
+
+          SharedPost sharedPost = SharedPost(
+            id: FirebaseFirestore.instance.collection('posts').doc().id,
+            companyId: formData['companyId'] ?? '',
+            timestamp: DateTime.now(),
+            originalPostId: newAdRef.id,
+            sharedBy: currentUser.uid,
+            sharedAt: DateTime.now(),
+            comment: "a publié une annonce",
+          );
+
+          // Ajouter le post partagé à Firestore
+          await FirebaseFirestore.instance
+              .collection('posts')
+              .doc(sharedPost.id)
+              .set(sharedPost.toMap());
+
+          // Mettre à jour l'annonce avec l'ID du post partagé
+          await newAdRef.update({'sharedPostId': sharedPost.id});
         }
 
         ScaffoldMessenger.of(context).showSnackBar(

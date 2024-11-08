@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/rating.dart';
+import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
@@ -735,47 +736,126 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
           itemBuilder: (context, index) {
             final postDoc = snapshot.data!.docs[index];
             final post = Post.fromDocument(postDoc);
-            return FutureBuilder<List<DocumentSnapshot>>(
-              future: Future.wait([
-                FirebaseFirestore.instance
-                    .collection('companys')
-                    .doc(post.companyId)
-                    .get(),
-                FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(widget.userId)
-                    .get(),
-              ]),
-              builder: (context, snapshots) {
-                if (snapshots.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshots.hasError || !snapshots.hasData) {
-                  return const SizedBox();
-                }
 
-                final companyData =
-                    snapshots.data![0].data() as Map<String, dynamic>;
-                final userData =
-                    snapshots.data![1].data() as Map<String, dynamic>;
+            // Vérifiez si c'est un post partagé avec une annonce
+            if (post is SharedPost && post.comment == "a publié une annonce") {
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('ads')
+                    .doc(post.originalPostId)
+                    .get(),
+                builder: (context, adSnapshot) {
+                  if (adSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (adSnapshot.hasError ||
+                      !adSnapshot.hasData ||
+                      !adSnapshot.data!.exists) {
+                    return const SizedBox
+                        .shrink(); // Gestion des erreurs de chargement de l'annonce
+                  }
 
-                return PostWidget(
-                  key: ValueKey(post.id),
-                  post: post,
-                  companyCover: companyData['cover'],
-                  companyCategorie: companyData['categorie'] ?? '',
-                  companyName: companyData['name'] ?? '',
-                  companyLogo: companyData['logo'] ?? '',
-                  currentUserId: widget.userId,
-                  sharedByUserData: userData,
-                  currentProfileUserId: widget.userId,
-                  onView: () {
-                    // Logique d'affichage du post
-                  },
-                  companyData: companyData,
-                );
-              },
-            );
+                  // Utilisation d'un autre FutureBuilder pour attendre l'objet `Ad`
+                  return FutureBuilder<Ad>(
+                    future: Ad.fromFirestore(adSnapshot
+                        .data!), // Attente du chargement complet de l'Ad
+                    builder: (context, adObjectSnapshot) {
+                      if (adObjectSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (adObjectSnapshot.hasError ||
+                          !adObjectSnapshot.hasData) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final ad = adObjectSnapshot.data!;
+                      return FutureBuilder<DocumentSnapshot>(
+                        future: FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(widget.userId)
+                            .get(),
+                        builder: (context, userSnapshot) {
+                          if (userSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+                          if (userSnapshot.hasError || !userSnapshot.hasData) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final userData =
+                              userSnapshot.data!.data() as Map<String, dynamic>;
+
+                          return PostWidget(
+                            key: ValueKey(post.id),
+                            post: post,
+                            ad: ad,
+                            companyCover: '',
+                            companyCategorie: '',
+                            companyName: '',
+                            companyLogo: '',
+                            currentUserId: widget.userId,
+                            sharedByUserData: userData,
+                            currentProfileUserId: widget.userId,
+                            onView: () {
+                              // Logique d'affichage de l'annonce
+                            },
+                            companyData: const {},
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            } else {
+              // Traitement pour les autres types de posts (JobOffer, Contest, etc.)
+              return FutureBuilder<List<DocumentSnapshot>>(
+                future: Future.wait([
+                  FirebaseFirestore.instance
+                      .collection('companys')
+                      .doc(post.companyId)
+                      .get(),
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(widget.userId)
+                      .get(),
+                ]),
+                builder: (context, snapshots) {
+                  if (snapshots.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshots.hasError ||
+                      !snapshots.hasData ||
+                      snapshots.data!.any((snapshot) => !snapshot.exists)) {
+                    return const SizedBox.shrink();
+                  }
+
+                  final companyData =
+                      snapshots.data![0].data() as Map<String, dynamic>;
+                  final userData =
+                      snapshots.data![1].data() as Map<String, dynamic>;
+
+                  return PostWidget(
+                    key: ValueKey(post.id),
+                    post: post,
+                    companyCover: companyData['cover'],
+                    companyCategorie: companyData['categorie'] ?? '',
+                    companyName: companyData['name'] ?? '',
+                    companyLogo: companyData['logo'] ?? '',
+                    currentUserId: widget.userId,
+                    sharedByUserData: userData,
+                    currentProfileUserId: widget.userId,
+                    onView: () {
+                      // Logique d'affichage du post
+                    },
+                    companyData: companyData,
+                  );
+                },
+              );
+            }
           },
         );
       },

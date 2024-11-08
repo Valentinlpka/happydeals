@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 class Ad {
   final String id;
+  String? sharedPostId;
   final String adType;
   final String title;
   final String description;
@@ -74,6 +75,33 @@ class Ad {
               'createdAt'
             ].contains(key)),
       isSaved: isSaved,
+    );
+  }
+
+  static Ad fromMap(Map<String, dynamic> map, String id) {
+    return Ad(
+      id: id,
+      adType: map['adType'] ?? '',
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      price: (map['price'] ?? 0).toDouble(),
+      userId: map['userId'] ?? '',
+      userName: map['userName'] ?? '',
+      photos: List<String>.from(map['photos'] ?? []),
+      userProfilePicture: map['userProfilePicture'] ?? '',
+      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      status: map['status'] ?? '',
+      additionalData: Map<String, dynamic>.from(map)
+        ..removeWhere((key, value) => [
+              'adType',
+              'title',
+              'description',
+              'price',
+              'userId',
+              'photos',
+              'createdAt'
+            ].contains(key)),
+      isSaved: map['isSaved'] ?? false,
     );
   }
 

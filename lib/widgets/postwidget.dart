@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
@@ -8,8 +10,11 @@ import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
+import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/screens/comments_page.dart';
+import 'package:happy/screens/marketplace/ad_card.dart';
+import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/widgets/cards/concours_card.dart';
 import 'package:happy/widgets/cards/deals_express_card.dart';
@@ -22,6 +27,7 @@ import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class PostWidget extends StatefulWidget {
+  final Ad? ad;
   final Post post;
   final String currentUserId;
   final String currentProfileUserId; // Ajoutez cette nouvelle propriété
@@ -35,6 +41,7 @@ class PostWidget extends StatefulWidget {
   final Map<String, dynamic>? sharedByUserData;
 
   const PostWidget({
+    this.ad,
     required Key key,
     required this.post,
     required this.currentUserId,
@@ -67,8 +74,16 @@ class _PostWidgetState extends State<PostWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.post is SharedPost) _buildSharedPostHeader(),
-        _buildPostContent(),
-        _buildInteractionBar(),
+        Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPostContent(),
+              _buildInteractionBar(),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -77,6 +92,11 @@ class _PostWidgetState extends State<PostWidget> {
     final sharedPost = widget.post as SharedPost;
     final userData = widget.sharedByUserData;
     final currentUserId = Provider.of<UserModel>(context, listen: false).userId;
+
+    // Déterminez le texte à afficher en fonction du contenu partagé
+    final sharedText = sharedPost.comment == "a publié une annonce"
+        ? '${userData?['firstName'] ?? ''} ${userData?['lastName'] ?? ''} a publié une annonce'
+        : '${userData?['firstName'] ?? ''} ${userData?['lastName'] ?? ''} a partagé';
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
@@ -87,13 +107,13 @@ class _PostWidgetState extends State<PostWidget> {
             onTap: () => _navigateToUserProfile(sharedPost.sharedBy),
             child: CircleAvatar(
               backgroundImage: NetworkImage(userData?['profileImageUrl'] ?? ''),
-              backgroundColor: Colors.grey, // Fallback color if no image
+              backgroundColor: Colors.grey, // Couleur par défaut si pas d'image
             ),
           ),
           title: GestureDetector(
             onTap: () => _navigateToUserProfile(sharedPost.sharedBy),
             child: Text(
-              '${userData?['firstName'] ?? ''} ${userData?['lastName'] ?? ''} a partagé',
+              sharedText,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
               ),
@@ -107,7 +127,10 @@ class _PostWidgetState extends State<PostWidget> {
                 )
               : null,
         ),
-        if (sharedPost.comment != null && sharedPost.comment!.isNotEmpty)
+        // Affichez le commentaire uniquement si ce n'est pas "a publié une annonce"
+        if (sharedPost.comment != "a publié une annonce" &&
+            sharedPost.comment != null &&
+            sharedPost.comment!.isNotEmpty)
           Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -124,9 +147,10 @@ class _PostWidgetState extends State<PostWidget> {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext bc) {
-        return Container(
-          child: Wrap(
-            children: <Widget>[
+        return Wrap(
+          children: <Widget>[
+            // Afficher l'option de modification seulement si le commentaire n'est pas "a publié une annonce"
+            if (post.comment != "a publié une annonce")
               ListTile(
                 leading: const Icon(Icons.edit),
                 title: const Text('Modifier le commentaire'),
@@ -135,16 +159,15 @@ class _PostWidgetState extends State<PostWidget> {
                   _showEditCommentDialog(context, post);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.delete),
-                title: const Text('Supprimer le partage'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteConfirmationDialog(context, post);
-                },
-              ),
-            ],
-          ),
+            ListTile(
+              leading: const Icon(Icons.delete),
+              title: const Text('Supprimer le partage'),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteConfirmationDialog(context, post);
+              },
+            ),
+          ],
         );
       },
     );
@@ -241,24 +264,87 @@ class _PostWidgetState extends State<PostWidget> {
 
   Widget _buildPostContent() {
     if (widget.post is SharedPost) {
+      final sharedPost = widget.post as SharedPost;
+
       return FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance
-            .collection('posts')
-            .doc((widget.post as SharedPost).originalPostId)
+            .collection(sharedPost.comment == "a publié une annonce"
+                ? 'ads' // Charge depuis la collection 'ads' pour les annonces
+                : 'posts') // Sinon, charge depuis la collection 'posts'
+            .doc(sharedPost.originalPostId)
             .get(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const CircularProgressIndicator();
+            return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError || !snapshot.hasData) {
+          if (snapshot.hasError ||
+              !snapshot.hasData ||
+              !snapshot.data!.exists) {
             return const Text('Erreur de chargement du post original');
           }
-          final originalPost = Post.fromDocument(snapshot.data!);
-          return _buildPostTypeContent(originalPost);
+
+          // Vérifie si le post original est une annonce
+          if (sharedPost.comment == "a publié une annonce") {
+            return FutureBuilder<Ad>(
+              future:
+                  Ad.fromFirestore(snapshot.data!), // Obtention de l'objet Ad
+              builder: (context, adSnapshot) {
+                if (adSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (adSnapshot.hasError || !adSnapshot.hasData) {
+                  return const Text('Erreur de chargement de l\'annonce');
+                }
+
+                final ad = adSnapshot.data!;
+                return SizedBox(
+                  width: 250,
+                  child: AdCard(
+                      ad: ad,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AdDetailPage(ad: ad),
+                          ),
+                        );
+                      },
+                      onSaveTap: () => _toggleSaveAd(ad)),
+                );
+              },
+            );
+          } else {
+            // Sinon, traiter comme un autre type de post
+            final originalPost = Post.fromDocument(snapshot.data!);
+            return _buildPostTypeContent(originalPost);
+          }
         },
       );
     } else {
       return _buildPostTypeContent(widget.post);
+    }
+  }
+
+  Future<void> _toggleSaveAd(Ad ad) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Vous devez être connecté pour sauvegarder une annonce'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final savedAdsProvider =
+          Provider.of<SavedAdsProvider>(context, listen: false);
+      await savedAdsProvider.toggleSaveAd(user.uid, ad.id);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
+      );
     }
   }
 
@@ -327,6 +413,9 @@ class _PostWidgetState extends State<PostWidget> {
     return Consumer<UserModel>(
       builder: (context, users, _) {
         final isLiked = users.likedPosts.contains(widget.post.id);
+        final isCurrentUser = widget.post is SharedPost &&
+            (widget.post as SharedPost).sharedBy == widget.currentUserId;
+
         return Column(
           children: [
             Row(
@@ -353,10 +442,12 @@ class _PostWidgetState extends State<PostWidget> {
                     Text('${widget.post.commentsCount}')
                   ],
                 ),
-                IconButton(
-                  onPressed: () => _showShareConfirmation(context, users),
-                  icon: const Icon(Icons.share_outlined),
-                )
+                // Afficher l'icône de partage seulement si le post n'a pas été partagé par l'utilisateur actuel
+                if (!isCurrentUser)
+                  IconButton(
+                    onPressed: () => _showShareConfirmation(context, users),
+                    icon: const Icon(Icons.share_outlined),
+                  ),
               ],
             ),
             Divider(height: 20, color: Colors.grey[300]),

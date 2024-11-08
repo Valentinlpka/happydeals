@@ -256,11 +256,6 @@ class HomeProvider extends ChangeNotifier {
         return [];
       }
 
-      if (kDebugMode) {
-        print(
-            "Récupération des posts partagés pour ${followedUsers.length} utilisateurs suivis");
-      }
-
       final postsQuery = _firestore
           .collection('posts')
           .where('type', isEqualTo: 'shared')
@@ -268,75 +263,73 @@ class HomeProvider extends ChangeNotifier {
           .orderBy('timestamp', descending: true);
 
       final postsSnapshot = await postsQuery.get();
-
-      if (kDebugMode) {
-        print(
-            "Nombre de posts partagés trouvés : ${postsSnapshot.docs.length}");
-      }
-
       List<Map<String, dynamic>> postsWithCompanyData = [];
 
       for (var postDoc in postsSnapshot.docs) {
+        final sharedPost = _createPostFromDocument(postDoc) as SharedPost?;
+        if (sharedPost == null || sharedPost.originalPostId.isEmpty) {
+          continue; // Ignorez les posts sans originalPostId
+        }
+
+        // Récupération des informations de l'utilisateur qui a partagé
+        final userDoc =
+            await _firestore.collection('users').doc(sharedPost.sharedBy).get();
+        if (!userDoc.exists) continue;
+        final userData = userDoc.data() as Map<String, dynamic>;
+        final sharedByUserData = {
+          'firstName': userData['firstName'] ?? 'Prénom inconnu',
+          'lastName': userData['lastName'] ?? 'Nom inconnu',
+          'profileImageUrl': userData['profileImageUrl'] ?? '',
+        };
+
+        // Récupération du contenu d'origine (post ou annonce)
+        DocumentSnapshot originalContentDoc;
+        Map<String, dynamic>? originalContentData;
+        Map<String, dynamic>? originalCompanyData;
+        bool isAd = false;
+
         try {
-          final sharedPost = _createPostFromDocument(postDoc) as SharedPost?;
-          if (sharedPost == null) continue;
-
-          // Récupérer les données de l'entreprise
-          final companyDoc = await _firestore
-              .collection('companys')
-              .doc(sharedPost.companyId)
-              .get();
-          if (!companyDoc.exists) continue;
-          final companyData = companyDoc.data() as Map<String, dynamic>;
-
-          // Récupérer les données de l'utilisateur qui a partagé
-          final userDoc = await _firestore
-              .collection('users')
-              .doc(sharedPost.sharedBy)
-              .get();
-          if (!userDoc.exists) continue;
-          final userData = userDoc.data() as Map<String, dynamic>;
-
-          final sharedByUserData = {
-            'firstName': userData['firstName'] ?? 'Prénom inconnu',
-            'lastName': userData['lastName'] ?? 'Nom inconnu',
-            'profileImageUrl': userData['profileImageUrl'] ?? '',
-          };
-
-          // Récupérer le post original
-          final originalPostDoc = await _firestore
+          originalContentDoc = await _firestore
               .collection('posts')
               .doc(sharedPost.originalPostId)
               .get();
-          if (!originalPostDoc.exists) continue;
-
-          final originalPost = _createPostFromDocument(originalPostDoc);
-          if (originalPost == null) continue;
-
-          // Récupérer l'entreprise du post original
-          final originalCompanyDoc = await _firestore
-              .collection('companys')
-              .doc(originalPost.companyId)
-              .get();
-          if (!originalCompanyDoc.exists) continue;
-
-          final originalCompanyData =
-              originalCompanyDoc.data() as Map<String, dynamic>;
-
-          postsWithCompanyData.add({
-            'post': sharedPost,
-            'company': companyData,
-            'sharedByUser': sharedByUserData,
-            'originalPost': originalPost,
-            'originalCompany': originalCompanyData,
-          });
-
-          if (kDebugMode) {
-            print("Post partagé ajouté par : ${sharedByUserData['firstName']}");
+          if (originalContentDoc.exists) {
+            originalContentData =
+                originalContentDoc.data() as Map<String, dynamic>?;
+            final companyDoc = await _firestore
+                .collection('companys')
+                .doc(sharedPost.companyId)
+                .get();
+            if (companyDoc.exists) {
+              originalCompanyData = companyDoc.data() as Map<String, dynamic>;
+            }
+          } else {
+            // Si ce n'est pas un post, vérifiez si c'est une annonce
+            originalContentDoc = await _firestore
+                .collection('ads')
+                .doc(sharedPost.originalPostId)
+                .get();
+            if (originalContentDoc.exists) {
+              originalContentData =
+                  originalContentDoc.data() as Map<String, dynamic>?;
+              isAd = true;
+            }
           }
         } catch (e) {
-          print('Erreur lors du traitement d\'un post partagé: $e');
+          print("Erreur lors de la récupération du contenu d'origine : $e");
+          continue;
         }
+
+        // Si ni post ni annonce n'a été trouvé, ignorez cet élément
+        if (originalContentData == null) continue;
+
+        postsWithCompanyData.add({
+          'post': sharedPost,
+          'company': originalCompanyData ?? {},
+          'sharedByUser': sharedByUserData,
+          'originalContent': originalContentData,
+          'isAd': isAd,
+        });
       }
 
       return postsWithCompanyData;
