@@ -74,15 +74,12 @@ class _PostWidgetState extends State<PostWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.post is SharedPost) _buildSharedPostHeader(),
-        Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildPostContent(),
-              _buildInteractionBar(),
-            ],
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildPostContent(),
+            _buildInteractionBar(),
+          ],
         ),
       ],
     );
