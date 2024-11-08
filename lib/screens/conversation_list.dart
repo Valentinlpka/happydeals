@@ -139,8 +139,7 @@ class ConversationListItem extends StatelessWidget {
         conversation: conversation,
         userData: {
           'name': conversation.groupName,
-          'image_profile':
-              null, // On pourrait ajouter une image de groupe plus tard
+          'image_profile': null,
           'isGroup': true,
           'members': conversation.members,
         },
@@ -148,7 +147,7 @@ class ConversationListItem extends StatelessWidget {
       );
     }
 
-    // Sinon, on charge les données de l'autre utilisateur comme avant
+    // Sinon, on charge les données de l'autre utilisateur
     return FutureBuilder<Map<String, dynamic>>(
       future: _loadConversationData(conversation, userId),
       builder: (context, snapshot) {
@@ -171,18 +170,44 @@ class ConversationListItem extends StatelessWidget {
     Conversation conversation,
     String userId,
   ) async {
-    final otherUserId = conversation.entrepriseId == userId
-        ? conversation.particulierId
-        : conversation.entrepriseId;
+    String? otherUserId;
 
-    // Vérifions d'abord si l'autre utilisateur est un professionnel (dans la collection companys)
-    if (otherUserId == conversation.entrepriseId) {
+    // Déterminer l'ID de l'autre utilisateur selon le type de conversation
+    if (conversation.entrepriseId != null) {
+      // Conversation avec une entreprise
+      otherUserId = conversation.entrepriseId == userId
+          ? conversation.particulierId
+          : conversation.entrepriseId;
+    } else if (conversation.otherUserId != null) {
+      // Conversation entre particuliers - nouveau cas
+      otherUserId = conversation.otherUserId;
+    } else {
+      // Conversation entre particuliers - cas où l'utilisateur actuel est particulierId
+      otherUserId = conversation.particulierId == userId
+          ? conversation.otherUserId
+          : conversation.particulierId;
+    }
+
+    if (otherUserId == null) {
+      print('WARNING: otherUserId is null for conversation ${conversation.id}');
+      return {
+        'userData': {
+          'firstName': 'Utilisateur',
+          'lastName': 'Inconnu',
+        },
+        'isCompany': false
+      };
+    }
+
+    try {
+      // Vérifier si l'autre utilisateur est une entreprise
       final companyDoc = await FirebaseFirestore.instance
           .collection('companys')
           .doc(otherUserId)
           .get();
 
       if (companyDoc.exists) {
+        // Logique pour les entreprises
         final companyData = companyDoc.data() as Map<String, dynamic>;
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
@@ -197,36 +222,70 @@ class ConversationListItem extends StatelessWidget {
               .get();
         }
 
-        // Combiner les données de company et user
+        if (!userDoc.exists) {
+          return {
+            'userData': {
+              'firstName': companyData['name'],
+              'lastName': '',
+              'companyName': companyData['name'],
+              'logo': companyData['logo'],
+            },
+            'adData': adDoc?.data() as Map<String, dynamic>?,
+            'isCompany': true,
+          };
+        }
+
         final userData = userDoc.data() as Map<String, dynamic>;
-        userData['logo'] =
-            companyData['logo']; // Ajouter le logo aux données utilisateur
+        userData['companyName'] = companyData['name'];
+        userData['logo'] = companyData['logo'];
 
         return {
           'userData': userData,
           'adData': adDoc?.data() as Map<String, dynamic>?,
+          'isCompany': true,
         };
       }
-    }
 
-    // Si ce n'est pas une entreprise ou si elle n'existe pas, charger normalement
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(otherUserId)
-        .get();
-
-    DocumentSnapshot? adDoc;
-    if (conversation.adId != null) {
-      adDoc = await FirebaseFirestore.instance
-          .collection('ads')
-          .doc(conversation.adId)
+      // C'est une conversation avec un particulier
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(otherUserId)
           .get();
-    }
 
-    return {
-      'userData': userDoc.data() as Map<String, dynamic>,
-      'adData': adDoc?.data() as Map<String, dynamic>?,
-    };
+      if (!userDoc.exists) {
+        print('WARNING: User document not found for ID: $otherUserId');
+        return {
+          'userData': {
+            'firstName': 'Utilisateur',
+            'lastName': 'Inconnu',
+          },
+          'isCompany': false
+        };
+      }
+
+      DocumentSnapshot? adDoc;
+      if (conversation.adId != null) {
+        adDoc = await FirebaseFirestore.instance
+            .collection('ads')
+            .doc(conversation.adId)
+            .get();
+      }
+
+      return {
+        'userData': userDoc.data() as Map<String, dynamic>,
+        'adData': adDoc?.data() as Map<String, dynamic>?,
+        'isCompany': false,
+      };
+    } catch (e) {
+      print('Error loading conversation data: $e');
+      return {
+        'userData': {
+          'firstName': 'Erreur',
+          'lastName': 'Chargement',
+        },
+        'isCompany': false
+      };
+    }
   }
 }
 
@@ -245,30 +304,44 @@ class ConversationTile extends StatelessWidget {
   });
 
   @override
+  @override
   Widget build(BuildContext context) {
     final bool isGroup = conversation.isGroup || userData['isGroup'] == true;
     String userName;
-    String? profilePicUrl; // Changé en nullable
+    String? profilePicUrl;
     bool isPro = false;
 
     if (isGroup) {
       userName = conversation.groupName ?? 'Groupe';
       profilePicUrl = '';
     } else {
-      final otherUserId = conversation.entrepriseId == userId
-          ? conversation.particulierId
-          : conversation.entrepriseId;
+      String? otherUserId;
+      if (conversation.entrepriseId != null) {
+        otherUserId = conversation.entrepriseId == userId
+            ? conversation.particulierId
+            : conversation.entrepriseId;
+      } else if (conversation.otherUserId != null) {
+        otherUserId = conversation.otherUserId;
+      } else {
+        otherUserId = conversation.particulierId == userId
+            ? conversation.otherUserId
+            : conversation.particulierId;
+      }
 
-      final bool shouldUseCompanyName =
-          conversation.adId == null && otherUserId == conversation.entrepriseId;
+      // Vérifions si c'est une conversation avec une entreprise
+      final bool isWithCompany = otherUserId == conversation.entrepriseId;
+      isPro = isWithCompany;
 
-      isPro = otherUserId == conversation.entrepriseId;
-
-      userName = shouldUseCompanyName
-          ? userData['companyName'] ?? 'Entreprise'
-          : '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
-      profilePicUrl =
-          isPro ? (userData['logo'] ?? '') : (userData['image_profile'] ?? '');
+      if (isWithCompany) {
+        // Si c'est une entreprise, utiliser companyName ou le logo
+        userName = userData['companyName'] ?? 'Entreprise';
+        profilePicUrl = userData['logo'] ?? '';
+      } else {
+        // Si c'est un particulier, utiliser firstName et lastName
+        userName =
+            '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
+        profilePicUrl = userData['image_profile'] ?? '';
+      }
     }
 
     final isUnread = isGroup
@@ -332,6 +405,18 @@ class ConversationTile extends StatelessWidget {
       return; // Ajout du return pour éviter la suite du code
     }
 
+    String? otherUserId;
+    if (conversation.entrepriseId != null) {
+      otherUserId = conversation.entrepriseId == userId
+          ? conversation.particulierId
+          : conversation.entrepriseId;
+    } else {
+      otherUserId = conversation.particulierId == userId
+          ? conversation.otherUserId
+          : conversation.particulierId;
+    }
+    if (!context.mounted) return;
+
     // Code pour les conversations normales
     if (conversation.adId != null && adData != null) {
       final adDoc = await FirebaseFirestore.instance
@@ -391,7 +476,9 @@ class UserAvatar extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 25,
-          backgroundColor: isGroup ? Colors.grey[300] : Colors.grey[500],
+          backgroundColor: isGroup
+              ? Colors.grey[300]
+              : (isPro ? Colors.grey[500] : Colors.blue[500]),
           backgroundImage:
               profilePicUrl.isNotEmpty ? NetworkImage(profilePicUrl) : null,
           child: profilePicUrl.isEmpty

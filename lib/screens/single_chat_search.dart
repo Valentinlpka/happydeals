@@ -4,9 +4,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
-import 'package:provider/provider.dart';
 
 class SingleChatSearchScreen extends StatefulWidget {
   const SingleChatSearchScreen({super.key});
@@ -212,49 +210,27 @@ class _UserListItem extends StatelessWidget {
           fontSize: 16,
         ),
       ),
-      subtitle: user['companyName'] != null
-          ? Text(
-              user['companyName'],
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 14,
-              ),
-            )
-          : null,
       onTap: () => _startConversation(context),
     );
   }
 
   Future<void> _startConversation(BuildContext context) async {
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-
     if (currentUserId == null) return;
 
-    try {
-      final conversationId = await conversationService.getOrCreateConversation(
-        currentUserId,
-        userId,
-      );
-
-      if (!context.mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ConversationDetailScreen(
-            conversationId: conversationId,
-            otherUserName: '${user['firstName']} ${user['lastName']}',
-          ),
+    // Aller directement à l'écran de conversation sans créer la conversation
+    if (!context.mounted) return;
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ConversationDetailScreen(
+          conversationId: '', // ID vide car nouvelle conversation
+          otherUserName: '${user['firstName']} ${user['lastName']}',
+          otherUserId: userId,
+          isNewConversation: true,
         ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
-    }
+      ),
+    );
   }
 }

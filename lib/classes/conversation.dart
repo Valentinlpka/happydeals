@@ -44,17 +44,18 @@ class Conversation {
   final String id;
   final String? particulierId;
   final String? entrepriseId;
+  final String?
+      otherUserId; // Nouveau champ pour les conversations entre particuliers
   final String? adId;
   final String lastMessage;
   final DateTime lastMessageTimestamp;
   final int unreadCount;
-  final dynamic unreadBy; // Peut être String ou List<String>
+  final dynamic unreadBy;
   final bool? isAdSold;
   final String lastMessageSenderId;
   final bool sellerHasRated;
   final bool buyerHasRated;
   final String? sellerId;
-  // Nouveaux champs pour les groupes
   final bool isGroup;
   final String? groupName;
   final List<Map<String, dynamic>>? members;
@@ -64,6 +65,7 @@ class Conversation {
     required this.id,
     this.particulierId,
     this.entrepriseId,
+    this.otherUserId, // Ajout du nouveau champ
     required this.lastMessage,
     required this.lastMessageTimestamp,
     required this.unreadCount,
@@ -82,16 +84,24 @@ class Conversation {
 
   factory Conversation.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    DateTime timestamp;
+    try {
+      timestamp = data['lastMessageTimestamp'] != null
+          ? (data['lastMessageTimestamp'] as Timestamp).toDate()
+          : DateTime.now();
+    } catch (e) {
+      timestamp = DateTime.now();
+    }
 
     return Conversation(
       id: doc.id,
       particulierId: data['particulierId'],
       entrepriseId: data['entrepriseId'],
+      otherUserId: data['otherUserId'], // Ajout du nouveau champ
       lastMessage: data['lastMessage'] ?? '',
-      lastMessageTimestamp:
-          (data['lastMessageTimestamp'] as Timestamp).toDate(),
+      lastMessageTimestamp: timestamp,
       unreadCount: (data['unreadCount'] as num?)?.toInt() ?? 0,
-      unreadBy: data['unreadBy'], // Peut être String ou List<String>
+      unreadBy: data['unreadBy'],
       adId: data['adId'],
       isAdSold: data['isAdSold'],
       lastMessageSenderId: data['lastMessageSenderId'] ?? '',
@@ -111,6 +121,7 @@ class Conversation {
     return {
       'particulierId': particulierId,
       'entrepriseId': entrepriseId,
+      'otherUserId': otherUserId, // Ajout du nouveau champ
       'lastMessage': lastMessage,
       'lastMessageTimestamp': Timestamp.fromDate(lastMessageTimestamp),
       'unreadCount': unreadCount,

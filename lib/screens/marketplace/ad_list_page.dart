@@ -531,7 +531,8 @@ class _AdListPageState extends State<AdListPage> {
 
 // Mettre à jour _loadMoreAds pour prendre en compte les filtres
   void _loadMoreAds() async {
-    if (_isLoading || !_hasMore) return;
+    if (_isLoading || !_hasMore || !mounted)
+      return; // Ajout de la vérification mounted
     setState(() {
       _isLoading = true;
     });
@@ -586,14 +587,18 @@ class _AdListPageState extends State<AdListPage> {
       final newAds = await Future.wait(
           snapshot.docs.map((doc) => Ad.fromFirestore(doc)).toList());
 
-      setState(() {
-        _ads.addAll(newAds);
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _ads.addAll(newAds);
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       print('Erreur lors du chargement des annonces: $e');
     }
   }

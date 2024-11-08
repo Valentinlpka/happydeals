@@ -10,15 +10,19 @@ import 'package:provider/provider.dart';
 class ConversationDetailScreen extends StatefulWidget {
   final String conversationId;
   final String otherUserName;
+  final String? otherUserId; // Nouveau paramètre
   final Ad? ad;
   final bool isGroup;
+  final bool isNewConversation; // Nouveau paramètre
 
   const ConversationDetailScreen({
     super.key,
     required this.conversationId,
     required this.otherUserName,
+    this.otherUserId,
     this.ad,
     this.isGroup = false,
+    this.isNewConversation = false,
   });
 
   @override
@@ -27,6 +31,8 @@ class ConversationDetailScreen extends StatefulWidget {
 }
 
 class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
+  String? _actualConversationId;
+
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isFirstLoad = true;
@@ -35,7 +41,11 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeChat();
+    _actualConversationId =
+        widget.isNewConversation ? null : widget.conversationId;
+    if (!widget.isNewConversation && widget.conversationId.isNotEmpty) {
+      _initializeChat();
+    }
     if (widget.isGroup) {
       _loadGroupMembers();
     }
@@ -67,8 +77,10 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
   }
 
   void _initializeChat() {
+    if (widget.isNewConversation) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isFirstLoad) {
+      if (_isFirstLoad && widget.conversationId.isNotEmpty) {
         final conversationService =
             Provider.of<ConversationService>(context, listen: false);
         final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -102,77 +114,12 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _buildAppBar(),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('conversations')
-            .doc(widget.conversationId)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.data!.exists) {
-            return const Center(child: Text('Conversation introuvable'));
-          }
-
-          try {
-            final data = snapshot.data!.data() as Map<String, dynamic>?;
-
-            if (data == null) {
-              return const Center(
-                  child: Text('Données de conversation invalides'));
-            }
-
-            final isGroup = data['isGroup'] ?? false;
-
-            if (isGroup) {
-              return Column(
-                children: [
-                  _buildMessageList(
-                      FirebaseAuth.instance.currentUser?.uid ?? ""),
-                  _buildMessageInput(
-                      FirebaseAuth.instance.currentUser?.uid ?? ""),
-                ],
-              );
-            }
-
-            // Pour les conversations normales, ajoutons des vérifications supplémentaires
-            try {
-              final conversation = Conversation.fromFirestore(snapshot.data!);
-              final currentUserId =
-                  FirebaseAuth.instance.currentUser?.uid ?? "";
-
-              return Column(
-                children: [
-                  if (widget.ad != null) _buildAdInfo(widget.ad!),
-                  if (!widget.isGroup &&
-                      conversation.isAdSold != null &&
-                      conversation.isAdSold!)
-                    _buildRatingButton(conversation, currentUserId),
-                  _buildMessageList(currentUserId),
-                  _buildMessageInput(currentUserId),
-                ],
-              );
-            } catch (e) {
-              print('Erreur lors de la conversion de la conversation: $e');
-              // Retourner une version simplifiée en cas d'erreur
-              return Column(
-                children: [
-                  if (widget.ad != null) _buildAdInfo(widget.ad!),
-                  _buildMessageList(
-                      FirebaseAuth.instance.currentUser?.uid ?? ""),
-                  _buildMessageInput(
-                      FirebaseAuth.instance.currentUser?.uid ?? ""),
-                ],
-              );
-            }
-          } catch (e) {
-            print('Erreur lors du traitement des données: $e');
-            return const Center(
-                child: Text('Erreur lors du chargement de la conversation'));
-          }
-        },
+      body: Column(
+        children: [
+          if (widget.ad != null) _buildAdInfo(widget.ad!),
+          _buildMessageList(FirebaseAuth.instance.currentUser?.uid ?? ""),
+          _buildMessageInput(FirebaseAuth.instance.currentUser?.uid ?? ""),
+        ],
       ),
     );
   }
@@ -344,54 +291,186 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
   }
 
   Widget _buildMessageList(String currentUserId) {
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
+    if (widget.isNewConversation && _actualConversationId == null) {
+      return const Expanded(
+        child: Center(
+          child: Text(
+            'Envoyez un message pour démarrer la conversation',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Expanded(
       child: StreamBuilder<List<Message>>(
-        stream:
-            conversationService.getConversationMessages(widget.conversationId),
+        stream: _actualConversationId != null
+            ? Provider.of<ConversationService>(context, listen: false)
+                .getConversationMessages(_actualConversationId!)
+            : Stream.value([]),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
-            print('Erreur dans _buildMessageList: ${snapshot.error}');
-            return Center(child: Text('Erreur: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Aucun message'));
-          }
 
-          try {
-            final messages = snapshot.data!.reversed.toList();
-            return ListView.builder(
-              controller: _scrollController,
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                final previousMessage =
-                    index < messages.length - 1 ? messages[index + 1] : null;
-
-                return MessageBubble(
-                  message: message,
-                  isMe: message.senderId == currentUserId,
-                  previousMessage: previousMessage,
-                  isGroup: widget.isGroup,
-                  senderName: widget.isGroup && message.senderId != null
-                      ? _memberNames[message.senderId] ?? 'Membre'
-                      : null,
-                );
-              },
-            );
-          } catch (e) {
-            print('Erreur dans la construction de la liste des messages: $e');
+          final messages = snapshot.data!.reversed.toList();
+          if (messages.isEmpty) {
             return const Center(
-                child: Text('Erreur lors de l\'affichage des messages'));
+              child: Text(
+                'Aucun message',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                ),
+              ),
+            );
           }
+
+          // Grouper les messages par date
+          final groupedMessages = <DateTime, List<Message>>{};
+          for (var message in messages) {
+            final date = DateTime(
+              message.timestamp.year,
+              message.timestamp.month,
+              message.timestamp.day,
+            );
+            groupedMessages.putIfAbsent(date, () => []).add(message);
+          }
+
+          final sortedDates = groupedMessages.keys.toList()
+            ..sort((a, b) => b.compareTo(a));
+
+          return ListView.builder(
+            controller: _scrollController,
+            reverse: true,
+            itemCount: sortedDates.length,
+            itemBuilder: (context, dateIndex) {
+              final date = sortedDates[dateIndex];
+              final dateMessages = groupedMessages[date]!;
+
+              return Column(
+                children: [
+                  _buildDateDivider(date),
+                  ...dateMessages.map((message) => MessageBubble(
+                        message: message,
+                        isMe: message.senderId == currentUserId,
+                        isGroup: widget.isGroup,
+                        senderName: widget.isGroup && message.senderId != null
+                            ? _memberNames[message.senderId] ?? 'Membre'
+                            : null,
+                      )),
+                ],
+              );
+            },
+          );
         },
       ),
     );
+  }
+
+  Widget _buildDateDivider(DateTime date) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Colors.grey[300])),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              _formatDateDivider(date),
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: Colors.grey[300])),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateDivider(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    if (date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day) {
+      return "Aujourd'hui";
+    } else if (date.year == yesterday.year &&
+        date.month == yesterday.month &&
+        date.day == yesterday.day) {
+      return "Hier";
+    } else if (now.difference(date).inDays < 7) {
+      return _getWeekDay(date);
+    } else {
+      return _formatFullDate(date);
+    }
+  }
+
+  String _formatFullDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = _getMonthName(date.month);
+    final year = date.year != DateTime.now().year ? ' ${date.year}' : '';
+    return '$day $month$year';
+  }
+
+  String _getMonthName(int month) {
+    switch (month) {
+      case 1:
+        return 'janvier';
+      case 2:
+        return 'février';
+      case 3:
+        return 'mars';
+      case 4:
+        return 'avril';
+      case 5:
+        return 'mai';
+      case 6:
+        return 'juin';
+      case 7:
+        return 'juillet';
+      case 8:
+        return 'août';
+      case 9:
+        return 'septembre';
+      case 10:
+        return 'octobre';
+      case 11:
+        return 'novembre';
+      case 12:
+        return 'décembre';
+      default:
+        return '';
+    }
+  }
+
+  String _getWeekDay(DateTime date) {
+    switch (date.weekday) {
+      case 1:
+        return 'Lundi';
+      case 2:
+        return 'Mardi';
+      case 3:
+        return 'Mercredi';
+      case 4:
+        return 'Jeudi';
+      case 5:
+        return 'Vendredi';
+      case 6:
+        return 'Samedi';
+      case 7:
+        return 'Dimanche';
+      default:
+        return '';
+    }
   }
 
   Widget _buildMessageInput(String currentUserId) {
@@ -441,19 +520,46 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
     );
   }
 
-  void _sendMessage(String currentUserId) {
+  Future<void> _sendMessage(String currentUserId) async {
     if (_messageController.text.isEmpty) return;
 
     final conversationService =
         Provider.of<ConversationService>(context, listen: false);
-    conversationService.sendMessage(
-      widget.conversationId,
-      currentUserId,
-      _messageController.text,
-    );
 
-    _messageController.clear();
-    _scrollToBottom();
+    try {
+      if (widget.isNewConversation && _actualConversationId == null) {
+        // Création d'une nouvelle conversation avec le premier message
+        _actualConversationId = await conversationService.sendFirstMessage(
+          senderId: currentUserId,
+          receiverId: widget.otherUserId!,
+          content: _messageController.text,
+          adId: widget.ad?.id,
+        );
+
+        // Mettre à jour l'état avec l'ID de la nouvelle conversation
+        setState(() {
+          _actualConversationId = _actualConversationId;
+        });
+
+        // Si c'est une nouvelle conversation, initialiser le chat après création
+        _initializeChat();
+      } else {
+        // Envoi normal de message dans une conversation existante
+        await conversationService.sendMessage(
+          _actualConversationId ?? widget.conversationId,
+          currentUserId,
+          _messageController.text,
+        );
+      }
+
+      _messageController.clear();
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'envoi du message: $e')),
+      );
+    }
   }
 
   Future<void> _showRatingDialog(Conversation conversation,
@@ -646,7 +752,6 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
 class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
-  final Message? previousMessage;
   final bool isGroup;
   final String? senderName;
 
@@ -654,224 +759,93 @@ class MessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.isMe,
-    this.previousMessage,
     this.isGroup = false,
     this.senderName,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Pour les messages système
     if (message.type == 'system') {
-      return Column(
-        children: [
-          if (_shouldShowDateDivider()) _buildDateDivider(message.timestamp),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  message.content ?? '',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Pour les messages normaux
-    return Column(
-      children: [
-        if (_shouldShowDateDivider()) _buildDateDivider(message.timestamp),
-        Align(
-          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        child: Center(
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                if (isGroup && !isMe && senderName != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12, bottom: 4),
-                    child: Text(
-                      senderName!,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: isMe ? Colors.blue[600] : Colors.grey[300],
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isMe ? 16 : 4),
-                      bottomRight: Radius.circular(isMe ? 4 : 16),
-                    ),
-                  ),
-                  child: Text(
-                    message.content ?? '',
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-                  child: Text(
-                    _formatMessageTime(message.timestamp),
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  bool _shouldShowDateDivider() {
-    if (previousMessage == null) return true;
-
-    final previousDate = DateTime(
-      previousMessage!.timestamp.year,
-      previousMessage!.timestamp.month,
-      previousMessage!.timestamp.day,
-    );
-
-    final currentDate = DateTime(
-      message.timestamp.year,
-      message.timestamp.month,
-      message.timestamp.day,
-    );
-
-    return previousDate != currentDate;
-  }
-
-  Widget _buildDateDivider(DateTime date) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        children: [
-          Expanded(child: Divider(color: Colors.grey[300])),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              _formatDateDivider(date),
+              message.content ?? '',
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ),
-          Expanded(child: Divider(color: Colors.grey[300])),
-        ],
+        ),
+      );
+    }
+
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Column(
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (isGroup && !isMe && senderName != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, bottom: 4),
+                child: Text(
+                  senderName!,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+              decoration: BoxDecoration(
+                color: isMe ? Colors.blue[600] : Colors.grey[300],
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isMe ? 16 : 4),
+                  bottomRight: Radius.circular(isMe ? 4 : 16),
+                ),
+              ),
+              child: Text(
+                message.content ?? '',
+                style: TextStyle(
+                  color: isMe ? Colors.white : Colors.black87,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+              child: Text(
+                _formatMessageTime(message.timestamp),
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   String _formatMessageTime(DateTime timestamp) {
-    return '${timestamp.hour.toString().padLeft(2, '0')}:'
-        '${timestamp.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _formatDateDivider(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final messageDate = DateTime(date.year, date.month, date.day);
-
-    if (messageDate == today) {
-      return "Aujourd'hui";
-    } else if (messageDate == yesterday) {
-      return "Hier";
-    } else if (now.difference(date).inDays < 7) {
-      return _getWeekDay(date);
-    } else {
-      return _formatFullDate(date);
-    }
-  }
-
-  String _getWeekDay(DateTime date) {
-    switch (date.weekday) {
-      case 1:
-        return 'Lundi';
-      case 2:
-        return 'Mardi';
-      case 3:
-        return 'Mercredi';
-      case 4:
-        return 'Jeudi';
-      case 5:
-        return 'Vendredi';
-      case 6:
-        return 'Samedi';
-      case 7:
-        return 'Dimanche';
-      default:
-        return '';
-    }
-  }
-
-  String _formatFullDate(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = _getMonthName(date.month);
-    final year = date.year != DateTime.now().year ? ' ${date.year}' : '';
-    return '$day $month$year';
-  }
-
-  String _getMonthName(int month) {
-    switch (month) {
-      case 1:
-        return 'janvier';
-      case 2:
-        return 'février';
-      case 3:
-        return 'mars';
-      case 4:
-        return 'avril';
-      case 5:
-        return 'mai';
-      case 6:
-        return 'juin';
-      case 7:
-        return 'juillet';
-      case 8:
-        return 'août';
-      case 9:
-        return 'septembre';
-      case 10:
-        return 'octobre';
-      case 11:
-        return 'novembre';
-      case 12:
-        return 'décembre';
-      default:
-        return '';
-    }
+    final hour = timestamp.hour.toString().padLeft(2, '0');
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
 
