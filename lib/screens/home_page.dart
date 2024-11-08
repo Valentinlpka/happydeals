@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
+import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/combined_item.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/widgets/bottom_sheet_profile.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/filtered_button.dart';
@@ -351,28 +354,74 @@ class _HomeState extends State<Home> {
     if (item.type == 'post') {
       final postData = item.item;
       final post = postData['post'] as Post;
-      final companyData = postData['company'] as Map<String, dynamic>;
-      final sharedByUserData =
-          postData['sharedByUser'] as Map<String, dynamic>?;
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-        child: PostWidget(
-          key: ValueKey(post.id),
-          post: post,
-          companyCover: companyData['cover'],
-          companyCategorie: companyData['categorie'] ?? '',
-          companyName: companyData['name'] ?? '',
-          companyLogo: companyData['logo'] ?? '',
-          currentUserId: currentUserId,
-          sharedByUserData: sharedByUserData,
-          currentProfileUserId: currentUserId,
-          onView: () {
-            // Logique d'affichage du post
-          },
-          companyData: companyData,
-        ),
-      );
+
+      // Conversion explicite des Maps
+      final companyData = Map<String, dynamic>.from(postData['company'] ?? {});
+      final sharedByUserData = postData['sharedByUser'] != null
+          ? Map<String, dynamic>.from(postData['sharedByUser']!)
+          : null;
+      final isAd = postData['isAd'] as bool? ?? false;
+
+      if (post is SharedPost && isAd) {
+        // Gestion des annonces partagées
+        final adData =
+            Map<String, dynamic>.from(postData['originalContent'] ?? {});
+
+        try {
+          final ad = Ad.fromMap(adData, adData['id'] ?? post.originalPostId);
+
+          return Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: PostWidget(
+              key: ValueKey('${post.id}_${post.originalPostId}_ad'),
+              post: post,
+              ad: ad,
+              companyCover: '',
+              companyCategorie: '',
+              companyName: '',
+              companyLogo: '',
+              currentUserId: currentUserId,
+              sharedByUserData: sharedByUserData,
+              currentProfileUserId: currentUserId,
+              onView: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AdDetailPage(ad: ad),
+                  ),
+                );
+              },
+              companyData: const {},
+            ),
+          );
+        } catch (e) {
+          print('Erreur lors de la création de l\'annonce: $e');
+          return const SizedBox.shrink(); // Widget vide en cas d'erreur
+        }
+      } else {
+        // Gestion des posts normaux
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          child: PostWidget(
+            key: ValueKey(post.id),
+            post: post,
+            companyCover: companyData['cover'],
+            companyCategorie: companyData['categorie'] ?? '',
+            companyName: companyData['name'] ?? '',
+            companyLogo: companyData['logo'] ?? '',
+            currentUserId: currentUserId,
+            sharedByUserData: sharedByUserData,
+            currentProfileUserId: currentUserId,
+            onView: () {
+              // Logique d'affichage du post
+            },
+            companyData: companyData,
+          ),
+        );
+      }
     } else {
+      // Gestion des autres types (companies)
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         child: CompanyCard(item.item as Company),

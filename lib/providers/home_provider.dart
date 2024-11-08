@@ -142,8 +142,10 @@ class HomeProvider extends ChangeNotifier {
       Set<String> addedPostIds, List<CombinedItem> combinedItems) {
     for (var postData in posts) {
       final post = postData['post'] as Post;
-      String uniqueId =
-          post is SharedPost ? '${post.id}_${post.originalPostId}' : post.id;
+      String uniqueId = post is SharedPost
+          ? '${post.id}_${post.originalPostId}_${postData['isAd'] ? 'ad' : 'post'}'
+          : post.id;
+
       if (!addedPostIds.contains(uniqueId)) {
         addedPostIds.add(uniqueId);
         combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
@@ -249,6 +251,7 @@ class HomeProvider extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> fetchSharedPostsWithCompanyData(
       List<String> followedUsers) async {
     try {
+      // Vérification des utilisateurs suivis
       if (followedUsers.isEmpty) {
         if (kDebugMode) {
           print("Aucun utilisateur suivi, pas de posts partagés à charger");
@@ -256,80 +259,42 @@ class HomeProvider extends ChangeNotifier {
         return [];
       }
 
-      final postsQuery = _firestore
+      // Récupération des posts partagés
+      final QuerySnapshot postsSnapshot = await _firestore
           .collection('posts')
           .where('type', isEqualTo: 'shared')
           .where('sharedBy', whereIn: followedUsers)
-          .orderBy('timestamp', descending: true);
+          .orderBy('timestamp', descending: true)
+          .get();
 
-      final postsSnapshot = await postsQuery.get();
       List<Map<String, dynamic>> postsWithCompanyData = [];
 
-      for (var postDoc in postsSnapshot.docs) {
-        final sharedPost = _createPostFromDocument(postDoc) as SharedPost?;
-        if (sharedPost == null || sharedPost.originalPostId.isEmpty) {
-          continue; // Ignorez les posts sans originalPostId
-        }
-
-        // Récupération des informations de l'utilisateur qui a partagé
-        final userDoc =
-            await _firestore.collection('users').doc(sharedPost.sharedBy).get();
-        if (!userDoc.exists) continue;
-        final userData = userDoc.data() as Map<String, dynamic>;
-        final sharedByUserData = {
-          'firstName': userData['firstName'] ?? 'Prénom inconnu',
-          'lastName': userData['lastName'] ?? 'Nom inconnu',
-          'profileImageUrl': userData['profileImageUrl'] ?? '',
-        };
-
-        // Récupération du contenu d'origine (post ou annonce)
-        DocumentSnapshot originalContentDoc;
-        Map<String, dynamic>? originalContentData;
-        Map<String, dynamic>? originalCompanyData;
-        bool isAd = false;
-
+      // Traitement de chaque post
+      for (final postDoc in postsSnapshot.docs) {
         try {
-          originalContentDoc = await _firestore
-              .collection('posts')
-              .doc(sharedPost.originalPostId)
-              .get();
-          if (originalContentDoc.exists) {
-            originalContentData =
-                originalContentDoc.data() as Map<String, dynamic>?;
-            final companyDoc = await _firestore
-                .collection('companys')
-                .doc(sharedPost.companyId)
-                .get();
-            if (companyDoc.exists) {
-              originalCompanyData = companyDoc.data() as Map<String, dynamic>;
-            }
-          } else {
-            // Si ce n'est pas un post, vérifiez si c'est une annonce
-            originalContentDoc = await _firestore
-                .collection('ads')
-                .doc(sharedPost.originalPostId)
-                .get();
-            if (originalContentDoc.exists) {
-              originalContentData =
-                  originalContentDoc.data() as Map<String, dynamic>?;
-              isAd = true;
-            }
+          // Création du post partagé
+          final SharedPost? sharedPost =
+              _createPostFromDocument(postDoc) as SharedPost?;
+          if (sharedPost == null) continue;
+
+          // Récupération des données de l'utilisateur qui partage
+          final sharedByUserData =
+              await _getSharedByUserData(sharedPost.sharedBy);
+          if (sharedByUserData == null) continue;
+
+          // Vérification du type de contenu (post ou annonce)
+          final contentData = await _getOriginalContent(sharedPost);
+          if (contentData != null) {
+            postsWithCompanyData.add(contentData
+              ..addAll({
+                'post': sharedPost,
+                'sharedByUser': sharedByUserData,
+              }));
           }
         } catch (e) {
-          print("Erreur lors de la récupération du contenu d'origine : $e");
+          print('Erreur lors du traitement du post partagé: $e');
           continue;
         }
-
-        // Si ni post ni annonce n'a été trouvé, ignorez cet élément
-        if (originalContentData == null) continue;
-
-        postsWithCompanyData.add({
-          'post': sharedPost,
-          'company': originalCompanyData ?? {},
-          'sharedByUser': sharedByUserData,
-          'originalContent': originalContentData,
-          'isAd': isAd,
-        });
       }
 
       return postsWithCompanyData;
@@ -337,6 +302,84 @@ class HomeProvider extends ChangeNotifier {
       print('Erreur dans fetchSharedPostsWithCompanyData: $e');
       return [];
     }
+  }
+
+// Récupère les données de l'utilisateur qui partage
+  Future<Map<String, dynamic>?> _getSharedByUserData(String userId) async {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    if (!userDoc.exists) return null;
+
+    final userData = userDoc.data() as Map<String, dynamic>;
+    return {
+      'firstName': userData['firstName'] ?? '',
+      'lastName': userData['lastName'] ?? '',
+      'userProfilePicture': userData['image_profile'] ?? '',
+    };
+  }
+
+// Récupère le contenu original (post ou annonce)
+  Future<Map<String, dynamic>?> _getOriginalContent(
+      SharedPost sharedPost) async {
+    // Vérifier d'abord si c'est un post
+    final originalPostDoc = await _firestore
+        .collection('posts')
+        .doc(sharedPost.originalPostId)
+        .get();
+
+    // Si c'est un post
+    if (originalPostDoc.exists) {
+      return await _handleOriginalPost(sharedPost, originalPostDoc);
+    }
+
+    // Si ce n'est pas un post, vérifier si c'est une annonce
+    final adDoc =
+        await _firestore.collection('ads').doc(sharedPost.originalPostId).get();
+
+    // Si c'est une annonce
+    if (adDoc.exists) {
+      return await _handleOriginalAd(adDoc);
+    }
+
+    return null;
+  }
+
+// Traite un post original
+  Future<Map<String, dynamic>?> _handleOriginalPost(
+      SharedPost sharedPost, DocumentSnapshot originalPostDoc) async {
+    final companyDoc =
+        await _firestore.collection('companys').doc(sharedPost.companyId).get();
+
+    if (!companyDoc.exists) return null;
+
+    return {
+      'company': companyDoc.data() as Map<String, dynamic>,
+      'originalContent': originalPostDoc.data(),
+      'isAd': false
+    };
+  }
+
+// Traite une annonce originale
+  Future<Map<String, dynamic>> _handleOriginalAd(DocumentSnapshot adDoc) async {
+    final adData =
+        Map<String, dynamic>.from(adDoc.data() as Map<String, dynamic>);
+    adData['id'] = adDoc.id;
+
+    // Récupération des données de l'utilisateur de l'annonce
+    final adUserDoc =
+        await _firestore.collection('users').doc(adData['userId']).get();
+
+    if (adUserDoc.exists) {
+      final adUserData = adUserDoc.data() as Map<String, dynamic>;
+      adData['userName'] =
+          '${adUserData['firstName']} ${adUserData['lastName']}'.trim();
+      adData['userProfilePicture'] = adUserData['image_profile'] ?? '';
+    }
+
+    return {
+      'company': <String, dynamic>{},
+      'originalContent': adData,
+      'isAd': true
+    };
   }
 
   Future<List<Company>> fetchNearbyCompanies() async {
