@@ -9,20 +9,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_places_flutter/google_places_flutter.dart';
-import 'package:google_places_flutter/model/prediction.dart';
 import 'package:happy/classes/combined_item.dart';
-import 'package:happy/classes/company.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
-import 'package:happy/providers/localisation_service.dart';
-import 'package:happy/widgets/web_adress_search.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,35 +26,19 @@ class HomeProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController addressController = TextEditingController();
 
-  Position? _currentPosition;
-  String _currentAddress = "Localisation en cours...";
-  double _selectedRadius = 10.0;
   bool _isLoading = false;
   String? _errorMessage;
 
-  Position? get currentPosition => _currentPosition;
-  String get currentAddress => _currentAddress;
-  double get selectedRadius => _selectedRadius;
   bool get isLoading => _isLoading;
   bool get hasError => _errorMessage != null;
   String get errorMessage =>
       _errorMessage ?? "Une erreur inconnue est survenue";
-
-  void updateLocation(Position position) {
-    _currentPosition = position;
-    // Mettre à jour l'adresse et d'autres données liées à la position
-    // ...
-    notifyListeners();
-  }
 
   Future<List<CombinedItem>> loadUnifiedFeed(
       List<String> likedCompanies, List<String> followedUsers) async {
     try {
       if (kDebugMode) {
         print("### Début de loadUnifiedFeed ###");
-        print(
-            "Position actuelle : ${_currentPosition?.latitude}, ${_currentPosition?.longitude}");
-        print("Adresse actuelle : $_currentAddress");
         print("Nombre d'entreprises likées : ${likedCompanies.length}");
         print("Nombre d'utilisateurs suivis : ${followedUsers.length}");
       }
@@ -75,14 +55,6 @@ class HomeProvider extends ChangeNotifier {
       ]);
 
       // 2. Charger les posts qui dépendent de la position
-      if (_currentPosition != null) {
-        await Future.wait([
-          // Posts à proximité
-          _loadNearbyPosts(addedPostIds, combinedItems),
-          // Entreprises à proximité
-          _loadNearbyCompanies(combinedItems),
-        ]);
-      }
 
       // Trier tous les éléments par date
       combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
@@ -96,12 +68,6 @@ class HomeProvider extends ChangeNotifier {
       print('Erreur dans loadUnifiedFeed: $e');
       return [];
     }
-  }
-
-  Future<void> _loadNearbyPosts(
-      Set<String> addedPostIds, List<CombinedItem> combinedItems) async {
-    final nearbyPosts = await fetchNearbyPostsWithCompanyData();
-    _addUniquePosts(nearbyPosts, addedPostIds, combinedItems);
   }
 
   Future<void> _loadLikedCompanyPosts(List<String> likedCompanies,
@@ -132,12 +98,6 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadNearbyCompanies(List<CombinedItem> combinedItems) async {
-    final companies = await fetchNearbyCompanies();
-    combinedItems.addAll(companies
-        .map((company) => CombinedItem(company, company.createdAt, 'company')));
-  }
-
   void _addUniquePosts(List<Map<String, dynamic>> posts,
       Set<String> addedPostIds, List<CombinedItem> combinedItems) {
     for (var postData in posts) {
@@ -150,65 +110,6 @@ class HomeProvider extends ChangeNotifier {
         addedPostIds.add(uniqueId);
         combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
       }
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> fetchNearbyPostsWithCompanyData() async {
-    try {
-      if (_currentPosition == null) {
-        print(
-            'Position actuelle non disponible pour fetchNearbyPostsWithCompanyData');
-        return [];
-      }
-
-      final postsQuery = _firestore
-          .collection('posts')
-          .where('type', isNotEqualTo: 'shared')
-          .orderBy('type')
-          .orderBy('timestamp', descending: true);
-
-      final postsSnapshot = await postsQuery.get();
-      List<Map<String, dynamic>> postsWithCompanyData = [];
-
-      for (var postDoc in postsSnapshot.docs) {
-        try {
-          final post = _createPostFromDocument(postDoc);
-          if (post != null) {
-            final companyDoc = await _firestore
-                .collection('companys')
-                .doc(post.companyId)
-                .get();
-
-            if (!companyDoc.exists) {
-              print('Entreprise ${post.companyId} non trouvée');
-              continue;
-            }
-
-            final companyData = companyDoc.data() as Map<String, dynamic>;
-
-            // Vérification du rayon avec logs
-            if (await _isPostWithinRadius(post.companyId, companyData)) {
-              if (kDebugMode) {
-                print('Post ${post.id} ajouté (dans le rayon)');
-              }
-              postsWithCompanyData.add({'post': post, 'company': companyData});
-            } else if (kDebugMode) {
-              print('Post ${post.id} ignoré (hors rayon)');
-            }
-          }
-        } catch (e) {
-          print('Erreur lors du traitement d\'un post: $e');
-        }
-      }
-
-      if (kDebugMode) {
-        print('Nombre total de posts trouvés: ${postsWithCompanyData.length}');
-      }
-
-      return postsWithCompanyData;
-    } catch (e) {
-      print('Erreur dans fetchNearbyPostsWithCompanyData: $e');
-      return [];
     }
   }
 
@@ -382,36 +283,17 @@ class HomeProvider extends ChangeNotifier {
     };
   }
 
-  Future<List<Company>> fetchNearbyCompanies() async {
-    try {
-      final companiesQuery = _firestore
-          .collection('companys')
-          .orderBy('createdAt', descending: true);
-      final companiesSnapshot = await companiesQuery.get();
-
-      List<Company> companiesInRange = [];
-
-      for (var doc in companiesSnapshot.docs) {
-        Company company = Company.fromDocument(doc);
-        if (await _isCompanyWithinRadius(company)) {
-          companiesInRange.add(company);
-        }
-      }
-
-      return companiesInRange;
-    } catch (e) {
-      return [];
-    }
-  }
-
   Post? _createPostFromDocument(DocumentSnapshot doc) {
     try {
       final data = doc.data() as Map<String, dynamic>;
       final String type = data['type'] ?? 'unknown';
+      print('Type de post: $type'); // Ajoutez ce log
 
       switch (type) {
         case 'job_offer':
           return JobOffer.fromDocument(doc);
+        case 'product':
+          return ProductPost.fromDocument(doc);
         case 'contest':
           return Contest.fromDocument(doc);
         case 'happy_deal':
@@ -432,179 +314,7 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> showLocationSelectionBottomSheet(BuildContext context) async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _buildLocationBottomSheet(context),
-    );
-  }
-
-  Widget _buildLocationBottomSheet(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        top: 20,
-        left: 20,
-        right: 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            "Sélectionnez votre ville",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          _buildAddressSearch(context),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            child: const Text("Confirmer"),
-            onPressed: () {
-              Navigator.of(context).pop();
-              notifyListeners();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddressSearch(BuildContext context) {
-    if (kIsWeb) {
-      return WebAddressSearch(
-        homeProvider: this,
-        onLocationUpdated: () {
-          notifyListeners();
-        },
-      );
-    } else {
-      return GooglePlaceAutoCompleteTextField(
-        textEditingController: addressController,
-        googleAPIKey: "AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc",
-        inputDecoration: const InputDecoration(
-          hintText: "Rechercher une ville",
-          alignLabelWithHint: true,
-          icon: Padding(
-            padding: EdgeInsets.only(left: 10.0),
-            child: Icon(Icons.location_on),
-          ),
-          isCollapsed: false,
-          contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 10),
-          border: InputBorder.none,
-        ),
-        debounceTime: 800,
-        countries: const ["fr"],
-        isLatLngRequired: true,
-        seperatedBuilder: const Divider(color: Colors.black12, height: 2),
-        getPlaceDetailWithLatLng: (Prediction prediction) async {
-          await updateLocationFromPrediction(prediction);
-        },
-        itemClick: (Prediction prediction) {
-          addressController.text = prediction.description ?? "";
-        },
-      );
-    }
-  }
-
-  Future<bool> _isCompanyWithinRadius(Company company) async {
-    return _isWithinRadius(company.adress.latitude, company.adress.longitude);
-  }
-
-  Future<bool> _isPostWithinRadius(
-      String companyId, Map<String, dynamic> companyData) async {
-    try {
-      Map<String, dynamic>? addressMap =
-          companyData['adress'] as Map<String, dynamic>?;
-
-      // Vérification plus stricte des données d'adresse
-      if (addressMap == null ||
-          !addressMap.containsKey('latitude') ||
-          !addressMap.containsKey('longitude') ||
-          addressMap['latitude'] == null ||
-          addressMap['longitude'] == null) {
-        print(
-            'Données d\'adresse invalides pour le post de l\'entreprise $companyId');
-        return false;
-      }
-
-      // Conversion explicite en double pour éviter les erreurs de type
-      double companyLat = (addressMap['latitude'] is int)
-          ? (addressMap['latitude'] as int).toDouble()
-          : addressMap['latitude'] as double;
-      double companyLng = (addressMap['longitude'] is int)
-          ? (addressMap['longitude'] as int).toDouble()
-          : addressMap['longitude'] as double;
-
-      if (_currentPosition == null) {
-        print('Position actuelle non disponible');
-        return false;
-      }
-
-      double distance = Geolocator.distanceBetween(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-        companyLat,
-        companyLng,
-      );
-
-      final isInRadius = distance / 1000 <= _selectedRadius;
-      if (kDebugMode) {
-        print(
-            'Distance pour $companyId: ${distance / 1000}km (Rayon: $_selectedRadius km)');
-        print('Est dans le rayon: $isInRadius');
-      }
-
-      return isInRadius;
-    } catch (e) {
-      print(
-          'Erreur lors de la vérification du rayon pour le post $companyId: $e');
-      return false;
-    }
-  }
-
   void notifyLocationChanges() {
-    notifyListeners();
-  }
-
-  Future<bool> _isWithinRadius(double lat, double lng) async {
-    if (_currentPosition == null) return false;
-    double distance = Geolocator.distanceBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      lat,
-      lng,
-    );
-    return distance / 1000 <= _selectedRadius;
-  }
-
-  Future<void> loadSavedLocation() async {
-    _isLoading = true;
-    _errorMessage = null;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedAddress = prefs.getString('savedAddress');
-      final savedLat = prefs.getDouble('savedLat');
-      final savedLng = prefs.getDouble('savedLng');
-
-      if (savedAddress != null && savedLat != null && savedLng != null) {
-        _updateCurrentLocation(savedAddress, savedLat, savedLng,
-            DateTime.now().millisecondsSinceEpoch);
-      } else {
-        await _initializeLocation();
-      }
-    } catch (e) {
-      _handleLocationError(
-          "Erreur lors du chargement de la localisation sauvegardée", e);
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  void setSelectedRadius(double radius) {
-    _selectedRadius = radius;
     notifyListeners();
   }
 
@@ -616,63 +326,6 @@ class HomeProvider extends ChangeNotifier {
     _errorMessage = message;
     _isLoading = false;
     notifyListeners();
-  }
-
-  void _updateCurrentLocation(
-      String address, double lat, double lng, int timestamp) {
-    _currentAddress = address;
-    _currentPosition = Position(
-      latitude: lat,
-      longitude: lng,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
-      accuracy: 0,
-      altitude: 0,
-      heading: 0,
-      speed: 0,
-      speedAccuracy: 0,
-      altitudeAccuracy: 0,
-      headingAccuracy: 0,
-    );
-  }
-
-  Future<void> _initializeLocation() async {
-    try {
-      Position? position = await _getCurrentPosition();
-      if (position == null) {
-        throw Exception("Position non disponible");
-      }
-
-      final locationData = await LocationService.getLocationFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      _updateCurrentLocation(
-        locationData['address'],
-        locationData['latitude'],
-        locationData['longitude'],
-        DateTime.now().millisecondsSinceEpoch,
-      );
-
-      await _saveLocation(
-        locationData['address'],
-        Position(
-          latitude: locationData['latitude'],
-          longitude: locationData['longitude'],
-          timestamp: DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          heading: 0,
-          speed: 0,
-          speedAccuracy: 0,
-          altitudeAccuracy: 0,
-          headingAccuracy: 0,
-        ),
-      );
-    } catch (e) {
-      print('Erreur dans _initializeLocation: $e');
-      _handleLocationError("Erreur d'initialisation de la localisation", e);
-    }
   }
 
   Future<void> _checkAndRequestPermissions() async {
@@ -805,40 +458,6 @@ class HomeProvider extends ChangeNotifier {
       // Ne pas recharger les données ici
     } catch (e) {
       print('Erreur lors de la sauvegarde de la localisation : $e');
-    }
-  }
-
-  Future<void> updateLocationFromPrediction(Prediction prediction) async {
-    try {
-      final locationData =
-          await LocationService.getLocationFromPrediction(prediction);
-
-      _updateCurrentLocation(
-        locationData['address'],
-        locationData['latitude'],
-        locationData['longitude'],
-        DateTime.now().millisecondsSinceEpoch,
-      );
-
-      await _saveLocation(
-        locationData['address'],
-        Position(
-          latitude: locationData['latitude'],
-          longitude: locationData['longitude'],
-          timestamp: DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          heading: 0,
-          speed: 0,
-          speedAccuracy: 0,
-          altitudeAccuracy: 0,
-          headingAccuracy: 0,
-        ),
-      );
-
-      notifyListeners();
-    } catch (e) {
-      print('Erreur lors de la mise à jour de la localisation : $e');
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
+import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
 
@@ -61,6 +62,9 @@ class Post {
         return Referral.fromDocument(doc);
       case 'event':
         return Event.fromDocument(doc);
+      case 'product':
+        return ProductPost.fromDocument(doc);
+
       default:
         throw Exception('Unsupported post type: $type');
     }

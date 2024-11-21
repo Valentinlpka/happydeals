@@ -1,9 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:google_places_flutter/google_places_flutter.dart';
-import 'package:google_places_flutter/model/prediction.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/combined_item.dart';
 import 'package:happy/classes/company.dart';
@@ -16,7 +13,6 @@ import 'package:happy/widgets/bottom_sheet_profile.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/filtered_button.dart';
 import 'package:happy/widgets/postwidget.dart';
-import 'package:happy/widgets/web_adress_search.dart';
 import 'package:provider/provider.dart';
 
 class Home extends StatefulWidget {
@@ -37,24 +33,9 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-    _requestLocation();
 
     _loadData();
     _scrollController.addListener(_onScroll);
-  }
-
-  Future<void> _requestLocation() async {
-    try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      // Mettez à jour la position dans votre provider
-      Provider.of<HomeProvider>(context, listen: false)
-          .updateLocation(position);
-    } catch (e) {
-      print('Erreur de géolocalisation : $e');
-      // Gérer l'erreur de géolocalisation
-    }
   }
 
   Future<void> _loadData() async {
@@ -77,12 +58,6 @@ class _HomeState extends State<Home> {
       }
 
       // 2. Vérifier la position et la charger si nécessaire
-      if (homeProvider.currentPosition == null) {
-        if (kDebugMode) {
-          print("Chargement de la position...");
-        }
-        await homeProvider.loadSavedLocation();
-      }
 
       // 3. Maintenant charger le feed avec les données utilisateur garanties
       if (kDebugMode) {
@@ -140,7 +115,6 @@ class _HomeState extends State<Home> {
         child: Column(
           children: [
             _buildHeader(),
-            _buildLocationBar(),
             FilterButtons(
               selectedFilter: _selectedFilter,
               onFilterChanged: (filter) {
@@ -222,33 +196,6 @@ class _HomeState extends State<Home> {
                 ),
               ),
             ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLocationBar() {
-    return Consumer<HomeProvider>(
-      builder: (context, homeProvider, _) {
-        return GestureDetector(
-          onTap: () => _showLocationBottomSheet(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Icon(Icons.location_on, color: Colors.blue[600]),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    homeProvider.currentAddress,
-                    style: const TextStyle(fontSize: 16),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const Icon(Icons.arrow_drop_down, color: Colors.blue),
-              ],
-            ),
           ),
         );
       },
@@ -344,6 +291,8 @@ class _HomeState extends State<Home> {
             return post.type == 'referral';
           case 'Jeux concours':
             return post.type == 'contest';
+          case 'Produits':
+            return post.type == 'product';
         }
       }
       return false;
@@ -427,148 +376,6 @@ class _HomeState extends State<Home> {
         child: CompanyCard(item.item as Company),
       );
     }
-  }
-
-  void _showLocationBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.grey[50],
-      builder: (context) => Consumer<HomeProvider>(
-        builder: (context, homeProvider, _) {
-          return StatefulBuilder(
-            builder: (BuildContext context, StateSetter setModalState) {
-              return Container(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          "Localisation",
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
-                        _buildAddressSearch(homeProvider),
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          style: ButtonStyle(
-                            backgroundColor:
-                                WidgetStateProperty.all(Colors.blue[700]),
-                          ),
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await _loadData(); // Utiliser la même méthode que pour le chargement initial
-                          },
-                          child: const Text("Appliquer"),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildAddressSearch(HomeProvider homeProvider) {
-    if (kIsWeb) {
-      return WebAddressSearch(
-        homeProvider: homeProvider,
-        onLocationUpdated: () {},
-      );
-    } else {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05), // Ombre très légère
-              spreadRadius: 0,
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: GooglePlaceAutoCompleteTextField(
-          textEditingController: homeProvider.addressController,
-          googleAPIKey: "AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc",
-          inputDecoration: InputDecoration(
-            hintText: "Rechercher une ville",
-            hintStyle: TextStyle(color: Colors.grey[400]),
-            alignLabelWithHint: true,
-            prefixIcon: const Icon(Icons.location_on, color: Colors.grey),
-            filled: true,
-            fillColor: Colors.white,
-            isCollapsed: false,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-            // Suppression complète des bordures
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none, // Pas de bordure
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none, // Pas de bordure au focus
-            ),
-          ),
-          debounceTime: 800,
-          countries: const ["fr"],
-          isLatLngRequired: true,
-          seperatedBuilder: Divider(
-            color: Colors.grey[100],
-            height: 1,
-          ),
-          getPlaceDetailWithLatLng: (Prediction prediction) async {
-            await homeProvider.updateLocationFromPrediction(prediction);
-          },
-          itemClick: (Prediction prediction) {
-            homeProvider.addressController.text = prediction.description ?? "";
-          },
-        ),
-      );
-    }
-  }
-
-  Widget _buildRadiusSelector(HomeProvider homeProvider) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text("Rayon de recherche"),
-        DropdownButton<double>(
-          value: homeProvider.selectedRadius,
-          items: [5.0, 10.0, 15.0, 20.0, 40.0, 50.0].map((double value) {
-            return DropdownMenuItem<double>(
-              value: value,
-              child: Text('$value km'),
-            );
-          }).toList(),
-          onChanged: (newValue) {
-            if (newValue != null) {
-              homeProvider.setSelectedRadius(newValue);
-            }
-          },
-        ),
-      ],
-    );
   }
 
   @override

@@ -223,7 +223,6 @@ class AuthWrapper extends StatelessWidget {
     final homeProvider = Provider.of<HomeProvider>(context, listen: false);
 
     await userModel.loadUserData();
-    await homeProvider.loadSavedLocation();
     // Initialisez d'autres providers si nécessaire
   }
 }

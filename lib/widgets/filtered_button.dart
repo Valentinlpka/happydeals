@@ -24,6 +24,7 @@ class FilterButtons extends StatelessWidget {
           _buildFilterButton('Offres d\'emploi', Icons.work),
           _buildFilterButton('Parrainage', Icons.people),
           _buildFilterButton('Jeux concours', Icons.emoji_events),
+          _buildFilterButton('Produits', Icons.shopping_bag_outlined),
         ],
       ),
     );

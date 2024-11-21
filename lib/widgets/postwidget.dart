@@ -8,6 +8,7 @@ import 'package:happy/classes/event.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/ads_provider.dart';
@@ -22,6 +23,7 @@ import 'package:happy/widgets/cards/emploi_card.dart';
 import 'package:happy/widgets/cards/evenement_card.dart';
 import 'package:happy/widgets/cards/happy_deals_card.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
+import 'package:happy/widgets/cards/product_cards.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -387,6 +389,12 @@ class _PostWidgetState extends State<PostWidget> {
         return EvenementCard(
           event: post as Event,
           currentUserId: widget.currentUserId,
+        );
+      case ProductPost:
+        return ProductCards(
+          post: post as ProductPost,
+          companyName: widget.companyName,
+          companyLogo: widget.companyLogo,
         );
       default:
         return Card(

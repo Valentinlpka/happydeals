@@ -13,6 +13,7 @@ import 'package:happy/classes/loyalty_card.dart';
 import 'package:happy/classes/loyalty_program.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
+import 'package:happy/classes/referral_options_modal.dart';
 import 'package:happy/providers/company_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/review_service.dart';
@@ -72,6 +73,77 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
   void dispose() {
     _tabScrollController.dispose();
     super.dispose();
+  }
+
+  Widget _buildReferralSection(Company entreprise) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Programme de Parrainage',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Parrainez de nouveaux clients et bénéficiez d\'avantages exclusifs !',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[800],
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: const Icon(Icons.people_outline, color: Colors.white),
+              label: const Text(
+                'Parrainer',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onPressed: () => _showReferralOptionsModal(entreprise),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReferralOptionsModal(Company entreprise) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          child: Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: ReferralOptionsModal(
+              companyId: entreprise.id,
+              referralId:
+                  '', // Pas besoin d'ID de référence pour un parrainage direct
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<LoyaltyProgram?> _fetchLoyaltyProgram() async {
@@ -531,6 +603,78 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
         return _buildAboutTab(entreprise);
       case 'Boutique':
         return ProductList(sellerId: entreprise.sellerId);
+      case 'Parrainage':
+        return SingleChildScrollView(
+          child: Column(
+            children: [
+              // Bouton de parrainage en haut
+              _buildReferralSection(entreprise),
+
+              // Liste des posts de parrainage en dessous
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: _postsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return Center(
+                        child: Text(
+                            'Erreur: ${snapshot.error ?? "Aucun post trouvé"}'));
+                  }
+
+                  final allPosts = snapshot.data!;
+                  final referralPosts = allPosts
+                      .where((postData) =>
+                          (postData['post'] as Post).type == 'referral')
+                      .toList();
+
+                  if (referralPosts.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        'Aucune offre de parrainage publiée pour le moment',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 16,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(10),
+                    itemCount: referralPosts.length,
+                    itemBuilder: (context, index) {
+                      final postData = referralPosts[index];
+                      final post = postData['post'] as Post;
+                      final companyData =
+                          postData['company'] as Map<String, dynamic>;
+
+                      return PostWidget(
+                        key: ValueKey(post.id),
+                        post: post,
+                        companyCover: companyData['cover'],
+                        companyCategorie: companyData['categorie'] ?? '',
+                        companyName: companyData['name'] ?? '',
+                        companyLogo: companyData['logo'] ?? '',
+                        companyData: companyData,
+                        currentUserId: FirebaseAuth.instance.currentUser!.uid,
+                        currentProfileUserId:
+                            FirebaseAuth.instance.currentUser!.uid,
+                        onView: () {
+                          // Logique d'affichage
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        );
       default:
         return _buildFilteredPostList();
     }
