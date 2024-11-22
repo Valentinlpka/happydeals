@@ -211,11 +211,15 @@ class HomeProvider extends ChangeNotifier {
     if (!userDoc.exists) return null;
 
     final userData = userDoc.data() as Map<String, dynamic>;
-    return {
+    print('User Data from Firestore: $userData'); // Debug log
+
+    final result = {
       'firstName': userData['firstName'] ?? '',
       'lastName': userData['lastName'] ?? '',
       'userProfilePicture': userData['image_profile'] ?? '',
     };
+    print('Returned User Data: $result'); // Debug log
+    return result;
   }
 
 // Récupère le contenu original (post ou annonce)

@@ -348,7 +348,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          ProductDetailPage(product: product),
+                                          ModernProductDetailPage(
+                                              product: product),
                                     ),
                                   );
                                 },

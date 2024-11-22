@@ -18,7 +18,6 @@ class FilterButtons extends StatelessWidget {
       child: Row(
         children: [
           _buildFilterButton('Tous', Icons.home),
-          _buildFilterButton('Entreprises', Icons.business),
           _buildFilterButton('Deals Express', Icons.flash_on),
           _buildFilterButton('Happy Deals', Icons.card_giftcard),
           _buildFilterButton('Offres d\'emploi', Icons.work),

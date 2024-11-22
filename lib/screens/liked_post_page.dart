@@ -7,6 +7,7 @@ import 'package:happy/classes/event.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/providers/users.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
@@ -125,6 +126,8 @@ class LikedPostsPage extends StatelessWidget {
           return Referral.fromDocument(doc);
         case 'event':
           return Event.fromDocument(doc);
+        case 'product':
+          return ProductPost.fromDocument(doc);
         default:
           return null;
       }

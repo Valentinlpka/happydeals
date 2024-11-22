@@ -562,28 +562,29 @@ exports.createProduct = functions.https.onCall(async (data, context) => {
     console.log("Prix Stripe créé:", stripePrice.id);
 
     console.log("Ajout du produit à Firestore");
-    const productRef = await admin
-      .firestore()
-      .collection("products")
-      .add({
-        name: data.name,
-        description: data.description || "",
-        price: data.price,
-        tva: data.tva,
-        stock: data.stock,
-        images: data.images,
-        isActive: data.isActive,
-        sellerId: data.sellerId,
-        stripeProductId: stripeProduct.id,
-        stripePriceId: stripePrice.id,
-        merchantId: stripeAccountId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+
+    const productRef = admin.firestore().collection("products").doc(); // Créer d'abord la référence
+    const productId = productRef.id; // Obtenir l'ID
+
+    await productRef.set({
+      name: data.name,
+      description: data.description || "",
+      price: data.price,
+      tva: data.tva,
+      stock: data.stock,
+      images: data.images,
+      isActive: data.isActive,
+      sellerId: data.sellerId,
+      stripeProductId: stripeProduct.id,
+      stripePriceId: stripePrice.id,
+      merchantId: stripeAccountId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
     console.log("Produit ajouté à Firestore:", productRef.id);
 
     return {
       success: true,
-      productId: productRef.id,
+      productId: productId,
       stripeProductId: stripeProduct.id,
       stripePriceId: stripePrice.id,
     };

@@ -8,6 +8,7 @@ class SharedPost extends Post {
   final String sharedBy;
   @override
   final DateTime sharedAt;
+  @override
   final String? comment; // Déclaré comme une propriété de la classe
 
   SharedPost({

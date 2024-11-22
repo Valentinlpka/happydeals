@@ -202,43 +202,6 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildFilterButtons() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          _buildFilterButton('Tous'),
-          _buildFilterButton('Entreprises'),
-          _buildFilterButton('Deals Express'),
-          _buildFilterButton('Happy Deals'),
-          _buildFilterButton('Offres d\'emploi'),
-          _buildFilterButton('Parrainage'),
-          _buildFilterButton('Jeux concours'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterButton(String title) {
-    bool isSelected = _selectedFilter == title;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          foregroundColor: isSelected ? Colors.white : Colors.black,
-          backgroundColor: isSelected ? Colors.blue : Colors.grey[200],
-        ),
-        onPressed: () {
-          setState(() {
-            _selectedFilter = title;
-          });
-        },
-        child: Text(title),
-      ),
-    );
-  }
-
   Widget _buildContentList(List<CombinedItem> items) {
     if (_isLoading && items.isEmpty) {
       return const Center(child: CircularProgressIndicator());

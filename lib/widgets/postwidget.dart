@@ -105,8 +105,13 @@ class _PostWidgetState extends State<PostWidget> {
           leading: GestureDetector(
             onTap: () => _navigateToUserProfile(sharedPost.sharedBy),
             child: CircleAvatar(
-              backgroundImage: NetworkImage(userData?['profileImageUrl'] ?? ''),
+              backgroundImage:
+                  NetworkImage(userData?['userProfilePicture'] ?? ''),
               backgroundColor: Colors.grey, // Couleur par défaut si pas d'image
+              onBackgroundImageError: (exception, stackTrace) {
+                print('Erreur de chargement image: $exception');
+                print('userData: $userData');
+              },
             ),
           ),
           title: GestureDetector(

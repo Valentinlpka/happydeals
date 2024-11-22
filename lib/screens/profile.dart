@@ -788,6 +788,13 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                           final userData =
                               userSnapshot.data!.data() as Map<String, dynamic>;
 
+// Créez la structure correcte pour sharedByUserData qui correspond à celle attendue par PostWidget
+                          final formattedUserData = {
+                            'firstName': userData['firstName'] ?? '',
+                            'lastName': userData['lastName'] ?? '',
+                            'userProfilePicture': userData['image_profile'] ??
+                                '', // Assurez-vous d'utiliser la même clé 'image_profile'
+                          };
                           return PostWidget(
                             key: ValueKey(post.id),
                             post: post,
@@ -797,7 +804,7 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                             companyName: '',
                             companyLogo: '',
                             currentUserId: widget.userId,
-                            sharedByUserData: userData,
+                            sharedByUserData: formattedUserData,
                             currentProfileUserId: widget.userId,
                             onView: () {
                               // Logique d'affichage de l'annonce
@@ -838,6 +845,13 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                   final userData =
                       snapshots.data![1].data() as Map<String, dynamic>;
 
+                  final formattedUserData = {
+                    'firstName': userData['firstName'] ?? '',
+                    'lastName': userData['lastName'] ?? '',
+                    'userProfilePicture': userData['image_profile'] ??
+                        '', // Assurez-vous d'utiliser la même clé 'image_profile'
+                  };
+
                   return PostWidget(
                     key: ValueKey(post.id),
                     post: post,
@@ -846,7 +860,7 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                     companyName: companyData['name'] ?? '',
                     companyLogo: companyData['logo'] ?? '',
                     currentUserId: widget.userId,
-                    sharedByUserData: userData,
+                    sharedByUserData: formattedUserData,
                     currentProfileUserId: widget.userId,
                     onView: () {
                       // Logique d'affichage du post
