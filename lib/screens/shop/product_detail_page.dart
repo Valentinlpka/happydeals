@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/providers/users.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:provider/provider.dart';
@@ -231,6 +232,14 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         final company = snapshot.data!;
         return InkWell(
           onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DetailsEntreprise(
+                  entrepriseId: widget.product.entrepriseId,
+                ),
+              ),
+            );
             // Navigation vers la page de l'entreprise
           },
           child: Container(
@@ -478,11 +487,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
             const SizedBox(width: 16),
             Expanded(
               child: ElevatedButton(
-                onPressed: widget.product.stock > 0
-                    ? () {
-                        // Logique d'ajout au panier
-                      }
-                    : null,
+                onPressed: () => _addToCart(quantity),
                 style: ElevatedButton.styleFrom(
                   foregroundColor: Colors.white,
                   backgroundColor: Colors.blue[600],
@@ -599,6 +604,9 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   }
 
   Widget _buildSuggestionCard(Product product) {
+    bool hasDiscount =
+        product.hasActiveHappyDeal && product.discountedPrice != null;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -625,15 +633,42 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                product.imageUrl[0],
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
+                  child: Image.network(
+                    product.imageUrl[0],
+                    height: 120,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                if (hasDiscount)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '-${product.discountPercentage?.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(12),
@@ -649,13 +684,31 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${product.price.toStringAsFixed(2)}€',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                  if (hasDiscount) ...[
+                    Text(
+                      '${product.price.toStringAsFixed(2)}€',
+                      style: const TextStyle(
+                        decoration: TextDecoration.lineThrough,
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
+                    Text(
+                      '${product.discountedPrice!.toStringAsFixed(2)}€',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ] else
+                    Text(
+                      '${product.price.toStringAsFixed(2)}€',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -676,7 +729,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   }
 
   // Ajout d'une méthode pour ajouter au panier
-  void _addToCart() {
+  void _addToCart(quantity) {
     if (widget.product.stock > 0) {
       for (var i = 0; i < quantity; i++) {
         context.read<CartService>().addToCart(widget.product);
