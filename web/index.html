@@ -2,41 +2,40 @@
 <html>
 
 <head>
-
-  <base href="$FLUTTER_BASE_HREF">
+  <base href="/happydeals/">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
-
-  <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Up ! ">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <meta name="theme-color" content="#FFFAFA">
 
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="icon" type="image/png" href="favicon.ico" />
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.css" />
 
   <title>Up !</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.css" />
+
+  <script>
+    var serviceWorkerVersion = '1.0.0';
+  </script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-  <link rel="manifest" href="manifest.json">
+
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", function () {
-        navigator.serviceWorker.register("/service-worker.js");
+        navigator.serviceWorker.register("/happydeals/service-worker.js");
       });
     }
   </script>
 
-  <!-- External dependencies -->
-
   <script>
-    // Vérifie s'il y a une redirection stockée
     (function () {
       var redirect = sessionStorage.redirect;
       delete sessionStorage.redirect;
@@ -53,7 +52,7 @@
       _flutter.loader.loadEntrypoint({
         serviceWorker: {
           serviceWorkerVersion: serviceWorkerVersion,
-          serviceWorkerUrl: 'flutter_service_worker.js?v=' + serviceWorkerVersion,
+          serviceWorkerUrl: '/happydeals/flutter_service_worker.js?v=' + serviceWorkerVersion,
         },
         onEntrypointLoaded: async function (engineInitializer) {
           const appRunner = await engineInitializer.initializeEngine();
@@ -63,15 +62,12 @@
     });
   </script>
 
-
-
-  <!-- PDF.js setup -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
   </script>
 
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="main.dart.js" defer></script>
 </body>
 
 </html>
