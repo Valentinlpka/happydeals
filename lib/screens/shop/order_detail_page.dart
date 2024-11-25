@@ -188,7 +188,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     final Uint8List logoBytes = logoData.buffer.asUint8List();
 
     // Charger la police
-    final fontData = await rootBundle.load("fonts/Roboto-Regular.ttf");
+    final fontData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
     final ttf = pw.Font.ttf(fontData);
 
     // Informations de la société (à remplacer par vos vraies informations)
