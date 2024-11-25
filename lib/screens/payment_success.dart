@@ -122,6 +122,21 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     final user = _auth.currentUser!;
     final address = await _fetchCompanyAddress(cart.entrepriseId);
 
+    // Vérifier une dernière fois les détails du code promo si présent
+    double finalDiscountAmount = cart.discountAmount;
+    if (cart.appliedPromoCode != null) {
+      final promoDetails =
+          await _promoCodeService.getPromoCodeDetails(cart.appliedPromoCode!);
+      if (promoDetails != null) {
+        // Recalculer la réduction pour s'assurer qu'elle est correcte
+        if (promoDetails['isPercentage']) {
+          finalDiscountAmount = cart.subtotal * (promoDetails['value'] / 100);
+        } else {
+          finalDiscountAmount = promoDetails['value'].toDouble();
+        }
+      }
+    }
+
     final orderId = await _orderService.createOrder(Orders(
       id: '',
       userId: user.uid,
@@ -145,7 +160,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       pickupAddress: address ?? "",
       entrepriseId: cart.entrepriseId,
       promoCode: cart.appliedPromoCode,
-      discountAmount: cart.discountAmount.toDouble(),
+      discountAmount: finalDiscountAmount,
     ));
 
     Navigator.pushReplacement(
@@ -157,7 +172,30 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<void> _finalizePromoCodeUsage(Cart cart) async {
     if (cart.appliedPromoCode != null) {
-      await _promoCodeService.usePromoCode(cart.appliedPromoCode!);
+      try {
+        // Vérifier une dernière fois la validité du code
+        final isValid = await _promoCodeService.validatePromoCode(
+          cart.appliedPromoCode!,
+          cart.sellerId,
+          _auth.currentUser?.uid ?? '',
+        );
+
+        if (!isValid) {
+          print('Code promo invalide au moment de la finalisation');
+          return;
+        }
+
+        // Marquer le code comme utilisé avec le companyId
+        await _promoCodeService.usePromoCode(
+          cart.appliedPromoCode!,
+          cart.sellerId,
+        );
+
+        print('Code promo ${cart.appliedPromoCode} utilisé avec succès');
+      } catch (e) {
+        print('Erreur lors de la finalisation du code promo: $e');
+        // On ne relance pas l'exception pour ne pas bloquer la finalisation de la commande
+      }
     }
   }
 

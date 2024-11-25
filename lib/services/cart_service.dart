@@ -355,12 +355,28 @@ class CartService extends ChangeNotifier {
 
     final promoDetails = await _promoService.getPromoCodeDetails(code);
     if (promoDetails != null) {
+      // Vérifier si le code s'applique aux produits du panier
+      final productIds = cart.items.map((item) => item.product.id).toList();
+      final isApplicable = await _promoService.isPromoCodeApplicableToProducts(
+        code,
+        cart.sellerId,
+        productIds,
+      );
+
+      if (!isApplicable) {
+        throw Exception(
+            'Ce code promo ne s\'applique pas aux produits sélectionnés');
+      }
+
       cart.appliedPromoCode = code;
       if (promoDetails['isPercentage']) {
         cart.discountAmount = cart.total * (promoDetails['value'] / 100);
       } else {
         cart.discountAmount = promoDetails['value'];
       }
+
+      // Marquer le code comme utilisé
+      await _promoService.usePromoCode(code, cart.sellerId);
       await _saveCart(cart);
     }
   }

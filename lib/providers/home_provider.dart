@@ -17,6 +17,7 @@ import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product_post.dart';
+import 'package:happy/classes/promo_code_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:http/http.dart' as http;
@@ -310,6 +311,8 @@ class HomeProvider extends ChangeNotifier {
           return Event.fromDocument(doc);
         case 'shared':
           return SharedPost.fromDocument(doc);
+        case 'promo_code':
+          return PromoCodePost.fromDocument(doc);
         default:
           return null;
       }

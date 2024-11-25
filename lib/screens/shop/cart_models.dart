@@ -64,15 +64,33 @@ class Cart {
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
 
+  // Prix original sans aucune réduction
   double get subtotal =>
       items.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
 
+  // Prix après réductions Happy Deals
   double get total =>
       items.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
 
+  // Économies des Happy Deals
   double get totalSavings => subtotal - total;
 
-  double get totalAfterDiscount => total - discountAmount;
+  // Prix final après toutes les réductions (Happy Deals + code promo)
+  double get totalAfterDiscount {
+    if (discountAmount <= 0) return total;
+
+    // S'assurer que la réduction ne rend pas le prix négatif
+    double finalPrice = total - discountAmount;
+    print(finalPrice);
+    return finalPrice > 0 ? finalPrice : 0;
+  }
+
+  // Pourcentage de réduction total
+  double get totalDiscountPercentage {
+    if (subtotal <= 0) return 0;
+    print(totalAfterDiscount);
+    return ((subtotal - totalAfterDiscount) / subtotal) * 100;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -85,6 +103,12 @@ class Cart {
       'expiresAt': Timestamp.fromDate(expiresAt),
       'appliedPromoCode': appliedPromoCode,
       'discountAmount': discountAmount,
+      // Ajouter les calculs pour référence
+      'subtotal': subtotal,
+      'total': total,
+      'totalAfterDiscount': totalAfterDiscount,
+      'totalSavings': totalSavings,
+      'totalDiscountPercentage': totalDiscountPercentage,
     };
   }
 
@@ -105,7 +129,7 @@ class Cart {
         discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0.0,
       );
 
-      // Ensuite, charger les items s'ils existent
+      // Charger les items
       if (data['items'] != null) {
         final itemsData = data['items'] as List<dynamic>;
         for (var itemData in itemsData) {
@@ -147,6 +171,15 @@ class Cart {
     } catch (e) {
       print('Erreur lors de la conversion du Cart: $e');
       return null;
+    }
+  }
+
+  // Helper method pour vérifier si le code promo peut être appliqué
+  bool canApplyPromoCode(double promoValue, bool isPercentage) {
+    if (isPercentage) {
+      return promoValue > 0 && promoValue <= 100;
+    } else {
+      return promoValue > 0 && promoValue < total;
     }
   }
 }

@@ -9,6 +9,8 @@ import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product_post.dart';
+import 'package:happy/classes/promo_code_post.dart';
+import 'package:happy/classes/promo_codes.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/ads_provider.dart';
@@ -400,6 +402,13 @@ class _PostWidgetState extends State<PostWidget> {
           post: post as ProductPost,
           companyName: widget.companyName,
           companyLogo: widget.companyLogo,
+        );
+      case PromoCodePost:
+        return PromoCodeCard(
+          post: post as PromoCodePost,
+          companyName: widget.companyName,
+          companyLogo: widget.companyLogo,
+          currentUserId: widget.currentUserId,
         );
       default:
         return Card(

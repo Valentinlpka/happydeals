@@ -382,9 +382,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final user = _auth.currentUser;
       if (user == null) throw Exception('Utilisateur non connecté');
 
+      final finalAmount = (_cart.totalAfterDiscount * 100).round();
+
       final result =
           await FirebaseFunctions.instance.httpsCallable('createPayment').call({
-        'amount': (_cart.totalAfterDiscount * 100).round(),
+        'amount': finalAmount,
         'currency': 'eur',
         'cartId': _cart.id,
         'userId': user.uid,
