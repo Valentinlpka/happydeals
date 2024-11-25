@@ -350,6 +350,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ? _cart.total * (promoDetails['value'] / 100)
           : promoDetails['value'].toDouble();
 
+      print('Réduction calculée: $discountAmount'); // Debug
+      print('Prix total avant réduction: ${_cart.total}'); // Debug
+      print(
+          'Prix attendu après réduction: ${_cart.total - discountAmount}'); // Debug
+
       await _firestore.collection('carts').doc(_cart.id).update({
         'appliedPromoCode': code,
         'discountAmount': discountAmount,
@@ -382,7 +387,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final user = _auth.currentUser;
       if (user == null) throw Exception('Utilisateur non connecté');
 
-      final finalAmount = (_cart.totalAfterDiscount * 100).round();
+      final cartDoc = await _firestore.collection('carts').doc(_cart.id).get();
+      final updatedCart = await Cart.fromFirestore(cartDoc);
+
+      if (updatedCart == null) {
+        throw Exception('Erreur lors de la récupération du panier');
+      }
+
+      final finalAmount = (updatedCart.totalAfterDiscount * 100).round();
+      print('Prix final: $finalAmount'); // Pour déboguer
+      print('Prix avant conversion: ${_cart.totalAfterDiscount}'); // ex: 4.99
+      print('Prix après conversion: $finalAmount'); // ex: 499
+      print(
+          'Prix total original: ${_cart.total}'); // Pour voir le prix avant réduction
+      print('Montant de la réduction: ${_cart.discountAmount}');
 
       final result =
           await FirebaseFunctions.instance.httpsCallable('createPayment').call({

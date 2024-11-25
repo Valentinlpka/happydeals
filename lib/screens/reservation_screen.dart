@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:intl/intl.dart';
+import 'package:universal_html/html.dart' as html;
 
 class ReservationScreen extends StatefulWidget {
   final ExpressDeal deal;
@@ -24,54 +24,40 @@ class _ReservationScreenState extends State<ReservationScreen> {
   bool isLoading = false;
 
   Future<void> _handlePayment() async {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception("User not authenticated");
-      }
-
-      if (widget.deal.basketCount <= 0) {
-        throw Exception("Le stock est vide");
-      }
-
       final functions = FirebaseFunctions.instance;
+
+      // Créer la session de paiement
       final result =
-          await functions.httpsCallable('createPaymentAndReservation').call({
+          await functions.httpsCallable('createExpressDealPayment').call({
         'dealId': widget.deal.id,
-        'amount': (widget.deal.price * 100).round(),
-        'currency': 'eur',
-        'isWeb': kIsWeb,
+        'pickupTime': widget.selectedPickupTime.toIso8601String(),
+        'successUrl': 'https://votre-domaine.com/success',
+        'cancelUrl': 'https://votre-domaine.com/cancel',
       });
 
-      final clientSecret = result.data['clientSecret'];
-      final paymentIntentId = result.data['paymentIntentId'];
-
-      // Initialiser la feuille de paiement
-      await Stripe.instance.initPaymentSheet(
-          paymentSheetParameters: SetupPaymentSheetParameters(
-        paymentIntentClientSecret: clientSecret,
-        merchantDisplayName: 'Deals Nord',
-      ));
-
-      // Afficher la feuille de paiement
-      await Stripe.instance.presentPaymentSheet();
-
-      // Si nous arrivons ici, le paiement a réussi
-      print(paymentIntentId);
-
-      await _confirmReservation(paymentIntentId);
+      // Rediriger vers Stripe Checkout
+      final sessionUrl = result.data['sessionUrl'];
+      if (kIsWeb) {
+        // Pour le web
+        html.window.location.href = sessionUrl;
+      } else {
+        // Pour mobile (si nécessaire)
+        await Stripe.instance.initPaymentSheet(
+            paymentSheetParameters: SetupPaymentSheetParameters(
+          merchantDisplayName: "Happy Deals",
+          paymentIntentClientSecret: result.data['clientSecret'],
+        ));
+        await Stripe.instance.presentPaymentSheet();
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Une erreur est survenue : $e')),
+        SnackBar(content: Text('Erreur: $e')),
       );
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 

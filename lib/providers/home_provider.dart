@@ -15,6 +15,7 @@ import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
+import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/promo_code_post.dart';
@@ -305,6 +306,9 @@ class HomeProvider extends ChangeNotifier {
           return HappyDeal.fromDocument(doc);
         case 'express_deal':
           return ExpressDeal.fromDocument(doc);
+        case 'news':
+          print('Envoie de la méthode pour NEWS');
+          return News.fromDocument(doc);
         case 'referral':
           return Referral.fromDocument(doc);
         case 'event':

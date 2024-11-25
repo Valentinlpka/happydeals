@@ -77,18 +77,20 @@ class Cart {
 
   // Prix final après toutes les réductions (Happy Deals + code promo)
   double get totalAfterDiscount {
+    print('Total avant réduction: $total'); // Debug
+    print('Montant de la réduction: $discountAmount'); // Debug
     if (discountAmount <= 0) return total;
 
     // S'assurer que la réduction ne rend pas le prix négatif
     double finalPrice = total - discountAmount;
-    print(finalPrice);
+    print('Prix final calculé: $finalPrice'); // Debug
+
     return finalPrice > 0 ? finalPrice : 0;
   }
 
   // Pourcentage de réduction total
   double get totalDiscountPercentage {
     if (subtotal <= 0) return 0;
-    print(totalAfterDiscount);
     return ((subtotal - totalAfterDiscount) / subtotal) * 100;
   }
 

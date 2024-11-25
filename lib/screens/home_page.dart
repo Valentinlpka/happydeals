@@ -256,6 +256,8 @@ class _HomeState extends State<Home> {
             return post.type == 'contest';
           case 'Produits':
             return post.type == 'product';
+          case 'Post':
+            return post.type == 'news';
         }
       }
       return false;

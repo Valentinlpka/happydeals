@@ -149,20 +149,47 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
       quantity: item.quantity,
     }));
 
+    const calculateFinalAmount = (cartData) => {
+      const subtotal = cartData.items.reduce(
+        (sum, item) => sum + item.appliedPrice * item.quantity,
+        0
+      );
+      const discount = cartData.discountAmount || 0;
+      return Math.max(0, subtotal - discount);
+    };
+
     if (isWeb) {
+      // Pour le web, créer un seul line item avec le montant final
+      const finalAmount = calculateFinalAmount(cartData);
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
-        line_items: lineItems,
+        line_items: [
+          {
+            price_data: {
+              currency: currency,
+              unit_amount: Math.round(finalAmount * 100),
+              product_data: {
+                name: "Commande Happy Deals",
+                description: cartData.appliedPromoCode
+                  ? `Code promo appliqué: ${cartData.appliedPromoCode}`
+                  : undefined,
+              },
+            },
+            quantity: 1,
+          },
+        ],
         mode: "payment",
         success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: cancelUrl,
         customer: customer.id,
         metadata: {
           cartId: cartId,
+          appliedPromoCode: cartData.appliedPromoCode || "",
+          originalAmount: String(cartData.total || 0),
+          discountAmount: String(cartData.discountAmount || 0),
         },
       });
 
-      // Mettre à jour le panier avec l'ID de session Stripe
       await cartDoc.ref.update({
         stripeSessionId: session.id,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -170,16 +197,19 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
 
       return { sessionId: session.id, url: session.url };
     } else {
+      // Pour mobile, utiliser le montant déjà calculé
       const paymentIntent = await stripe.paymentIntents.create({
-        amount,
+        amount, // Le montant est déjà en centimes et calculé côté client
         currency,
         customer: customer.id,
         metadata: {
           cartId: cartId,
+          appliedPromoCode: cartData.appliedPromoCode || "",
+          originalAmount: String(cartData.total || 0),
+          discountAmount: String(cartData.discountAmount || 0),
         },
       });
 
-      // Mettre à jour le panier avec l'ID de payment intent
       await cartDoc.ref.update({
         stripePaymentIntentId: paymentIntent.id,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1331,3 +1361,530 @@ exports.confirmReservation = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("internal", error.message);
   }
 });
+
+// Cloud Functions
+exports.createExpressDeal = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  try {
+    console.log("Création d'un Express Deal avec les données:", data);
+    const userDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(context.auth.uid)
+      .get();
+
+    const stripeAccountId = userDoc.data().stripeAccountId;
+    if (!stripeAccountId) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Compte Stripe non configuré"
+      );
+    }
+
+    // Création du produit sur Stripe
+    const product = await stripe.products.create(
+      {
+        name: data.title,
+        description: data.content,
+        metadata: {
+          type: "express_deal",
+          basketCount: data.basketCount.toString(),
+          pickupTimes: JSON.stringify(data.pickupTimes),
+        },
+      },
+      {
+        stripeAccount: stripeAccountId,
+      }
+    );
+
+    // Création du prix sur Stripe
+    const price = await stripe.prices.create(
+      {
+        product: product.id,
+        unit_amount: data.price * 100,
+        currency: "eur",
+      },
+      {
+        stripeAccount: stripeAccountId,
+      }
+    );
+
+    // Création du lien de paiement pour le web
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      success_url: `${data.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: data.cancelUrl,
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: price.id,
+          quantity: 1,
+        },
+      ],
+    });
+
+    return {
+      success: true,
+      stripeProductId: product.id,
+      stripePriceId: price.id,
+      sessionUrl: session.url,
+      sessionId: session.id,
+    };
+  } catch (error) {
+    console.error("Erreur lors de la création de l'Express Deal:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+exports.createExpressDealPayment = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "L'utilisateur doit être authentifié."
+      );
+    }
+
+    try {
+      const { dealId, pickupTime, successUrl, cancelUrl } = data;
+
+      // Récupérer les détails du deal
+      const dealDoc = await admin
+        .firestore()
+        .collection("posts")
+        .doc(dealId)
+        .get();
+
+      if (!dealDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Deal non trouvé");
+      }
+
+      const dealData = dealDoc.data();
+
+      // Créer la session de paiement
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl,
+        payment_method_types: ["card"],
+        client_reference_id: context.auth.uid,
+        line_items: [
+          {
+            price_data: {
+              currency: "eur",
+              unit_amount: dealData.price * 100,
+              product_data: {
+                name: dealData.title,
+                description: dealData.content,
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          type: "express_deal",
+          dealId: dealId,
+          dealTitle: dealData.title,
+          userId: context.auth.uid,
+          merchantId: dealData.companyId,
+          pickupTime: pickupTime,
+        },
+      });
+
+      return {
+        sessionId: session.id,
+        sessionUrl: session.url,
+      };
+    } catch (error) {
+      console.error("Erreur création paiement:", error);
+      throw new functions.https.HttpsError("internal", error.message);
+    }
+  }
+);
+
+// Webhook pour gérer le succès du paiement
+exports.handleExpressDealPayment = functions.https.onRequest(
+  async (request, response) => {
+    const sig = request.headers["stripe-signature"];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        request.rawBody,
+        sig,
+        functions.config().stripe.webhook_secret
+      );
+    } catch (err) {
+      response.status(400).send(`Webhook Error: ${err.message}`);
+      return;
+    }
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+
+      if (session.metadata.type === "express_deal") {
+        try {
+          const dealId = session.metadata.dealId;
+          const pickupTime = session.metadata.pickupTime;
+
+          // Mettre à jour le stock du deal
+          await admin
+            .firestore()
+            .collection("posts")
+            .doc(dealId)
+            .update({
+              basketCount: admin.firestore.FieldValue.increment(-1),
+            });
+
+          // Créer la réservation
+          await admin
+            .firestore()
+            .collection("reservations")
+            .add({
+              dealId: dealId,
+              userId: session.client_reference_id,
+              pickupTime: admin.firestore.Timestamp.fromDate(
+                new Date(pickupTime)
+              ),
+              status: "confirmed",
+              stripeSessionId: session.id,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        } catch (error) {
+          console.error("Erreur lors du traitement du paiement:", error);
+        }
+      }
+    }
+
+    response.json({ received: true });
+  }
+);
+
+exports.updateExpressDeal = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  try {
+    const userDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(context.auth.uid)
+      .get();
+
+    const stripeAccountId = userDoc.data().stripeAccountId;
+
+    // Mise à jour du produit sur Stripe
+    await stripe.products.update(
+      data.stripeProductId,
+      {
+        name: data.title,
+        description: data.content,
+        metadata: {
+          basketCount: data.basketCount.toString(),
+          pickupTimes: JSON.stringify(data.pickupTimes),
+        },
+      },
+      {
+        stripeAccount: stripeAccountId,
+      }
+    );
+
+    // Création d'un nouveau prix si le prix a changé
+    if (data.priceChanged) {
+      // Désactiver l'ancien prix
+      await stripe.prices.update(
+        data.stripePriceId,
+        { active: false },
+        { stripeAccount: stripeAccountId }
+      );
+
+      // Créer un nouveau prix
+      const newPrice = await stripe.prices.create(
+        {
+          product: data.stripeProductId,
+          unit_amount: data.price * 100,
+          currency: "eur",
+        },
+        { stripeAccount: stripeAccountId }
+      );
+
+      return {
+        success: true,
+        stripePriceId: newPrice.id,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de l'Express Deal:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+exports.deleteExpressDeal = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  try {
+    const userDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(context.auth.uid)
+      .get();
+
+    const stripeAccountId = userDoc.data().stripeAccountId;
+
+    // Archiver le produit sur Stripe
+    await stripe.products.update(
+      data.stripeProductId,
+      { active: false },
+      { stripeAccount: stripeAccountId }
+    );
+
+    // Désactiver les prix associés
+    const prices = await stripe.prices.list(
+      { product: data.stripeProductId },
+      { stripeAccount: stripeAccountId }
+    );
+
+    for (const price of prices.data) {
+      await stripe.prices.update(
+        price.id,
+        { active: false },
+        { stripeAccount: stripeAccountId }
+      );
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erreur lors de la suppression de l'Express Deal:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+// Dans votre index.js des Cloud Functions
+exports.stripeWebhook = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send("Method Not Allowed");
+    return;
+  }
+
+  const sig = request.headers["stripe-signature"];
+  let event;
+
+  try {
+    const endpointSecret = functions.config().stripe.webhook_secret;
+
+    event = stripe.webhooks.constructEvent(
+      request.rawBody,
+      sig,
+      endpointSecret
+    );
+
+    console.log("Webhook reçu:", event.type);
+
+    switch (event.type) {
+      case "checkout.session.completed":
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
+      case "payment_intent.succeeded":
+        await handlePaymentIntentSucceeded(event.data.object);
+        break;
+      case "payment_intent.payment_failed":
+        await handlePaymentIntentFailed(event.data.object);
+        break;
+      default:
+        console.log(`Type d'événement non géré: ${event.type}`);
+    }
+
+    response.json({ received: true });
+  } catch (err) {
+    console.error("Erreur webhook:", err.message);
+    response.status(400).send(`Webhook Error: ${err.message}`);
+  }
+});
+
+async function handleCheckoutSessionCompleted(session) {
+  console.log("Traitement checkout session:", session.id);
+
+  if (session.metadata?.type !== "express_deal") {
+    console.log("Pas un express deal, ignoré");
+    return;
+  }
+
+  try {
+    const dealId = session.metadata.dealId;
+    const userId = session.metadata.userId;
+    const pickupTime = new Date(session.metadata.pickupTime);
+    const validationCode = generateValidationCode();
+
+    await admin.firestore().runTransaction(async (transaction) => {
+      // Vérifier le stock disponible
+      const dealRef = admin.firestore().collection("posts").doc(dealId);
+      const dealDoc = await transaction.get(dealRef);
+
+      if (!dealDoc.exists) {
+        throw new Error("Deal non trouvé");
+      }
+
+      const dealData = dealDoc.data();
+      if (dealData.basketCount <= 0) {
+        throw new Error("Plus de stock disponible");
+      }
+
+      // Récupérer les informations de l'entreprise
+      const companyDoc = await transaction.get(
+        admin.firestore().collection("companys").doc(dealData.companyId)
+      );
+      const companyData = companyDoc.data();
+
+      const adress = companyData.adress;
+      const addressParts = [
+        adress.adresse,
+        adress.code_postal,
+        adress.ville,
+        adress.pays,
+      ].filter(Boolean);
+
+      const appliedPrice =
+        dealData.hasActiveHappyDeal && dealData.discountedPrice
+          ? dealData.discountedPrice
+          : dealData.price;
+
+      // Créer la réservation
+      const reservationRef = admin.firestore().collection("reservations").doc();
+      transaction.set(reservationRef, {
+        dealId: dealId,
+        userId: userId,
+        sessionId: session.id,
+        amount: session.amount_total / 100,
+        validationCode: validationCode,
+        pickupTime: admin.firestore.Timestamp.fromDate(pickupTime),
+        status: "confirmed",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        buyerId: userId,
+        postId: dealId,
+        companyId: dealData.companyId,
+        basketType: dealData.basketType,
+        price: appliedPrice,
+        originalPrice: dealData.price,
+        discountAmount: dealData.hasActiveHappyDeal
+          ? dealData.price - appliedPrice
+          : 0,
+        pickupDate: admin.firestore.Timestamp.fromDate(pickupTime),
+        isValidated: false,
+        paymentIntentId: session.payment_intent,
+        quantity: 1,
+        companyName: companyData.name,
+        pickupAddress: addressParts.join(", "),
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Mettre à jour le stock
+      transaction.update(dealRef, {
+        basketCount: admin.firestore.FieldValue.increment(-1),
+      });
+
+      // Créer la notification
+      const notificationRef = admin
+        .firestore()
+        .collection("notifications")
+        .doc();
+      transaction.set(notificationRef, {
+        userId: session.metadata.merchantId,
+        type: "new_reservation",
+        title: "Nouvelle réservation",
+        message: `Un client a réservé le deal ${session.metadata.dealTitle}`,
+        reservationId: reservationRef.id,
+        read: false,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return {
+        reservationId: reservationRef.id,
+        validationCode: validationCode,
+      };
+    });
+
+    console.log("Transaction complétée avec succès");
+  } catch (error) {
+    console.error("Erreur lors du traitement de la réservation:", error);
+    throw error;
+  }
+}
+
+async function handlePaymentIntentSucceeded(paymentIntent) {
+  console.log("Paiement réussi:", paymentIntent.id);
+
+  if (!paymentIntent.metadata.dealId) return;
+
+  try {
+    // Mettre à jour le statut de paiement
+    const reservations = await admin
+      .firestore()
+      .collection("reservations")
+      .where("paymentIntentId", "==", paymentIntent.id)
+      .get();
+
+    for (const doc of reservations.docs) {
+      await doc.ref.update({
+        paymentStatus: "succeeded",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error("Erreur mise à jour du statut de paiement:", error);
+  }
+}
+
+async function handlePaymentIntentFailed(paymentIntent) {
+  console.log("Paiement échoué:", paymentIntent.id);
+
+  if (!paymentIntent.metadata.dealId) return;
+
+  try {
+    // Mettre à jour le statut de paiement et libérer le stock si nécessaire
+    const reservations = await admin
+      .firestore()
+      .collection("reservations")
+      .where("paymentIntentId", "==", paymentIntent.id)
+      .get();
+
+    for (const doc of reservations.docs) {
+      await doc.ref.update({
+        paymentStatus: "failed",
+        status: "cancelled",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Réincrémenter le stock
+      await admin
+        .firestore()
+        .collection("posts")
+        .doc(paymentIntent.metadata.dealId)
+        .update({
+          basketCount: admin.firestore.FieldValue.increment(1),
+        });
+    }
+  } catch (error) {
+    console.error("Erreur mise à jour du statut de paiement:", error);
+  }
+}
+
+function generateValidationCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
