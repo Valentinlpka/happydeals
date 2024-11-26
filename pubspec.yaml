@@ -109,6 +109,7 @@ flutter:
     - assets/mon_logo.png
     - assets/images/UP.png
     - assets/french_cities.json
+    - assets/Roboto-Regular.ttf
 
 web:
   build:
@@ -130,7 +131,7 @@ web:
   fonts:
     - family: Roboto
       fonts:
-        - asset: fonts/Roboto-Regular.ttf
+        - asset: assets/Roboto-Regular.ttf
     # - family: Trajan Pro
     #   fonts:
     #     - asset: fonts/TrajanPro.ttf
