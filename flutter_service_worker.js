@@ -5,7 +5,7 @@ const CACHE_NAME = 'flutter-app-cache';
 
 const RESOURCES = {"service-worker.js": "0559e8cb0efdcd63c913ec4fab530605",
 "flutter.js": "f393d3c16b631f36852323de8e583132",
-"main.dart.js": "e1015636eb7959a5e2b52454a387aeef",
+"main.dart.js": "1e835d8f60da4afb8c15323e07146528",
 "assets/FontManifest.json": "ea9dc826036577df024fd0fe176dd298",
 "assets/AssetManifest.bin": "a94fceb5b245bf14fdbb18540d1e6910",
 "assets/fonts/MaterialIcons-Regular.otf": "7ffc8dc65870da7668f1084e96fd289b",
@@ -31,7 +31,7 @@ const RESOURCES = {"service-worker.js": "0559e8cb0efdcd63c913ec4fab530605",
 "stripe.html": "cbcab0e6d6e559e5a7202820be039fcc",
 "index.html": "afebcc76ce0bc9cbdbac47ca21b57d3a",
 "/": "afebcc76ce0bc9cbdbac47ca21b57d3a",
-"manifest.json": "e92b458d83003bbe8f407e46300f8182",
+"manifest.json": "b6c37a1994391c7ca63a7f4adce5e6bc",
 "canvaskit/canvaskit.js": "66177750aff65a66cb07bb44b8c6422b",
 "canvaskit/canvaskit.js.symbols": "48c83a2ce573d9692e8d970e288d75f7",
 "canvaskit/chromium/canvaskit.js": "671c6b4f8fcc199dcc551c7bb125f239",
@@ -47,7 +47,7 @@ const RESOURCES = {"service-worker.js": "0559e8cb0efdcd63c913ec4fab530605",
 "icons/Icon-512.png": "b89118f035f8161b5fa5a0cb468d2e87",
 "404.html": "ab579ad9dc729d0d05bd8c606381e9b0",
 "version.json": "a7fea63afa0364418817d8246079537a",
-"flutter_bootstrap.js": "454a7c42cefae556116ef4b39387cb91"};
+"flutter_bootstrap.js": "77fc94363c7ac7b845c018484e830cb6"};
 // The application shell files that are downloaded before a service worker can
 // start.
 const CORE = ["main.dart.js",
