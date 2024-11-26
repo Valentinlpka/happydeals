@@ -17,7 +17,6 @@ class CustomBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
     final isPwa =
         kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches;

@@ -69,20 +69,17 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
         return;
       }
 
-      // Créer deux streams pour les recherches parallèles
       final companiesStream = FirebaseFirestore.instance
           .collection('companys')
-          .where('name', isGreaterThanOrEqualTo: query)
-          .where('name', isLessThan: '$query\uf8ff')
+          .where('searchText', arrayContains: query.toLowerCase())
           .limit(10)
           .snapshots();
 
-      // Modifier la recherche des utilisateurs pour inclure uniquement les suivis
+      // Créer une requête qui ne retournera aucun résultat
       final usersStream = _followedUsers.isEmpty
           ? FirebaseFirestore.instance
               .collection('users')
-              .where('searchName', arrayContains: query.toLowerCase())
-              .limit(0) // Aucun résultat si pas de suivis
+              .where('id', isEqualTo: 'non_existent_id')
               .snapshots()
           : FirebaseFirestore.instance
               .collection('users')
