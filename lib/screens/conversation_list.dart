@@ -172,17 +172,17 @@ class ConversationListItem extends StatelessWidget {
   ) async {
     String? otherUserId;
 
-    // Déterminer l'ID de l'autre utilisateur selon le type de conversation
-    if (conversation.entrepriseId != null) {
+    if (conversation.adId != null) {
+      // Si c'est une annonce, on veut obtenir les infos du vendeur
+      otherUserId = conversation.sellerId;
+    } else if (conversation.entrepriseId != null) {
       // Conversation avec une entreprise
       otherUserId = conversation.entrepriseId == userId
           ? conversation.particulierId
           : conversation.entrepriseId;
     } else if (conversation.otherUserId != null) {
-      // Conversation entre particuliers - nouveau cas
       otherUserId = conversation.otherUserId;
     } else {
-      // Conversation entre particuliers - cas où l'utilisateur actuel est particulierId
       otherUserId = conversation.particulierId == userId
           ? conversation.otherUserId
           : conversation.particulierId;
@@ -329,24 +329,37 @@ class ConversationTile extends StatelessWidget {
       }
 
       // Vérifions si c'est une conversation avec une entreprise
-      final bool isWithCompany = otherUserId == conversation.entrepriseId;
+      final bool isWithCompany = otherUserId == conversation.entrepriseId &&
+          conversation.adId == null; // Ajout de la condition adId
       isPro = isWithCompany;
-
       if (isWithCompany) {
         // Si c'est une entreprise, utiliser companyName ou le logo
         userName = userData['companyName'] ?? 'Entreprise';
         profilePicUrl = userData['logo'] ?? '';
       } else {
-        // Si c'est un particulier, utiliser firstName et lastName
-        userName =
-            '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
-        profilePicUrl = userData['image_profile'] ?? '';
+        // Pour une annonce ou un particulier
+        if (conversation.adId != null) {
+          // Cas d'une annonce
+          userName =
+              '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
+          profilePicUrl = userData['image_profile'] ?? '';
+        } else {
+          // Cas normal d'un particulier
+          userName =
+              '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
+          profilePicUrl = userData['image_profile'] ?? '';
+        }
       }
     }
 
+// Dans ConversationTile
     final isUnread = isGroup
         ? (conversation.unreadBy as List?)?.contains(userId) ?? false
-        : conversation.unreadCount > 0 && conversation.unreadBy == userId;
+        : conversation.adId != null
+            ? conversation.unreadCount > 0 &&
+                conversation.unreadBy == userId &&
+                conversation.lastMessageSenderId != userId
+            : conversation.unreadCount > 0 && conversation.unreadBy == userId;
 
     return Column(
       children: [

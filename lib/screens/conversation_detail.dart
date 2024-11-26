@@ -361,12 +361,92 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
                         senderName: widget.isGroup && message.senderId != null
                             ? _memberNames[message.senderId] ?? 'Membre'
                             : null,
+                        onEdit: message.senderId == currentUserId
+                            ? () => _showEditDialog(message)
+                            : null,
+                        onDelete: message.senderId == currentUserId
+                            ? () => _showDeleteConfirmation(message)
+                            : null,
                       )),
                 ],
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  void _showEditDialog(Message message) {
+    final editController = TextEditingController(text: message.content);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Modifier le message'),
+        content: TextField(
+          controller: editController,
+          decoration: const InputDecoration(
+            hintText: 'Nouveau message...',
+          ),
+          maxLines: null,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await Provider.of<ConversationService>(context, listen: false)
+                    .editMessage(_actualConversationId!, message.id,
+                        editController.text);
+                if (!mounted) return;
+                Navigator.pop(context);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erreur: $e')),
+                );
+              }
+            },
+            child: const Text('Modifier'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(Message message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer le message'),
+        content: const Text('Êtes-vous sûr de vouloir supprimer ce message ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await Provider.of<ConversationService>(context, listen: false)
+                    .deleteMessage(_actualConversationId!, message.id);
+                if (!mounted) return;
+                Navigator.pop(context);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erreur: $e')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
       ),
     );
   }
@@ -754,6 +834,8 @@ class MessageBubble extends StatelessWidget {
   final bool isMe;
   final bool isGroup;
   final String? senderName;
+  final Function? onEdit;
+  final Function? onDelete;
 
   const MessageBubble({
     super.key,
@@ -761,10 +843,34 @@ class MessageBubble extends StatelessWidget {
     required this.isMe,
     this.isGroup = false,
     this.senderName,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (message.isDeleted) {
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Message supprimé',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     if (message.type == 'system') {
       return Container(
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -790,63 +896,106 @@ class MessageBubble extends StatelessWidget {
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        child: Column(
-          crossAxisAlignment:
-              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            if (isGroup && !isMe && senderName != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 12, bottom: 4),
+      child: GestureDetector(
+        onLongPress: isMe ? () => _showOptions(context) : null,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          child: Column(
+            crossAxisAlignment:
+                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              if (isGroup && !isMe && senderName != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, bottom: 4),
+                  child: Text(
+                    senderName!,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: isMe ? Colors.blue[600] : Colors.grey[300],
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(isMe ? 16 : 4),
+                    bottomRight: Radius.circular(isMe ? 4 : 16),
+                  ),
+                ),
                 child: Text(
-                  senderName!,
+                  message.content ?? '',
                   style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    color: isMe ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-              decoration: BoxDecoration(
-                color: isMe ? Colors.blue[600] : Colors.grey[300],
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isMe ? 16 : 4),
-                  bottomRight: Radius.circular(isMe ? 4 : 16),
+              if (message.isEdited)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Modifié',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 10,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+                child: Text(
+                  _formatMessageTime(message.timestamp),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
                 ),
               ),
-              child: Text(
-                message.content ?? '',
-                style: TextStyle(
-                  color: isMe ? Colors.white : Colors.black87,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-              child: Text(
-                _formatMessageTime(message.timestamp),
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  String _formatMessageTime(DateTime timestamp) {
-    final hour = timestamp.hour.toString().padLeft(2, '0');
-    final minute = timestamp.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+  void _showOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.edit),
+            title: const Text('Modifier'),
+            onTap: () {
+              Navigator.pop(context);
+              onEdit?.call();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete),
+            title: const Text('Supprimer'),
+            onTap: () {
+              Navigator.pop(context);
+              onDelete?.call();
+            },
+          ),
+        ],
+      ),
+    );
   }
+}
+
+String _formatMessageTime(DateTime timestamp) {
+  final hour = timestamp.hour.toString().padLeft(2, '0');
+  final minute = timestamp.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
 }
 
 String _formatTimestamp(DateTime timestamp) {

@@ -7,6 +7,10 @@ class Message {
   final String? senderId;
   final String content;
   final DateTime timestamp;
+  final bool isDeleted;
+  final bool isEdited;
+  final DateTime? editedAt;
+
   final String? type; // Ajout du champ type
 
   Message({
@@ -14,6 +18,9 @@ class Message {
     required this.senderId,
     required this.content,
     required this.timestamp,
+    this.isDeleted = false,
+    this.isEdited = false,
+    this.editedAt,
     this.type, // Peut être 'system' ou null pour les messages normaux
   });
 
@@ -25,6 +32,11 @@ class Message {
       content: data['content'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       type: data['type'], // Récupération du type depuis Firestore
+      isDeleted: data['isDeleted'] ?? false,
+      isEdited: data['isEdited'] ?? false,
+      editedAt: data['editedAt'] != null
+          ? (data['editedAt'] as Timestamp).toDate()
+          : null,
     );
   }
 

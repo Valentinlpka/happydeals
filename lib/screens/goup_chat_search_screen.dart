@@ -69,32 +69,42 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
         return;
       }
 
-      final companiesStream = FirebaseFirestore.instance
-          .collection('companys')
-          .where('searchText', arrayContains: query.toLowerCase())
-          .limit(10)
-          .snapshots();
+      try {
+        final companiesStream = FirebaseFirestore.instance
+            .collection('companys')
+            .where('searchName', arrayContains: query.toLowerCase())
+            .limit(10)
+            .snapshots()
+            .handleError((error) {
+          print('Erreur companiesStream: $error');
+        });
 
-      // Créer une requête qui ne retournera aucun résultat
-      final usersStream = _followedUsers.isEmpty
-          ? FirebaseFirestore.instance
-              .collection('users')
-              .where('id', isEqualTo: 'non_existent_id')
-              .snapshots()
-          : FirebaseFirestore.instance
-              .collection('users')
-              .where(FieldPath.documentId, whereIn: _followedUsers)
-              .where('searchName', arrayContains: query.toLowerCase())
-              .limit(10)
-              .snapshots();
+        final usersStream = _followedUsers.isEmpty
+            ? FirebaseFirestore.instance
+                .collection('users')
+                .where('id', isEqualTo: 'non_existent_id')
+                .snapshots()
+            : FirebaseFirestore.instance
+                .collection('users')
+                .where(FieldPath.documentId, whereIn: _followedUsers)
+                .where('searchName', arrayContains: query.toLowerCase())
+                .limit(10)
+                .snapshots()
+                .handleError((error) {
+                print('Erreur usersStream: $error');
+              });
 
-      setState(() {
-        _searchResults = Rx.combineLatest2(
-          companiesStream,
-          usersStream,
-          (QuerySnapshot companies, QuerySnapshot users) => [companies, users],
-        );
-      });
+        setState(() {
+          _searchResults = Rx.combineLatest2(
+            companiesStream,
+            usersStream,
+            (QuerySnapshot companies, QuerySnapshot users) =>
+                [companies, users],
+          );
+        });
+      } catch (e) {
+        print('Erreur générale: $e');
+      }
     });
   }
 

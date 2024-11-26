@@ -303,8 +303,13 @@ class ConversationService extends ChangeNotifier {
             .map((m) => m['id'])
             .toList();
       } else {
-        // Pour les conversations normales
-        if (data['particulierId'] == senderId) {
+        // Pour les conversations normales et annonces
+        if (data['adId'] != null) {
+          // Pour les annonces, mettre unreadBy sur le destinataire
+          unreadBy = data['particulierId'] == senderId
+              ? data['entrepriseId']
+              : data['particulierId'];
+        } else if (data['particulierId'] == senderId) {
           unreadBy = data['entrepriseId'] ?? data['otherUserId'];
         } else {
           unreadBy = data['particulierId'];
@@ -609,12 +614,12 @@ class ConversationService extends ChangeNotifier {
             totalUnread += 1;
           }
         } else {
-          // Pour les conversations individuelles
           final isUnreadByCurrentUser = data['unreadBy'] == userId;
           final lastMessageSenderId = data['lastMessageSenderId'] ?? '';
 
           if (isUnreadByCurrentUser && lastMessageSenderId != userId) {
-            if (data['adId'] != null) {
+            // Vérifie si c'est une conversation d'annonce
+            if (data['adId'] != null && data['particulierId'] == userId) {
               adMessagesUnread += unreadCount;
             } else {
               businessMessagesUnread += unreadCount;
@@ -744,5 +749,41 @@ class ConversationService extends ChangeNotifier {
         .map((snapshot) => snapshot.docs
             .map((doc) => Conversation.fromFirestore(doc))
             .toList());
+  }
+
+  Future<void> deleteMessage(String conversationId, String messageId) async {
+    try {
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'isDeleted': true,
+        'content': 'Message supprimé',
+      });
+    } catch (e) {
+      print('Error deleting message: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> editMessage(
+      String conversationId, String messageId, String newContent) async {
+    try {
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'content': newContent,
+        'isEdited': true,
+        'editedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error editing message: $e');
+      rethrow;
+    }
   }
 }
