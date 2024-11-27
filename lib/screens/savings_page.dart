@@ -2,7 +2,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/providers/users.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class SavingsPage extends StatelessWidget {
   const SavingsPage({
@@ -11,6 +13,8 @@ class SavingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final totalSavings = context.watch<UserModel>().totalSavings;
+
     final String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
@@ -53,10 +57,11 @@ class SavingsPage extends StatelessWidget {
                       final data = doc.data() as Map<String, dynamic>;
                       final originalPrice =
                           (data['originalPrice'] ?? 0.0) * 2 as num;
-                      totalSavings +=
-                          originalPrice; // 50% d'économie sur les Deal Express
+                      totalSavings += originalPrice;
                     }
                   }
+
+                  // Mettre à jour le UserModel avec le nouveau total
 
                   return Container(
                     padding: const EdgeInsets.all(20),
@@ -248,14 +253,6 @@ class TransactionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.store, size: 16),
-                const SizedBox(width: 4),
-                Text(transaction.companyName),
-              ],
-            ),
-            const SizedBox(height: 4),
             Row(
               children: [
                 const Icon(Icons.calendar_today, size: 16),

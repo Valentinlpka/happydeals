@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/share_post.dart';
+import 'package:rxdart/rxdart.dart';
 
 class UserModel with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -28,7 +29,9 @@ class UserModel with ChangeNotifier {
   List<String> likedPosts = [];
   List<String> likedCompanies = [];
   List<String> followedUsers = [];
+  double _totalSavings = 0.0;
 
+  double get totalSavings => roundAmount(_totalSavings);
   String get firstName => _firstName;
   String get industrySector => _industrySector;
   String get lastName => _lastName;
@@ -46,6 +49,10 @@ class UserModel with ChangeNotifier {
   String get workingHours => _workingHours;
 
   String get uniqueCode => _uniqueCode;
+
+  double roundAmount(double amount) {
+    return (amount * 100).round() / 100;
+  }
 
   set firstName(String value) {
     _firstName = value;
@@ -119,6 +126,50 @@ class UserModel with ChangeNotifier {
 
   // Ajoutez d'autres setters si nécessaire
 
+  // Méthode pour calculer et mettre à jour le total des économies
+  Future<void> calculateAndUpdateTotalSavings() async {
+    if (userId.isEmpty) return;
+
+    try {
+      double total = 0;
+
+      // Calculer les économies des commandes
+      final ordersQuery = await _firestore
+          .collection('orders')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      for (var doc in ordersQuery.docs) {
+        final data = doc.data();
+        final happyDealSavings = (data['happyDealSavings'] ?? 0.0) as num;
+        final discountAmount = (data['discountAmount'] ?? 0.0) as num;
+        total += happyDealSavings + discountAmount;
+      }
+
+      // Calculer les économies des réservations
+      final reservationsQuery = await _firestore
+          .collection('reservations')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      for (var doc in reservationsQuery.docs) {
+        final data = doc.data();
+        final originalPrice = (data['originalPrice'] ?? 0.0) * 2 as num;
+        total += originalPrice; // 50% d'économie sur les Deal Express
+      }
+      // Mettre à jour dans Firestore et localement
+      total = roundAmount(total);
+      await _firestore.collection('users').doc(userId).update({
+        'totalSavings': total,
+      });
+
+      _totalSavings = total;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error calculating total savings: $e');
+    }
+  }
+
   Future<void> updateUserProfile(Map<String, dynamic> userData) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
@@ -172,10 +223,53 @@ class UserModel with ChangeNotifier {
       likedCompanies = List<String>.from(data['likedCompanies'] ?? []);
 
       await loadDailyQuote();
+      await calculateAndUpdateTotalSavings();
+
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading user data: $e');
     }
+  }
+
+  Stream<double> get totalSavingsStream {
+    if (userId.isEmpty) return Stream.value(0);
+
+    final ordersStream = _firestore
+        .collection('orders')
+        .where('userId', isEqualTo: userId)
+        .snapshots();
+
+    final reservationsStream = _firestore
+        .collection('reservations')
+        .where('userId', isEqualTo: userId)
+        .snapshots();
+
+    return Rx.combineLatest2(
+      ordersStream,
+      reservationsStream,
+      (QuerySnapshot orders, QuerySnapshot reservations) {
+        double total = 0;
+
+        // Calculer les économies des commandes
+        for (var doc in orders.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final happyDealSavings = (data['happyDealSavings'] ?? 0.0) as num;
+          final discountAmount = (data['discountAmount'] ?? 0.0) as num;
+          total += happyDealSavings + discountAmount;
+        }
+
+        // Calculer les économies des réservations
+        for (var doc in reservations.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final originalPrice = (data['originalPrice'] ?? 0.0) as num;
+          total += originalPrice;
+        }
+
+        _totalSavings = roundAmount(total);
+        notifyListeners();
+        return total;
+      },
+    );
   }
 
   Future<void> _updateUserField(String field, dynamic value,
