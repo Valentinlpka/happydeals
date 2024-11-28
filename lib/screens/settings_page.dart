@@ -12,6 +12,7 @@ import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/savings_page.dart';
+import 'package:happy/screens/service_booking_client_page.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/screens/userApplicationsPage.dart';
 import 'package:happy/screens/user_referral_page.dart';
@@ -306,6 +307,16 @@ class ParametrePage extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                     builder: (context) => const LikedPostsPage()));
+          },
+        ),
+        _buildServiceCard(
+          icon: Icons.favorite,
+          title: "Mes Réservations",
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const ClientBookingsPage()));
           },
         ),
       ],

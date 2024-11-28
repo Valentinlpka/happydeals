@@ -6,6 +6,7 @@ import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
+import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/search_result.dart';
 
@@ -187,6 +188,10 @@ class _SearchPageState extends State<SearchPage> {
         _buildDiscoverItem('Marketplace', Icons.store, () {
           Navigator.push(context,
               MaterialPageRoute(builder: (context) => const AdListPage()));
+        }),
+        _buildDiscoverItem('Services', Icons.store, () {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const ServiceListPage()));
         }),
       ],
     );

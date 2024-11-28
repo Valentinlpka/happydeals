@@ -2,6 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { log } = require("firebase-functions/logger");
 const stripe = require("stripe")(functions.config().stripe.secret_key);
+const stripeWebhooks = functions.config().stripe.webhooks || {};
 
 admin.initializeApp();
 
@@ -1684,16 +1685,12 @@ exports.stripeWebhook = functions.https.onRequest(async (request, response) => {
   }
 
   const sig = request.headers["stripe-signature"];
+  const secret = stripeWebhooks.webhook1; // Utilisation de la clé pour webhook1
+
   let event;
 
   try {
-    const endpointSecret = functions.config().stripe.webhook_secret;
-
-    event = stripe.webhooks.constructEvent(
-      request.rawBody,
-      sig,
-      endpointSecret
-    );
+    event = stripe.webhooks.constructEvent(request.rawBody, sig, secret);
 
     console.log("Webhook reçu:", event.type);
 
@@ -1888,3 +1885,440 @@ async function handlePaymentIntentFailed(paymentIntent) {
 function generateValidationCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
+
+// Dans votre index.js de Cloud Functions
+exports.createService = functions.https.onCall(async (data, context) => {
+  console.log("Début de la fonction createService");
+  console.log("Données reçues:", JSON.stringify(data));
+
+  if (!context.auth) {
+    console.log("Erreur: Utilisateur non authentifié");
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  try {
+    // Récupération des données utilisateur et du compte Stripe
+    const userDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(context.auth.uid)
+      .get();
+
+    if (!userDoc.exists) {
+      console.log("Erreur: Document utilisateur non trouvé");
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Document utilisateur non trouvé"
+      );
+    }
+
+    const userData = userDoc.data();
+    console.log("Données utilisateur:", JSON.stringify(userData));
+
+    if (!userData || !userData.stripeAccountId) {
+      console.log("Erreur: Pas de Stripe Account ID trouvé");
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "L'utilisateur n'a pas de compte Stripe associé"
+      );
+    }
+
+    const stripeAccountId = userData.stripeAccountId;
+
+    // Création du produit dans Stripe
+    console.log("Création du produit Stripe");
+    const stripeProduct = await stripe.products.create(
+      {
+        name: data.name,
+        description: data.description || "",
+        metadata: {
+          type: "service",
+          duration: data.duration.toString(),
+        },
+      },
+      {
+        stripeAccount: stripeAccountId,
+      }
+    );
+    console.log("Produit Stripe créé:", stripeProduct.id);
+
+    // Création du prix dans Stripe
+    console.log("Création du prix Stripe");
+    const stripePrice = await stripe.prices.create(
+      {
+        product: stripeProduct.id,
+        unit_amount: Math.round(data.price * 100),
+        currency: "eur",
+      },
+      {
+        stripeAccount: stripeAccountId,
+      }
+    );
+    console.log("Prix Stripe créé:", stripePrice.id);
+
+    // Création du service dans Firestore
+    console.log("Ajout du service à Firestore");
+    const serviceRef = admin.firestore().collection("services").doc();
+    const serviceId = serviceRef.id;
+
+    await serviceRef.set({
+      id: serviceId,
+      name: data.name,
+      description: data.description || "",
+      price: data.price,
+      duration: data.duration,
+      images: data.images || [],
+      isActive: true,
+      professionalId: context.auth.uid,
+      stripeProductId: stripeProduct.id,
+      stripePriceId: stripePrice.id,
+      stripeAccountId: stripeAccountId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      serviceId: serviceId,
+      stripeProductId: stripeProduct.id,
+      stripePriceId: stripePrice.id,
+    };
+  } catch (error) {
+    console.error("Erreur détaillée:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      `Impossible de créer le service: ${error.message}`
+    );
+  }
+});
+
+// Mise à jour d'un service
+exports.updateService = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  const { serviceId, name, description, price, images, isActive } = data;
+
+  try {
+    // Récupérer le service existant
+    const serviceDoc = await admin
+      .firestore()
+      .collection("services")
+      .doc(serviceId)
+      .get();
+    if (!serviceDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Service non trouvé");
+    }
+
+    const serviceData = serviceDoc.data();
+    const stripeAccountId = serviceData.stripeAccountId;
+
+    // Mettre à jour le produit dans Stripe
+    await stripe.products.update(
+      serviceData.stripeProductId,
+      {
+        name,
+        description,
+        active: isActive,
+      },
+      {
+        stripeAccount: stripeAccountId,
+      }
+    );
+
+    // Si le prix a changé, créer un nouveau prix dans Stripe
+    let newStripePriceId = serviceData.stripePriceId;
+    if (price !== serviceData.price) {
+      // Désactiver l'ancien prix
+      await stripe.prices.update(
+        serviceData.stripePriceId,
+        { active: false },
+        { stripeAccount: stripeAccountId }
+      );
+
+      // Créer un nouveau prix
+      const newPrice = await stripe.prices.create(
+        {
+          product: serviceData.stripeProductId,
+          unit_amount: Math.round(price * 100),
+          currency: "eur",
+        },
+        {
+          stripeAccount: stripeAccountId,
+        }
+      );
+      newStripePriceId = newPrice.id;
+    }
+
+    // Mettre à jour dans Firestore
+    await admin.firestore().collection("services").doc(serviceId).update({
+      name,
+      description,
+      price,
+      images,
+      isActive,
+      stripePriceId: newStripePriceId,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      stripePriceId: newStripePriceId,
+    };
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du service:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+// Suppression d'un service
+exports.deleteService = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  const { serviceId } = data;
+
+  try {
+    // Récupérer le service
+    const serviceDoc = await admin
+      .firestore()
+      .collection("services")
+      .doc(serviceId)
+      .get();
+    if (!serviceDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Service non trouvé");
+    }
+
+    const serviceData = serviceDoc.data();
+    const stripeAccountId = serviceData.stripeAccountId;
+
+    // Désactiver le produit dans Stripe
+    await stripe.products.update(
+      serviceData.stripeProductId,
+      { active: false },
+      { stripeAccount: stripeAccountId }
+    );
+
+    // Désactiver le prix dans Stripe
+    await stripe.prices.update(
+      serviceData.stripePriceId,
+      { active: false },
+      { stripeAccount: stripeAccountId }
+    );
+
+    // Supprimer de Firestore
+    await admin.firestore().collection("services").doc(serviceId).delete();
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erreur lors de la suppression du service:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+// Activer/désactiver un service
+exports.toggleServiceStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  const { serviceId, isActive } = data;
+
+  try {
+    const serviceDoc = await admin
+      .firestore()
+      .collection("services")
+      .doc(serviceId)
+      .get();
+    if (!serviceDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Service non trouvé");
+    }
+
+    const serviceData = serviceDoc.data();
+    const stripeAccountId = serviceData.stripeAccountId;
+
+    // Mettre à jour le statut dans Stripe
+    await stripe.products.update(
+      serviceData.stripeProductId,
+      { active: isActive },
+      { stripeAccount: stripeAccountId }
+    );
+
+    await stripe.prices.update(
+      serviceData.stripePriceId,
+      { active: isActive },
+      { stripeAccount: stripeAccountId }
+    );
+
+    // Mettre à jour dans Firestore
+    await admin.firestore().collection("services").doc(serviceId).update({
+      isActive,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du statut du service:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+// Cloud Function pour créer une session de paiement Stripe
+exports.createServicePaymentWeb = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Vous devez être connecté pour effectuer cette action"
+      );
+    }
+
+    try {
+      // Récupérer le service
+      const serviceDoc = await admin
+        .firestore()
+        .collection("services")
+        .doc(data.serviceId)
+        .get();
+
+      if (!serviceDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Service non trouvé");
+      }
+
+      const serviceData = serviceDoc.data();
+
+      // Récupérer le créneau
+      const timeSlotDoc = await admin
+        .firestore()
+        .collection("timeSlots")
+        .doc(data.timeSlotId)
+        .get();
+
+      if (!timeSlotDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Créneau non trouvé");
+      }
+
+      const timeSlotData = timeSlotDoc.data();
+
+      // Créer la description du service
+      const description = `Réservation pour le ${timeSlotData.date
+        .toDate()
+        .toLocaleDateString()} à ${timeSlotData.startTime
+        .toDate()
+        .toLocaleTimeString()}`;
+
+      // Créer la session de paiement Stripe
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        success_url: data.successUrl,
+        cancel_url: data.cancelUrl,
+        line_items: [
+          {
+            price_data: {
+              currency: "eur",
+              unit_amount: data.amount,
+              product_data: {
+                name: serviceData.name,
+                description: description,
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          serviceId: data.serviceId,
+          timeSlotId: data.timeSlotId,
+          userId: context.auth.uid,
+          date: timeSlotData.date.toDate().toISOString(),
+          startTime: timeSlotData.startTime.toDate().toISOString(),
+          endTime: timeSlotData.endTime.toDate().toISOString(),
+        },
+        customer_email: context.auth.token.email,
+      });
+
+      return {
+        url: session.url,
+        sessionId: session.id,
+      };
+    } catch (error) {
+      console.error(
+        "Erreur lors de la création de la session de paiement:",
+        error
+      );
+      throw new functions.https.HttpsError("internal", error.message);
+    }
+  }
+);
+
+// Webhook pour gérer le succès du paiement
+exports.handleStripeWebhook = functions.https.onRequest(async (req, res) => {
+  const sig = req.headers["stripe-signature"];
+  const secret = stripeWebhooks.webhook2; // Utilisation de la clé pour webhook1
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, secret);
+  } catch (err) {
+    res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+
+    try {
+      // Récupérer le timeSlot pour obtenir la date de réservation
+      const timeSlotDoc = await admin
+        .firestore()
+        .collection("timeSlots")
+        .doc(session.metadata.timeSlotId)
+        .get();
+
+      const timeSlotData = timeSlotDoc.data();
+      // Mettre à jour le créneau horaire
+      await admin
+        .firestore()
+        .collection("timeSlots")
+        .doc(session.metadata.timeSlotId)
+        .update({
+          isAvailable: false,
+          bookedByUserId: session.metadata.userId,
+        });
+
+      // Créer la réservation
+      await admin
+        .firestore()
+        .collection("bookings")
+        .add({
+          serviceId: session.metadata.serviceId,
+          timeSlotId: session.metadata.timeSlotId,
+          userId: session.metadata.userId,
+          status: "confirmed",
+          amount: session.amount_total / 100,
+          stripeSessionId: session.id,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          bookingDate: timeSlotData.startTime, // Ajouter la date de réservation
+        });
+    } catch (error) {
+      console.error("Erreur lors du traitement du paiement:", error);
+    }
+  }
+
+  res.json({ received: true });
+});
