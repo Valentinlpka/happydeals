@@ -5,7 +5,7 @@ const CACHE_NAME = 'flutter-app-cache';
 
 const RESOURCES = {"service-worker.js": "0559e8cb0efdcd63c913ec4fab530605",
 "flutter.js": "f393d3c16b631f36852323de8e583132",
-"main.dart.js": "4f0b6decb371225f162c184c108da6e8",
+"main.dart.js": "45879dfd3d8afec4bd8feb2150db8ef3",
 "assets/FontManifest.json": "ea9dc826036577df024fd0fe176dd298",
 "assets/AssetManifest.bin": "e6f2299f75b64456953e8be2f450b717",
 "assets/fonts/MaterialIcons-Regular.otf": "4ba80584cf477b505575880d6167c7fa",
@@ -30,8 +30,8 @@ const RESOURCES = {"service-worker.js": "0559e8cb0efdcd63c913ec4fab530605",
 "assets/AssetManifest.json": "c2fe827d551ab769e7c81d0f3fd2e6f2",
 "assets/AssetManifest.bin.json": "187e773f3a249df53d38390399b38577",
 "stripe.html": "cbcab0e6d6e559e5a7202820be039fcc",
-"index.html": "afebcc76ce0bc9cbdbac47ca21b57d3a",
-"/": "afebcc76ce0bc9cbdbac47ca21b57d3a",
+"index.html": "e141ffad5dd5a8dcc288593eaa90e51a",
+"/": "e141ffad5dd5a8dcc288593eaa90e51a",
 "manifest.json": "b6c37a1994391c7ca63a7f4adce5e6bc",
 "canvaskit/canvaskit.js": "66177750aff65a66cb07bb44b8c6422b",
 "canvaskit/canvaskit.js.symbols": "48c83a2ce573d9692e8d970e288d75f7",
@@ -48,7 +48,7 @@ const RESOURCES = {"service-worker.js": "0559e8cb0efdcd63c913ec4fab530605",
 "icons/Icon-512.png": "b89118f035f8161b5fa5a0cb468d2e87",
 "404.html": "ab579ad9dc729d0d05bd8c606381e9b0",
 "version.json": "a7fea63afa0364418817d8246079537a",
-"flutter_bootstrap.js": "e75e41416a6272f4a3459f864c53e13e"};
+"flutter_bootstrap.js": "e2486480daaa17f7b6f14ca011a15053"};
 // The application shell files that are downloaded before a service worker can
 // start.
 const CORE = ["main.dart.js",
