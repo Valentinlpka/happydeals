@@ -27,13 +27,21 @@ class ServiceClientService {
             .toList());
   }
 
-  // Récupérer un service spécifique
-  Future<ServiceModel> getServiceById(String serviceId) async {
+  Future<ServiceModel> getServiceByIds(String serviceId) async {
     final doc = await _firestore.collection('services').doc(serviceId).get();
     if (!doc.exists) {
       throw Exception('Service non trouvé');
     }
     return ServiceModel.fromMap(doc.data()!);
+  }
+
+  // Récupérer un service spécifique
+  Stream<ServiceModel> getServiceById(String serviceId) {
+    return _firestore
+        .collection('services')
+        .doc(serviceId)
+        .snapshots()
+        .map((doc) => ServiceModel.fromMap(doc.data()!));
   }
 
   // Rechercher des services

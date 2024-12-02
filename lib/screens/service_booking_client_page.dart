@@ -60,7 +60,7 @@ class _BookingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<ServiceModel>(
-      future: ServiceClientService().getServiceById(booking.serviceId),
+      future: ServiceClientService().getServiceByIds(booking.serviceId),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           print(snapshot.error);

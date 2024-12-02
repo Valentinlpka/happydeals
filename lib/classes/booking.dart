@@ -44,7 +44,7 @@ class BookingModel {
       serviceId: map['serviceId'] ?? '',
       professionalId: map['professionalId'] ?? '',
       timeSlotId: map['timeSlotId'] ?? '',
-      bookingDate: (map['bookingDate'] as Timestamp).toDate(),
+      bookingDate: (map['bookingDateTime'] ?? Timestamp.now()).toDate(),
       price: (map['price'] ?? 0).toDouble(),
       status: map['status'] ?? '',
       createdAt: (map['createdAt'] as Timestamp).toDate(),

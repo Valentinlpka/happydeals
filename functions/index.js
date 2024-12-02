@@ -2177,95 +2177,381 @@ exports.toggleServiceStatus = functions.https.onCall(async (data, context) => {
   }
 });
 
-// Cloud Function pour créer une session de paiement Stripe
+// Création d'une règle de disponibilité
+exports.createAvailabilityRule = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "L'utilisateur doit être authentifié."
+      );
+    }
+
+    try {
+      const ruleRef = admin.firestore().collection("availabilityRules").doc();
+      const ruleId = ruleRef.id;
+
+      await ruleRef.set({
+        id: ruleId,
+        professionalId: data.professionalId,
+        serviceId: data.serviceId,
+        workDays: data.workDays,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        breakTimes: data.breakTimes || [],
+        exceptionalClosedDates: data.exceptionalClosedDates || [],
+        isActive: true,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { ruleId };
+    } catch (error) {
+      console.error("Erreur lors de la création de la règle:", error);
+      throw new functions.https.HttpsError("internal", error.message);
+    }
+  }
+);
+
+// Mise à jour d'une règle
+exports.updateAvailabilityRule = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "L'utilisateur doit être authentifié."
+      );
+    }
+
+    try {
+      const ruleRef = admin
+        .firestore()
+        .collection("availabilityRules")
+        .doc(data.id);
+      const ruleDoc = await ruleRef.get();
+
+      if (!ruleDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Règle non trouvée");
+      }
+
+      await ruleRef.update({
+        workDays: data.workDays,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        breakTimes: data.breakTimes || [],
+        exceptionalClosedDates: data.exceptionalClosedDates || [],
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de la règle:", error);
+      throw new functions.https.HttpsError("internal", error.message);
+    }
+  }
+);
+
+// Génération des créneaux à partir des règles
+exports.generateTimeSlots = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  const { serviceId, startDate, endDate } = data;
+
+  try {
+    // Récupérer les règles de disponibilité pour ce service
+    const rulesSnapshot = await admin
+      .firestore()
+      .collection("availabilityRules")
+      .where("serviceId", "==", serviceId)
+      .where("isActive", "==", true)
+      .get();
+
+    if (rulesSnapshot.empty) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Aucune règle de disponibilité trouvée"
+      );
+    }
+
+    const rule = rulesSnapshot.docs[0].data();
+    const slots = [];
+
+    // Générer les créneaux pour chaque jour dans la période
+    for (
+      let date = new Date(startDate);
+      date <= new Date(endDate);
+      date.setDate(date.getDate() + 1)
+    ) {
+      const dayOfWeek = date.getDay() || 7; // Convertir 0 (dimanche) en 7
+
+      if (
+        rule.workDays.includes(dayOfWeek) &&
+        !rule.exceptionalClosedDates.some(
+          (closedDate) =>
+            closedDate.toDate().toDateString() === date.toDateString()
+        )
+      ) {
+        const daySlots = generateDaySlots(date, rule);
+        slots.push(...daySlots);
+      }
+    }
+
+    // Sauvegarder les créneaux en batch
+    const batch = admin.firestore().batch();
+    slots.forEach((slot) => {
+      const slotRef = admin.firestore().collection("generatedTimeSlots").doc();
+      batch.set(slotRef, {
+        ...slot,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+
+    return { success: true, slotsCount: slots.length };
+  } catch (error) {
+    console.error("Erreur lors de la génération des créneaux:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+// Fonction utilitaire pour générer les créneaux d'une journée
+async function generateDaySlots(date, rule) {
+  const slots = [];
+  const serviceDoc = await admin
+    .firestore()
+    .collection("services")
+    .doc(rule.serviceId)
+    .get();
+  const serviceDuration = serviceDoc.data().duration;
+
+  let currentTime = combineDateTime(date, rule.startTime);
+  const endTime = combineDateTime(date, rule.endTime);
+
+  while (currentTime < endTime) {
+    // Vérifier si ce créneau n'est pas pendant une pause
+    if (!isInBreakTime(currentTime, rule.breakTimes)) {
+      slots.push({
+        serviceId: rule.serviceId,
+        professionalId: rule.professionalId,
+        date: admin.firestore.Timestamp.fromDate(date),
+        startTime: admin.firestore.Timestamp.fromDate(currentTime),
+        endTime: admin.firestore.Timestamp.fromDate(
+          new Date(currentTime.getTime() + serviceDuration * 60000)
+        ),
+        isAvailable: true,
+      });
+    }
+
+    // Avancer au prochain créneau
+    currentTime = new Date(currentTime.getTime() + serviceDuration * 60000);
+  }
+
+  return slots;
+}
+
+// Fonction utilitaire pour vérifier si un horaire est pendant une pause
+function isInBreakTime(time, breakTimes) {
+  return breakTimes.some((breakTime) => {
+    const breakStart = combineDateTime(time, breakTime.start);
+    const breakEnd = combineDateTime(time, breakTime.end);
+    return time >= breakStart && time < breakEnd;
+  });
+}
+
+// Fonction utilitaire pour combiner date et heure
+function combineDateTime(date, time) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    time.hours,
+    time.minutes
+  );
+}
+
+// Création d'une session de paiement pour un service
 exports.createServicePaymentWeb = functions.https.onCall(
   async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
-        "Vous devez être connecté pour effectuer cette action"
+        "L'utilisateur doit être authentifié."
       );
     }
 
     try {
+      const {
+        serviceId,
+        bookingDateTime,
+        amount,
+        currency,
+        successUrl,
+        cancelUrl,
+      } = data;
+
+      // Vérifier la disponibilité du créneau
+      const isAvailable = await checkAvailability(serviceId, bookingDateTime);
+      if (!isAvailable) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Ce créneau n'est plus disponible"
+        );
+      }
+
       // Récupérer le service
       const serviceDoc = await admin
         .firestore()
         .collection("services")
-        .doc(data.serviceId)
+        .doc(serviceId)
         .get();
 
       if (!serviceDoc.exists) {
         throw new functions.https.HttpsError("not-found", "Service non trouvé");
       }
 
-      const serviceData = serviceDoc.data();
-
-      // Récupérer le créneau
-      const timeSlotDoc = await admin
-        .firestore()
-        .collection("timeSlots")
-        .doc(data.timeSlotId)
-        .get();
-
-      if (!timeSlotDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Créneau non trouvé");
-      }
-
-      const timeSlotData = timeSlotDoc.data();
-
-      // Créer la description du service
-      const description = `Réservation pour le ${timeSlotData.date
-        .toDate()
-        .toLocaleDateString()} à ${timeSlotData.startTime
-        .toDate()
-        .toLocaleTimeString()}`;
+      const service = serviceDoc.data();
 
       // Créer la session de paiement Stripe
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
-        success_url: data.successUrl,
-        cancel_url: data.cancelUrl,
+        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl,
         line_items: [
           {
             price_data: {
-              currency: "eur",
-              unit_amount: data.amount,
+              currency: currency,
+              unit_amount: amount,
               product_data: {
-                name: serviceData.name,
-                description: description,
+                name: service.name,
+                description: `Réservation pour le ${new Date(
+                  bookingDateTime
+                ).toLocaleString()}`,
               },
             },
             quantity: 1,
           },
         ],
         metadata: {
-          serviceId: data.serviceId,
-          timeSlotId: data.timeSlotId,
+          serviceId: serviceId,
+          bookingDateTime: bookingDateTime,
           userId: context.auth.uid,
-          date: timeSlotData.date.toDate().toISOString(),
-          startTime: timeSlotData.startTime.toDate().toISOString(),
-          endTime: timeSlotData.endTime.toDate().toISOString(),
+          professionalId: service.professionalId,
         },
-        customer_email: context.auth.token.email,
       });
 
+      // Créer une réservation temporaire
+      await admin
+        .firestore()
+        .collection("pendingBookings")
+        .add({
+          serviceId: serviceId,
+          userId: context.auth.uid,
+          professionalId: service.professionalId,
+          bookingDateTime: admin.firestore.Timestamp.fromDate(
+            new Date(bookingDateTime)
+          ),
+          price: amount / 100,
+          status: "pending",
+          stripeSessionId: session.id,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
       return {
-        url: session.url,
         sessionId: session.id,
+        url: session.url,
       };
     } catch (error) {
-      console.error(
-        "Erreur lors de la création de la session de paiement:",
-        error
-      );
+      console.error("Error creating payment session:", error);
       throw new functions.https.HttpsError("internal", error.message);
     }
   }
 );
 
-// Webhook pour gérer le succès du paiement
+// Fonction utilitaire pour vérifier la disponibilité
+async function checkAvailability(serviceId, bookingDateTime) {
+  try {
+    const date = new Date(bookingDateTime);
+
+    // Récupérer la règle de disponibilité
+    const rulesSnapshot = await admin
+      .firestore()
+      .collection("availabilityRules")
+      .where("serviceId", "==", serviceId)
+      .where("isActive", "==", true)
+      .get();
+
+    if (rulesSnapshot.empty) {
+      return false;
+    }
+
+    const rule = rulesSnapshot.docs[0].data();
+
+    // Vérifier si c'est un jour travaillé
+    if (!rule.workDays.includes(date.getDay() || 7)) {
+      return false;
+    }
+
+    // Vérifier les dates exceptionnelles
+    const isExceptionalDate = rule.exceptionalClosedDates.some(
+      (closedDate) => closedDate.toDate().toDateString() === date.toDateString()
+    );
+    if (isExceptionalDate) {
+      return false;
+    }
+
+    // Vérifier l'heure
+    const hour = date.getHours();
+    const minutes = date.getMinutes();
+
+    if (
+      hour < rule.startTime.hours ||
+      (hour === rule.startTime.hours && minutes < rule.startTime.minutes) ||
+      hour > rule.endTime.hours ||
+      (hour === rule.endTime.hours && minutes > rule.endTime.minutes)
+    ) {
+      return false;
+    }
+
+    // Vérifier les pauses
+    const isInBreak = rule.breakTimes.some((breakTime) => {
+      const breakStart = breakTime.start;
+      const breakEnd = breakTime.end;
+
+      return (
+        (hour > breakStart.hours ||
+          (hour === breakStart.hours && minutes >= breakStart.minutes)) &&
+        (hour < breakEnd.hours ||
+          (hour === breakEnd.hours && minutes <= breakEnd.minutes))
+      );
+    });
+    if (isInBreak) {
+      return false;
+    }
+
+    // Vérifier s'il n'y a pas déjà une réservation
+    const bookingsSnapshot = await admin
+      .firestore()
+      .collection("bookings")
+      .where("serviceId", "==", serviceId)
+      .where("bookingDateTime", "==", admin.firestore.Timestamp.fromDate(date))
+      .where("status", "in", ["confirmed", "pending"])
+      .get();
+
+    return bookingsSnapshot.empty;
+  } catch (error) {
+    console.error("Error checking availability:", error);
+    return false;
+  }
+}
+
+// Webhook pour gérer la confirmation du paiement
 exports.handleStripeWebhook = functions.https.onRequest(async (req, res) => {
   const sig = req.headers["stripe-signature"];
   const secret = stripeWebhooks.webhook2; // Utilisation de la clé pour webhook1
@@ -2283,40 +2569,47 @@ exports.handleStripeWebhook = functions.https.onRequest(async (req, res) => {
     const session = event.data.object;
 
     try {
-      // Récupérer le timeSlot pour obtenir la date de réservation
-      const timeSlotDoc = await admin
+      // Récupérer la réservation en attente
+      const pendingBookingsSnapshot = await admin
         .firestore()
-        .collection("timeSlots")
-        .doc(session.metadata.timeSlotId)
+        .collection("pendingBookings")
+        .where("stripeSessionId", "==", session.id)
         .get();
 
-      const timeSlotData = timeSlotDoc.data();
-      // Mettre à jour le créneau horaire
-      await admin
-        .firestore()
-        .collection("timeSlots")
-        .doc(session.metadata.timeSlotId)
-        .update({
-          isAvailable: false,
-          bookedByUserId: session.metadata.userId,
-        });
+      if (!pendingBookingsSnapshot.empty) {
+        const pendingBooking = pendingBookingsSnapshot.docs[0].data();
 
-      // Créer la réservation
-      await admin
-        .firestore()
-        .collection("bookings")
-        .add({
-          serviceId: session.metadata.serviceId,
-          timeSlotId: session.metadata.timeSlotId,
-          userId: session.metadata.userId,
-          status: "confirmed",
-          amount: session.amount_total / 100,
-          stripeSessionId: session.id,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          bookingDate: timeSlotData.startTime, // Ajouter la date de réservation
-        });
+        // Créer la réservation confirmée
+        await admin
+          .firestore()
+          .collection("bookings")
+          .add({
+            ...pendingBooking,
+            status: "confirmed",
+            paymentIntentId: session.payment_intent,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+        // Supprimer la réservation en attente
+        await pendingBookingsSnapshot.docs[0].ref.delete();
+
+        // Créer une notification
+        await admin
+          .firestore()
+          .collection("notifications")
+          .add({
+            userId: pendingBooking.professionalId,
+            type: "new_booking",
+            title: "Nouvelle réservation",
+            message: `Une nouvelle réservation a été confirmée pour le ${new Date(
+              pendingBooking.bookingDateTime.toDate()
+            ).toLocaleString()}`,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+      }
     } catch (error) {
-      console.error("Erreur lors du traitement du paiement:", error);
+      console.error("Error processing successful payment:", error);
     }
   }
 

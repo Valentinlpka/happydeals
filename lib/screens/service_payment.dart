@@ -4,17 +4,16 @@ import 'dart:html' as html;
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
-import 'package:happy/classes/time_slot.dart';
 import 'package:intl/intl.dart';
 
 class ServicePaymentPage extends StatefulWidget {
   final ServiceModel service;
-  final TimeSlotModel timeSlot;
+  final DateTime bookingDateTime; // Au lieu de TimeSlotModel
 
   const ServicePaymentPage({
     super.key,
     required this.service,
-    required this.timeSlot,
+    required this.bookingDateTime,
   });
 
   @override
@@ -34,7 +33,7 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
       final result =
           await functions.httpsCallable('createServicePaymentWeb').call({
         'serviceId': widget.service.id,
-        'timeSlotId': widget.timeSlot.id,
+        'bookingDateTime': widget.bookingDateTime.toIso8601String(),
         'amount': (widget.service.price * 100).round(),
         'currency': 'eur',
         'successUrl': '${Uri.base.origin}/payment-success',
@@ -91,6 +90,9 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
   }
 
   Widget _buildOrderSummary() {
+    final endTime =
+        widget.bookingDateTime.add(Duration(minutes: widget.service.duration));
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -111,12 +113,12 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
             ),
             _buildSummaryRow(
               'Date',
-              DateFormat('dd/MM/yyyy').format(widget.timeSlot.date),
+              DateFormat('dd/MM/yyyy').format(widget.bookingDateTime),
             ),
             _buildSummaryRow(
               'Heure',
-              '${DateFormat('HH:mm').format(widget.timeSlot.startTime)} - '
-                  '${DateFormat('HH:mm').format(widget.timeSlot.endTime)}',
+              '${DateFormat('HH:mm').format(widget.bookingDateTime)} - '
+                  '${DateFormat('HH:mm').format(endTime)}',
             ),
             _buildSummaryRow(
               'Durée',

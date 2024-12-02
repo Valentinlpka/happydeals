@@ -1,10 +1,11 @@
 // lib/pages/services/service_detail_page.dart
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/availibility_rule.dart';
 import 'package:happy/classes/service.dart';
-import 'package:happy/classes/time_slot.dart';
 import 'package:happy/screens/service_payment.dart';
 import 'package:happy/services/service_service.dart';
+import 'package:intl/intl.dart';
 
 import '../../services/booking_service.dart';
 
@@ -21,21 +22,34 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   final ServiceClientService _serviceService = ServiceClientService();
   final BookingService _bookingService = BookingService();
   DateTime _selectedDate = DateTime.now();
-  TimeSlotModel? _selectedTimeSlot;
+  final ValueNotifier<DateTime?> _selectedTimeNotifier =
+      ValueNotifier<DateTime?>(null);
+
+  // Ajouter ces variables pour le cache
+  List<DateTime>? _cachedTimeSlots;
+  DateTime? _cachedDate;
+  String? _cachedServiceId;
+
+  @override
+  void dispose() {
+    _selectedTimeNotifier.dispose();
+    super.dispose();
+  }
+
+  // Modifier le getter et setter pour _selectedTime
+  DateTime? get _selectedTime => _selectedTimeNotifier.value;
+  set _selectedTime(DateTime? value) {
+    _selectedTimeNotifier.value = value;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: FutureBuilder<ServiceModel>(
-        future: _serviceService.getServiceById(widget.serviceId),
+      body: StreamBuilder<ServiceModel>(
+        stream: _serviceService.getServiceById(widget.serviceId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            print(snapshot.error);
-            return Center(child: Text('Erreur: ${snapshot.error}'));
           }
 
           final service = snapshot.data!;
@@ -49,7 +63,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                   children: [
                     _buildImageCarousel(service),
                     _buildServiceInfo(service),
-                    _buildBookingSection(service),
+                    _buildAvailabilitySection(service),
                   ],
                 ),
               ),
@@ -57,66 +71,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           );
         },
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Total',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
-                  ),
-                  FutureBuilder<ServiceModel>(
-                    future: _serviceService.getServiceById(widget.serviceId),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const SizedBox();
-                      return Text(
-                        '${snapshot.data!.price.toStringAsFixed(2)} €',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _selectedTimeSlot == null
-                    ? null
-                    : () => _showBookingConfirmation(context),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-                child: const Text('Réserver'),
-              ),
-            ),
-          ],
-        ),
-      ),
+      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
@@ -134,6 +89,85 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return StreamBuilder<ServiceModel>(
+      stream: _serviceService.getServiceById(widget.serviceId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+
+        final service = snapshot.data!;
+
+        return ValueListenableBuilder<DateTime?>(
+          valueListenable: _selectedTimeNotifier,
+          builder: (context, selectedTime, _) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Total',
+                            style: TextStyle(color: Colors.grey)),
+                        Text(
+                          '${service.price.toStringAsFixed(2)} €',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: selectedTime == null
+                          ? null
+                          : () => _proceedToPayment(service),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Text('Réserver'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _proceedToPayment(ServiceModel service) {
+    // Naviguer vers la page de paiement avec la date/heure sélectionnée
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ServicePaymentPage(
+          service: service,
+          bookingDateTime: _selectedTime!,
+        ),
+      ),
     );
   }
 
@@ -242,7 +276,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
               onTap: () {
                 setState(() {
                   _selectedDate = date;
-                  _selectedTimeSlot = null;
+                  _selectedTime = null;
                 });
               },
               child: Container(
@@ -293,112 +327,113 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     );
   }
 
+  Widget _buildAvailabilitySection(ServiceModel service) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Choisir une date',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 16),
+          _buildDatePicker(),
+          const SizedBox(height: 24),
+          Text(
+            'Horaires disponibles',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 16),
+          _buildTimeSlots(service),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTimeSlots(ServiceModel service) {
-    return StreamBuilder<List<TimeSlotModel>>(
-      stream: _bookingService.getAvailableTimeSlots(service.id),
+    return StreamBuilder<List<AvailabilityRuleModel>>(
+      stream: _bookingService.getServiceAvailabilityRules(service.id),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (snapshot.hasError) {
-          print(snapshot.error);
-
-          return Text('Erreur: ${snapshot.error}');
+        if (snapshot.data!.isEmpty) {
+          return const Text('Aucune disponibilité pour ce service');
         }
 
-        final slots = snapshot.data ?? [];
-        final filteredSlots = slots.where((slot) {
-          return slot.date.year == _selectedDate.year &&
-              slot.date.month == _selectedDate.month &&
-              slot.date.day == _selectedDate.day;
-        }).toList();
+        final rule = snapshot.data!.first;
 
-        filteredSlots.sort((a, b) => a.startTime.compareTo(b.startTime));
+        // Vérifier si le jour sélectionné est travaillé
+        if (!rule.workDays.contains(_selectedDate.weekday)) {
+          _cachedTimeSlots = null;
+          return const Text('Ce jour n\'est pas travaillé');
+        }
 
-        if (filteredSlots.isEmpty) {
-          return const Center(
-            child: Text('Aucun créneau disponible pour cette date'),
+        // Vérifier si on doit recharger les créneaux
+        bool shouldReloadSlots = _cachedTimeSlots == null ||
+            _cachedDate != _selectedDate ||
+            _cachedServiceId != service.id;
+
+        if (shouldReloadSlots) {
+          return FutureBuilder<List<DateTime>>(
+            future: _bookingService.getAvailableTimeSlots(
+              service.id,
+              _selectedDate,
+              service.duration,
+            ),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 8),
+                      Text('Chargement des créneaux...'),
+                    ],
+                  ),
+                );
+              }
+
+              // Mettre en cache les créneaux
+              _cachedTimeSlots = snapshot.data;
+              _cachedDate = _selectedDate;
+              _cachedServiceId = service.id;
+
+              return _buildTimeSlotsGrid(_cachedTimeSlots!);
+            },
           );
         }
 
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: filteredSlots.map((slot) {
-            final isSelected = _selectedTimeSlot?.id == slot.id;
-            return InkWell(
-              onTap: () {
-                setState(() {
-                  _selectedTimeSlot = slot;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Theme.of(context).primaryColor
-                      : Colors.white,
-                  border: Border.all(
-                    color: isSelected
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey[300]!,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${slot.startTime.hour}:${slot.startTime.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        );
+        // Utiliser les créneaux en cache
+        return _buildTimeSlotsGrid(_cachedTimeSlots!);
       },
     );
   }
 
-  void _showBookingConfirmation(BuildContext context) async {
-    // Récupérer le service actuel
-    final service = await _serviceService.getServiceById(widget.serviceId);
-
-    if (!mounted)
-      return; // Vérification de sécurité si le widget est toujours monté
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmer la réservation'),
-          content: const Text('Voulez-vous confirmer cette réservation ?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); // Fermer la boîte de dialogue
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ServicePaymentPage(
-                      service: service,
-                      timeSlot: _selectedTimeSlot!,
-                    ),
-                  ),
-                );
+  Widget _buildTimeSlotsGrid(List<DateTime> timeSlots) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: timeSlots.map((time) {
+        return ValueListenableBuilder<DateTime?>(
+          valueListenable: _selectedTimeNotifier,
+          builder: (context, selectedTime, _) {
+            final isSelected = selectedTime?.isAtSameMomentAs(time) ?? false;
+            return FilterChip(
+              label: Text(DateFormat('HH:mm').format(time)),
+              selected: isSelected,
+              onSelected: (selected) {
+                _selectedTime = selected ? time : null;
               },
-              child: const Text('Confirmer'),
-            ),
-          ],
+              backgroundColor: Colors.white,
+              disabledColor: Colors.grey[300],
+            );
+          },
         );
-      },
+      }).toList(),
     );
   }
 }
