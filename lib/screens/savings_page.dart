@@ -103,20 +103,62 @@ class SavingsPage extends StatelessWidget {
             child: StreamBuilder<List<TransactionData>>(
               stream: _getTransactions(userId),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                debugPrint(
+                    'État du StreamBuilder: ${snapshot.connectionState}');
+
+                if (snapshot.hasError) {
+                  debugPrint('Erreur: ${snapshot.error}');
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Erreur: ${snapshot.error}'),
+                      ],
+                    ),
+                  );
                 }
 
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  debugPrint('En attente des données...');
                   return const Center(
-                      child: Text('Aucune économie réalisée pour le moment'));
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Chargement des transactions...'),
+                      ],
+                    ),
+                  );
+                }
+
+                final transactions = snapshot.data ?? [];
+                debugPrint(
+                    'Nombre de transactions reçues: ${transactions.length}');
+
+                if (transactions.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.account_balance_wallet_outlined,
+                            size: 48, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text('Aucune économie réalisée pour le moment'),
+                      ],
+                    ),
+                  );
                 }
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: snapshot.data!.length,
+                  itemCount: transactions.length,
                   itemBuilder: (context, index) {
-                    final transaction = snapshot.data![index];
+                    final transaction = transactions[index];
+                    debugPrint('Affichage transaction $index');
                     return TransactionCard(transaction: transaction);
                   },
                 );
@@ -130,79 +172,129 @@ class SavingsPage extends StatelessWidget {
 
 // Modifiez uniquement la partie _getTransactions dans votre code :
 
-  Stream<List<TransactionData>> _getTransactions(String userId) async* {
-    while (true) {
+  Stream<List<TransactionData>> _getTransactions(String userId) {
+    debugPrint('Démarrage de _getTransactions pour userId: $userId');
+
+    return Stream.fromFuture(Future(() async {
       try {
-        // Récupérer les commandes
+        debugPrint('Vérification des commandes...');
         final ordersQuery = await FirebaseFirestore.instance
             .collection('orders')
             .where('userId', isEqualTo: userId)
             .get();
+        debugPrint('Nombre de commandes trouvées: ${ordersQuery.docs.length}');
 
-        final orderTransactions = ordersQuery.docs.map((doc) {
-          final data = doc.data();
-          // Vérifier si c'est un Happy Deal ou une commande avec code promo
-          final happyDealSavings = (data['happyDealSavings'] ?? 0.0) as num;
-          final discountAmount = (data['discountAmount'] ?? 0.0) as num;
-          final isHappyDeal = happyDealSavings > 0;
+        List<TransactionData> orderTransactions = ordersQuery.docs
+            .map((doc) {
+              try {
+                final data = doc.data();
+                debugPrint('Traitement commande ${doc.id}');
 
-          // Récupérer les items avec gestion des null
-          final items = data['items'] as List?;
-          final firstItem = items?.isNotEmpty == true ? items!.first : null;
-          final itemName =
-              firstItem is Map ? firstItem['name'] as String? ?? '' : '';
+                final happyDealSavings =
+                    (data['happyDealSavings'] ?? 0.0) as num;
+                final discountAmount = (data['discountAmount'] ?? 0.0) as num;
 
-          return TransactionData(
-            type: isHappyDeal
-                ? TransactionType.happyDeal
-                : TransactionType.promoCode,
-            date: (data['completedAt'] ?? data['createdAt']) as Timestamp,
-            savings: isHappyDeal ? happyDealSavings : discountAmount,
-            originalPrice: (data['subtotal'] ?? 0.0) as num,
-            finalPrice: (data['totalPrice'] ?? 0.0) as num,
-            companyName: data['entrepriseId']?.toString() ?? '',
-            promoCode: data['promoCode']?.toString(),
-            itemName: itemName,
-          );
-        }).toList();
+                // Si pas d'économies, on ignore cette transaction
+                if (happyDealSavings == 0 && discountAmount == 0) {
+                  return null;
+                }
 
-        // Récupérer les réservations
+                // Gérer les timestamps de manière sécurisée
+                Timestamp timestamp;
+                if (data['completedAt'] != null) {
+                  timestamp = data['completedAt'] as Timestamp;
+                } else if (data['createdAt'] != null) {
+                  timestamp = data['createdAt'] as Timestamp;
+                } else {
+                  timestamp = Timestamp.now();
+                }
+
+                final isHappyDeal = happyDealSavings > 0;
+
+                final items = data['items'] as List?;
+                final firstItem =
+                    items?.isNotEmpty == true ? items!.first : null;
+                final itemName =
+                    firstItem is Map ? firstItem['name'] as String? ?? '' : '';
+
+                return TransactionData(
+                  type: isHappyDeal
+                      ? TransactionType.happyDeal
+                      : TransactionType.promoCode,
+                  date: timestamp,
+                  savings: isHappyDeal ? happyDealSavings : discountAmount,
+                  originalPrice: (data['subtotal'] ?? 0.0) as num,
+                  finalPrice: (data['totalPrice'] ?? 0.0) as num,
+                  companyName: data['entrepriseId']?.toString() ?? '',
+                  promoCode: isHappyDeal
+                      ? null
+                      : data['promoCode']
+                          ?.toString(), // N'afficher le code promo que si c'est une réduction par code promo
+                  itemName: itemName,
+                );
+              } catch (e) {
+                debugPrint('Erreur lors du traitement de la commande: $e');
+                return null;
+              }
+            })
+            .where((transaction) =>
+                transaction != null) // Filtrer les transactions nulles
+            .cast<TransactionData>()
+            .toList();
+
+        debugPrint('Vérification des réservations...');
         final reservationsQuery = await FirebaseFirestore.instance
             .collection('reservations')
             .where('userId', isEqualTo: userId)
             .get();
 
-        final reservationTransactions = reservationsQuery.docs.map((doc) {
-          final data = doc.data();
-          final originalPrice = (data['originalPrice'] ?? 0.0) as num;
-          final price = (data['price'] ?? 0.0) as num;
+        List<TransactionData> reservationTransactions = reservationsQuery.docs
+            .map((doc) {
+              try {
+                final data = doc.data();
+                debugPrint('Traitement réservation ${doc.id}');
 
-          return TransactionData(
-            type: TransactionType.dealExpress,
-            date: (data['createdAt'] ?? Timestamp.now()) as Timestamp,
-            savings: originalPrice, // 50% d'économie sur les Deal Express
-            originalPrice: originalPrice * 2,
-            finalPrice: price,
-            companyName: data['companyName']?.toString() ?? '',
-            basketType: data['basketType']?.toString(),
-          );
-        }).toList();
+                final originalPrice = (data['originalPrice'] ?? 0.0) as num;
+                final price = (data['price'] ?? 0.0) as num;
 
-        // Combiner et trier les transactions
+                // Si pas d'économies, on ignore cette réservation
+                if (originalPrice <= 0) {
+                  return null;
+                }
+
+                return TransactionData(
+                  type: TransactionType.dealExpress,
+                  date: (data['createdAt'] as Timestamp?) ?? Timestamp.now(),
+                  savings: originalPrice,
+                  originalPrice: originalPrice * 2,
+                  finalPrice: price,
+                  companyName: data['companyName']?.toString() ?? '',
+                  basketType: data['basketType']?.toString(),
+                );
+              } catch (e) {
+                debugPrint('Erreur lors du traitement de la réservation: $e');
+                return null;
+              }
+            })
+            .where((transaction) => transaction != null)
+            .cast<TransactionData>()
+            .toList();
+
         final allTransactions = [
           ...orderTransactions,
           ...reservationTransactions
         ];
         allTransactions.sort((a, b) => b.date.compareTo(a.date));
 
-        yield allTransactions;
-
-        // Attendre avant la prochaine mise à jour
-        await Future.delayed(const Duration(seconds: 30));
-      } catch (e) {
-        await Future.delayed(const Duration(seconds: 5));
+        debugPrint(
+            'Total transactions avec économies: ${allTransactions.length}');
+        return allTransactions;
+      } catch (e, stackTrace) {
+        debugPrint('Erreur lors de la récupération des données: $e');
+        debugPrint('Stack trace: $stackTrace');
+        return <TransactionData>[];
       }
-    }
+    }));
   }
 }
 
