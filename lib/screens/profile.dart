@@ -260,7 +260,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-
   TabBar _buildTabBar() {
     return TabBar(
       controller: _tabController,
@@ -276,13 +275,45 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
     return Consumer<UserModel>(
       builder: (context, userModel, _) {
         final bool isCurrentUser = userModel.userId == widget.userId;
+
+        // Vérification si c'est un particulier (vérifie si c'est un particulier en regardant s'il a un prénom)
+        final bool isIndividual = userData['firstName'] != null;
+
+        // Conversion sécurisée des listes d'abonnements
+        List<String> userFollowedUsers = [];
+        if (userData['followedUsers'] is List) {
+          userFollowedUsers = List<String>.from(userData['followedUsers']);
+        }
+
+        // Vérification abonnement mutuel ET si c'est un particulier
+        final bool isMutualFollow = !isCurrentUser &&
+            isIndividual &&
+            userModel.followedUsers.contains(widget.userId) && // Je le suis
+            userFollowedUsers.contains(userModel.userId); // Il me suit
+
+        debugPrint('Current User ID: ${userModel.userId}');
+        debugPrint('Profile User ID: ${widget.userId}');
+        debugPrint('Is Individual: $isIndividual');
+        debugPrint(
+            'Is Current User following Profile: ${userModel.followedUsers.contains(widget.userId)}');
+        debugPrint(
+            'Is Profile following Current User: ${userFollowedUsers.contains(userModel.userId)}');
+        debugPrint('Is Mutual Follow: $isMutualFollow');
+
+        // Peut voir l'identifiant seulement si c'est le propriétaire du profil ou un abonnement mutuel avec un particulier
+        final bool canSeeUniqueCode =
+            isCurrentUser || (isMutualFollow && isIndividual);
+
+        // Débug de l'affichage du code unique
+        debugPrint('Can See Unique Code: $canSeeUniqueCode');
+        debugPrint('Has Unique Code: ${userData['uniqueCode'] != null}');
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start, // Changé en start
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildProfileImage(userData['image_profile'] as String?),
                   const SizedBox(width: 16),
@@ -300,12 +331,14 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (isCurrentUser) ...[
+                        // Afficher l'identifiant uniquement en cas d'abonnement mutuel
+                        if (canSeeUniqueCode &&
+                            userData['uniqueCode'] != null) ...[
                           const SizedBox(height: 4),
                           Row(
                             children: [
                               Text(
-                                '${userData['uniqueCode'] ?? 'Non défini'}',
+                                userData['uniqueCode'],
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.grey[600],
@@ -324,11 +357,9 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                               ),
                             ],
                           ),
-                          _buildFollowButton(widget.userId, userModel),
-                        ] else ...[
-                          const SizedBox(height: 8),
-                          _buildFollowButton(widget.userId, userModel),
                         ],
+                        const SizedBox(height: 8),
+                        _buildFollowButton(widget.userId, userModel),
                       ],
                     ),
                   ),
@@ -508,7 +539,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
       'sharedPosts': sharedPostsSnapshot.size,
     };
   }
-
 
   Widget _buildFollowButton(String profileUserId, UserModel userModel) {
     bool isFollowing = userModel.followedUsers.contains(profileUserId);
