@@ -96,7 +96,7 @@ class SharedPostMessage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isMe ? Colors.blue[600] : Colors.grey[300],
+                      color: isMe ? Colors.grey[300] : Colors.grey[300],
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(

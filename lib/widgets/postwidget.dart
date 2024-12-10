@@ -623,7 +623,7 @@ class _PostWidgetState extends State<PostWidget> {
                             future: FirebaseFirestore.instance
                                 .collection(
                                     conversation.particulierId == users.userId
-                                        ? 'companys'
+                                        ? 'users'
                                         : 'users')
                                 .doc(conversation.entrepriseId ??
                                     conversation.otherUserId)
@@ -662,12 +662,12 @@ class _PostWidgetState extends State<PostWidget> {
                                 // C'est une entreprise
                                 displayName =
                                     userData['companyName'] ?? 'Entreprise';
-                                profileImage = userData['companyLogo'];
+                                profileImage = userData['userProfilePicture'];
                               } else {
                                 // C'est un utilisateur
                                 displayName =
                                     '${userData['firstName']} ${userData['lastName']}';
-                                profileImage = userData['userProfilePicture'];
+                                profileImage = userData['image_profile'];
                               }
 
                               return ListTile(
