@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
+import 'package:happy/screens/post_type_page/code_promo_page.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
 import 'package:happy/screens/post_type_page/happy_deals_page.dart';
@@ -192,6 +193,10 @@ class _SearchPageState extends State<SearchPage> {
         _buildDiscoverItem('Services', Icons.store, () {
           Navigator.push(context,
               MaterialPageRoute(builder: (context) => const ServiceListPage()));
+        }),
+        _buildDiscoverItem('Code promo', Icons.store, () {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const CodePromoPage()));
         }),
       ],
     );

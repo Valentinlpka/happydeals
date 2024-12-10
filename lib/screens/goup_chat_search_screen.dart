@@ -4,13 +4,19 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
 import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
 
 class GroupChatSearchScreen extends StatefulWidget {
-  const GroupChatSearchScreen({super.key});
+  final Company? preselectedCompany;
+
+  const GroupChatSearchScreen({
+    super.key,
+    this.preselectedCompany,
+  });
 
   @override
   State<GroupChatSearchScreen> createState() => _GroupChatSearchScreenState();
@@ -30,6 +36,14 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
   void initState() {
     super.initState();
     _loadFollowedUsers();
+    if (widget.preselectedCompany != null) {
+      _selectedMembers.add(widget.preselectedCompany!.id);
+      _selectedMembersData[widget.preselectedCompany!.id] = {
+        'name': widget.preselectedCompany!.name,
+        'logo': widget.preselectedCompany!.logo,
+      };
+      _memberTypes[widget.preselectedCompany!.id] = 'company';
+    }
   }
 
   @override
@@ -75,8 +89,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
             .where('searchName', arrayContains: query.toLowerCase())
             .limit(10)
             .snapshots()
-            .handleError((error) {
-        });
+            .handleError((error) {});
 
         final usersStream = _followedUsers.isEmpty
             ? FirebaseFirestore.instance
@@ -89,8 +102,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                 .where('searchName', arrayContains: query.toLowerCase())
                 .limit(10)
                 .snapshots()
-                .handleError((error) {
-              });
+                .handleError((error) {});
 
         setState(() {
           _searchResults = Rx.combineLatest2(
@@ -100,8 +112,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                 [companies, users],
           );
         });
-      } catch (e) {
-      }
+      } catch (e) {}
     });
   }
 
@@ -141,6 +152,8 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
 
   void _toggleMemberSelection(
       String id, Map<String, dynamic> data, String type) {
+    if (widget.preselectedCompany?.id == id)
+      return; // Ne rien faire si c'est l'entreprise présélectionnée
     setState(() {
       if (_selectedMembers.contains(id)) {
         _selectedMembers.remove(id);
@@ -333,6 +346,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                 final id = _selectedMembers.elementAt(index);
                 final data = _selectedMembersData[id]!;
                 final type = _memberTypes[id]!;
+                final isPreselected = widget.preselectedCompany?.id == id;
 
                 String name;
                 String? imageUrl;
@@ -354,8 +368,12 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                       child: imageUrl == null ? Text(name[0]) : null,
                     ),
                     label: Text(name),
-                    deleteIcon: const Icon(Icons.close, size: 18),
-                    onDeleted: () => _toggleMemberSelection(id, data, type),
+                    deleteIcon: isPreselected
+                        ? null
+                        : const Icon(Icons.close, size: 18),
+                    onDeleted: isPreselected
+                        ? null
+                        : () => _toggleMemberSelection(id, data, type),
                   ),
                 );
               },

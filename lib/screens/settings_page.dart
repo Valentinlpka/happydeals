@@ -57,11 +57,6 @@ class ParametrePage extends StatelessWidget {
         ),
         _buildServiceGrid(context),
         const SizedBox(height: 30),
-        Padding(
-          padding: const EdgeInsets.only(left: 5),
-          child: _buildSectionTitle('Découvrir'),
-        ),
-        _buildDiscoverGrid(context),
         _buildLogoutButton(context, AuthService()),
       ],
     );

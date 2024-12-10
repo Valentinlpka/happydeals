@@ -439,48 +439,63 @@ class _PostWidgetState extends State<PostWidget> {
   }
 
   Widget _buildInteractionBar() {
-    return Consumer<UserModel>(
-      builder: (context, users, _) {
-        final isLiked = users.likedPosts.contains(widget.post.id);
-        final isCurrentUser = widget.post is SharedPost &&
-            (widget.post as SharedPost).sharedBy == widget.currentUserId;
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('posts')
+          .doc(widget.post.id)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
 
-        return Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        final postData = snapshot.data!.data() as Map<String, dynamic>;
+        final commentsCount = postData['commentsCount'] ?? 0;
+        final likes = postData['likes'] ?? 0;
+
+        return Consumer<UserModel>(
+          builder: (context, users, _) {
+            final isLiked = users.likedPosts.contains(widget.post.id);
+            final isCurrentUser = widget.post is SharedPost &&
+                (widget.post as SharedPost).sharedBy == widget.currentUserId;
+
+            return Column(
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: Icon(
-                        isLiked ? Icons.favorite : Icons.favorite_border,
-                        color: isLiked ? Colors.red : null,
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isLiked ? Icons.favorite : Icons.favorite_border,
+                            color: isLiked ? Colors.red : null,
+                          ),
+                          onPressed: () async => await context
+                              .read<UserModel>()
+                              .handleLike(widget.post),
+                        ),
+                        Text('$likes'),
+                        const SizedBox(width: 20),
+                        IconButton(
+                          icon: const Icon(Icons.comment_outlined),
+                          onPressed: () => _navigateToComments(context),
+                        ),
+                        const SizedBox(width: 5),
+                        Text('$commentsCount')
+                      ],
+                    ),
+                    if (!isCurrentUser)
+                      IconButton(
+                        onPressed: () => _showShareConfirmation(context, users),
+                        icon: const Icon(Icons.share_outlined),
                       ),
-                      onPressed: () async => await context
-                          .read<UserModel>()
-                          .handleLike(widget.post),
-                    ),
-                    Text('${widget.post.likes}'),
-                    const SizedBox(width: 20),
-                    IconButton(
-                      icon: const Icon(Icons.comment_outlined),
-                      onPressed: () => _navigateToComments(context),
-                    ),
-                    const SizedBox(width: 5),
-                    Text('${widget.post.commentsCount}')
                   ],
                 ),
-                // Afficher l'icône de partage seulement si le post n'a pas été partagé par l'utilisateur actuel
-                if (!isCurrentUser)
-                  IconButton(
-                    onPressed: () => _showShareConfirmation(context, users),
-                    icon: const Icon(Icons.share_outlined),
-                  ),
+                Divider(height: 20, color: Colors.grey[300]),
               ],
-            ),
-            Divider(height: 20, color: Colors.grey[300]),
-          ],
+            );
+          },
         );
       },
     );

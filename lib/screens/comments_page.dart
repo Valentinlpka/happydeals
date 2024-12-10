@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:happy/classes/post.dart';
 
 class CommentScreen extends StatefulWidget {
@@ -24,42 +24,58 @@ class _CommentScreenState extends State<CommentScreen> {
     String content = _commentController.text;
     if (content.isEmpty) return;
 
-    DocumentSnapshot userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.currentUserId)
-        .get();
-    Map<String, dynamic> userInfo = userDoc.data() as Map<String, dynamic>;
+    try {
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.currentUserId)
+          .get();
+      Map<String, dynamic> userInfo = userDoc.data() as Map<String, dynamic>;
 
-    Comment comment = Comment(
-      userId: widget.currentUserId,
-      content: content,
-      timestamp: Timestamp.now(),
-      username: userInfo['username'],
-      imageProfile: userInfo['image_profile'],
-    );
+      // Créer le nom d'utilisateur à partir de firstName et lastName
+      String username =
+          '${userInfo['firstName'] ?? ''} ${userInfo['lastName'] ?? ''}'.trim();
 
-    FirebaseFirestore.instance.collection('posts').doc(widget.post.id).update({
-      'comments': FieldValue.arrayUnion([comment.toMap()]),
-      'commentsCount': widget.post.commentsCount + 1,
-    });
+      Comment comment = Comment(
+        userId: widget.currentUserId,
+        content: content,
+        timestamp: Timestamp.now(),
+        username: username, // Utiliser le nom créé
+        imageProfile:
+            userInfo['image_profile'] ?? '', // Ajouter une valeur par défaut
+      );
 
-    setState(() {
-      widget.post.comments.add(comment);
-      widget.post.commentsCount++;
-    });
+      // Utiliser une transaction pour la cohérence des données
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final postRef =
+            FirebaseFirestore.instance.collection('posts').doc(widget.post.id);
+        final postDoc = await transaction.get(postRef);
 
-    _commentController.clear();
+        if (!postDoc.exists) {
+          throw Exception('Post not found');
+        }
+
+        transaction.update(postRef, {
+          'comments': FieldValue.arrayUnion([comment.toMap()]),
+          'commentsCount': FieldValue.increment(1),
+        });
+      });
+
+      _commentController.clear();
+    } catch (e) {
+      debugPrint('Erreur lors de l\'ajout du commentaire: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Erreur lors de l\'ajout du commentaire')),
+        );
+      }
+    }
   }
 
   Future<void> _deleteComment(Comment comment) async {
     FirebaseFirestore.instance.collection('posts').doc(widget.post.id).update({
       'comments': FieldValue.arrayRemove([comment.toMap()]),
       'commentsCount': widget.post.commentsCount - 1,
-    });
-
-    setState(() {
-      widget.post.comments.remove(comment);
-      widget.post.commentsCount--;
     });
   }
 
@@ -84,19 +100,6 @@ class _CommentScreenState extends State<CommentScreen> {
         transaction.update(postRef, {'comments': comments});
       }
     });
-
-    setState(() {
-      int commentIndex = widget.post.comments.indexWhere((c) =>
-          c.userId == oldComment.userId && c.content == oldComment.content);
-      if (commentIndex != -1) {
-        widget.post.comments[commentIndex] = Comment(
-            userId: oldComment.userId,
-            content: newContent,
-            timestamp: oldComment.timestamp,
-            username: oldComment.username,
-            imageProfile: oldComment.imageProfile);
-      }
-    });
   }
 
   @override
@@ -108,68 +111,102 @@ class _CommentScreenState extends State<CommentScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              itemCount: widget.post.comments.length,
-              itemBuilder: (context, index) {
-                Comment comment = widget.post.comments[index];
-                return Column(
-                  children: [
-                    ListTile(
-                      leading: CircleAvatar(
-                        minRadius: 10,
-                        maxRadius: 27,
-                        backgroundColor: Colors.blue,
-                        child: CircleAvatar(
-                          minRadius: 20,
-                          maxRadius: 25,
-                          backgroundImage: NetworkImage(comment.imageProfile),
-                        ),
-                      ),
-                      title: Text(comment.username,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          )),
-                      subtitle: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(comment.content,
-                              style: const TextStyle(
-                                fontSize: 16,
-                              )),
-                          Text(
-                              _timeAgo(
-                                comment.timestamp,
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('posts')
+                  .doc(widget.post.id)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Erreur: ${snapshot.error}'));
+                }
+
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final postData = snapshot.data!.data() as Map<String, dynamic>;
+                final comments = (postData['comments'] as List?)
+                        ?.map((commentData) => Comment(
+                              userId: commentData['userId'],
+                              content: commentData['content'],
+                              timestamp: commentData['timestamp'],
+                              username: commentData['username'],
+                              imageProfile: commentData['imageProfile'],
+                            ))
+                        .toList() ??
+                    [];
+
+                if (comments.isEmpty) {
+                  return const Center(
+                    child: Text('Aucun commentaire pour le moment'),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: comments.length,
+                  itemBuilder: (context, index) {
+                    Comment comment = comments[index];
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(
+                            minRadius: 10,
+                            maxRadius: 27,
+                            backgroundColor: Colors.blue,
+                            child: CircleAvatar(
+                              minRadius: 20,
+                              maxRadius: 25,
+                              backgroundImage:
+                                  NetworkImage(comment.imageProfile),
+                            ),
+                          ),
+                          title: Text(
+                            comment.username,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                comment.content,
+                                style: const TextStyle(fontSize: 16),
                               ),
-                              style: const TextStyle(
-                                fontSize: 12,
-                              )),
-                        ],
-                      ),
-                      trailing: widget.currentUserId == comment.userId
-                          ? PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  _editCommentDialog(comment);
-                                } else if (value == 'delete') {
-                                  _deleteComment(comment);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Text('Modifier'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('Supprimer'),
-                                ),
-                              ],
-                            )
-                          : null,
-                    ),
-                    Divider(color: Colors.grey[300]),
-                  ],
+                              Text(
+                                _timeAgo(comment.timestamp),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          trailing: widget.currentUserId == comment.userId
+                              ? PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == 'edit') {
+                                      _editCommentDialog(comment);
+                                    } else if (value == 'delete') {
+                                      _deleteComment(comment);
+                                    }
+                                  },
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Text('Modifier'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('Supprimer'),
+                                    ),
+                                  ],
+                                )
+                              : null,
+                        ),
+                        Divider(color: Colors.grey[300]),
+                      ],
+                    );
+                  },
                 );
               },
             ),

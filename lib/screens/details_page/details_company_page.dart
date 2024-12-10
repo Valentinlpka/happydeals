@@ -15,10 +15,9 @@ import 'package:happy/classes/post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/referral_options_modal.dart';
 import 'package:happy/providers/company_provider.dart';
-import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/review_service.dart';
-import 'package:happy/screens/conversation_detail.dart';
 import 'package:happy/screens/shop/product_list.dart';
+import 'package:happy/widgets/company_message_bottom_sheet.dart';
 import 'package:happy/widgets/opening_hours_widget.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/review_list.dart';
@@ -909,18 +908,14 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
   }
 
   void _startConversation(
-      BuildContext context, Company company, String currentUserId) async {
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
-    final String conversationId = await conversationService
-        .getOrCreateConversation(currentUserId, company.id);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ConversationDetailScreen(
-          otherUserName: company.name,
-          conversationId: conversationId,
-        ),
+      BuildContext context, Company company, String currentUserId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CompanyMessageBottomSheet(
+        company: company,
+        currentUserId: currentUserId,
       ),
     );
   }
