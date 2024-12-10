@@ -3,6 +3,21 @@ const admin = require("firebase-admin");
 const { log } = require("firebase-functions/logger");
 const stripe = require("stripe")(functions.config().stripe.secret_key);
 const stripeWebhooks = functions.config().stripe.webhooks || {};
+const nodemailer = require("nodemailer");
+// Configuration du transporteur email
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: functions.config().gmail.email,
+    pass: functions.config().gmail.password,
+  },
+});
+
+// Ajoutez ces logs
+console.log("Email configuration:", {
+  user: functions.config().gmail.email,
+  configured: !!functions.config().gmail.password,
+});
 
 admin.initializeApp();
 
@@ -84,239 +99,7 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
   return { url: accountLink.url };
 });
 
-exports.createPayment = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "User must be authenticated."
-    );
-  }
-
-  const { amount, currency, cartId, userId, isWeb, successUrl, cancelUrl } =
-    data;
-
-  try {
-    // Vérifier que le panier existe et n'est pas expiré
-    const cartDoc = await admin
-      .firestore()
-      .collection("carts")
-      .doc(cartId)
-      .get();
-
-    if (!cartDoc.exists) {
-      throw new functions.https.HttpsError("not-found", "Cart not found");
-    }
-
-    const cartData = cartDoc.data();
-    const expiresAt = cartData.expiresAt.toDate();
-
-    if (Date.now() > expiresAt) {
-      throw new functions.https.HttpsError(
-        "failed-precondition",
-        "Cart has expired"
-      );
-    }
-
-    // Récupérer ou créer le client Stripe
-    let customer;
-    const userDoc = await admin
-      .firestore()
-      .collection("users")
-      .doc(userId)
-      .get();
-    const userData = userDoc.data();
-
-    if (userData && userData.stripeCustomerId) {
-      customer = await stripe.customers.retrieve(userData.stripeCustomerId);
-    } else {
-      customer = await stripe.customers.create({
-        metadata: { firebaseUID: userId },
-      });
-      await admin.firestore().collection("users").doc(userId).update({
-        stripeCustomerId: customer.id,
-      });
-    }
-
-    // Créer les line items à partir des articles du panier
-    const lineItems = cartData.items.map((item) => ({
-      price_data: {
-        currency: currency,
-        unit_amount: Math.round(item.appliedPrice * 100),
-        product_data: {
-          name: item.name,
-          images: item.imageUrl ? [item.imageUrl[0]] : [],
-        },
-      },
-      quantity: item.quantity,
-    }));
-
-    const calculateFinalAmount = (cartData) => {
-      const subtotal = cartData.items.reduce(
-        (sum, item) => sum + item.appliedPrice * item.quantity,
-        0
-      );
-      const discount = cartData.discountAmount || 0;
-      return Math.max(0, subtotal - discount);
-    };
-
-    if (isWeb) {
-      // Pour le web, créer un seul line item avec le montant final
-      const finalAmount = calculateFinalAmount(cartData);
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: currency,
-              unit_amount: Math.round(finalAmount * 100),
-              product_data: {
-                name: "Commande Happy Deals",
-                description: cartData.appliedPromoCode
-                  ? `Code promo appliqué: ${cartData.appliedPromoCode}`
-                  : undefined,
-              },
-            },
-            quantity: 1,
-          },
-        ],
-        mode: "payment",
-        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl,
-        customer: customer.id,
-        metadata: {
-          cartId: cartId,
-          appliedPromoCode: cartData.appliedPromoCode || "",
-          originalAmount: String(cartData.total || 0),
-          discountAmount: String(cartData.discountAmount || 0),
-        },
-      });
-
-      await cartDoc.ref.update({
-        stripeSessionId: session.id,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      return { sessionId: session.id, url: session.url };
-    } else {
-      // Pour mobile, utiliser le montant déjà calculé
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount, // Le montant est déjà en centimes et calculé côté client
-        currency,
-        customer: customer.id,
-        metadata: {
-          cartId: cartId,
-          appliedPromoCode: cartData.appliedPromoCode || "",
-          originalAmount: String(cartData.total || 0),
-          discountAmount: String(cartData.discountAmount || 0),
-        },
-      });
-
-      await cartDoc.ref.update({
-        stripePaymentIntentId: paymentIntent.id,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      return { clientSecret: paymentIntent.client_secret };
-    }
-  } catch (error) {
-    console.error("Error creating payment:", error);
-    throw new functions.https.HttpsError("internal", error.message);
-  }
-});
-
-// exports.createPayment = functions.https.onCall(async (data, context) => {
-//   if (!context.auth) {
-//     throw new functions.https.HttpsError(
-//       "unauthenticated",
-//       "User must be authenticated."
-//     );
-//   }
-
-//   const {
-//     amount,
-//     currency,
-//     sellerId,
-//     userId,
-//     isWeb,
-//     successUrl,
-//     cancelUrl,
-//     cartItems,
-//   } = data;
-
-//   try {
-//     let customer;
-//     const userDoc = await admin
-//       .firestore()
-//       .collection("users")
-//       .doc(userId)
-//       .get();
-//     const userData = userDoc.data();
-
-//     if (userData && userData.stripeCustomerId) {
-//       customer = await stripe.customers.retrieve(userData.stripeCustomerId);
-//     } else {
-//       customer = await stripe.customers.create({
-//         metadata: { firebaseUID: userId },
-//       });
-//       await admin.firestore().collection("users").doc(userId).update({
-//         stripeCustomerId: customer.id,
-//       });
-//     }
-
-//     const lineItems = await Promise.all(
-//       cartItems.map(async (item) => {
-//         const productDoc = await admin
-//           .firestore()
-//           .collection("products")
-//           .doc(item.productId)
-//           .get();
-//         const productData = productDoc.data();
-//         const appliedPrice =
-//           productData.hasActiveHappyDeal && productData.discountedPrice
-//             ? productData.discountedPrice
-//             : productData.price;
-
-//         return {
-//           price_data: {
-//             currency: currency,
-//             unit_amount: Math.round(appliedPrice * 100),
-//             product_data: {
-//               name: productData.name,
-//             },
-//           },
-//           quantity: item.quantity,
-//         };
-//       })
-//     );
-
-//     if (isWeb) {
-//       const session = await stripe.checkout.sessions.create({
-//         payment_method_types: ["card"],
-//         line_items: lineItems,
-//         mode: "payment",
-//         success_url: successUrl,
-//         cancel_url: cancelUrl,
-//         customer: customer.id,
-//       });
-
-//       return { sessionId: session.id, url: session.url };
-//     } else {
-//       const paymentIntent = await stripe.paymentIntents.create({
-//         amount,
-//         currency,
-//         customer: customer.id,
-//       });
-
-//       return { clientSecret: paymentIntent.client_secret };
-//     }
-//   } catch (error) {
-//     console.error("Error creating payment:", error);
-//     throw new functions.https.HttpsError("internal", error.message);
-//   }
-// });
-
 // Mettre à jour le plafond du pro
-
 exports.updateMerchantBalance = functions.firestore
   .document("orders/{orderId}")
   .onUpdate(async (change, context) => {
@@ -399,8 +182,8 @@ exports.updateMerchantBalance = functions.firestore
     }
     return null;
   });
-//demande d'un paiement de la part d'un pro
 
+// Demande d'un paiement de la part d'un pro
 exports.requestPayout = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -485,33 +268,6 @@ exports.requestPayout = functions.https.onCall(async (data, context) => {
   }
 });
 
-// Transfert automatique vers le compte du marchand
-// exports.transferFunds = functions.firestore
-//   .document("orders/{orderId}")
-//   .onUpdate(async (change, context) => {
-//     const newValue = change.after.data();
-//     const previousValue = change.before.data();
-
-//     if (
-//       newValue.status === "completed" &&
-//       previousValue.status !== "completed"
-//     ) {
-//       const merchantId = newValue.merchantId;
-//       const amount = newValue.amount;
-
-//       const transfer = await stripe.transfers.create({
-//         amount: Math.round(amount * 0.9), // 90% du montant (10% de frais)
-//         currency: "eur",
-//         destination: merchantId,
-//       });
-
-//       return change.after.ref.update({ transferId: transfer.id });
-//     }
-
-//     return null;
-//   });
-
-// functions/index.js
 exports.createProduct = functions.https.onCall(async (data, context) => {
   console.log("Début de la fonction createProduct");
   console.log("Données reçues:", JSON.stringify(data));
@@ -670,8 +426,6 @@ exports.updateStock = functions.https.onCall(async (data, context) => {
   }
 });
 
-// Ajoutez ces fonctions à votre fichier index.js existant
-
 // Modification d'un article
 exports.updateProduct = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -771,8 +525,6 @@ exports.deleteProduct = functions.https.onCall(async (data, context) => {
     );
   }
 });
-
-// Ajoutez ces fonctions à votre fichier index.js existant
 
 // Mise à jour du statut d'une commande
 exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
@@ -941,8 +693,6 @@ exports.testStripeConnection = functions.https.onCall(async (data, context) => {
   }
 });
 
-// Dans votre fichier index.js des fonctions Cloud
-
 exports.createStripeCustomer = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -983,57 +733,6 @@ exports.createStripeCustomer = functions.https.onCall(async (data, context) => {
   }
 });
 
-exports.createOrder = functions.https.onCall(async (data, context) => {
-  // Vérifier si l'utilisateur est authentifié
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "L'utilisateur doit être authentifié pour créer une commande."
-    );
-  }
-
-  const {
-    sellerId,
-    items,
-    subtotal,
-    happyDealSavings,
-    promoCode,
-    discountAmount,
-    totalPrice,
-    pickupAddress,
-    entrepriseId,
-  } = data;
-
-  try {
-    // Créer la commande dans Firestore
-    const orderRef = await admin.firestore().collection("orders").add({
-      userId: context.auth.uid,
-      sellerId,
-      entrepriseId,
-      items,
-      subtotal,
-      happyDealSavings,
-      promoCode,
-      discountAmount,
-      totalPrice,
-      pickupAddress,
-      status: "paid", // Ou 'pending', selon votre logique de paiement
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Vous pouvez ajouter ici d'autres logiques, comme mettre à jour le stock des produits
-
-    console.log(`Commande créée avec succès. ID: ${orderRef.id}`);
-    return { orderId: orderRef.id };
-  } catch (error) {
-    console.error("Erreur lors de la création de la commande:", error);
-    throw new functions.https.HttpsError(
-      "internal",
-      "Impossible de créer la commande: " + error.message
-    );
-  }
-});
-
 exports.verifyPayment = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -1059,209 +758,6 @@ exports.verifyPayment = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("internal", error.message);
   }
 });
-
-exports.createPaymentAndReservation = functions.https.onCall(
-  async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "L'utilisateur doit être authentifié."
-      );
-    }
-
-    const { dealId, amount, currency, isWeb, successUrl, cancelUrl } = data;
-
-    try {
-      // Récupérer les informations de l'utilisateur
-      const userDoc = await admin
-        .firestore()
-        .collection("users")
-        .doc(context.auth.uid)
-        .get();
-      const userData = userDoc.data();
-
-      // Récupérer les informations du deal
-      const dealDoc = await admin
-        .firestore()
-        .collection("posts")
-        .doc(dealId)
-        .get();
-      const dealData = dealDoc.data();
-
-      if (!dealData) {
-        throw new functions.https.HttpsError("not-found", "Deal non trouvé");
-      }
-
-      // Créer ou récupérer le client Stripe
-      let customer;
-      if (userData.stripeCustomerId) {
-        customer = await stripe.customers.retrieve(userData.stripeCustomerId);
-      } else {
-        customer = await stripe.customers.create({
-          email: userData.email,
-          metadata: { firebaseUID: context.auth.uid },
-        });
-        await admin
-          .firestore()
-          .collection("users")
-          .doc(context.auth.uid)
-          .update({
-            stripeCustomerId: customer.id,
-          });
-      }
-
-      let paymentIntent;
-
-      if (isWeb) {
-        // Pour les paiements web, créer une session de paiement
-        const session = await stripe.checkout.sessions.create({
-          payment_method_types: ["card"],
-          line_items: [
-            {
-              price_data: {
-                currency: currency,
-                unit_amount: amount,
-                product_data: {
-                  name: dealData.basketType,
-                },
-              },
-              quantity: 1,
-            },
-          ],
-          mode: "payment",
-          success_url: successUrl,
-          cancel_url: cancelUrl,
-          customer: customer.id,
-          payment_intent_data: {
-            transfer_data: {
-              destination: dealData.stripeAccountId,
-            },
-          },
-        });
-
-        return {
-          sessionId: session.id,
-          url: session.url,
-          clientSecret: paymentIntent.client_secret,
-          paymentIntentId: paymentIntent.id,
-        };
-      } else {
-        // Pour les paiements mobiles, créer une intention de paiement
-        paymentIntent = await stripe.paymentIntents.create({
-          amount,
-          currency,
-          customer: customer.id,
-          transfer_data: { destination: dealData.stripeAccountId },
-        });
-
-        return {
-          clientSecret: paymentIntent.client_secret,
-          paymentIntentId: paymentIntent.id,
-        };
-      }
-    } catch (error) {
-      console.error("Erreur lors de la création du paiement:", error);
-      throw new functions.https.HttpsError("internal", error.message);
-    }
-  }
-);
-
-// exports.confirmReservation = functions.https.onCall(async (data, context) => {
-//   if (!context.auth) {
-//     throw new functions.https.HttpsError(
-//       "unauthenticated",
-//       "L'utilisateur doit être authentifié."
-//     );
-//   }
-
-//   const { dealId, paymentIntentId } = data;
-
-//   try {
-//     // Vérifier le statut du paiement
-//     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-//     if (paymentIntent.status !== "succeeded") {
-//       throw new functions.https.HttpsError(
-//         "failed-precondition",
-//         "Le paiement n'a pas été effectué avec succès."
-//       );
-//     }
-
-//     // Récupérer les informations du deal
-//     const dealDoc = await admin
-//       .firestore()
-//       .collection("posts")
-//       .doc(dealId)
-//       .get();
-//     const dealData = dealDoc.data();
-
-//     if (!dealData) {
-//       throw new functions.https.HttpsError("not-found", "Deal non trouvé");
-//     }
-
-//     // Générer un code de validation
-//     const validationCode = Math.random()
-//       .toString(36)
-//       .substr(2, 6)
-//       .toUpperCase();
-
-//     const companyDoc = await admin
-//       .firestore()
-//       .collection("companys")
-//       .doc(dealData.companyId)
-//       .get();
-
-//     const companyData = companyDoc.data();
-
-//     const adress = companyData.adress;
-//     const addressParts = [
-//       adress.adresse,
-//       adress.code_postal,
-//       adress.ville,
-//       adress.pays,
-//     ].filter(Boolean);
-
-//     // Créer la réservation
-//     const reservation = {
-//       buyerId: context.auth.uid,
-//       postId: dealId,
-//       companyId: dealData.companyId,
-//       basketType: dealData.basketType,
-//       price: dealData.price,
-//       pickupDate: dealData.pickupTime,
-//       isValidated: false,
-//       paymentIntentId: paymentIntentId,
-//       validationCode: validationCode,
-//       quantity: 1,
-//       companyName: companyData.name,
-//       pickupAddress: addressParts.join(", "),
-//       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-//     };
-
-//     const reservationRef = await admin
-//       .firestore()
-//       .collection("reservations")
-//       .add(reservation);
-
-//     // Mettre à jour le nombre de paniers disponibles
-//     await admin
-//       .firestore()
-//       .collection("posts")
-//       .doc(dealId)
-//       .update({
-//         basketCount: admin.firestore.FieldValue.increment(-1),
-//       });
-
-//     return {
-//       success: true,
-//       reservationId: reservationRef.id,
-//       validationCode: validationCode,
-//     };
-//   } catch (error) {
-//     console.error("Erreur lors de la confirmation de la réservation:", error);
-//     throw new functions.https.HttpsError("internal", error.message);
-//   }
-// });
 
 exports.confirmReservation = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -1443,130 +939,6 @@ exports.createExpressDeal = functions.https.onCall(async (data, context) => {
   }
 });
 
-exports.createExpressDealPayment = functions.https.onCall(
-  async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "L'utilisateur doit être authentifié."
-      );
-    }
-
-    try {
-      const { dealId, pickupTime, successUrl, cancelUrl } = data;
-
-      // Récupérer les détails du deal
-      const dealDoc = await admin
-        .firestore()
-        .collection("posts")
-        .doc(dealId)
-        .get();
-
-      if (!dealDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Deal non trouvé");
-      }
-
-      const dealData = dealDoc.data();
-
-      // Créer la session de paiement
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl,
-        payment_method_types: ["card"],
-        client_reference_id: context.auth.uid,
-        line_items: [
-          {
-            price_data: {
-              currency: "eur",
-              unit_amount: dealData.price * 100,
-              product_data: {
-                name: dealData.title,
-                description: dealData.content,
-              },
-            },
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          type: "express_deal",
-          dealId: dealId,
-          dealTitle: dealData.title,
-          userId: context.auth.uid,
-          merchantId: dealData.companyId,
-          pickupTime: pickupTime,
-        },
-      });
-
-      return {
-        sessionId: session.id,
-        sessionUrl: session.url,
-      };
-    } catch (error) {
-      console.error("Erreur création paiement:", error);
-      throw new functions.https.HttpsError("internal", error.message);
-    }
-  }
-);
-
-// Webhook pour gérer le succès du paiement
-exports.handleExpressDealPayment = functions.https.onRequest(
-  async (request, response) => {
-    const sig = request.headers["stripe-signature"];
-    let event;
-
-    try {
-      event = stripe.webhooks.constructEvent(
-        request.rawBody,
-        sig,
-        functions.config().stripe.webhook_secret
-      );
-    } catch (err) {
-      response.status(400).send(`Webhook Error: ${err.message}`);
-      return;
-    }
-
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-
-      if (session.metadata.type === "express_deal") {
-        try {
-          const dealId = session.metadata.dealId;
-          const pickupTime = session.metadata.pickupTime;
-
-          // Mettre à jour le stock du deal
-          await admin
-            .firestore()
-            .collection("posts")
-            .doc(dealId)
-            .update({
-              basketCount: admin.firestore.FieldValue.increment(-1),
-            });
-
-          // Créer la réservation
-          await admin
-            .firestore()
-            .collection("reservations")
-            .add({
-              dealId: dealId,
-              userId: session.client_reference_id,
-              pickupTime: admin.firestore.Timestamp.fromDate(
-                new Date(pickupTime)
-              ),
-              status: "confirmed",
-              stripeSessionId: session.id,
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-        } catch (error) {
-          console.error("Erreur lors du traitement du paiement:", error);
-        }
-      }
-    }
-
-    response.json({ received: true });
-  }
-);
-
 exports.updateExpressDeal = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -1676,215 +1048,6 @@ exports.deleteExpressDeal = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("internal", error.message);
   }
 });
-
-// Dans votre index.js des Cloud Functions
-exports.stripeWebhook = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "POST") {
-    response.status(405).send("Method Not Allowed");
-    return;
-  }
-
-  const sig = request.headers["stripe-signature"];
-  const secret = stripeWebhooks.webhook1; // Utilisation de la clé pour webhook1
-
-  let event;
-
-  try {
-    event = stripe.webhooks.constructEvent(request.rawBody, sig, secret);
-
-    console.log("Webhook reçu:", event.type);
-
-    switch (event.type) {
-      case "checkout.session.completed":
-        await handleCheckoutSessionCompleted(event.data.object);
-        break;
-      case "payment_intent.succeeded":
-        await handlePaymentIntentSucceeded(event.data.object);
-        break;
-      case "payment_intent.payment_failed":
-        await handlePaymentIntentFailed(event.data.object);
-        break;
-      default:
-        console.log(`Type d'événement non géré: ${event.type}`);
-    }
-
-    response.json({ received: true });
-  } catch (err) {
-    console.error("Erreur webhook:", err.message);
-    response.status(400).send(`Webhook Error: ${err.message}`);
-  }
-});
-
-async function handleCheckoutSessionCompleted(session) {
-  console.log("Traitement checkout session:", session.id);
-
-  if (session.metadata?.type !== "express_deal") {
-    console.log("Pas un express deal, ignoré");
-    return;
-  }
-
-  try {
-    const dealId = session.metadata.dealId;
-    const userId = session.metadata.userId;
-    const pickupTime = new Date(session.metadata.pickupTime);
-    const validationCode = generateValidationCode();
-
-    await admin.firestore().runTransaction(async (transaction) => {
-      // Vérifier le stock disponible
-      const dealRef = admin.firestore().collection("posts").doc(dealId);
-      const dealDoc = await transaction.get(dealRef);
-
-      if (!dealDoc.exists) {
-        throw new Error("Deal non trouvé");
-      }
-
-      const dealData = dealDoc.data();
-      if (dealData.basketCount <= 0) {
-        throw new Error("Plus de stock disponible");
-      }
-
-      // Récupérer les informations de l'entreprise
-      const companyDoc = await transaction.get(
-        admin.firestore().collection("companys").doc(dealData.companyId)
-      );
-      const companyData = companyDoc.data();
-
-      const adress = companyData.adress;
-      const addressParts = [
-        adress.adresse,
-        adress.code_postal,
-        adress.ville,
-        adress.pays,
-      ].filter(Boolean);
-
-      const appliedPrice =
-        dealData.hasActiveHappyDeal && dealData.discountedPrice
-          ? dealData.discountedPrice
-          : dealData.price;
-
-      // Créer la réservation
-      const reservationRef = admin.firestore().collection("reservations").doc();
-      transaction.set(reservationRef, {
-        dealId: dealId,
-        userId: userId,
-        sessionId: session.id,
-        amount: session.amount_total / 100,
-        validationCode: validationCode,
-        pickupTime: admin.firestore.Timestamp.fromDate(pickupTime),
-        status: "confirmed",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        buyerId: userId,
-        postId: dealId,
-        companyId: dealData.companyId,
-        basketType: dealData.basketType,
-        price: appliedPrice,
-        originalPrice: dealData.price,
-        discountAmount: dealData.hasActiveHappyDeal
-          ? dealData.price - appliedPrice
-          : 0,
-        pickupDate: admin.firestore.Timestamp.fromDate(pickupTime),
-        isValidated: false,
-        paymentIntentId: session.payment_intent,
-        quantity: 1,
-        companyName: companyData.name,
-        pickupAddress: addressParts.join(", "),
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // Mettre à jour le stock
-      transaction.update(dealRef, {
-        basketCount: admin.firestore.FieldValue.increment(-1),
-      });
-
-      // Créer la notification
-      const notificationRef = admin
-        .firestore()
-        .collection("notifications")
-        .doc();
-      transaction.set(notificationRef, {
-        userId: session.metadata.merchantId,
-        type: "new_reservation",
-        title: "Nouvelle réservation",
-        message: `Un client a réservé le deal ${session.metadata.dealTitle}`,
-        reservationId: reservationRef.id,
-        read: false,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      return {
-        reservationId: reservationRef.id,
-        validationCode: validationCode,
-      };
-    });
-
-    console.log("Transaction complétée avec succès");
-  } catch (error) {
-    console.error("Erreur lors du traitement de la réservation:", error);
-    throw error;
-  }
-}
-
-async function handlePaymentIntentSucceeded(paymentIntent) {
-  console.log("Paiement réussi:", paymentIntent.id);
-
-  if (!paymentIntent.metadata.dealId) return;
-
-  try {
-    // Mettre à jour le statut de paiement
-    const reservations = await admin
-      .firestore()
-      .collection("reservations")
-      .where("paymentIntentId", "==", paymentIntent.id)
-      .get();
-
-    for (const doc of reservations.docs) {
-      await doc.ref.update({
-        paymentStatus: "succeeded",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-  } catch (error) {
-    console.error("Erreur mise à jour du statut de paiement:", error);
-  }
-}
-
-async function handlePaymentIntentFailed(paymentIntent) {
-  console.log("Paiement échoué:", paymentIntent.id);
-
-  if (!paymentIntent.metadata.dealId) return;
-
-  try {
-    // Mettre à jour le statut de paiement et libérer le stock si nécessaire
-    const reservations = await admin
-      .firestore()
-      .collection("reservations")
-      .where("paymentIntentId", "==", paymentIntent.id)
-      .get();
-
-    for (const doc of reservations.docs) {
-      await doc.ref.update({
-        paymentStatus: "failed",
-        status: "cancelled",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // Réincrémenter le stock
-      await admin
-        .firestore()
-        .collection("posts")
-        .doc(paymentIntent.metadata.dealId)
-        .update({
-          basketCount: admin.firestore.FieldValue.increment(1),
-        });
-    }
-  } catch (error) {
-    console.error("Erreur mise à jour du statut de paiement:", error);
-  }
-}
-
-function generateValidationCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
 
 // Dans votre index.js de Cloud Functions
 exports.createService = functions.https.onCall(async (data, context) => {
@@ -2375,105 +1538,6 @@ function combineDateTime(date, time) {
   );
 }
 
-// Création d'une session de paiement pour un service
-exports.createServicePaymentWeb = functions.https.onCall(
-  async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "L'utilisateur doit être authentifié."
-      );
-    }
-
-    try {
-      const {
-        serviceId,
-        bookingDateTime,
-        amount,
-        currency,
-        successUrl,
-        cancelUrl,
-      } = data;
-
-      // Vérifier la disponibilité du créneau
-      const isAvailable = await checkAvailability(serviceId, bookingDateTime);
-      if (!isAvailable) {
-        throw new functions.https.HttpsError(
-          "failed-precondition",
-          "Ce créneau n'est plus disponible"
-        );
-      }
-
-      // Récupérer le service
-      const serviceDoc = await admin
-        .firestore()
-        .collection("services")
-        .doc(serviceId)
-        .get();
-
-      if (!serviceDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Service non trouvé");
-      }
-
-      const service = serviceDoc.data();
-
-      // Créer la session de paiement Stripe
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        mode: "payment",
-        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl,
-        line_items: [
-          {
-            price_data: {
-              currency: currency,
-              unit_amount: amount,
-              product_data: {
-                name: service.name,
-                description: `Réservation pour le ${new Date(
-                  bookingDateTime
-                ).toLocaleString()}`,
-              },
-            },
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          serviceId: serviceId,
-          bookingDateTime: bookingDateTime,
-          userId: context.auth.uid,
-          professionalId: service.professionalId,
-        },
-      });
-
-      // Créer une réservation temporaire
-      await admin
-        .firestore()
-        .collection("pendingBookings")
-        .add({
-          serviceId: serviceId,
-          userId: context.auth.uid,
-          professionalId: service.professionalId,
-          bookingDateTime: admin.firestore.Timestamp.fromDate(
-            new Date(bookingDateTime)
-          ),
-          price: amount / 100,
-          status: "pending",
-          stripeSessionId: session.id,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-      return {
-        sessionId: session.id,
-        url: session.url,
-      };
-    } catch (error) {
-      console.error("Error creating payment session:", error);
-      throw new functions.https.HttpsError("internal", error.message);
-    }
-  }
-);
-
 // Fonction utilitaire pour vérifier la disponibilité
 async function checkAvailability(serviceId, bookingDateTime) {
   try {
@@ -2551,67 +1615,915 @@ async function checkAvailability(serviceId, bookingDateTime) {
   }
 }
 
-// Webhook pour gérer la confirmation du paiement
-exports.handleStripeWebhook = functions.https.onRequest(async (req, res) => {
-  const sig = req.headers["stripe-signature"];
-  const secret = stripeWebhooks.webhook2; // Utilisation de la clé pour webhook1
-
-  let event;
+// Fonction permettant de créer un lien de paiement pour tous les types
+exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be authenticated."
+    );
+  }
 
   try {
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, secret);
-  } catch (err) {
-    res.status(400).send(`Webhook Error: ${err.message}`);
-    return;
-  }
+    const { type, amount, metadata, successUrl, cancelUrl, isWeb } = data;
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
+    // Préparer les metadata proprement
+    let processedMetadata = {};
+
+    // Traiter chaque clé individuellement
+    Object.keys(metadata).forEach((key) => {
+      let value = metadata[key];
+
+      // Traitement spécial pour les items
+      if (key === "items" && Array.isArray(value)) {
+        value = value.map((item) => ({
+          productId: item.productId || "",
+          name: item.name || "",
+          quantity: String(item.quantity || 0),
+          price: String(item.price || 0),
+          appliedPrice: String(item.appliedPrice || 0),
+          // autres champs nécessaires...
+        }));
+      }
+
+      // Convertir en string de manière sûre
+      processedMetadata[key] =
+        typeof value === "object" ? JSON.stringify(value) : String(value || "");
+    });
+
+    // Log pour debug
+    console.log("Processed metadata:", processedMetadata);
+
+    const sessionData = {
+      payment_method_types: ["card"],
+      mode: "payment",
+      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl,
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            unit_amount: amount,
+            product_data: {
+              name: type === "order" ? "Commande Happy Deals" : "Paiement",
+              description: processedMetadata.promoCode
+                ? `Code promo appliqué: ${processedMetadata.promoCode}`
+                : undefined,
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        type,
+        userId: context.auth.uid,
+        ...processedMetadata,
+      },
+    };
+
+    // Log pour debug
+    console.log("Session data:", sessionData);
+
+    const session = await stripe.checkout.sessions.create(sessionData);
+
+    // Stocker la transaction en attente
+    await admin
+      .firestore()
+      .collection(`pending_${type}_payments`)
+      .doc(session.id)
+      .set({
+        userId: context.auth.uid,
+        amount,
+        status: "pending",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        metadata: processedMetadata,
+      });
+
+    return {
+      sessionId: session.id,
+      url: session.url,
+    };
+  } catch (error) {
+    console.error("Payment creation error:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+// Webhook handler (vérification du paiement et création de la commande selon le type)
+exports.handleStripeWebhook = functions.https.onRequest(
+  async (request, response) => {
+    const sig = request.headers["stripe-signature"];
+    const webhookSecret = stripeWebhooks.webhook2;
+    let event;
+
+    console.log("Webhook received");
 
     try {
-      // Récupérer la réservation en attente
-      const pendingBookingsSnapshot = await admin
-        .firestore()
-        .collection("pendingBookings")
-        .where("stripeSessionId", "==", session.id)
-        .get();
+      event = stripe.webhooks.constructEvent(
+        request.rawBody,
+        sig,
+        webhookSecret
+      );
+      console.log("Event type:", event.type);
 
-      if (!pendingBookingsSnapshot.empty) {
-        const pendingBooking = pendingBookingsSnapshot.docs[0].data();
+      if (
+        event.type === "checkout.session.completed" ||
+        event.type === "payment_intent.succeeded"
+      ) {
+        const paymentData = event.data.object;
+        const metadata = paymentData.metadata || {};
+        const type = metadata.type;
 
-        // Créer la réservation confirmée
-        await admin
-          .firestore()
-          .collection("bookings")
-          .add({
-            ...pendingBooking,
-            status: "confirmed",
-            paymentIntentId: session.payment_intent,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        console.log("Processing payment:", {
+          type,
+          paymentId: paymentData.id,
+          metadata: metadata,
+        });
+
+        if (!type) {
+          console.error("No payment type found in metadata");
+          response.json({ received: true });
+          return;
+        }
+
+        // Vérifier le statut du paiement
+        if (
+          paymentData.status !== "complete" &&
+          paymentData.status !== "succeeded"
+        ) {
+          console.log(
+            `Payment ${paymentData.id} not completed, status: ${paymentData.status}`
+          );
+          response.json({ received: true });
+          return;
+        }
+
+        let result;
+        try {
+          switch (type) {
+            case "order":
+              result = await handleOrderPayment(paymentData);
+              break;
+            case "express_deal":
+              result = await handleExpressDealPayment(paymentData);
+              break;
+            case "service":
+              result = await handleServicePayment(paymentData);
+              break;
+            default:
+              throw new Error(`Unknown payment type: ${type}`);
+          }
+
+          console.log(`Successfully processed ${type} payment:`, result);
+
+          // Créer une notification
+          await createPaymentNotification({
+            type,
+            paymentId: paymentData.id,
+            metadata: metadata,
+            result: result,
           });
-
-        // Supprimer la réservation en attente
-        await pendingBookingsSnapshot.docs[0].ref.delete();
-
-        // Créer une notification
-        await admin
-          .firestore()
-          .collection("notifications")
-          .add({
-            userId: pendingBooking.professionalId,
-            type: "new_booking",
-            title: "Nouvelle réservation",
-            message: `Une nouvelle réservation a été confirmée pour le ${new Date(
-              pendingBooking.bookingDateTime.toDate()
-            ).toLocaleString()}`,
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
+        } catch (error) {
+          console.error(`Error processing ${type} payment:`, error);
+          // On continue malgré l'erreur pour ne pas retraiter le webhook
+        }
       }
+
+      response.json({ received: true });
     } catch (error) {
-      console.error("Error processing successful payment:", error);
+      console.error("Webhook error:", error);
+      response.status(400).send(`Webhook Error: ${error.message}`);
     }
   }
+);
 
-  res.json({ received: true });
-});
+// Création commande classique
+async function handleOrderPayment(session) {
+  const metadata = session.metadata;
+  const { orderId, cartId, userId } = metadata;
+
+  try {
+    const pendingOrderDoc = await admin
+      .firestore()
+      .collection("pending_orders")
+      .doc(orderId)
+      .get();
+
+    if (!pendingOrderDoc.exists) {
+      throw new Error("Pending order not found");
+    }
+
+    const pendingOrderData = pendingOrderDoc.data();
+    console.log("PendingOrderData:", pendingOrderData); // Ajout du log
+
+    // 1. Exécuter la transaction Firestore
+    await admin.firestore().runTransaction(async (transaction) => {
+      const orderRef = admin.firestore().collection("orders").doc(orderId);
+      transaction.set(orderRef, {
+        ...pendingOrderData,
+        status: "paid",
+        paymentId: session.payment_intent,
+        paidAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      for (const item of pendingOrderData.items) {
+        const productRef = admin
+          .firestore()
+          .collection("products")
+          .doc(item.productId);
+
+        transaction.update(productRef, {
+          stock: admin.firestore.FieldValue.increment(-parseInt(item.quantity)),
+        });
+      }
+
+      if (cartId) {
+        const cartRef = admin.firestore().collection("carts").doc(cartId);
+        transaction.delete(cartRef);
+      }
+
+      transaction.delete(pendingOrderDoc.ref);
+
+      // Notifications dans la transaction
+      const notificationsRef = admin.firestore().collection("notifications");
+
+      // Vérifier que sellerId existe
+      if (pendingOrderData.sellerId) {
+        transaction.set(notificationsRef.doc(), {
+          userId,
+          type: "order_confirmed",
+          title: "Commande confirmée",
+          message: `Votre commande #${orderId} a été confirmée`,
+          orderId,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          read: false,
+        });
+
+        transaction.set(notificationsRef.doc(), {
+          userId: pendingOrderData.sellerId,
+          type: "new_order",
+          title: "Nouvelle commande",
+          message: `Nouvelle commande #${orderId} reçue`,
+          orderId,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          read: false,
+        });
+      }
+    });
+
+    // 2. Après la transaction, gérer l'envoi des emails
+    if (pendingOrderData.entrepriseId) {
+      console.log("ProfessionalId found:", pendingOrderData.entrepriseId);
+
+      // Vérifier que professionalId existe
+      const [userDoc, companyDoc] = await Promise.all([
+        admin.firestore().collection("users").doc(userId).get(),
+        admin
+          .firestore()
+          .collection("companys")
+          .doc(pendingOrderData.entrepriseId)
+          .get(),
+      ]);
+
+      console.log("User exists:", userDoc.exists);
+      console.log("Company exists:", companyDoc.exists);
+
+      if (!userDoc.exists || !companyDoc.exists) {
+        throw new Error("User or company not found");
+      }
+
+      const userData = userDoc.data();
+      const companyData = companyDoc.data();
+
+      console.log("Attempting to send emails to:", {
+        userEmail: userData.email,
+        companyEmail: companyData.email,
+      });
+
+      try {
+        await Promise.all([
+          transporter
+            .sendMail({
+              from: '"Up !" <happy.deals59@gmail.com>',
+              to: userData.email,
+              subject: "Confirmation de votre commande",
+              html: generateOrderCustomerEmail(
+                pendingOrderData,
+                userData,
+                orderId
+              ),
+            })
+            .then(() => console.log("Client email sent successfully")),
+
+          transporter
+            .sendMail({
+              from: '"Up !" <happy.deals59@gmail.com>',
+              to: companyData.email,
+              subject: "Nouvelle commande reçue",
+              html: generateOrderProfessionalEmail(pendingOrderData, userData),
+            })
+            .then(() => console.log("Company email sent successfully")),
+        ]);
+
+        console.log("Both emails sent successfully");
+      } catch (emailError) {
+        console.error("Error sending emails:", emailError);
+      }
+    }
+
+    // Programmer la suppression
+    if (session.id) {
+      // Vérifier que session.id existe
+      setTimeout(async () => {
+        try {
+          await admin
+            .firestore()
+            .collection("pending_express_deal_payments")
+            .doc(session.id)
+            .delete();
+        } catch (error) {
+          console.error("Error deleting pending payment:", error);
+        }
+      }, 5 * 60 * 1000);
+    }
+
+    console.log("Order successfully processed:", orderId);
+    return { orderId };
+  } catch (error) {
+    console.error("Error processing order:", error);
+    await admin.firestore().collection("payment_errors").add({
+      orderId,
+      error: error.message,
+      paymentId: session.payment_intent,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    throw error;
+  }
+}
+
+// Création commande deal express
+async function handleExpressDealPayment(paymentData) {
+  const metadata = paymentData.metadata;
+  const dealId = metadata.postId;
+  const reservationId = metadata.reservationId;
+
+  if (!dealId) {
+    throw new Error("No dealId found in metadata");
+  }
+
+  const batch = admin.firestore().batch();
+
+  // Générer un code de validation de 6 caractères (lettres et chiffres)
+  const generateValidationCode = () => {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+      code += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return code;
+  };
+
+  // Créer la réservation
+  const reservationRef = admin
+    .firestore()
+    .collection("reservations")
+    .doc(reservationId);
+  batch.set(reservationRef, {
+    postId: dealId,
+    status: "confirmed",
+    paymentId: paymentData.id,
+    buyerId: metadata.userId,
+    quantity: 1,
+    pickupDate: admin.firestore.Timestamp.fromDate(
+      new Date(metadata.pickupDate)
+    ),
+    price: parseFloat(metadata.price || "0"),
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    companyId: metadata.companyId,
+    isValidated: false,
+    basketType: metadata.basketType,
+    companyName: metadata.companyName,
+    pickupAddress: metadata.pickupAddress,
+    validationCode: generateValidationCode(),
+  });
+
+  // Mettre à jour le compteur de paniers
+  const dealRef = admin.firestore().collection("posts").doc(dealId);
+  batch.update(dealRef, {
+    basketCount: admin.firestore.FieldValue.increment(-1),
+  });
+
+  // Programmer la suppression pour plus tard
+  setTimeout(async () => {
+    try {
+      await admin
+        .firestore()
+        .collection("pending_express_deal_payments")
+        .doc(paymentData.id)
+        .delete();
+    } catch (error) {
+      console.error("Error deleting pending payment:", error);
+    }
+  }, 5 * 60 * 1000); // Supprime après 5 minutes
+
+  await batch.commit();
+
+  return { reservationId: reservationRef.id };
+}
+
+// Création commande réservations
+async function handleServicePayment(paymentData) {
+  const metadata = paymentData.metadata;
+  const serviceId = metadata.serviceId;
+  const bookingId = metadata.bookingId;
+  const bookingDateTime = new Date(metadata.bookingDateTime);
+  const timestamp = admin.firestore.Timestamp.fromDate(bookingDateTime);
+
+  if (!serviceId) {
+    throw new Error("No serviceId found in metadata");
+  }
+
+  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+  await bookingRef.set({
+    serviceId: serviceId,
+    status: "confirmed",
+    paymentId: paymentData.id,
+    userId: metadata.userId,
+    professionalId: metadata.professionalId,
+    bookingDateTime: timestamp,
+    amount: parseFloat(metadata.amount || "0"),
+    serviceName: metadata.serviceName,
+    duration: metadata.duration,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    adresse: metadata.adresse,
+  });
+
+  // Programmer la suppression pour plus tard
+  setTimeout(async () => {
+    try {
+      await admin
+        .firestore()
+        .collection("pending_service_payments")
+        .doc(paymentData.id)
+        .delete();
+    } catch (error) {
+      console.error("Error deleting pending payment:", error);
+    }
+  }, 5 * 60 * 1000); // Supprime après 5 minutes
+
+  return { bookingId: bookingRef.id };
+}
+
+async function createPaymentNotification({
+  type,
+  paymentId,
+  metadata,
+  result,
+}) {
+  const notificationRef = admin.firestore().collection("notifications").doc();
+
+  const notificationData = {
+    type: `payment_${type}_success`,
+    userId: metadata.userId,
+    title: getNotificationTitle(type),
+    message: getNotificationMessage(type, result),
+    relatedId: result.orderId || result.reservationId || result.bookingId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    read: false,
+  };
+
+  await notificationRef.set(notificationData);
+}
+
+function getNotificationTitle(type) {
+  switch (type) {
+    case "order":
+      return "Commande confirmée";
+    case "express_deal":
+      return "Réservation express confirmée";
+    case "service":
+      return "Réservation de service confirmée";
+    default:
+      return "Paiement confirmé";
+  }
+}
+
+function getNotificationMessage(type, result) {
+  switch (type) {
+    case "order":
+      return `Votre commande #${result.orderId} a été confirmée`;
+    case "express_deal":
+      return "Votre réservation express a été confirmée";
+    case "service":
+      return "Votre réservation de service a été confirmée";
+    default:
+      return "Votre paiement a été confirmé";
+  }
+}
+
+// Fonction pour E-mails :
+
+const EMAIL_LOGO_URL =
+  "https://image.noelshack.com/fichiers/2024/50/2/1733820474-up-bleu.png";
+
+// Fonction de base pour le template HTML
+function getBaseEmailTemplate(content) {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          .header {
+            background-color: white;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+          }
+          .logo {
+            width: 150px;
+            height: auto;
+          }
+          .content {
+            padding: 30px;
+            background: white;
+          }
+          .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+          }
+          .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white !important; /* Force la couleur en blanc */
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 20px 0;
+          }
+          
+          .button:hover,
+          .button:visited,
+          .button:active,
+          .button:link {
+            color: white !important;
+            text-decoration: none;
+          }
+          .details-card {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+          }
+          .price {
+            font-size: 24px;
+            color: #007bff;
+            font-weight: bold;
+          }
+          h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 20px;
+          }
+          ul {
+            list-style: none;
+            padding: 0;
+          }
+          li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+          }
+          .highlight {
+            background-color: #e8f4ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <img src="${EMAIL_LOGO_URL}" alt="Logo" class="logo">
+          </div>
+          <div class="content">
+            ${content}
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Up !. Tous droits réservés.</p>
+            <p>
+              <a href="https://votre-site.com/contact">Contact</a> |
+              <a href="https://votre-site.com/conditions">Conditions</a> |
+              <a href="https://votre-site.com/confidentialite">Confidentialité</a>
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+// Template pour la confirmation de service (client)
+function generateServiceCustomerEmail(orderData, customer) {
+  const content = `
+    <h1>🎉 Réservation confirmée !</h1>
+    <p>Bonjour ${customer.firstName},</p>
+    <p>Super ! Votre réservation a été confirmée avec succès.</p>
+    
+    <div class="details-card">
+      <h2>📅 Détails de votre réservation</h2>
+      <ul>
+        <li><strong>Service :</strong> ${orderData.serviceName}</li>
+        <li><strong>Date :</strong> ${new Date(
+          orderData.bookingDateTime
+        ).toLocaleString("fr-FR", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}</li>
+        <li><strong>Durée :</strong> ${orderData.duration} minutes</li>
+        <li><strong>Adresse :</strong> ${orderData.adresse}</li>
+      </ul>
+      <div class="price">
+        ${(orderData.amount / 100).toFixed(2)}€
+      </div>
+    </div>
+
+    <div class="highlight">
+      <p>🎯 Prochaine étape : Rendez-vous à l'adresse indiquée à l'heure de votre réservation.</p>
+    </div>
+
+    <a href="https://votre-site.com/reservations/${
+      orderData.id
+    }" class="button">
+      Voir ma réservation
+    </a>
+
+    <p>Des questions ? Nous sommes là pour vous aider !</p>
+  `;
+
+  return getBaseEmailTemplate(content);
+}
+
+// Template pour la notification au professionnel
+function generateServiceProfessionalEmail(orderData, customer) {
+  const content = `
+    <h1>💫 Nouvelle réservation !</h1>
+    <p>Une nouvelle réservation vient d'être confirmée.</p>
+    
+    <div class="details-card">
+      <h2>👤 Informations client</h2>
+      <ul>
+        <li><strong>Nom :</strong> ${customer.firstName} ${
+    customer.lastName
+  }</li>
+        <li><strong>Email :</strong> ${customer.email}</li>
+      </ul>
+    </div>
+
+    <div class="details-card">
+      <h2>📝 Détails de la réservation</h2>
+      <ul>
+        <li><strong>Service :</strong> ${orderData.serviceName}</li>
+        <li><strong>Date :</strong> ${new Date(
+          orderData.bookingDateTime
+        ).toLocaleString("fr-FR", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}</li>
+        <li><strong>Durée :</strong> ${orderData.duration} minutes</li>
+      </ul>
+      <div class="price">
+        ${(orderData.amount / 100).toFixed(2)}€
+      </div>
+    </div>
+
+    <a href="https://votre-site.com/pro/reservations/${
+      orderData.id
+    }" class="button">
+      Gérer la réservation
+    </a>
+  `;
+
+  return getBaseEmailTemplate(content);
+}
+
+// Template pour la commande classique (client)
+function generateOrderCustomerEmail(orderData, customer, orderId) {
+  const itemsList = orderData.items
+    .map(
+      (item) => `
+    <li style="display: flex; justify-content: space-between; padding: 10px 0;">
+      <span>${item.name} x ${item.quantity} </span>
+      <span>${item.appliedPrice.toFixed(2)} €</span>
+    </li>
+  `
+    )
+    .join("");
+
+  const content = `
+    <h1>🛍️ Commande confirmée !</h1>
+    <p>Bonjour ${customer.firstName},</p>
+    <p>Merci pour votre commande ! Nous avons bien reçu votre paiement.</p>
+    
+    <div class="details-card">
+      <h2>📦 Détails de votre commande</h2>
+      <ul>
+        ${itemsList}
+      </ul>
+      <div style="border-top: 2px solid #eee; margin-top: 15px; padding-top: 15px;">
+        <div class="price">
+          Total : ${orderData.totalPrice.toFixed(2)} €
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight">
+      <p>📬 Votre commande sera bientôt préparée.</p>
+      <p>Numéro de commande : #${orderId.substring(0, 8)}</p>
+    </div>
+
+    <a href="https://valentinlpka.github.io/happydeals/#/commandes/${orderId}" class="button">
+      Suivre ma commande
+    </a>
+  `;
+
+  return getBaseEmailTemplate(content);
+}
+
+// Template pour la commande classique (professionnel)
+function generateOrderProfessionalEmail(orderData, customer) {
+  const itemsList = orderData.items
+    .map(
+      (item) => `
+    <li style="display: flex; justify-content: space-between; padding: 10px 0;">
+      <span>${item.name} x${item.quantity}</span>
+      <span>${(item.price / 100).toFixed(2)}€</span>
+    </li>
+  `
+    )
+    .join("");
+
+  const content = `
+    <h1>🎯 Nouvelle commande reçue !</h1>
+    <p>Une nouvelle commande vient d'être passée sur votre boutique.</p>
+    
+    <div class="details-card">
+      <h2>👤 Informations client</h2>
+      <ul>
+        <li><strong>Nom :</strong> ${customer.firstName} ${
+    customer.lastName
+  }</li>
+        <li><strong>Email :</strong> ${customer.email}</li>
+      </ul>
+    </div>
+
+    <div class="details-card">
+      <h2>📝 Détails de la commande</h2>
+      <ul>
+        ${itemsList}
+      </ul>
+      <div class="price">
+        Total : ${(orderData.amount / 100).toFixed(2)}€
+      </div>
+    </div>
+
+    <a href="https://votre-site.com/pro/commandes/${
+      orderData.id
+    }" class="button">
+      Gérer la commande
+    </a>
+  `;
+
+  return getBaseEmailTemplate(content);
+}
+
+// Template pour le deal express (client)
+function generateDealCustomerEmail(orderData, customer) {
+  const content = `
+    <h1>🌱 Panier anti-gaspi réservé !</h1>
+    <p>Bonjour ${customer.firstName},</p>
+    <p>Votre panier anti-gaspi a été réservé avec succès. Merci de contribuer à la lutte contre le gaspillage alimentaire !</p>
+    
+    <div class="details-card">
+      <h2>🛒 Détails de votre panier</h2>
+      <ul>
+        <li><strong>Type de panier :</strong> ${orderData.basketType}</li>
+        <li><strong>À récupérer le :</strong> ${new Date(
+          orderData.pickupDate
+        ).toLocaleString("fr-FR", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}</li>
+        <li><strong>Adresse :</strong> ${orderData.pickupAddress}</li>
+      </ul>
+      <div class="highlight">
+        <p>🔑 Votre code de retrait :</p>
+        <h2 style="text-align: center; letter-spacing: 5px; font-size: 32px; margin: 10px 0;">
+          ${orderData.validationCode}
+        </h2>
+        <p style="font-size: 12px; text-align: center;">À présenter lors du retrait de votre panier</p>
+      </div>
+      <div class="price">
+        ${orderData.price.toFixed(2)}€
+      </div>
+    </div>
+
+    <div class="highlight">
+      <p>⏰ N'oubliez pas : Récupérez votre panier à l'heure indiquée.</p>
+    </div>
+
+    <a href="https://votre-site.com/reservations/${
+      orderData.id
+    }" class="button">
+      Voir ma réservation
+    </a>
+  `;
+
+  return getBaseEmailTemplate(content);
+}
+
+// Template pour le deal express (professionnel)
+function generateDealProfessionalEmail(orderData, customer) {
+  const content = `
+    <h1>🌟 Nouveau panier anti-gaspi réservé !</h1>
+    <p>Un client vient de réserver un panier anti-gaspi.</p>
+    
+    <div class="details-card">
+      <h2>👤 Informations client</h2>
+      <ul>
+        <li><strong>Nom :</strong> ${customer.firstName} ${
+    customer.lastName
+  }</li>
+        <li><strong>Email :</strong> ${customer.email}</li>
+      </ul>
+    </div>
+
+    <div class="details-card">
+      <h2>📝 Détails de la réservation</h2>
+      <ul>
+        <li><strong>Type de panier :</strong> ${orderData.basketType}</li>
+        <li><strong>Date de retrait :</strong> ${new Date(
+          orderData.pickupDate
+        ).toLocaleString("fr-FR", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}</li>
+      </ul>
+      <div class="highlight">
+        <p>Code de validation :</p>
+        <h2 style="text-align: center; letter-spacing: 5px; font-size: 32px; margin: 10px 0;">
+          ${orderData.validationCode}
+        </h2>
+      </div>
+      <div class="price">
+        ${orderData.price.toFixed(2)}€
+      </div>
+    </div>
+
+    <a href="https://votre-site.com/pro/reservations/${
+      orderData.id
+    }" class="button">
+      Gérer la réservation
+    </a>
+  `;
+
+  return getBaseEmailTemplate(content);
+}
