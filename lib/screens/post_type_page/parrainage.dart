@@ -88,7 +88,6 @@ class _ParraiangePageState extends State<ParraiangePage> {
         }
 
         if (snapshot.hasError) {
-          print(snapshot.error);
           return Center(child: Text('Erreur: ${snapshot.error}'));
         }
 

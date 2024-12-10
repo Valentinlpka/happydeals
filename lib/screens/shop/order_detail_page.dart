@@ -70,7 +70,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            print(snapshot.error);
             return const Center(child: Text('Une erreur est survenue'));
           } else if (!snapshot.hasData) {
             return const Center(child: Text('Commande non trouvée'));
@@ -368,18 +367,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
-  List<pw.Widget> _generateVATSummary(List<OrderItem> items) {
-    Map<double, double> vatSummary = {};
-    for (var item in items) {
-      vatSummary[item.tva] = (vatSummary[item.tva] ?? 0) +
-          (item.appliedPrice * item.quantity) -
-          ((item.appliedPrice / (1 + (item.tva / 100))) * item.quantity);
-    }
-
-    return vatSummary.entries.map((entry) {
-      return pw.Text('TVA ${entry.key}% : ${entry.value.toStringAsFixed(2)} €');
-    }).toList();
-  }
 
   double _calculateTotalHT(List<OrderItem> items) {
     return items.fold(

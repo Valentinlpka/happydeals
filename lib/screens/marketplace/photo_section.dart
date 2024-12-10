@@ -27,7 +27,6 @@ class PhotoSectionState extends State<PhotoSection> {
   }
 
   Widget buildPhotoSection() {
-    print('Building photo section with ${_photos.length} photos');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -47,8 +46,6 @@ class PhotoSectionState extends State<PhotoSection> {
             if (index == _photos.length) {
               return addPhotoButton(key: const ValueKey('add_photo_button'));
             }
-            print(
-                'Building photo item at index $index: ${_photos[index].runtimeType}');
             return buildPhotoItem(_photos[index], index,
                 key: ValueKey(_photos[index]));
           },
@@ -107,7 +104,6 @@ class PhotoSectionState extends State<PhotoSection> {
     } else if (photo is String) {
       return Image.network(photo, fit: BoxFit.cover);
     } else {
-      print('Unsupported photo type: ${photo.runtimeType}');
       return Container(color: Colors.grey);
     }
   }

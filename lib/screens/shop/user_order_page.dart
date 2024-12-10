@@ -66,7 +66,6 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            print(snapshot.error);
             return const Center(child: Text('Une erreur est survenue'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(

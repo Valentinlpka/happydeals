@@ -22,7 +22,6 @@ class SavedAdsProvider extends ChangeNotifier {
       _isInitialized = true;
       notifyListeners();
     } catch (e) {
-      print('Error initializing saved ads: $e');
     }
   }
 
@@ -48,7 +47,6 @@ class SavedAdsProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Error toggling save ad: $e');
       rethrow;
     }
   }

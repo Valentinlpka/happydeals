@@ -1,14 +1,10 @@
 // ignore_for_file: empty_catches
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/combined_item.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
@@ -21,8 +17,6 @@ import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/promo_code_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -67,7 +61,6 @@ class HomeProvider extends ChangeNotifier {
 
       return combinedItems;
     } catch (e) {
-      print('Erreur dans loadUnifiedFeed: $e');
       return [];
     }
   }
@@ -195,14 +188,12 @@ class HomeProvider extends ChangeNotifier {
               }));
           }
         } catch (e) {
-          print('Erreur lors du traitement du post partagé: $e');
           continue;
         }
       }
 
       return postsWithCompanyData;
     } catch (e) {
-      print('Erreur dans fetchSharedPostsWithCompanyData: $e');
       return [];
     }
   }
@@ -213,14 +204,14 @@ class HomeProvider extends ChangeNotifier {
     if (!userDoc.exists) return null;
 
     final userData = userDoc.data() as Map<String, dynamic>;
-    print('User Data from Firestore: $userData'); // Debug log
+    // Debug log
 
     final result = {
       'firstName': userData['firstName'] ?? '',
       'lastName': userData['lastName'] ?? '',
       'userProfilePicture': userData['image_profile'] ?? '',
     };
-    print('Returned User Data: $result'); // Debug log
+    // Debug log
     return result;
   }
 
@@ -293,7 +284,7 @@ class HomeProvider extends ChangeNotifier {
     try {
       final data = doc.data() as Map<String, dynamic>;
       final String type = data['type'] ?? 'unknown';
-      print('Type de post: $type'); // Ajoutez ce log
+      // Ajoutez ce log
 
       switch (type) {
         case 'job_offer':
@@ -307,7 +298,6 @@ class HomeProvider extends ChangeNotifier {
         case 'express_deal':
           return ExpressDeal.fromDocument(doc);
         case 'news':
-          print('Envoie de la méthode pour NEWS');
           return News.fromDocument(doc);
         case 'referral':
           return Referral.fromDocument(doc);
@@ -339,138 +329,11 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _checkAndRequestPermissions() async {
-    LocationPermission permission = await Geolocator.checkPermission();
 
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        throw Exception("Permission de localisation refusée");
-      }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      // Rediriger l'utilisateur vers les paramètres
-      await Geolocator.openAppSettings();
-      throw Exception(
-          "Permissions de localisation refusées définitivement. Veuillez les activer dans les paramètres.");
-    }
-  }
 
-  Future<bool> _requestLocationService() async {
-    // Sur Android, vous pouvez utiliser cette méthode pour ouvrir les paramètres de localisation
-    if (Platform.isAndroid) {
-      await Geolocator.openLocationSettings();
-      // Attendre un peu pour laisser l'utilisateur activer le service
-      await Future.delayed(const Duration(seconds: 2));
-      return await Geolocator.isLocationServiceEnabled();
-    }
-    return false;
-  }
 
-  Future<Position?> _getCurrentPosition() async {
-    if (kIsWeb) {
-      try {
-        LocationPermission permission = await Geolocator.checkPermission();
 
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-          if (permission == LocationPermission.denied) return null;
-        }
-
-        Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.medium,
-            timeLimit: const Duration(seconds: 10));
-        return position;
-      } catch (e) {
-        print('Erreur géolocalisation : $e');
-        return null;
-      }
-    } else {
-      try {
-        return await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
-        );
-      } catch (e) {
-        return await Geolocator.getLastKnownPosition();
-      }
-    }
-  }
-
-  Future<String> _getAddressFromPosition(Position position) async {
-    try {
-      print('Tentative de conversion des coordonnées en adresse...');
-      print('Latitude: ${position.latitude}, Longitude: ${position.longitude}');
-
-      const apiKey =
-          'AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc'; // Utilisez la même clé que pour Places
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.latitude},${position.longitude}&key=$apiKey&language=fr&result_type=locality',
-      );
-
-      final response = await http.get(url);
-      final data = json.decode(response.body);
-
-      if (data['status'] == 'OK' && data['results'].isNotEmpty) {
-        // Parcourir les composants d'adresse pour trouver la ville
-        final components = data['results'][0]['address_components'];
-        String? city;
-        String? country;
-
-        for (var component in components) {
-          final types = component['types'] as List;
-          if (types.contains('locality')) {
-            city = component['long_name'];
-          } else if (types.contains('country')) {
-            country = component['long_name'];
-          }
-        }
-
-        if (city != null) {
-          return country != null ? '$city, $country' : city;
-        }
-      }
-
-      // Si on ne trouve pas la ville, essayer avec placemarkFromCoordinates comme fallback
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
-        if (place.locality?.isNotEmpty ?? false) {
-          return place.country?.isNotEmpty ?? false
-              ? '${place.locality}, ${place.country}'
-              : place.locality!;
-        }
-      }
-
-      return 'Position (${position.latitude.toStringAsFixed(3)}, ${position.longitude.toStringAsFixed(3)})';
-    } catch (e) {
-      print('Erreur lors de la conversion des coordonnées en adresse: $e');
-      return 'Position (${position.latitude.toStringAsFixed(3)}, ${position.longitude.toStringAsFixed(3)})';
-    }
-  }
-
-  void _handleLocationError(String message, dynamic error) {
-    print('$message: $error');
-    // Vous pouvez ajouter ici une logique pour afficher un message à l'utilisateur
-    // Par exemple avec un SnackBar ou un Dialog
-  }
-
-  Future<void> _saveLocation(String address, Position position) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('savedAddress', address);
-      await prefs.setDouble('savedLat', position.latitude);
-      await prefs.setDouble('savedLng', position.longitude);
-      // Ne pas recharger les données ici
-    } catch (e) {
-      print('Erreur lors de la sauvegarde de la localisation : $e');
-    }
-  }
 
   Future<void> applyChanges() async {
     notifyListeners();

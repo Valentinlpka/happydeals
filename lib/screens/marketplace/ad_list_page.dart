@@ -300,24 +300,6 @@ class _AdListPageState extends State<AdListPage> {
     );
   }
 
-  Widget _buildLoader() {
-    if (!_hasMore) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child:
-              Text('Fin des résultats', style: TextStyle(color: Colors.grey)),
-        ),
-      );
-    }
-
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: CircularProgressIndicator(),
-      ),
-    );
-  }
 
   void _onScroll() {
     // Charger plus tôt, quand on atteint 80% du scroll
@@ -328,14 +310,6 @@ class _AdListPageState extends State<AdListPage> {
     }
   }
 
-  void _resetAndReloadAds() {
-    setState(() {
-      _ads.clear();
-      _lastDocument = null;
-      _hasMore = true;
-    });
-    _loadMoreAds();
-  }
 
   void _showFilterOptions() {
     showModalBottomSheet(
@@ -531,8 +505,9 @@ class _AdListPageState extends State<AdListPage> {
 
 // Mettre à jour _loadMoreAds pour prendre en compte les filtres
   void _loadMoreAds() async {
-    if (_isLoading || !_hasMore || !mounted)
+    if (_isLoading || !_hasMore || !mounted) {
       return; // Ajout de la vérification mounted
+    }
     setState(() {
       _isLoading = true;
     });
@@ -599,7 +574,6 @@ class _AdListPageState extends State<AdListPage> {
           _isLoading = false;
         });
       }
-      print('Erreur lors du chargement des annonces: $e');
     }
   }
 

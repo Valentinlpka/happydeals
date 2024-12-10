@@ -189,7 +189,6 @@ class ConversationListItem extends StatelessWidget {
     }
 
     if (otherUserId == null) {
-      print('WARNING: otherUserId is null for conversation ${conversation.id}');
       return {
         'userData': {
           'firstName': 'Utilisateur',
@@ -253,7 +252,6 @@ class ConversationListItem extends StatelessWidget {
           .get();
 
       if (!userDoc.exists) {
-        print('WARNING: User document not found for ID: $otherUserId');
         return {
           'userData': {
             'firstName': 'Utilisateur',
@@ -277,7 +275,6 @@ class ConversationListItem extends StatelessWidget {
         'isCompany': false,
       };
     } catch (e) {
-      print('Error loading conversation data: $e');
       return {
         'userData': {
           'firstName': 'Erreur',
@@ -386,7 +383,7 @@ class ConversationTile extends StatelessWidget {
               memberCount: isGroup ? (conversation.members?.length ?? 0) : null,
             ),
             subtitle: MessagePreview(
-              message: conversation.lastMessage ?? '',
+              message: conversation.lastMessage,
               adThumbnail: adData?['photos']?.first,
               adPrice: adData?['price']?.toDouble(),
               isUnread: isUnread,
@@ -418,16 +415,8 @@ class ConversationTile extends StatelessWidget {
       return; // Ajout du return pour éviter la suite du code
     }
 
-    String? otherUserId;
     if (conversation.entrepriseId != null) {
-      otherUserId = conversation.entrepriseId == userId
-          ? conversation.particulierId
-          : conversation.entrepriseId;
-    } else {
-      otherUserId = conversation.particulierId == userId
-          ? conversation.otherUserId
-          : conversation.particulierId;
-    }
+    } else {}
     if (!context.mounted) return;
 
     // Code pour les conversations normales
@@ -682,10 +671,12 @@ class ConversationTrailing extends StatelessWidget {
     if (difference.inMinutes < 60) return 'Il y a ${difference.inMinutes} min';
     if (difference.inHours < 24) return 'Il y a ${difference.inHours} h';
     if (difference.inDays < 7) return 'Il y a ${difference.inDays} j';
-    if (difference.inDays < 30)
+    if (difference.inDays < 30) {
       return 'Il y a ${(difference.inDays / 7).floor()} sem';
-    if (difference.inDays < 365)
+    }
+    if (difference.inDays < 365) {
       return 'Il y a ${(difference.inDays / 30).floor()} mois';
+    }
     return 'Il y a ${(difference.inDays / 365).floor()} an${difference.inDays >= 730 ? 's' : ''}';
   }
 }

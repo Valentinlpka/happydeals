@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/conversation_provider.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/login_page.dart';
 import 'package:provider/provider.dart';
 
@@ -45,23 +45,18 @@ class AuthService {
   }
 
   Future<void> signOut(BuildContext context) async {
-    print('====== SIGN OUT DEBUG ======');
     try {
       // Nettoyer les données de conversation
       final conversationService =
           Provider.of<ConversationService>(context, listen: false);
       await conversationService.cleanUp();
-      print('Conversation service cleaned up');
 
       // Nettoyer les données utilisateur
       final userModel = Provider.of<UserModel>(context, listen: false);
-      print('Current user ID before clear: ${userModel.userId}');
       userModel.clearUserData();
-      print('User data cleared');
 
       // Ensuite se déconnecter de Firebase
       await _auth.signOut();
-      print('Firebase sign out successful');
 
       // Naviguer vers la page de connexion
       Navigator.of(context).pushAndRemoveUntil(
@@ -69,10 +64,7 @@ class AuthService {
         (Route<dynamic> route) => false,
       );
 
-      print('Navigation to login completed');
-      print('==============================');
     } catch (e) {
-      print('Error during sign out: $e');
     }
   }
 

@@ -48,7 +48,6 @@ class _JobOffersPageState extends State<JobOffersPage> {
         _sectors = sectorsSet.toList()..sort();
       });
     } catch (e) {
-      print("Erreur lors du chargement des filtres: $e");
     }
   }
 

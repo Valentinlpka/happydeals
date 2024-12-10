@@ -2,9 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/providers/users.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
 class SavingsPage extends StatelessWidget {
   const SavingsPage({
@@ -13,8 +11,6 @@ class SavingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalSavings = context.watch<UserModel>().totalSavings;
-
     final String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
@@ -204,8 +200,6 @@ class SavingsPage extends StatelessWidget {
         // Attendre avant la prochaine mise à jour
         await Future.delayed(const Duration(seconds: 30));
       } catch (e) {
-        print('Erreur lors de la récupération des transactions: $e');
-        print('Stack trace: ${StackTrace.current}');
         await Future.delayed(const Duration(seconds: 5));
       }
     }

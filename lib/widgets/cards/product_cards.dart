@@ -28,7 +28,6 @@ class ProductCards extends StatelessWidget {
       }
       return null;
     } catch (e) {
-      print('Erreur lors de la récupération du produit: $e');
       return null;
     }
   }

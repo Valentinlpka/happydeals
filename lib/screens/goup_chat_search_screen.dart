@@ -76,7 +76,6 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
             .limit(10)
             .snapshots()
             .handleError((error) {
-          print('Erreur companiesStream: $error');
         });
 
         final usersStream = _followedUsers.isEmpty
@@ -91,7 +90,6 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                 .limit(10)
                 .snapshots()
                 .handleError((error) {
-                print('Erreur usersStream: $error');
               });
 
         setState(() {
@@ -103,7 +101,6 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
           );
         });
       } catch (e) {
-        print('Erreur générale: $e');
       }
     });
   }

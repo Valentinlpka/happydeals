@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/followed_companies_page.dart';
 import 'package:happy/screens/liked_post_page.dart';
 import 'package:happy/screens/settings_page.dart';

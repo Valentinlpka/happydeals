@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/product.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
@@ -49,7 +49,6 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
       }
       return null;
     } catch (e) {
-      print('Erreur lors de la récupération du produit: $e');
       return null;
     }
   }

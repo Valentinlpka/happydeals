@@ -107,8 +107,6 @@ class LoyaltyCardsPage extends StatelessWidget {
   }
 
   Widget _buildPromoCodesList(String companyId) {
-    print(
-        "Recherche de codes promo pour companyId: $companyId et userId: $userId");
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('PromoCodes')
@@ -123,17 +121,13 @@ class LoyaltyCardsPage extends StatelessWidget {
         }
 
         if (snapshot.hasError) {
-          print(
-              "Erreur lors de la récupération des codes promo: ${snapshot.error}");
           return Text("Erreur: ${snapshot.error}");
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          print("Aucun code promo trouvé");
           return const SizedBox.shrink();
         }
 
-        print("Nombre de codes promo trouvés: ${snapshot.data!.docs.length}");
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +139,6 @@ class LoyaltyCardsPage extends StatelessWidget {
             const SizedBox(height: 8),
             ...snapshot.data!.docs.map((doc) {
               final promoData = doc.data() as Map<String, dynamic>;
-              print("Code promo trouvé: ${promoData['code']}");
               return Text(
                   '${promoData['code']} - ${promoData['value']}${promoData['isPercentage'] ? '%' : '€'} (Expire le ${_formatDate(promoData['expiresAt'])})');
             }),

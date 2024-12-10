@@ -50,4 +50,20 @@ class BookingModel {
       createdAt: (map['createdAt'] as Timestamp).toDate(),
     );
   }
+
+  // Nouvelle méthode pour créer depuis un DocumentSnapshot
+  factory BookingModel.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return BookingModel(
+      id: doc.id, // Utilise l'ID du document directement
+      userId: data['userId'] ?? '',
+      serviceId: data['serviceId'] ?? '',
+      professionalId: data['professionalId'] ?? '',
+      timeSlotId: data['timeSlotId'] ?? '',
+      bookingDate: (data['bookingDateTime'] ?? Timestamp.now()).toDate(),
+      price: (data['amount'] ?? 0).toDouble(),
+      status: data['status'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+    );
+  }
 }

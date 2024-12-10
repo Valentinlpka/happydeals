@@ -36,11 +36,9 @@ class Orders {
   factory Orders.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
-    print('Raw data from Firestore: $data');
 
     double safeParseDouble(dynamic value, String fieldName) {
       if (value == null) {
-        print('Warning: $fieldName is null');
         return 0.0;
       }
       if (value is int) return value.toDouble();
@@ -48,12 +46,10 @@ class Orders {
       if (value is String) {
         final parsed = double.tryParse(value);
         if (parsed == null) {
-          print('Warning: Failed to parse $fieldName: $value');
           return 0.0;
         }
         return parsed;
       }
-      print('Warning: Unexpected type for $fieldName: ${value.runtimeType}');
       return 0.0;
     }
 
@@ -117,11 +113,10 @@ class OrderItem {
   });
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
-    print('Raw OrderItem data: $map'); // Log raw data
+    // Log raw data
 
     double safeParseDouble(dynamic value, String fieldName) {
       if (value == null) {
-        print('Warning: $fieldName is null in OrderItem');
         return 0.0;
       }
       if (value is int) return value.toDouble();
@@ -129,13 +124,10 @@ class OrderItem {
       if (value is String) {
         final parsed = double.tryParse(value);
         if (parsed == null) {
-          print('Warning: Failed to parse $fieldName in OrderItem: $value');
           return 0.0;
         }
         return parsed;
       }
-      print(
-          'Warning: Unexpected type for $fieldName in OrderItem: ${value.runtimeType}');
       return 0.0;
     }
 

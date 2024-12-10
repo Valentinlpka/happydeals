@@ -6,7 +6,7 @@ import 'package:happy/classes/post.dart';
 import 'package:happy/classes/rating.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/conversation_provider.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/post_type_page/professional_page.dart';
@@ -163,7 +163,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          print(snapshot.error);
           return Center(child: Text('Erreur: ${snapshot.error}'));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -261,16 +260,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  Widget _buildSliverAppBar(Map<String, dynamic> userData) {
-    return SliverAppBar(
-      expandedHeight: 100.0,
-      floating: false,
-      pinned: true,
-      flexibleSpace: FlexibleSpaceBar(
-        title: Text(userData['firstName'] ?? ''),
-      ),
-    );
-  }
 
   TabBar _buildTabBar() {
     return TabBar(
@@ -520,13 +509,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
     };
   }
 
-  Future<int> _getAdsCount(String userId) async {
-    QuerySnapshot adsSnapshot = await FirebaseFirestore.instance
-        .collection('ads')
-        .where('userId', isEqualTo: userId)
-        .get();
-    return adsSnapshot.size;
-  }
 
   Widget _buildFollowButton(String profileUserId, UserModel userModel) {
     bool isFollowing = userModel.followedUsers.contains(profileUserId);
@@ -979,59 +961,3 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
     }
   }
 }
-
-// Cette classe reste inchangée, mais nous pouvons ajouter quelques commentaires pour expliquer son rôle
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate(this._tabBar);
-
-  final TabBar _tabBar;
-
-  @override
-  double get minExtent => _tabBar.preferredSize.height;
-  @override
-  double get maxExtent => _tabBar.preferredSize.height;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: _tabBar,
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return false;
-  }
-}
-
-// Commentaires explicatifs sur les optimisations effectuées :
-
-// 1. Utilisation de streams : Nous avons remplacé les futures par des streams pour 
-//    les données de l'utilisateur, des posts et des annonces. Cela permet une mise à jour 
-//    en temps réel de l'interface utilisateur lorsque les données changent dans Firestore.
-
-// 2. Réduction des appels à Firestore : Nous avons minimisé le nombre d'appels à Firestore 
-//    en utilisant des streams et en récupérant les données nécessaires en une seule fois 
-//    lorsque c'est possible.
-
-// 3. Amélioration de la gestion de l'état : Nous utilisons maintenant le Provider pour 
-//    gérer l'état de l'utilisateur, ce qui rend le code plus propre et plus facile à maintenir.
-
-// 4. Restructuration du code : Nous avons divisé le code en méthodes plus petites et plus 
-//    spécifiques, ce qui améliore la lisibilité et la maintenabilité.
-
-// 5. Optimisation des listes : Pour les listes d'abonnés et d'abonnements, nous avons créé 
-//    une méthode générique _showUserList qui peut être réutilisée, réduisant ainsi la 
-//    duplication de code.
-
-// 6. Gestion des erreurs : Nous avons ajouté une meilleure gestion des erreurs et des états 
-//    de chargement pour améliorer l'expérience utilisateur.
-
-// 7. Performance : En utilisant ListView.builder et GridView.builder, nous nous assurons 
-//    que seuls les éléments visibles sont construits, ce qui améliore les performances 
-//    pour les longues listes.
-
-// Ces optimisations devraient améliorer significativement les performances et la réactivité 
-// de la page de profil, tout en rendant le code plus facile à maintenir et à étendre.

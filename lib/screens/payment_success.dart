@@ -2,219 +2,188 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:happy/classes/order.dart';
-import 'package:happy/screens/shop/cart_models.dart';
+import 'package:happy/screens/booking_detail_page.dart';
+import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
-import 'package:happy/services/order_service.dart';
-import 'package:happy/services/promo_service.dart';
 import 'package:universal_html/html.dart' as html;
 
-class PaymentSuccessScreen extends StatefulWidget {
+class UnifiedPaymentSuccessScreen extends StatefulWidget {
   final String? sessionId;
 
-  const PaymentSuccessScreen({
+  const UnifiedPaymentSuccessScreen({
     this.sessionId,
     super.key,
   });
 
   @override
-  _PaymentSuccessScreenState createState() => _PaymentSuccessScreenState();
+  State<UnifiedPaymentSuccessScreen> createState() =>
+      _UnifiedPaymentSuccessScreenState();
 }
 
-class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
-  String? _getSessionId() {
-    if (kIsWeb) {
-      // Récupérer l'URL complète
-      String url = html.window.location.href;
-      print('URL complète: $url'); // Pour déboguer
-
-      // Parser l'URL pour extraire le session_id après le hash
-      try {
-        // Trouver la partie après le hash
-        String hashPart = url.split('#')[1];
-        // Trouver la partie après le ?
-        String queryPart = hashPart.split('?')[1];
-        // Parser les paramètres
-        Map<String, String> params = Uri.splitQueryString(queryPart);
-        String? sessionId = params['session_id'];
-        print('Session ID trouvé: $sessionId'); // Pour déboguer
-        return sessionId;
-      } catch (e) {
-        print('Erreur parsing URL: $e');
-        return null;
-      }
-    }
-    return null;
-  }
-
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final OrderService _orderService = OrderService();
+class _UnifiedPaymentSuccessScreenState
+    extends State<UnifiedPaymentSuccessScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final PromoCodeService _promoCodeService = PromoCodeService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   bool _isLoading = true;
-  String _statusMessage = 'Vérification du paiement en cours...';
+  String _statusMessage = 'Vérification du paiement...';
+  String? _paymentType;
+  Map<String, dynamic>? _paymentDetails;
 
   @override
   void initState() {
     super.initState();
-    _verifyPaymentAndFinalizeOrder();
+    _verifyPayment();
   }
 
-  Future<void> _verifyPaymentAndFinalizeOrder() async {
-    try {
-      print('Début de la vérification du paiement');
+  String? _getSessionId() {
+    if (!kIsWeb) return widget.sessionId;
 
+    try {
+      String url = html.window.location.href;
+      String hashPart = url.split('#')[1];
+      String queryPart = hashPart.split('?')[1];
+      Map<String, String> params = Uri.splitQueryString(queryPart);
+      return params['session_id'];
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> _verifyPayment() async {
+    try {
       if (_auth.currentUser == null) {
         throw Exception('Utilisateur non authentifié');
       }
 
-      // Utiliser la nouvelle méthode pour obtenir le sessionId
-      final stripeSessionId = _getSessionId();
-      if (stripeSessionId == null) {
+      final sessionId = _getSessionId();
+      if (sessionId == null) {
         throw Exception('Session de paiement non trouvée');
       }
 
-      // Trouver le panier correspondant dans Firestore
-      final cartSnapshot = await _firestore
-          .collection('carts')
-          .where('stripeSessionId', isEqualTo: stripeSessionId)
-          .limit(1)
-          .get();
-
-      if (cartSnapshot.docs.isEmpty) {
-        throw Exception('Panier non trouvé');
+      // Vérifier le type de paiement
+      final paymentDetails = await _getPaymentDetails(sessionId);
+      if (paymentDetails == null) {
+        throw Exception('Détails du paiement non trouvés');
       }
 
-      final cartDoc = cartSnapshot.docs.first;
-      final cart = await Cart.fromFirestore(cartDoc);
+      setState(() {
+        _paymentType = paymentDetails['type'];
+        _paymentDetails = paymentDetails;
+        _statusMessage = 'Finalisation de votre commande...';
+      });
 
-      if (cart == null) {
-        throw Exception('Erreur lors de la récupération du panier');
+      // Gérer en fonction du type
+      switch (_paymentType) {
+        case 'order':
+          await _handleOrderSuccess();
+          break;
+        case 'express_deal':
+          await _handleExpressDealSuccess();
+          break;
+        case 'service':
+          await _handleServiceSuccess();
+          break;
+        default:
+          throw Exception('Type de paiement inconnu');
       }
 
-      if (cart.isExpired) {
-        throw Exception('Le panier a expiré');
-      }
-
-      setState(() =>
-          _statusMessage = 'Paiement confirmé. Finalisation de la commande...');
-
-      await _finalizeOrder(cart);
-      print('Commande finalisée avec succès');
-
-      await _finalizePromoCodeUsage(cart);
-      print('Utilisation du code promo finalisée');
-
-      // Supprimer le panier de Firestore
-      await cartDoc.reference.delete();
-
+      // Afficher le succès
       _showSuccessMessage();
     } catch (e) {
-      print('Erreur: $e');
       _handleError('Une erreur est survenue: $e');
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _finalizeOrder(Cart cart) async {
-    final user = _auth.currentUser!;
-    final address = await _fetchCompanyAddress(cart.entrepriseId);
+  Future<Map<String, dynamic>?> _getPaymentDetails(String sessionId) async {
+    // Map pour convertir les noms de collections en types
+    final typeMap = {
+      'pending_order_payments': 'order',
+      'pending_express_deal_payments': 'express_deal',
+      'pending_service_payments': 'service'
+    };
 
-    // Vérifier une dernière fois les détails du code promo si présent
-    double finalDiscountAmount = cart.discountAmount;
-    if (cart.appliedPromoCode != null) {
-      final promoDetails =
-          await _promoCodeService.getPromoCodeDetails(cart.appliedPromoCode!);
-      if (promoDetails != null) {
-        // Recalculer la réduction pour s'assurer qu'elle est correcte
-        if (promoDetails['isPercentage']) {
-          finalDiscountAmount = cart.subtotal * (promoDetails['value'] / 100);
-        } else {
-          finalDiscountAmount = promoDetails['value'].toDouble();
-        }
-      }
-    }
-
-    final orderId = await _orderService.createOrder(Orders(
-      id: '',
-      userId: user.uid,
-      sellerId: cart.sellerId,
-      items: cart.items
-          .map((item) => OrderItem(
-                productId: item.product.id,
-                image: item.product.imageUrl[0],
-                name: item.product.name,
-                quantity: item.quantity,
-                originalPrice: item.product.price.toDouble(),
-                appliedPrice: item.appliedPrice.toDouble(),
-                tva: item.product.tva.toDouble(),
-              ))
-          .toList(),
-      subtotal: cart.subtotal.toDouble(),
-      happyDealSavings: cart.totalSavings.toDouble(),
-      totalPrice: cart.totalAfterDiscount.toDouble(),
-      status: 'paid',
-      createdAt: DateTime.now(),
-      pickupAddress: address ?? "",
-      entrepriseId: cart.entrepriseId,
-      promoCode: cart.appliedPromoCode,
-      discountAmount: finalDiscountAmount,
-    ));
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-          builder: (context) => OrderDetailPage(orderId: orderId)),
-    );
-  }
-
-  Future<void> _finalizePromoCodeUsage(Cart cart) async {
-    if (cart.appliedPromoCode != null) {
-      try {
-        // Vérifier une dernière fois la validité du code
-        final isValid = await _promoCodeService.validatePromoCode(
-          cart.appliedPromoCode!,
-          cart.sellerId,
-          _auth.currentUser?.uid ?? '',
-        );
-
-        if (!isValid) {
-          print('Code promo invalide au moment de la finalisation');
-          return;
-        }
-
-        // Marquer le code comme utilisé avec le companyId
-        await _promoCodeService.usePromoCode(
-          cart.appliedPromoCode!,
-          cart.sellerId,
-        );
-
-        print('Code promo ${cart.appliedPromoCode} utilisé avec succès');
-      } catch (e) {
-        print('Erreur lors de la finalisation du code promo: $e');
-        // On ne relance pas l'exception pour ne pas bloquer la finalisation de la commande
-      }
-    }
-  }
-
-  Future<String?> _fetchCompanyAddress(String entrepriseId) async {
-    try {
-      DocumentSnapshot doc =
-          await _firestore.collection('companys').doc(entrepriseId).get();
+    // Vérifier dans les trois collections de paiements en attente
+    for (String collection in typeMap.keys) {
+      final doc = await _firestore.collection(collection).doc(sessionId).get();
       if (doc.exists) {
-        Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
-        if (data != null && data.containsKey('adress')) {
-          Map<String, dynamic> addressMap =
-              data['adress'] as Map<String, dynamic>;
-          return '${addressMap['adresse'] ?? ''}, ${addressMap['codePostal'] ?? ''} ${addressMap['ville'] ?? ''}';
-        }
+        return {
+          ...doc.data()!,
+          'type': typeMap[collection] // Utiliser le type mappé au lieu de split
+        };
       }
-    } catch (e) {
-      print("Erreur lors de la récupération de l'adresse: $e");
     }
     return null;
+  }
+
+  Future<void> _handleOrderSuccess() async {
+    if (_paymentDetails == null) return;
+
+    final orderId = _paymentDetails!['metadata']['orderId'];
+    await _firestore.collection('orders').doc(orderId).update({
+      'status': 'paid',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Nettoyer le panier si nécessaire
+    final cartId = _paymentDetails!['cartId'];
+    if (cartId != null) {
+      await _firestore.collection('carts').doc(cartId).delete();
+    }
+
+    // Rediriger vers les détails de la commande
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OrderDetailPage(
+            orderId: orderId,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleExpressDealSuccess() async {
+    if (_paymentDetails == null) return;
+    final reservationId = _paymentDetails!['metadata']['reservationId'];
+
+    // Mettre à jour le compteur de paniers
+    await _firestore
+        .collection('posts')
+        .doc(_paymentDetails!['metadata']['postId'])
+        .update({
+      'basketCount': FieldValue.increment(-1),
+    });
+
+    // Rediriger vers les détails de la réservation
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ReservationDetailsPage(
+            reservationId: reservationId,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleServiceSuccess() async {
+    if (_paymentDetails == null) return;
+    final bookingId = _paymentDetails!['metadata']['bookingId'];
+
+    // Rediriger vers les détails de la réservation
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BookingDetailPage(bookingId: bookingId),
+        ),
+      );
+    }
   }
 
   void _handleError(String message) {
@@ -222,32 +191,127 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       _statusMessage = message;
       _isLoading = false;
     });
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacementNamed('/home');
-    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+
+      // Rediriger vers l'accueil après un délai
+      Future.delayed(const Duration(seconds: 3), () {
+        Navigator.of(context).pushReplacementNamed('/home');
+      });
+    }
   }
 
   void _showSuccessMessage() {
-    setState(() => _statusMessage = 'Commande finalisée avec succès!');
+    String message;
+    switch (_paymentType) {
+      case 'order':
+        message = 'Votre commande a été confirmée !';
+        break;
+      case 'express_deal':
+        message = 'Votre réservation express a été confirmée !';
+        break;
+      case 'service':
+        message = 'Votre réservation de service a été confirmée !';
+        break;
+      default:
+        message = 'Paiement confirmé !';
+    }
+    setState(() => _statusMessage = message);
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const CircularProgressIndicator(),
+        const SizedBox(height: 20),
+        Text(
+          _statusMessage,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSuccessContent() {
+    final IconData icon;
+    final String title;
+    final String subtitle;
+
+    switch (_paymentType) {
+      case 'order':
+        icon = Icons.shopping_bag_outlined;
+        title = 'Commande confirmée !';
+        subtitle = 'Votre commande a été enregistrée avec succès.';
+        break;
+      case 'express_deal':
+        icon = Icons.flash_on;
+        title = 'Réservation express confirmée !';
+        subtitle = 'Votre panier vous attend au point de retrait.';
+        break;
+      case 'service':
+        icon = Icons.event_available;
+        title = 'Réservation confirmée !';
+        subtitle = 'Votre rendez-vous a été enregistré.';
+        break;
+      default:
+        icon = Icons.check_circle_outline;
+        title = 'Paiement confirmé !';
+        subtitle = 'Merci pour votre confiance.';
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 64,
+            color: Colors.green,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.of(context).pushReplacementNamed('/home'),
+            child: const Text('Retourner à l\'accueil'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Traitement du paiement')),
-      body: Center(
-        child: _isLoading
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 20),
-                  Text(_statusMessage),
-                ],
-              )
-            : Text(_statusMessage),
+      appBar: AppBar(
+        title: const Text('Confirmation'),
+        automaticallyImplyLeading: !_isLoading,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: _isLoading ? _buildLoadingIndicator() : _buildSuccessContent(),
+        ),
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/services/cart_service.dart';
@@ -498,7 +498,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                 ),
                 child: Text(
                   widget.product.stock > 0
-                      ? 'Ajouter au panier • ${(widget.product.price * quantity).toStringAsFixed(2)}€'
+                      ? 'Ajouter au panier • ${(widget.product.hasActiveHappyDeal && widget.product.discountedPrice != null ? widget.product.discountedPrice! : widget.product.price * quantity).toStringAsFixed(2)}€'
                       : 'Rupture de stock',
                   style: const TextStyle(
                     fontSize: 16,
@@ -576,7 +576,6 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                print('Erreur de requête: ${snapshot.error}');
                 return Center(child: Text('Erreur: ${snapshot.error}'));
               }
               if (!snapshot.hasData) {
@@ -719,14 +718,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   }
 
   // Ajout d'une méthode pour partager le produit
-  void _shareProduct() {
-    // Implémenter la logique de partage
-  }
 
   // Ajout d'une méthode pour ajouter/retirer des favoris
-  void _toggleFavorite() {
-    // Implémenter la logique des favoris
-  }
 
   // Ajout d'une méthode pour ajouter au panier
   void _addToCart(quantity) {

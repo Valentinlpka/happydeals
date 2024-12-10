@@ -359,7 +359,6 @@ class UserModel with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Error removing follower: $e');
       rethrow;
     }
   }
@@ -522,7 +521,6 @@ class UserModel with ChangeNotifier {
       });
       notifyListeners();
     } catch (e) {
-      print('Error updating shared post comment: $e');
       rethrow;
     }
   }
@@ -541,7 +539,6 @@ class UserModel with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Error deleting shared post: $e');
       rethrow;
     }
   }

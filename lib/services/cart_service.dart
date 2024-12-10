@@ -80,7 +80,6 @@ class CartService extends ChangeNotifier {
             }
           }
         } catch (e) {
-          print('Erreur lors du chargement du panier: $e');
         }
       }
 
@@ -148,7 +147,6 @@ class CartService extends ChangeNotifier {
 
         notifyListeners();
       } catch (e) {
-        print('Erreur lors de la sauvegarde du panier: $e');
         throw Exception('Impossible de sauvegarder le panier');
       }
     } else {
@@ -248,7 +246,6 @@ class CartService extends ChangeNotifier {
             await _firestore.collection('users').doc(product.sellerId).get();
 
         if (!userDoc.exists) {
-          print('Vendeur non trouvé ni dans companys ni dans users');
           sellerName = 'Unknown Seller';
         } else {
           sellerName = userDoc.data()?['name'] ?? 'Unknown User';
@@ -308,7 +305,6 @@ class CartService extends ChangeNotifier {
         return newCart;
       }
     } catch (e) {
-      print('Erreur lors de la création du panier: $e');
       throw Exception('Impossible de créer le panier: $e');
     }
   }

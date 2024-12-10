@@ -32,7 +32,6 @@ class MyAdsPage extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            print(snapshot.error);
             return const Center(child: Text('Une erreur est survenue'));
           }
           if (snapshot.connectionState == ConnectionState.waiting) {

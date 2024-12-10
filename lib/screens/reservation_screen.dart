@@ -1,149 +1,50 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:happy/classes/dealexpress.dart';
+import 'package:happy/widgets/unified_payment_button.dart';
 import 'package:intl/intl.dart';
-import 'package:universal_html/html.dart' as html;
 
 class ReservationScreen extends StatefulWidget {
   final ExpressDeal deal;
   final DateTime selectedPickupTime;
 
-  const ReservationScreen(
-      {super.key, required this.deal, required this.selectedPickupTime});
+  const ReservationScreen({
+    super.key,
+    required this.deal,
+    required this.selectedPickupTime,
+  });
 
   @override
   _ReservationScreenState createState() => _ReservationScreenState();
 }
 
 class _ReservationScreenState extends State<ReservationScreen> {
+  String? _reservationId; // Ajoutez cette ligne
+
   String? companyName;
   String? companyAddress;
   bool isLoading = false;
-
-  Future<void> _handlePayment() async {
-    setState(() => isLoading = true);
-
-    try {
-      final functions = FirebaseFunctions.instance;
-
-      // Créer la session de paiement
-      final result =
-          await functions.httpsCallable('createExpressDealPayment').call({
-        'dealId': widget.deal.id,
-        'pickupTime': widget.selectedPickupTime.toIso8601String(),
-        'successUrl': 'https://votre-domaine.com/success',
-        'cancelUrl': 'https://votre-domaine.com/cancel',
-      });
-
-      // Rediriger vers Stripe Checkout
-      final sessionUrl = result.data['sessionUrl'];
-      if (kIsWeb) {
-        // Pour le web
-        html.window.location.href = sessionUrl;
-      } else {
-        // Pour mobile (si nécessaire)
-        await Stripe.instance.initPaymentSheet(
-            paymentSheetParameters: SetupPaymentSheetParameters(
-          merchantDisplayName: "Happy Deals",
-          paymentIntentClientSecret: result.data['clientSecret'],
-        ));
-        await Stripe.instance.presentPaymentSheet();
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
-      );
-    } finally {
-      setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> _confirmReservation(String paymentIntentId) async {
-    try {
-      final functions = FirebaseFunctions.instance;
-      final result = await functions.httpsCallable('confirmReservation').call({
-        'dealId': widget.deal.id,
-        'paymentIntentId': paymentIntentId,
-      });
-
-      if (result.data['success']) {
-        // Créer une notification pour l'entreprise
-        await _createNotification(result.data['reservationId']);
-
-        _showReservationSuccessDialog(result.data['validationCode']);
-      } else {
-        throw Exception("La confirmation de la réservation a échoué");
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text('Erreur lors de la confirmation de la réservation: $e')),
-      );
-    }
-  }
-
-  Future<void> _createNotification(String reservationId) async {
-    try {
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'userId': widget
-            .deal.companyId, // L'ID de l'entreprise qui recevra la notification
-        'type': 'new_reservation',
-        'message': 'Nouvelle réservation pour le deal ${widget.deal.title}',
-        'relatedId': reservationId, // L'ID de la réservation
-        'timestamp': FieldValue.serverTimestamp(),
-        'isRead': false,
-      });
-    } catch (e) {
-      print('Erreur lors de la création de la notification: $e');
-      // Ne pas lancer d'exception ici pour ne pas interrompre le flux principal
-    }
-  }
-
-  void _showReservationSuccessDialog(String validationCode) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Réservation réussie'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Votre code de validation est :'),
-              const SizedBox(height: 10),
-              Text(
-                validationCode,
-                style:
-                    const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              const Text('Présentez ce code au commerçant lors du retrait.'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   void initState() {
     super.initState();
     _fetchCompanyDetails();
+    _generateReservationId(); // Ajoutez cette ligne
+  }
+
+  Future<void> _generateReservationId() async {
+    // Créer une référence de document vide dans la collection 'orders'
+    final reservationRef =
+        FirebaseFirestore.instance.collection('reservations').doc();
+    setState(() {
+      _reservationId = reservationRef.id;
+    });
   }
 
   Future<void> _fetchCompanyDetails() async {
     try {
+      setState(() => isLoading = true);
+
       final companyDoc = await FirebaseFirestore.instance
           .collection('companys')
           .doc(widget.deal.companyId)
@@ -158,37 +59,17 @@ class _ReservationScreenState extends State<ReservationScreen> {
             companyAddress =
                 '${address['adresse']}, ${address['code_postal']} ${address['ville']}';
           }
-          isLoading = false;
-        });
-      } else {
-        setState(() {
-          isLoading = false;
         });
       }
     } catch (e) {
-      print('Error fetching company details: $e');
-      setState(() {
-        isLoading = false;
-      });
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: ElevatedButton(
-            style: ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll(Colors.blue[800])),
-            onPressed: isLoading ? null : _handlePayment,
-            child: isLoading
-                ? const CircularProgressIndicator()
-                : const Text('Payer et Réserver'),
-          ),
-        ),
-      ),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -208,55 +89,92 @@ class _ReservationScreenState extends State<ReservationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildInfoCard(context),
-                      const SizedBox(
-                        height: 50,
-                      ),
-                      _buildTotalSection(context)
+                      const SizedBox(height: 50),
+                      _buildTotalSection(context),
+                      if (widget.deal.availableBaskets <= 3)
+                        _buildAvailabilityWarning(),
                     ],
                   ),
                 ),
               ),
       ),
-    );
-  }
-
-  Widget _buildInfoCard(BuildContext context) {
-    return Container(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            (companyName ?? "Nom de l'entreprise non disponible"),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: UnifiedPaymentButton(
+            type: 'express_deal',
+            amount: widget.deal.price * 100, // Convertir en centimes
+            metadata: {
+              'reservationId': _reservationId,
+              'price': widget.deal.price,
+              'basketType': widget.deal.basketType,
+              'quantity': '1',
+              'postId': widget.deal.id,
+              'title': widget.deal.title,
+              'content': widget.deal.content,
+              'pickupDate': widget.selectedPickupTime.toIso8601String(),
+              'companyId': widget.deal.companyId,
+              'stripeAccountId': widget.deal.stripeAccountId,
+              'basketCount': widget.deal.basketCount,
+              'availableBaskets': widget.deal.availableBaskets,
+              'companyName': companyName,
+              'pickupAddress': companyAddress,
+              'timestamp': widget.deal.timestamp.toIso8601String(),
+            },
+            successUrl: '${Uri.base.origin}/#/payment-success',
+            cancelUrl: '${Uri.base.origin}/#/payment-cancel',
           ),
-          const SizedBox(height: 15),
-          _buildInfoRow(Icons.shopping_bag_outlined, widget.deal.title),
-          const SizedBox(
-            height: 10,
-          ),
-          _buildInfoRow(Icons.access_time,
-              'À récupérer le ${DateFormat('dd/MM/yyyy à HH:mm').format(widget.selectedPickupTime)}'),
-          _buildInfoRow(
-              Icons.location_on, companyAddress ?? 'Adresse non disponible'),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Row(
+  Widget _buildInfoCard(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: Colors.grey[600]),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(color: Colors.grey[600]),
-          ),
+        Text(
+          (companyName ?? "Nom de l'entreprise non disponible"),
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 15),
+        _buildInfoRow(Icons.shopping_bag_outlined, widget.deal.title),
+        _buildInfoRow(Icons.description_outlined, widget.deal.content),
+        const SizedBox(height: 10),
+        _buildInfoRow(
+          Icons.access_time,
+          'À récupérer le ${DateFormat('dd/MM/yyyy à HH:mm').format(widget.selectedPickupTime)}',
+        ),
+        _buildInfoRow(
+          Icons.location_on,
+          companyAddress ?? 'Adresse non disponible',
+        ),
+        _buildInfoRow(
+          Icons.inventory_2_outlined,
+          'Paniers disponibles: ${widget.deal.availableBaskets}',
         ),
       ],
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -282,20 +200,32 @@ class _ReservationScreenState extends State<ReservationScreen> {
     );
   }
 
-  Widget _buildPayButton(BuildContext context) {
-    return SafeArea(
-      child: ElevatedButton(
-        onPressed: isLoading ? null : _handlePayment,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue[800],
-          padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(3),
+  Widget _buildAvailabilityWarning() {
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orange,
           ),
-        ),
-        child: const Text(
-          'Payer',
-        ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Plus que ${widget.deal.availableBaskets} panier${widget.deal.availableBaskets > 1 ? 's' : ''} disponible${widget.deal.availableBaskets > 1 ? 's' : ''}!',
+              style: const TextStyle(
+                color: Colors.orange,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

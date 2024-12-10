@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:happy/classes/conversation.dart';
+import 'package:happy/classes/post.dart';
 import 'package:happy/classes/rating.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -26,6 +27,66 @@ class ConversationService extends ChangeNotifier {
       return 'company';
     }
     return 'user';
+  }
+
+  Future<void> sharePostInConversation({
+    required String conversationId,
+    required String senderId,
+    required Post post,
+    String? comment,
+  }) async {
+    try {
+      // Créer un message système pour le partage
+      final systemMessage = {
+        'content': 'A partagé une publication',
+        'senderId': senderId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'shared_post',
+        'postData': {
+          'postId': post.id,
+          'postType': post.runtimeType.toString(),
+          'comment': comment,
+        },
+      };
+
+      // Ajouter le message dans la conversation
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .add(systemMessage);
+
+      // Mettre à jour les informations de la conversation
+      await _firestore.collection('conversations').doc(conversationId).update({
+        'lastMessage': 'A partagé une publication',
+        'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': senderId,
+        'unreadCount': FieldValue.increment(1),
+        // Mettre à jour unreadBy en fonction du type de conversation
+        'unreadBy': await _determineUnreadBy(conversationId, senderId),
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<dynamic> _determineUnreadBy(
+      String conversationId, String senderId) async {
+    final conversationDoc =
+        await _firestore.collection('conversations').doc(conversationId).get();
+    final data = conversationDoc.data()!;
+
+    if (data['isGroup'] == true) {
+      final members = List<Map<String, dynamic>>.from(data['members'] ?? []);
+      return members
+          .where((m) => m['id'] != senderId)
+          .map((m) => m['id'])
+          .toList();
+    } else {
+      return data['particulierId'] == senderId
+          ? data['entrepriseId'] ?? data['otherUserId']
+          : data['particulierId'];
+    }
   }
 
   Future<String?> checkExistingConversation({
@@ -121,7 +182,6 @@ class ConversationService extends ChangeNotifier {
 
       return docRef.id;
     } catch (e) {
-      print('Error creating conversation: $e');
       rethrow;
     }
   }
@@ -325,7 +385,6 @@ class ConversationService extends ChangeNotifier {
         'unreadBy': unreadBy,
       });
     } catch (e) {
-      print('Error sending message: $e');
       rethrow;
     }
   }
@@ -398,9 +457,7 @@ class ConversationService extends ChangeNotifier {
   }
 
   Future<void> initializeForUser(String userId) async {
-    print('Initializing ConversationService for user: $userId');
     if (_currentUserId == userId) {
-      print('Service already initialized for this user');
       return;
     }
 
@@ -424,20 +481,15 @@ class ConversationService extends ChangeNotifier {
           ))
           .orderBy('lastMessageTimestamp', descending: true);
 
-      print('Creating Firestore query for user: $userId');
-
       final conversationsSubscription = query.snapshots().listen(
         (snapshot) {
-          print('Received ${snapshot.docs.length} conversations');
           if (_currentUserId == userId) {
             final conversations = snapshot.docs
                 .map((doc) {
                   try {
                     final conversation = Conversation.fromFirestore(doc);
-                    print('Processed conversation: ${conversation.id}');
                     return conversation;
                   } catch (e) {
-                    print('Error processing conversation ${doc.id}: $e');
                     return null;
                   }
                 })
@@ -449,19 +501,13 @@ class ConversationService extends ChangeNotifier {
           }
         },
         onError: (error) {
-          print('Error in conversation subscription: $error');
-          if (error.toString().contains('indexes?create_composite=')) {
-            print('Missing index. Create the following composite index:');
-            print(error.toString());
-          }
+          if (error.toString().contains('indexes?create_composite=')) {}
         },
       );
 
       _subscriptions.add(conversationsSubscription);
       notifyListeners();
-      print('ConversationService initialized successfully');
     } catch (e) {
-      print('Error during ConversationService initialization: $e');
       await cleanUp();
       rethrow;
     }
@@ -469,7 +515,6 @@ class ConversationService extends ChangeNotifier {
 
   // Méthode pour nettoyer les ressources
   Future<void> cleanUp() async {
-    print('Cleaning up ConversationService');
     for (var subscription in _subscriptions) {
       await subscription.cancel();
     }
@@ -483,7 +528,6 @@ class ConversationService extends ChangeNotifier {
   // Getter pour le stream des conversations
   Stream<List<Conversation>> getUserConversationsStream() {
     if (_conversationsController == null || _currentUserId == null) {
-      print('Returning empty conversation stream');
       return Stream.value([]);
     }
     return _conversationsController!.stream;
@@ -763,7 +807,6 @@ class ConversationService extends ChangeNotifier {
         'content': 'Message supprimé',
       });
     } catch (e) {
-      print('Error deleting message: $e');
       rethrow;
     }
   }
@@ -782,7 +825,6 @@ class ConversationService extends ChangeNotifier {
         'editedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error editing message: $e');
       rethrow;
     }
   }

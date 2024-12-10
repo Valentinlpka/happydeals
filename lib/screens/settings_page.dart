@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/liked_post_page.dart';
 import 'package:happy/screens/loyalty_card_page.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
@@ -12,9 +12,9 @@ import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/savings_page.dart';
-import 'package:happy/screens/service_booking_client_page.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
-import 'package:happy/screens/userApplicationsPage.dart';
+import 'package:happy/screens/user_applications_page.dart';
+import 'package:happy/screens/user_booking_page.dart';
 import 'package:happy/screens/user_referral_page.dart';
 import 'package:happy/services/auth_service.dart';
 import 'package:happy/widgets/custom_app_bar.dart';

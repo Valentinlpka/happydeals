@@ -7,7 +7,7 @@ import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/home_provider.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/widgets/bottom_sheet_profile.dart';
 import 'package:happy/widgets/cards/company_card.dart';
@@ -79,7 +79,6 @@ class _HomeState extends State<Home> {
         });
       }
     } catch (e) {
-      print('Error loading data: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -310,7 +309,6 @@ class _HomeState extends State<Home> {
             ),
           );
         } catch (e) {
-          print('Erreur lors de la création de l\'annonce: $e');
           return const SizedBox.shrink(); // Widget vide en cas d'erreur
         }
       } else {

@@ -89,7 +89,6 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
         }
 
         if (snapshot.hasError) {
-          print(snapshot.error);
           return Center(child: Text('Erreur: ${snapshot.error}'));
         }
 

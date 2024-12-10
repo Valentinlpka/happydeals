@@ -138,7 +138,6 @@ class _ApplicationBottomSheetState extends State<ApplicationBottomSheet> {
         ),
       );
     } catch (e) {
-      print(e);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Erreur lors de l\'envoi de la candidature'),
@@ -185,7 +184,10 @@ class _ApplicationBottomSheetState extends State<ApplicationBottomSheet> {
                   ),
                 ),
               ),
-            _buildInfoTile('Nom', _userData['name'] ?? 'Non renseigné'),
+            _buildInfoTile(
+                'Nom',
+                _userData['firstName'] + ' ' + _userData['lastName'] ??
+                    'Non renseigné'),
             _buildInfoTile('Email', _userData['email'] ?? 'Non renseigné'),
             _buildInfoTile('Téléphone', _userData['phone'] ?? 'Non renseigné'),
             _buildInfoTile('CV', _userData['cvFileName'] ?? 'Non renseigné'),

@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:provider/provider.dart';
 
-import '../../providers/users.dart';
+import '../../providers/users_provider.dart';
 
 class DetailsDealsExpress extends StatefulWidget {
   final ExpressDeal post;

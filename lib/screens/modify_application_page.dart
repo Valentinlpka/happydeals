@@ -112,7 +112,6 @@ class _EditApplicationPageState extends State<EditApplicationPage> {
     try {
       await FirebaseStorage.instance.refFromURL(fileUrl).delete();
     } catch (e) {
-      print('Erreur lors de la suppression de l\'ancien fichier: $e');
     }
   }
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/providers/conversation_provider.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/complete_profile.dart';
 import 'package:happy/screens/auth/register_page.dart';
 import 'package:happy/screens/main_container.dart';

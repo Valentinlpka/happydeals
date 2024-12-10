@@ -201,33 +201,5 @@ class UserApplicationsPage extends StatelessWidget {
     return DateFormat('dd/MM/yyyy').format(timestamp.toDate());
   }
 
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'pending':
-        return 'En attente';
-      case 'reviewed':
-        return 'Examiné';
-      case 'accepted':
-        return 'Accepté';
-      case 'rejected':
-        return 'Refusé';
-      default:
-        return 'Inconnu';
-    }
-  }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.transparent;
-      case 'reviewed':
-        return Colors.blue;
-      case 'accepted':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
 }

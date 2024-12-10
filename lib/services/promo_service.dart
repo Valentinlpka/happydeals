@@ -8,10 +8,6 @@ class PromoCodeService {
     String companyId,
     String customerId,
   ) async {
-    print('Attempting loyalty promo code query with:');
-    print('code: $code');
-    print('companyId: $companyId');
-    print('customerId: $customerId');
 
     try {
       final loyaltyPromoDoc = await _firestore
@@ -27,13 +23,9 @@ class PromoCodeService {
         return true;
       }
     } catch (e) {
-      print('Loyalty promo code query error: $e');
       // L'erreur contiendra le lien pour créer l'index
     }
 
-    print('Attempting store promo code query with:');
-    print('code: $code');
-    print('companyId: $companyId');
 
     try {
       final storePromoDoc = await _firestore
@@ -59,7 +51,6 @@ class PromoCodeService {
 
       return true;
     } catch (e) {
-      print('Store promo code query error: $e');
       // L'erreur contiendra le lien pour créer l'index
       return false;
     }

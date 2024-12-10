@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/bottom_sheet_emploi.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:intl/intl.dart';

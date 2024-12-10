@@ -16,6 +16,15 @@ class CartItem {
     return {
       'productId': product.id,
       'name': product.name,
+      'quantity': quantity,
+      'price': appliedPrice,
+    };
+  }
+
+  Map<String, dynamic> toMaps() {
+    return {
+      'productId': product.id,
+      'name': product.name,
       'images': product.imageUrl,
       'price': product.price,
       'tva': product.tva,
@@ -77,13 +86,13 @@ class Cart {
 
   // Prix final après toutes les réductions (Happy Deals + code promo)
   double get totalAfterDiscount {
-    print('Total avant réduction: $total'); // Debug
-    print('Montant de la réduction: $discountAmount'); // Debug
+    // Debug
+    // Debug
     if (discountAmount <= 0) return total;
 
     // S'assurer que la réduction ne rend pas le prix négatif
     double finalPrice = total - discountAmount;
-    print('Prix final calculé: $finalPrice'); // Debug
+    // Debug
 
     return finalPrice > 0 ? finalPrice : 0;
   }
@@ -100,7 +109,7 @@ class Cart {
       'sellerId': sellerId,
       'entrepriseId': entrepriseId,
       'sellerName': sellerName,
-      'items': items.map((item) => item.toMap()).toList(),
+      'items': items.map((item) => item.toMaps()).toList(),
       'createdAt': Timestamp.fromDate(createdAt),
       'expiresAt': Timestamp.fromDate(expiresAt),
       'appliedPromoCode': appliedPromoCode,
@@ -171,7 +180,6 @@ class Cart {
 
       return cart;
     } catch (e) {
-      print('Erreur lors de la conversion du Cart: $e');
       return null;
     }
   }

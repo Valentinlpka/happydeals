@@ -42,7 +42,6 @@ class HappyDealsCard extends StatelessWidget {
       }
       return null;
     } catch (e) {
-      print('Erreur lors de la récupération de l\'image du produit: $e');
       return null;
     }
   }

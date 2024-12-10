@@ -145,7 +145,7 @@ class OrderService {
         }
       }
     } catch (e) {
-      print('Erreur lors de la mise à jour du programme de fidélité: $e');
+      
     }
   }
 

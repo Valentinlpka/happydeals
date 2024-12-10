@@ -10,6 +10,7 @@ class Message {
   final bool isDeleted;
   final bool isEdited;
   final DateTime? editedAt;
+  final Map<String, dynamic>? postData; // Ajout du champ postData
 
   final String? type; // Ajout du champ type
 
@@ -21,6 +22,8 @@ class Message {
     this.isDeleted = false,
     this.isEdited = false,
     this.editedAt,
+    this.postData, // Ajout du paramètre dans le constructeur
+
     this.type, // Peut être 'system' ou null pour les messages normaux
   });
 
@@ -34,6 +37,9 @@ class Message {
       type: data['type'], // Récupération du type depuis Firestore
       isDeleted: data['isDeleted'] ?? false,
       isEdited: data['isEdited'] ?? false,
+      postData:
+          data['postData'] as Map<String, dynamic>?, // Conversion du postData
+
       editedAt: data['editedAt'] != null
           ? (data['editedAt'] as Timestamp).toDate()
           : null,
@@ -46,6 +52,7 @@ class Message {
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
       'type': type, // Inclusion du type dans les données Firestore
+      'postData': postData, // Inclusion du postData
     };
   }
 }

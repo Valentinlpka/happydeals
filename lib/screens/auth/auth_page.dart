@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/login_page.dart';
 import 'package:happy/screens/main_container.dart';
 import 'package:provider/provider.dart';

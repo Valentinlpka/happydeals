@@ -9,6 +9,7 @@ class ExpressDeal extends Post {
   List<DateTime> pickupTimes; // Remplace pickupTime
   final String content;
   final int basketCount;
+  final String basketType;
   final int price;
   int availableBaskets;
   final String stripeAccountId;
@@ -17,6 +18,7 @@ class ExpressDeal extends Post {
     required super.id,
     required super.timestamp,
     required this.title,
+    required this.basketType,
     required this.searchText,
     required this.pickupTimes,
     required this.content,
@@ -48,6 +50,7 @@ class ExpressDeal extends Post {
       content: data['content'],
       companyId: data['companyId'],
       basketCount: data['basketCount'],
+      basketType: data['basketType'],
       price: data['price'],
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
@@ -71,6 +74,7 @@ class ExpressDeal extends Post {
       'pickupTimes':
           pickupTimes.map((time) => Timestamp.fromDate(time)).toList(),
       'content': content,
+      'basketType': basketType,
       'basketCount': basketCount,
       'price': price,
       'stripeAccountId': stripeAccountId,

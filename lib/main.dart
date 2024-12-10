@@ -10,7 +10,7 @@ import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/review_service.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/auth_page.dart';
 import 'package:happy/screens/auth/complete_profile.dart';
 import 'package:happy/screens/auth/login_page.dart';
@@ -83,12 +83,16 @@ class MyApp extends StatelessWidget {
             '/home': (context) => const MainContainer(),
             '/cart': (context) => const CartScreen(),
             '/payment-cancel': (context) => const PaymentCancel(),
-            '/order-confirmation': (context) => const PaymentSuccessScreen(),
+            '/payment-success': (context) =>
+                const UnifiedPaymentSuccessScreen(),
+            '/entreprise/:entrepriseId': (context) => const DetailsEntreprise(),
             '/company/:entrepriseId': (context) => const DetailsEntreprise(),
           },
           onGenerateRoute: (settings) {
-            if (settings.name?.startsWith('/company/') ?? false) {
-              final entrepriseId = settings.name!.split('/').last;
+            if (settings.name?.startsWith('/entreprise/') ?? false) {
+              // On extrait directement l'ID depuis le settings.name
+              final entrepriseId = settings.name!.split('/entreprise/')[1];
+
               return MaterialPageRoute(
                 builder: (context) =>
                     DetailsEntreprise(entrepriseId: entrepriseId),
@@ -106,12 +110,10 @@ class MyApp extends StatelessWidget {
                 String queryPart = hashPart.split('?')[1];
                 Map<String, String> params = Uri.splitQueryString(queryPart);
                 sessionId = params['session_id'];
-              } catch (e) {
-                print('Erreur extraction session_id: $e');
-              }
+              } catch (e) {}
 
               return MaterialPageRoute(
-                builder: (context) => PaymentSuccessScreen(
+                builder: (context) => UnifiedPaymentSuccessScreen(
                   sessionId: sessionId,
                 ),
                 settings: settings,
@@ -220,7 +222,6 @@ class AuthWrapper extends StatelessWidget {
 
   Future<void> _initializeProviders(BuildContext context) async {
     final userModel = Provider.of<UserModel>(context, listen: false);
-    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
 
     await userModel.loadUserData();
     // Initialisez d'autres providers si nécessaire

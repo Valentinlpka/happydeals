@@ -241,24 +241,6 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     );
   }
 
-  Widget _buildBookingSection(ServiceModel service) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Choisir un créneau',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 16),
-          _buildDatePicker(),
-          const SizedBox(height: 16),
-          _buildTimeSlots(service),
-        ],
-      ),
-    );
-  }
 
   Widget _buildDatePicker() {
     return SingleChildScrollView(

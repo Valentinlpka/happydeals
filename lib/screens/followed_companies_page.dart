@@ -1,8 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +12,6 @@ class FollowedCompaniesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userModel = Provider.of<UserModel>(context);
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
 
     // Vérifier si l'utilisateur suit des entreprises
     if (userModel.likedCompanies.isEmpty) {
@@ -207,7 +205,6 @@ class FollowedCompaniesPage extends StatelessWidget {
                   child: CompanyCard(company),
                 );
               } catch (e) {
-                print('Error building company card: $e');
                 return const SizedBox.shrink();
               }
             },

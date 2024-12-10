@@ -9,7 +9,7 @@ import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/referral.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
@@ -132,7 +132,6 @@ class LikedPostsPage extends StatelessWidget {
           return null;
       }
     } catch (e) {
-      print('Error creating post from document: $e');
       return null;
     }
   }
@@ -150,7 +149,6 @@ class LikedPostsPage extends StatelessWidget {
 
       return companyDoc.data() as Map<String, dynamic>;
     } catch (e) {
-      print('Error fetching company data: $e');
       return {};
     }
   }

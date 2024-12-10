@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/booking.dart';
 import 'package:happy/classes/service.dart';
+import 'package:happy/screens/booking_detail_page.dart';
 import 'package:happy/services/service_service.dart';
 import 'package:intl/intl.dart';
 
@@ -23,7 +24,6 @@ class ClientBookingsPage extends StatelessWidget {
         stream: BookingService().getUserBookings(userId),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            print(snapshot.error);
             return Center(child: Text('Erreur: ${snapshot.error}'));
           }
 
@@ -55,16 +55,14 @@ class ClientBookingsPage extends StatelessWidget {
 class _BookingCard extends StatelessWidget {
   final BookingModel booking;
 
-  const _BookingCard({super.key, required this.booking});
+  const _BookingCard({required this.booking});
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<ServiceModel>(
       future: ServiceClientService().getServiceByIds(booking.serviceId),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          print(snapshot.error);
-        }
+        if (snapshot.hasError) {}
         if (!snapshot.hasData) {
           return const Card(
             child: Center(child: CircularProgressIndicator()),
@@ -78,71 +76,83 @@ class _BookingCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 16),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // En-tête avec le statut
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      service.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BookingDetailPage(
+                      bookingId: booking.id,
                     ),
-                    _StatusChip(status: booking.status),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Informations de la réservation
-                _InfoRow(
-                  icon: Icons.event,
-                  label: 'Date',
-                  value: DateFormat('dd/MM/yyyy').format(booking.bookingDate),
-                ),
-                const SizedBox(height: 8),
-                _InfoRow(
-                  icon: Icons.access_time,
-                  label: 'Heure',
-                  value: DateFormat('HH:mm').format(booking.bookingDate),
-                ),
-                const SizedBox(height: 8),
-                _InfoRow(
-                  icon: Icons.timelapse,
-                  label: 'Durée',
-                  value: '${service.duration} min',
-                ),
-                const SizedBox(height: 8),
-                _InfoRow(
-                  icon: Icons.euro,
-                  label: 'Prix',
-                  value: '${booking.price.toStringAsFixed(2)} €',
-                ),
-
-                // Actions
-                const SizedBox(height: 16),
-                if (booking.status == 'confirmed') ...[
-                  const Divider(),
+                  ),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // En-tête avec le statut
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      TextButton(
-                        onPressed: () => _showCancellationDialog(context),
-                        child: const Text('Annuler'),
+                      Text(
+                        service.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: () => _showRescheduleDialog(context),
-                        icon: const Icon(Icons.schedule),
-                        label: const Text('Reprogrammer'),
-                      ),
+                      _StatusChip(status: booking.status),
                     ],
                   ),
+                  const SizedBox(height: 16),
+
+                  // Informations de la réservation
+                  _InfoRow(
+                    icon: Icons.event,
+                    label: 'Date',
+                    value: DateFormat('dd/MM/yyyy').format(booking.bookingDate),
+                  ),
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.access_time,
+                    label: 'Heure',
+                    value: DateFormat('HH:mm').format(booking.bookingDate),
+                  ),
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.timelapse,
+                    label: 'Durée',
+                    value: '${service.duration} min',
+                  ),
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.euro,
+                    label: 'Prix',
+                    value: '${booking.price.toStringAsFixed(2)} €',
+                  ),
+
+                  // Actions
+                  const SizedBox(height: 16),
+                  if (booking.status == 'confirmed') ...[
+                    const Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => _showCancellationDialog(context),
+                          child: const Text('Annuler'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () => _showRescheduleDialog(context),
+                          icon: const Icon(Icons.schedule),
+                          label: const Text('Reprogrammer'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         );
@@ -197,7 +207,7 @@ class _BookingCard extends StatelessWidget {
 class _StatusChip extends StatelessWidget {
   final String status;
 
-  const _StatusChip({super.key, required this.status});
+  const _StatusChip({required this.status});
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +257,6 @@ class _InfoRow extends StatelessWidget {
   final String value;
 
   const _InfoRow({
-    super.key,
     required this.icon,
     required this.label,
     required this.value,

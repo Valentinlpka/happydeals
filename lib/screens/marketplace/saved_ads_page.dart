@@ -56,7 +56,6 @@ class _SavedAdsPageState extends State<SavedAdsPage> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Erreur lors du chargement des annonces sauvegardées: $e');
       setState(() {
         _isLoading = false;
       });

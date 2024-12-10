@@ -6,6 +6,7 @@ import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/classes/product_post.dart';
+import 'package:happy/classes/promo_code_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
 
@@ -67,6 +68,8 @@ class Post {
         return ProductPost.fromDocument(doc);
       case 'news':
         return News.fromDocument(doc);
+      case 'promo_code':
+        return PromoCodePost.fromDocument(doc);
 
       default:
         throw Exception('Unsupported post type: $type');

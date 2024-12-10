@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/contest.dart';
+import 'package:happy/classes/conversation.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/classes/happydeal.dart';
@@ -15,7 +16,8 @@ import 'package:happy/classes/promo_codes.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/ads_provider.dart';
-import 'package:happy/providers/users.dart';
+import 'package:happy/providers/conversation_provider.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/comments_page.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
@@ -485,16 +487,226 @@ class _PostWidgetState extends State<PostWidget> {
   }
 
   void _showShareConfirmation(BuildContext context, UserModel users) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return ShareConfirmationDialog(
-          post: widget.post,
-          onConfirm: (String comment) async {
-            await users.sharePost(widget.post.id, users.userId,
-                comment: comment);
-            Navigator.of(dialogContext).pop(); // Ferme le dialogue
-            _showSnackBar('Publication partagée avec succès!');
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const ListTile(
+                title: Text(
+                  "Partager",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.share_outlined),
+                title: const Text('Partager sur mon profil'),
+                onTap: () {
+                  Navigator.pop(context); // Ferme le bottom sheet
+                  // Ouvre le dialogue de partage sur le profil
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return ShareConfirmationDialog(
+                        post: widget.post,
+                        onConfirm: (String comment) async {
+                          await users.sharePost(widget.post.id, users.userId,
+                              comment: comment);
+                          Navigator.of(dialogContext).pop();
+                          _showSnackBar('Publication partagée avec succès!');
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.message_outlined),
+                title: const Text('Envoyer en message'),
+                onTap: () {
+                  Navigator.pop(context); // Ferme le bottom sheet
+                  // Ouvre la liste des conversations pour partager
+                  _showConversationsList(context, users);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showConversationsList(BuildContext context, UserModel users) {
+    final conversationService =
+        Provider.of<ConversationService>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    "Envoyer à...",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const Divider(),
+                Expanded(
+                  child: StreamBuilder<List<Conversation>>(
+                    stream: conversationService.getUserConversationsStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Erreur: ${snapshot.error}'));
+                      }
+
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final conversations = snapshot.data!;
+                      if (conversations.isEmpty) {
+                        return const Center(
+                          child: Text('Aucune conversation'),
+                        );
+                      }
+
+                      return ListView.builder(
+                        controller: scrollController,
+                        itemCount: conversations.length,
+                        itemBuilder: (context, index) {
+                          final conversation = conversations[index];
+                          return FutureBuilder<DocumentSnapshot>(
+                            future: FirebaseFirestore.instance
+                                .collection(
+                                    conversation.particulierId == users.userId
+                                        ? 'companys'
+                                        : 'users')
+                                .doc(conversation.entrepriseId ??
+                                    conversation.otherUserId)
+                                .get(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const ListTile(
+                                  leading: CircleAvatar(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                  title: Text('Chargement...'),
+                                );
+                              }
+
+                              if (!snapshot.hasData || !snapshot.data!.exists) {
+                                return const ListTile(
+                                  leading: CircleAvatar(
+                                    child: Icon(Icons.error),
+                                  ),
+                                  title: Text('Utilisateur inconnu'),
+                                );
+                              }
+
+                              final userData =
+                                  snapshot.data!.data() as Map<String, dynamic>;
+                              final String displayName;
+                              final String? profileImage;
+
+                              if (conversation.isGroup) {
+                                displayName =
+                                    conversation.groupName ?? 'Groupe';
+                                profileImage =
+                                    null; // Image par défaut pour les groupes
+                              } else if (userData.containsKey('companyName')) {
+                                // C'est une entreprise
+                                displayName =
+                                    userData['companyName'] ?? 'Entreprise';
+                                profileImage = userData['companyLogo'];
+                              } else {
+                                // C'est un utilisateur
+                                displayName =
+                                    '${userData['firstName']} ${userData['lastName']}';
+                                profileImage = userData['userProfilePicture'];
+                              }
+
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: profileImage != null
+                                      ? NetworkImage(profileImage)
+                                      : null,
+                                  child: profileImage == null
+                                      ? const Icon(Icons.person)
+                                      : null,
+                                ),
+                                title: Text(displayName),
+                                onTap: () async {
+                                  try {
+                                    await conversationService
+                                        .sharePostInConversation(
+                                      conversationId: conversation.id,
+                                      senderId: users.userId,
+                                      post: widget.post,
+                                    );
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    _showSnackBar('Post partagé avec succès');
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    _showSnackBar('Erreur lors du partage: $e');
+                                  }
+                                },
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
           },
         );
       },

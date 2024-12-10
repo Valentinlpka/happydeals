@@ -1,9 +1,7 @@
-// lib/pages/services/service_payment_page.dart
-import 'dart:html' as html;
-
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
+import 'package:happy/widgets/unified_payment_button.dart';
 import 'package:intl/intl.dart';
 
 class ServicePaymentPage extends StatefulWidget {
@@ -21,38 +19,45 @@ class ServicePaymentPage extends StatefulWidget {
 }
 
 class _ServicePaymentPageState extends State<ServicePaymentPage> {
-  bool _isLoading = false;
+  String? _bookingId; // Ajoutez cette ligne
 
-  Future<void> _handlePayment() async {
-    setState(() => _isLoading = true);
+  final bool _isLoading = false;
+  Map<String, dynamic>? _address;
 
-    try {
-      final functions = FirebaseFunctions.instance;
+  @override
+  void initState() {
+    super.initState();
+    _generateOrderId(); // Ajoutez cette ligne
+    _fetchCompanyAddress();
+  }
 
-      // Appeler la Cloud Function pour créer la session de paiement
-      final result =
-          await functions.httpsCallable('createServicePaymentWeb').call({
-        'serviceId': widget.service.id,
-        'bookingDateTime': widget.bookingDateTime.toIso8601String(),
-        'amount': (widget.service.price * 100).round(),
-        'currency': 'eur',
-        'successUrl': '${Uri.base.origin}/payment-success',
-        'cancelUrl': '${Uri.base.origin}/payment-cancel',
+  Future<void> _fetchCompanyAddress() async {
+    final companyDoc = await FirebaseFirestore.instance
+        .collection('companys')
+        .doc(widget.service.professionalId)
+        .get();
+
+    if (companyDoc.exists) {
+      setState(() {
+        _address = companyDoc.data()?['adress'] as Map<String, dynamic>;
       });
-
-      // Rediriger vers Stripe Checkout
-      final sessionUrl = result.data['url'];
-      html.window.location.href = sessionUrl;
-    } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
-      );
     }
+  }
+
+  Future<void> _generateOrderId() async {
+    // Créer une référence de document vide dans la collection 'orders'
+    final bookingRef = FirebaseFirestore.instance.collection('bookings').doc();
+    setState(() {
+      _bookingId = bookingRef.id;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_address == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Paiement'),
@@ -68,21 +73,27 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
               const Center(child: CircularProgressIndicator())
             else
               SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _handlePayment,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: Text(
-                    'Payer ${widget.service.price.toStringAsFixed(2)} €',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                ),
-              ),
+                  width: double.infinity,
+                  child: // Dans ServicePaymentPage
+                      UnifiedPaymentButton(
+                    type: 'service',
+                    amount: (widget.service.price * 100).round(),
+                    metadata: {
+                      "bookingId": _bookingId!,
+                      'amount': (widget.service.price * 100).round().toString(),
+                      'serviceId': widget.service.id,
+                      'duration': widget.service.duration,
+                      'serviceName': widget.service.name,
+                      'bookingDateTime': widget.bookingDateTime
+                          .toUtc()
+                          .toIso8601String(), // Conversion en UTC
+                      'professionalId': widget.service.professionalId,
+                      'adresse':
+                          '${_address!['adresse']}, ${_address!['code_postal']} ${_address!['ville']}',
+                    },
+                    successUrl: '${Uri.base.origin}/#/payment-success',
+                    cancelUrl: '${Uri.base.origin}/payment-cancel',
+                  )),
           ],
         ),
       ),
@@ -119,6 +130,10 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
               'Heure',
               '${DateFormat('HH:mm').format(widget.bookingDateTime)} - '
                   '${DateFormat('HH:mm').format(endTime)}',
+            ),
+            _buildSummaryRow(
+              'Adresse',
+              '${_address!['adresse']}\n${_address!['code_postal']} ${_address!['ville']}',
             ),
             _buildSummaryRow(
               'Durée',

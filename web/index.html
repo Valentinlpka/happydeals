@@ -47,20 +47,8 @@
 </head>
 
 <body>
-  <script>
-    window.addEventListener('load', function () {
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-          serviceWorkerUrl: '/happydeals/flutter_service_worker.js?v=' + serviceWorkerVersion,
-        },
-        onEntrypointLoaded: async function (engineInitializer) {
-          const appRunner = await engineInitializer.initializeEngine();
-          await appRunner.runApp();
-        }
-      });
-    });
-  </script>
+  <script src="flutter_bootstrap.js" async></script>
+
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
   <script>
