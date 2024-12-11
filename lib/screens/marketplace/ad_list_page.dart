@@ -300,7 +300,6 @@ class _AdListPageState extends State<AdListPage> {
     );
   }
 
-
   void _onScroll() {
     // Charger plus tôt, quand on atteint 80% du scroll
     if (!_isLoading &&
@@ -309,7 +308,6 @@ class _AdListPageState extends State<AdListPage> {
       _loadMoreAds();
     }
   }
-
 
   void _showFilterOptions() {
     showModalBottomSheet(
@@ -327,12 +325,12 @@ class _AdListPageState extends State<AdListPage> {
               minChildSize: 0.5,
               expand: false,
               builder: (context, scrollController) {
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                return Column(
+                  children: [
+                    // En-tête fixe
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
@@ -348,48 +346,76 @@ class _AdListPageState extends State<AdListPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                      // Type de l'annonce
-                      Text(
-                        'Type d\'annonce',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[800],
+                    ),
+                    // Contenu scrollable
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: scrollController,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Type d\'annonce',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  _buildTypeChip(
+                                    'Articles',
+                                    Icons.shopping_bag,
+                                    selectedType == 'article',
+                                    () => setState(
+                                        () => selectedType = 'article'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildTypeChip(
+                                    'Véhicules',
+                                    Icons.directions_car,
+                                    selectedType == 'vehicle',
+                                    () => setState(
+                                        () => selectedType = 'vehicle'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildTypeChip(
+                                    'Troc',
+                                    Icons.swap_horiz,
+                                    selectedType == 'exchange',
+                                    () => setState(
+                                        () => selectedType = 'exchange'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              if (selectedType != null) ...[
+                                _buildSpecificFilters(selectedType!, setState),
+                              ],
+                              const SizedBox(height: 20),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          _buildTypeChip(
-                            'Articles',
-                            Icons.shopping_bag,
-                            selectedType == 'article',
-                            () => setState(() => selectedType = 'article'),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildTypeChip(
-                            'Véhicules',
-                            Icons.directions_car,
-                            selectedType == 'vehicle',
-                            () => setState(() => selectedType = 'vehicle'),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildTypeChip(
-                            'Troc',
-                            Icons.swap_horiz,
-                            selectedType == 'exchange',
-                            () => setState(() => selectedType = 'exchange'),
+                    ),
+                    // Boutons de bas fixe
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 5,
+                            offset: const Offset(0, -3),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                      // Filtres spécifiques selon le type
-                      if (selectedType != null) ...[
-                        _buildSpecificFilters(selectedType!, setState),
-                      ],
-                      const Spacer(),
-                      Row(
+                      child: Row(
                         children: [
                           Expanded(
                             child: TextButton(
@@ -414,7 +440,6 @@ class _AdListPageState extends State<AdListPage> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                // Appliquer les filtres
                                 Navigator.pop(context);
                                 _applyFilters();
                               },
@@ -429,8 +454,8 @@ class _AdListPageState extends State<AdListPage> {
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             );
@@ -479,6 +504,15 @@ class _AdListPageState extends State<AdListPage> {
         ));
       }
 
+      // Ajout du filtre de catégorie
+      if (selectedSubCategory != null) {
+        _activeFiltersList.add(ActiveFilter(
+          type: 'category',
+          value: selectedSubCategory!,
+          displayText: selectedSubCategory!,
+        ));
+      }
+
       if (priceRange.start > 0 || priceRange.end < 1000) {
         _activeFiltersList.add(ActiveFilter(
           type: 'price',
@@ -492,12 +526,11 @@ class _AdListPageState extends State<AdListPage> {
 
       _activeFilters = {
         if (selectedType != null) 'type': selectedType,
+        if (selectedSubCategory != null) 'category': selectedSubCategory,
         if (priceRange.start > 0) 'minPrice': priceRange.start,
         if (priceRange.end < 1000) 'maxPrice': priceRange.end,
         if (selectedCondition != null) 'condition': selectedCondition,
         if (selectedBrand != null) 'brand': selectedBrand,
-        if (selectedCategory != null) 'category': selectedCategory,
-        if (selectedSubCategory != null) 'subCategory': selectedSubCategory,
       };
     });
     _loadMoreAds();
@@ -524,7 +557,7 @@ class _AdListPageState extends State<AdListPage> {
         query = query.where('adType', isEqualTo: _activeFilters['type']);
       }
       if (_activeFilters['category'] != null) {
-        query = query.where('category', isEqualTo: _activeFilters['category']);
+        query = query.where('category', isEqualTo: selectedSubCategory);
       }
       if (_activeFilters['condition'] != null) {
         query =
@@ -756,7 +789,7 @@ class _AdListPageState extends State<AdListPage> {
     );
   }
 
-  Widget _buildCategoryFilter(StateSetter setState) {
+  Widget _buildCategoryFilter(StateSetter setBottomSheetState) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -781,8 +814,8 @@ class _AdListPageState extends State<AdListPage> {
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: () {
-                // Utiliser votre sélecteur de catégorie existant
-                _showCategoryPicker();
+                _showCategoryPicker(
+                    setBottomSheetState); // On passe le setState du bottom sheet
               },
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -809,8 +842,7 @@ class _AdListPageState extends State<AdListPage> {
     );
   }
 
-  void _showCategoryPicker() {
-    // Charger les catégories depuis votre JSON
+  void _showCategoryPicker(StateSetter setBottomSheetState) {
     final categories = [
       Category.fromJson({
         "nom": "Véhicules",
@@ -841,7 +873,7 @@ class _AdListPageState extends State<AdListPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
             return SizedBox(
@@ -874,11 +906,9 @@ class _AdListPageState extends State<AdListPage> {
                       ],
                     ),
                   ),
-                  // Content
                   Expanded(
                     child: Row(
                       children: [
-                        // Catégories principales
                         Expanded(
                           child: Container(
                             color: Colors.white,
@@ -915,14 +945,12 @@ class _AdListPageState extends State<AdListPage> {
                             ),
                           ),
                         ),
-                        // Sous-catégories
                         Expanded(
                           child: Container(
                             color: Colors.grey[50],
                             child: tempCategory == null
                                 ? const Center(
-                                    child: Text('Sélectionnez une catégorie'),
-                                  )
+                                    child: Text('Sélectionnez une catégorie'))
                                 : ListView.builder(
                                     itemCount: categories
                                         .firstWhere(
@@ -951,14 +979,13 @@ class _AdListPageState extends State<AdListPage> {
                                           ),
                                         ),
                                         onTap: () {
+                                          // Met à jour à la fois l'état local et celui du bottom sheet parent
                                           setState(() {
                                             tempSubCategory = subCategory;
                                           });
-                                          // Mettre à jour les sélections et fermer
-                                          this.setState(() {
+                                          setBottomSheetState(() {
                                             selectedCategory = tempCategory;
-                                            selectedSubCategory =
-                                                tempSubCategory;
+                                            selectedSubCategory = subCategory;
                                           });
                                           Navigator.pop(context);
                                         },

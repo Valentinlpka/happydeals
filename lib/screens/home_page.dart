@@ -9,9 +9,18 @@ import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
+import 'package:happy/screens/marketplace/ad_list_page.dart';
+import 'package:happy/screens/post_type_page/code_promo_page.dart';
+import 'package:happy/screens/post_type_page/companys_page.dart';
+import 'package:happy/screens/post_type_page/deal_express_page.dart';
+import 'package:happy/screens/post_type_page/happy_deals_page.dart';
+import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
+import 'package:happy/screens/post_type_page/job_offer_page.dart';
+import 'package:happy/screens/post_type_page/parrainage.dart';
+import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/widgets/bottom_sheet_profile.dart';
 import 'package:happy/widgets/cards/company_card.dart';
-import 'package:happy/widgets/filtered_button.dart';
+import 'package:happy/widgets/navigation_item.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
 
@@ -24,16 +33,62 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   late String currentUserId;
-  String _selectedFilter = 'Tous';
   List<CombinedItem> _feedItems = [];
   bool _isLoading = true;
   final ScrollController _scrollController = ScrollController();
+
+  final List<NavigationItem> _navigationItems = [
+    NavigationItem(
+      title: 'Entreprises',
+      icon: Icons.business_center, // Icône d'entreprise/business
+      page: const CompaniesPage(),
+    ),
+    NavigationItem(
+      title: 'Deal Express',
+      icon: Icons.flash_on, // Icône éclair pour la rapidité/instantanéité
+      page: const DealExpressPage(),
+    ),
+    NavigationItem(
+      title: 'Happy Deals',
+      icon: Icons.local_offer, // Icône étiquette pour les offres
+      page: const HappyDealsPage(),
+    ),
+    NavigationItem(
+      title: 'Code Promo',
+      icon: Icons.confirmation_number, // Icône ticket/coupon
+      page: const CodePromoPage(),
+    ),
+    NavigationItem(
+      title: 'Emplois',
+      icon: Icons.work_outline, // Icône mallette de travail
+      page: const JobOffersPage(),
+    ),
+    NavigationItem(
+      title: 'Jeux Concours',
+      icon: Icons.emoji_events, // Icône trophée pour les concours
+      page: const JeuxConcoursPage(),
+    ),
+    NavigationItem(
+      title: 'Offre de parrainage',
+      icon: Icons.people_outline, // Icône de personnes pour le parrainage
+      page: const ParraiangePage(),
+    ),
+    NavigationItem(
+      title: 'Services',
+      icon: Icons.miscellaneous_services, // Icône engrenage pour les services
+      page: const ServiceListPage(),
+    ),
+    NavigationItem(
+      title: 'Marketplace',
+      icon: Icons.storefront, // Icône boutique pour la marketplace
+      page: const AdListPage(),
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-
     _loadData();
     _scrollController.addListener(_onScroll);
   }
@@ -57,9 +112,7 @@ class _HomeState extends State<Home> {
         await userProvider.loadUserData();
       }
 
-      // 2. Vérifier la position et la charger si nécessaire
-
-      // 3. Maintenant charger le feed avec les données utilisateur garanties
+      // 2. Maintenant charger le feed avec les données utilisateur garanties
       if (kDebugMode) {
         print(
             "Nombre d'entreprises likées avant chargement: ${userProvider.likedCompanies.length}");
@@ -114,18 +167,13 @@ class _HomeState extends State<Home> {
         child: Column(
           children: [
             _buildHeader(),
-            FilterButtons(
-              selectedFilter: _selectedFilter,
-              onFilterChanged: (filter) {
-                setState(() {
-                  _selectedFilter = filter;
-                });
-              },
+            _buildNavigationButtons(),
+            Divider(
+              color: Colors.grey[300], // Couleur
+              thickness: 1, // Épaisseur
+              height:
+                  20, // Hauteur totale (incluant l'espace au-dessus et en-dessous)
             ),
-            if (_isLoading)
-              const LinearProgressIndicator()
-            else
-              const SizedBox(height: 4),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _handleRefresh,
@@ -133,6 +181,118 @@ class _HomeState extends State<Home> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavigationButtons() {
+    // Map des dégradés pour chaque type
+    final Map<String, LinearGradient> gradients = {
+      'Entreprises': const LinearGradient(
+        colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Deal Express': const LinearGradient(
+        colors: [Color(0xFFE65100), Color(0xFFFF9800)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Happy Deals': const LinearGradient(
+        colors: [Color(0xFF00796B), Color(0xFF009688)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Code Promo': const LinearGradient(
+        colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Emplois': const LinearGradient(
+        colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Jeux Concours': const LinearGradient(
+        colors: [Color(0xFFC62828), Color(0xFFEF5350)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Offre de parrainage': const LinearGradient(
+        colors: [Color(0xFF4527A0), Color(0xFF7E57C2)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Services': const LinearGradient(
+        colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Marketplace': const LinearGradient(
+        colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 10,
+      ),
+      child: Container(
+        height: 35,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _navigationItems.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final item = _navigationItems[index];
+            return Container(
+              decoration: BoxDecoration(
+                gradient: gradients[item.title],
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => item.page),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                  elevation: 1,
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.icon,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      item.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -207,7 +367,7 @@ class _HomeState extends State<Home> {
     } else if (items.isEmpty) {
       return const Center(child: Text('Aucun élément trouvé'));
     } else {
-      final filteredItems = _applyFilter(items);
+      final filteredItems = items;
       return ListView.builder(
         controller: _scrollController,
         itemCount: filteredItems.length + 1,
@@ -232,35 +392,6 @@ class _HomeState extends State<Home> {
 
   Future<void> _handleRefresh() async {
     await _loadData();
-  }
-
-  List<CombinedItem> _applyFilter(List<CombinedItem> items) {
-    if (_selectedFilter == 'Tous') return items;
-    return items.where((item) {
-      if (_selectedFilter == 'Entreprises' && item.type == 'company') {
-        return true;
-      }
-      if (item.type == 'post') {
-        final post = item.item['post'] as Post;
-        switch (_selectedFilter) {
-          case 'Deals Express':
-            return post.type == 'express_deal';
-          case 'Happy Deals':
-            return post.type == 'happy_deal';
-          case 'Offres d\'emploi':
-            return post.type == 'job_offer';
-          case 'Parrainage':
-            return post.type == 'referral';
-          case 'Jeux concours':
-            return post.type == 'contest';
-          case 'Produits':
-            return post.type == 'product';
-          case 'Post':
-            return post.type == 'news';
-        }
-      }
-      return false;
-    }).toList();
   }
 
   Widget _buildItem(CombinedItem item) {

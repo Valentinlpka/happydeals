@@ -51,30 +51,77 @@ class _CodePromoPageState extends State<CodePromoPage> {
       ),
       body: Column(
         children: [
-          _buildSearchBar(),
+          _buildSearchAndFilters(),
           _buildPromoCodesList(),
         ],
       ),
     );
   }
 
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20.0, left: 20, right: 20),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: 'Rechercher un code promo...',
-          fillColor: Colors.white,
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+  Widget _buildSearchAndFilters() {
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: [
+          // Barre de recherche moderne
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 10,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Rechercher un code promo...',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                border: InputBorder.none,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
           ),
-        ),
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-          });
-        },
+
+          // Filtres sélectionnés
+          if (_selectedCompany != 'Toutes')
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  FilterChip(
+                    label: Text(_selectedCompany),
+                    onSelected: (_) {},
+                    selected: true,
+                    onDeleted: () {
+                      setState(() {
+                        _selectedCompany = 'Toutes';
+                      });
+                    },
+                    deleteIcon:
+                        const Icon(Icons.close, size: 18, color: Colors.white),
+                    backgroundColor: const Color(0xFF4B88DA),
+                    selectedColor: const Color(0xFF4B88DA),
+                    labelStyle: const TextStyle(color: Colors.white),
+                    showCheckmark: false,
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -89,16 +136,32 @@ class _CodePromoPageState extends State<CodePromoPage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             return Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Filtres',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filtres',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            _selectedCompany = 'Toutes';
+                          });
+                        },
+                        child: const Text('Réinitialiser'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   _buildFilterDropdown(
                     'Entreprise',
                     _selectedCompany,
@@ -111,11 +174,11 @@ class _CodePromoPageState extends State<CodePromoPage> {
                       }
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.blue,
+                      backgroundColor: const Color(0xFF4B88DA),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -124,7 +187,10 @@ class _CodePromoPageState extends State<CodePromoPage> {
                       setState(() {});
                       Navigator.pop(context);
                     },
-                    child: const Text('Appliquer les filtres'),
+                    child: const Text(
+                      'Appliquer les filtres',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
                 ],
               ),

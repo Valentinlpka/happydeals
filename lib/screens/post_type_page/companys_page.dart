@@ -65,22 +65,89 @@ class _CompaniesPageState extends State<CompaniesPage> {
   }
 
   Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20.0, left: 20, right: 20),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: 'Rechercher une entreprise...',
-          fillColor: Colors.white,
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: [
+          // Barre de recherche moderne
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 10,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Rechercher une entreprise...',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                border: InputBorder.none,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
           ),
-        ),
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-          });
-        },
+          // Filtres sélectionnés
+          if (_selectedCategory != 'Toutes' || _selectedCity != 'Toutes')
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  if (_selectedCategory != 'Toutes')
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(_selectedCategory),
+                        onSelected: (_) {}, // Ajout du paramètre requis
+                        onDeleted: () {
+                          setState(() {
+                            _selectedCategory = 'Toutes';
+                          });
+                        },
+                        selected: true,
+                        deleteIcon: const Icon(Icons.close,
+                            size: 18, color: Colors.white),
+                        backgroundColor: const Color(0xFF4B88DA),
+                        selectedColor: const Color(0xFF4B88DA),
+                        labelStyle: const TextStyle(color: Colors.white),
+                        showCheckmark: false,
+                      ),
+                    ),
+                  if (_selectedCity != 'Toutes')
+                    FilterChip(
+                      label: Text(_selectedCity),
+                      onSelected: (_) {}, // Ajout du paramètre requis
+                      onDeleted: () {
+                        setState(() {
+                          _selectedCity = 'Toutes';
+                        });
+                      },
+                      selected: true,
+                      deleteIcon: const Icon(Icons.close,
+                          size: 18, color: Colors.white),
+                      backgroundColor: const Color(0xFF4B88DA),
+                      selectedColor: const Color(0xFF4B88DA),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      showCheckmark: false,
+                    ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -149,16 +216,33 @@ class _CompaniesPageState extends State<CompaniesPage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             return Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Filtres',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filtres',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            _selectedCategory = 'Toutes';
+                            _selectedCity = 'Toutes';
+                          });
+                        },
+                        child: const Text('Réinitialiser'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   _buildFilterDropdown(
                     'Catégorie',
                     _selectedCategory,
@@ -184,12 +268,11 @@ class _CompaniesPageState extends State<CompaniesPage> {
                       }
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor:
-                          Colors.blue, // Couleur du texte du bouton
+                      backgroundColor: const Color(0xFF4B88DA),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -198,7 +281,10 @@ class _CompaniesPageState extends State<CompaniesPage> {
                       setState(() {});
                       Navigator.pop(context);
                     },
-                    child: const Text('Appliquer les filtres'),
+                    child: const Text(
+                      'Appliquer les filtres',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
                 ],
               ),
