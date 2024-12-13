@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
-import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
 import 'package:happy/screens/goup_chat_search_screen.dart';
-import 'package:provider/provider.dart';
 
 class CompanyMessageBottomSheet extends StatelessWidget {
   final Company company;
@@ -41,23 +39,20 @@ class CompanyMessageBottomSheet extends StatelessWidget {
             icon: Icons.person_outline,
             title: 'Message privé',
             subtitle: 'Démarrer une conversation avec ${company.name}',
-            onTap: () async {
+            onTap: () {
               Navigator.pop(context);
-              final conversationService =
-                  Provider.of<ConversationService>(context, listen: false);
-              final String conversationId = await conversationService
-                  .getOrCreateConversation(currentUserId, company.id);
-              if (context.mounted) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ConversationDetailScreen(
-                      otherUserName: company.name,
-                      conversationId: conversationId,
-                    ),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ConversationDetailScreen(
+                    otherUserName: company.name,
+                    otherUserId: company.id, // ID de l'entreprise
+                    isNewConversation:
+                        true, // Important pour indiquer nouvelle conversation
+                    conversationId: '', // ID vide car pas encore créée
                   ),
-                );
-              }
+                ),
+              );
             },
           ),
           const SizedBox(height: 16),

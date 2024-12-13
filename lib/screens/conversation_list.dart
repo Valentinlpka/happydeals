@@ -173,16 +173,15 @@ class ConversationListItem extends StatelessWidget {
     String? otherUserId;
 
     if (conversation.adId != null) {
-      // Si c'est une annonce, on veut obtenir les infos du vendeur
+      // Pour les annonces
       otherUserId = conversation.sellerId;
     } else if (conversation.entrepriseId != null) {
-      // Conversation avec une entreprise
+      // Pour les conversations business
       otherUserId = conversation.entrepriseId == userId
           ? conversation.particulierId
           : conversation.entrepriseId;
-    } else if (conversation.otherUserId != null) {
-      otherUserId = conversation.otherUserId;
     } else {
+      // Pour les conversations entre particuliers
       otherUserId = conversation.particulierId == userId
           ? conversation.otherUserId
           : conversation.particulierId;
@@ -314,17 +313,19 @@ class ConversationTile extends StatelessWidget {
     } else {
       String? otherUserId;
       if (conversation.entrepriseId != null) {
+        // Conversation avec une entreprise
         otherUserId = conversation.entrepriseId == userId
             ? conversation.particulierId
             : conversation.entrepriseId;
-      } else if (conversation.otherUserId != null) {
-        otherUserId = conversation.otherUserId;
+      } else if (conversation.adId != null) {
+        // Si c'est une annonce, utiliser le sellerId
+        otherUserId = conversation.sellerId;
       } else {
+        // Conversation entre particuliers
         otherUserId = conversation.particulierId == userId
             ? conversation.otherUserId
             : conversation.particulierId;
       }
-
       // Vérifions si c'est une conversation avec une entreprise
       final bool isWithCompany = otherUserId == conversation.entrepriseId &&
           conversation.adId == null; // Ajout de la condition adId

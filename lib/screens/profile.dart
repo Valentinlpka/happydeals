@@ -11,6 +11,7 @@ import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/post_type_page/professional_page.dart';
 import 'package:happy/widgets/postwidget.dart';
+import 'package:happy/widgets/rating_dialog.dart';
 import 'package:provider/provider.dart';
 
 class Profile extends StatefulWidget {
@@ -181,6 +182,8 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildRatingCard(Rating rating) {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('users')
@@ -203,24 +206,55 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      backgroundImage:
-                          NetworkImage(userData['image_profile'] ?? ''),
-                      radius: 20,
+                    // Photo de profil cliquable
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                Profile(userId: rating.fromUserId),
+                          ),
+                        );
+                      },
+                      child: CircleAvatar(
+                        backgroundImage:
+                            NetworkImage(userData['image_profile'] ?? ''),
+                        radius: 20,
+                      ),
                     ),
                     const SizedBox(width: 8),
+                    // Informations utilisateur
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(userName,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          Text(rating.isSellerRating ? 'Vendeur' : 'Acheteur',
-                              style: const TextStyle(color: Colors.grey)),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      Profile(userId: rating.fromUserId),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              userName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            rating.isSellerRating ? 'Vendeur' : 'Acheteur',
+                            style: const TextStyle(color: Colors.grey),
+                          ),
                         ],
                       ),
                     ),
+                    // Étoiles
                     Row(
                       children: List.generate(5, (index) {
                         return Icon(
@@ -231,12 +265,101 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
                         );
                       }),
                     ),
+                    // Bouton modifier si c'est notre avis
+                    if (currentUserId == rating.fromUserId)
+                      IconButton(
+                        icon: const Icon(Icons.more_vert),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            builder: (context) => Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  leading: const Icon(Icons.edit),
+                                  title: const Text('Modifier l\'évaluation'),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => RatingDialog(
+                                        adId: rating.adId,
+                                        adTitle: rating.adTitle,
+                                        toUserId: rating.toUserId,
+                                        conversationId: rating.conversationId,
+                                        isSellerRating: rating.isSellerRating,
+                                        existingRating: rating,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  title: const Text('Supprimer l\'évaluation',
+                                      style: TextStyle(color: Colors.red)),
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text(
+                                            'Supprimer l\'évaluation'),
+                                        content: const Text(
+                                            'Êtes-vous sûr de vouloir supprimer cette évaluation ?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Annuler'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text('Supprimer',
+                                                style: TextStyle(
+                                                    color: Colors.red)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (confirm == true) {
+                                      try {
+                                        await Provider.of<ConversationService>(
+                                                context,
+                                                listen: false)
+                                            .deleteRating(rating.id);
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text(
+                                                  'Évaluation supprimée avec succès')),
+                                        );
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  'Erreur lors de la suppression: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                   ],
                 ),
                 if (rating.adTitle.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text('Article : ${rating.adTitle}',
-                      style: const TextStyle(fontStyle: FontStyle.italic)),
+                  Text(
+                    'Article : ${rating.adTitle}',
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
                 ],
                 if (rating.comment.isNotEmpty) ...[
                   const SizedBox(height: 8),

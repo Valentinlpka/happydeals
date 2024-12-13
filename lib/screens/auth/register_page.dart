@@ -17,24 +17,82 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _passwordVisible = false;
+  bool _isLoading = false;
 
   void _signUp() async {
+    setState(() => _isLoading = true);
+
     String? result = await _auth.signUp(
       email: _emailController.text,
       password: _passwordController.text,
     );
 
+    setState(() => _isLoading = false);
+    if (!mounted) return;
+
     if (result == 'Success') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const ProfileCompletionPage(),
-        ),
-      );
+      _showVerificationDialog();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Erreur lors de l'inscription")));
+        SnackBar(content: Text(result ?? "Erreur lors de l'inscription")),
+      );
     }
+  }
+
+  void _showVerificationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Vérifiez votre email'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Un email de vérification a été envoyé à votre adresse email. '
+                'Veuillez vérifier votre boîte de réception et cliquer sur le lien pour activer votre compte.',
+              ),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () async {
+                  await _auth.currentUser?.sendEmailVerification();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Email de vérification renvoyé')),
+                  );
+                },
+                child: const Text('Renvoyer l\'email'),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                if (_auth.currentUser!.emailVerified) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileCompletionPage(),
+                    ),
+                  );
+                } else {
+                  _auth.signOut(context);
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const Login(),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Continuer'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override

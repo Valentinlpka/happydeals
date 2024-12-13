@@ -12,7 +12,8 @@ class Message {
   final DateTime? editedAt;
   final Map<String, dynamic>? postData; // Ajout du champ postData
 
-  final String? type; // Ajout du champ type
+  final String type;
+  final Map<String, dynamic>? metadata; // Pour les données spécifiques au type
 
   Message({
     required this.id,
@@ -24,7 +25,8 @@ class Message {
     this.editedAt,
     this.postData, // Ajout du paramètre dans le constructeur
 
-    this.type, // Peut être 'system' ou null pour les messages normaux
+    required this.type,
+    this.metadata,
   });
 
   factory Message.fromFirestore(DocumentSnapshot doc) {
@@ -34,9 +36,11 @@ class Message {
       senderId: data['senderId'],
       content: data['content'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      type: data['type'], // Récupération du type depuis Firestore
+      type: data['type'],
       isDeleted: data['isDeleted'] ?? false,
       isEdited: data['isEdited'] ?? false,
+      metadata: data['metadata'] as Map<String, dynamic>?,
+
       postData:
           data['postData'] as Map<String, dynamic>?, // Conversion du postData
 
@@ -53,18 +57,40 @@ class Message {
       'timestamp': Timestamp.fromDate(timestamp),
       'type': type, // Inclusion du type dans les données Firestore
       'postData': postData, // Inclusion du postData
+      'metadata': metadata,
     };
+  }
+
+  static MessageType _parseMessageType(String? type) {
+    switch (type) {
+      case 'system':
+        return MessageType.system;
+      case 'shared_post':
+        return MessageType.sharedPost;
+      case 'image':
+        return MessageType.image;
+      case 'file':
+        return MessageType.file;
+      default:
+        return MessageType.text;
+    }
   }
 }
 
-// Dans classes/conversation.dart
+enum MessageType {
+  text,
+  system,
+  sharedPost,
+  image,
+  file,
+}
 
+// Dans classes/conversation.dart
 class Conversation {
   final String id;
   final String? particulierId;
   final String? entrepriseId;
-  final String?
-      otherUserId; // Nouveau champ pour les conversations entre particuliers
+  final String? otherUserId;
   final String? adId;
   final String lastMessage;
   final DateTime lastMessageTimestamp;
@@ -78,18 +104,17 @@ class Conversation {
   final bool isGroup;
   final String? groupName;
   final List<Map<String, dynamic>>? members;
-  final String? creatorId;
 
   Conversation({
     required this.id,
     this.particulierId,
     this.entrepriseId,
-    this.otherUserId, // Ajout du nouveau champ
+    this.otherUserId,
+    this.adId,
     required this.lastMessage,
     required this.lastMessageTimestamp,
     required this.unreadCount,
     required this.unreadBy,
-    this.adId,
     this.isAdSold,
     required this.lastMessageSenderId,
     required this.sellerHasRated,
@@ -98,30 +123,23 @@ class Conversation {
     this.isGroup = false,
     this.groupName,
     this.members,
-    this.creatorId,
   });
 
   factory Conversation.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    DateTime timestamp;
-    try {
-      timestamp = data['lastMessageTimestamp'] != null
-          ? (data['lastMessageTimestamp'] as Timestamp).toDate()
-          : DateTime.now();
-    } catch (e) {
-      timestamp = DateTime.now();
-    }
 
     return Conversation(
       id: doc.id,
       particulierId: data['particulierId'],
       entrepriseId: data['entrepriseId'],
-      otherUserId: data['otherUserId'], // Ajout du nouveau champ
+      otherUserId: data['otherUserId'],
+      adId: data['adId'],
       lastMessage: data['lastMessage'] ?? '',
-      lastMessageTimestamp: timestamp,
+      lastMessageTimestamp:
+          (data['lastMessageTimestamp'] as Timestamp?)?.toDate() ??
+              DateTime.now(),
       unreadCount: (data['unreadCount'] as num?)?.toInt() ?? 0,
       unreadBy: data['unreadBy'],
-      adId: data['adId'],
       isAdSold: data['isAdSold'],
       lastMessageSenderId: data['lastMessageSenderId'] ?? '',
       sellerHasRated: data['sellerHasRated'] ?? false,
@@ -132,29 +150,39 @@ class Conversation {
       members: data['members'] != null
           ? List<Map<String, dynamic>>.from(data['members'])
           : null,
-      creatorId: data['creatorId'],
     );
   }
 
   Map<String, dynamic> toFirestore() {
-    return {
+    final Map<String, dynamic> data = {
       'particulierId': particulierId,
       'entrepriseId': entrepriseId,
-      'otherUserId': otherUserId, // Ajout du nouveau champ
+      'otherUserId': otherUserId,
+      'adId': adId,
       'lastMessage': lastMessage,
       'lastMessageTimestamp': Timestamp.fromDate(lastMessageTimestamp),
       'unreadCount': unreadCount,
       'unreadBy': unreadBy,
-      'adId': adId,
-      'isAdSold': isAdSold,
       'lastMessageSenderId': lastMessageSenderId,
       'sellerHasRated': sellerHasRated,
       'buyerHasRated': buyerHasRated,
-      'sellerId': sellerId,
       'isGroup': isGroup,
-      'groupName': groupName,
-      'members': members,
-      'creatorId': creatorId,
     };
+
+    // Ajouter les champs conditionnels
+    if (adId != null) {
+      data['sellerId'] = sellerId;
+      data['isAdSold'] = isAdSold;
+    }
+
+    if (isGroup) {
+      data['groupName'] = groupName;
+      data['members'] = members;
+    }
+
+    // Supprimer les valeurs nulles
+    data.removeWhere((key, value) => value == null);
+
+    return data;
   }
 }

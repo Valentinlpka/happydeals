@@ -19,6 +19,8 @@ class AuthService {
       );
       User? user = result.user;
 
+      await user?.sendEmailVerification();
+
       await _firestore.collection('users').doc(user!.uid).set({
         'email': email,
         'isProfileComplete': false,
@@ -36,11 +38,33 @@ class AuthService {
       required String password,
       required BuildContext context}) async {
     try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      UserCredential result = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!result.user!.emailVerified) {
+        await _auth.signOut();
+        return 'Veuillez vérifier votre email avant de vous connecter';
+      }
+
       await Provider.of<UserModel>(context, listen: false).loadUserData();
       return 'Success';
     } on FirebaseAuthException catch (e) {
       return e.message;
+    }
+  }
+
+  Future<bool> checkEmailVerified() async {
+    User? user = _auth.currentUser;
+    await user?.reload();
+    return user?.emailVerified ?? false;
+  }
+
+  Future<void> resendVerificationEmail() async {
+    User? user = _auth.currentUser;
+    if (user != null && !user.emailVerified) {
+      await user.sendEmailVerification();
     }
   }
 
@@ -63,9 +87,7 @@ class AuthService {
         MaterialPageRoute(builder: (context) => const Login()),
         (Route<dynamic> route) => false,
       );
-
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   User? get currentUser => _auth.currentUser;

@@ -15,7 +15,15 @@ class Ad {
   final String status;
   final DateTime createdAt;
   final Map<String, dynamic> additionalData;
-  bool isSaved; // Nouveau champ
+  bool isSaved;
+
+  // Nouvelles propriétés pour le système d'évaluation
+  String? buyerId;
+  bool buyerHasRated;
+  bool sellerHasRated;
+  DateTime? soldDate;
+
+  bool get isSold => status == 'sold';
 
   Ad({
     required this.id,
@@ -30,7 +38,11 @@ class Ad {
     required this.createdAt,
     required this.additionalData,
     required this.status,
-    this.isSaved = false, // Valeur par défaut
+    this.isSaved = false,
+    this.buyerId,
+    this.buyerHasRated = false,
+    this.sellerHasRated = false,
+    this.soldDate,
   });
 
   String get formattedDate => formatDate(createdAt);
@@ -43,12 +55,10 @@ class Ad {
         .collection('users')
         .doc(data['userId'])
         .get();
-
     Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
     String userName =
         '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
     String userProfilePicture = userData['image_profile'] ?? '';
-
     bool isSaved =
         (userData['savedAds'] as List<dynamic>?)?.contains(doc.id) ?? false;
 
@@ -63,7 +73,7 @@ class Ad {
       photos: List<String>.from(data['photos'] ?? []),
       userProfilePicture: userProfilePicture,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
-      status: data['status'],
+      status: data['status'] ?? '',
       additionalData: Map<String, dynamic>.from(data)
         ..removeWhere((key, value) => [
               'adType',
@@ -72,9 +82,20 @@ class Ad {
               'price',
               'userId',
               'photos',
-              'createdAt'
+              'createdAt',
+              'status',
+              'buyerId',
+              'buyerHasRated',
+              'sellerHasRated',
+              'soldDate'
             ].contains(key)),
       isSaved: isSaved,
+      buyerId: data['buyerId'],
+      buyerHasRated: data['buyerHasRated'] ?? false,
+      sellerHasRated: data['sellerHasRated'] ?? false,
+      soldDate: data['soldDate'] != null
+          ? (data['soldDate'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -99,9 +120,20 @@ class Ad {
               'price',
               'userId',
               'photos',
-              'createdAt'
+              'createdAt',
+              'status',
+              'buyerId',
+              'buyerHasRated',
+              'sellerHasRated',
+              'soldDate'
             ].contains(key)),
       isSaved: map['isSaved'] ?? false,
+      buyerId: map['buyerId'],
+      buyerHasRated: map['buyerHasRated'] ?? false,
+      sellerHasRated: map['sellerHasRated'] ?? false,
+      soldDate: map['soldDate'] != null
+          ? (map['soldDate'] as Timestamp).toDate()
+          : null,
     );
   }
 

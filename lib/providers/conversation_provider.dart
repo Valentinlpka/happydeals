@@ -30,13 +30,31 @@ class ConversationService extends ChangeNotifier {
   }
 
   Future<void> sharePostInConversation({
-    required String conversationId,
     required String senderId,
+    required String receiverId,
     required Post post,
     String? comment,
   }) async {
     try {
-      // Créer un message système pour le partage
+      // Chercher une conversation existante
+      final existingConversationId = await checkExistingConversation(
+        userId1: senderId,
+        userId2: receiverId,
+      );
+
+      final conversationId = existingConversationId ??
+          await _firestore.collection('conversations').add({
+            'particulierId': senderId,
+            'otherUserId': receiverId,
+            'lastMessage': 'A partagé une publication',
+            'lastMessageTimestamp': FieldValue.serverTimestamp(),
+            'lastMessageSenderId': senderId,
+            'unreadCount': 1,
+            'unreadBy': receiverId,
+            'isGroup': false,
+          }).then((doc) => doc.id);
+
+      // Créer le message de partage
       final systemMessage = {
         'content': 'A partagé une publication',
         'senderId': senderId,
@@ -56,14 +74,13 @@ class ConversationService extends ChangeNotifier {
           .collection('messages')
           .add(systemMessage);
 
-      // Mettre à jour les informations de la conversation
+      // Mettre à jour la conversation
       await _firestore.collection('conversations').doc(conversationId).update({
         'lastMessage': 'A partagé une publication',
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
         'lastMessageSenderId': senderId,
         'unreadCount': FieldValue.increment(1),
-        // Mettre à jour unreadBy en fonction du type de conversation
-        'unreadBy': await _determineUnreadBy(conversationId, senderId),
+        'unreadBy': receiverId,
       });
     } catch (e) {
       rethrow;
@@ -89,101 +106,101 @@ class ConversationService extends ChangeNotifier {
     }
   }
 
-  Future<String?> checkExistingConversation({
-    required String userId1,
-    required String userId2,
-    String? adId,
-  }) async {
-    Query query = _firestore
-        .collection('conversations')
-        .where('isGroup', isEqualTo: false);
-
-    if (adId != null) {
-      query = query.where('adId', isEqualTo: adId);
-    }
-
-    // Chercher dans les deux sens possibles
-    final querySnapshot = await query
-        .where(Filter.or(
-          Filter.and(
-            Filter('particulierId', isEqualTo: userId1),
-            Filter('entrepriseId', isEqualTo: userId2),
-          ),
-          Filter.and(
-            Filter('particulierId', isEqualTo: userId2),
-            Filter('entrepriseId', isEqualTo: userId1),
-          ),
-        ))
-        .limit(1)
-        .get();
-
-    if (querySnapshot.docs.isNotEmpty) {
-      return querySnapshot.docs.first.id;
-    }
-    return null;
-  }
-
-  Future<String> createConversationWithFirstMessage({
-    required String senderId,
-    required String receiverId,
+  Future<String> createAdConversation({
+    required String buyerId,
+    required String sellerId,
+    required String adId,
     required String messageContent,
-    String? adId,
   }) async {
-    // Préparer les données de base de la conversation
-    Map<String, dynamic> conversationData = {
+    // Vérifier d'abord si l'annonce existe et est toujours disponible
+    final adDoc = await _firestore.collection('ads').doc(adId).get();
+    if (!adDoc.exists) {
+      throw Exception('Annonce introuvable');
+    }
+
+    final adData = adDoc.data() as Map<String, dynamic>;
+    if (adData['status'] != 'available') {
+      throw Exception('Cette annonce n\'est plus disponible');
+    }
+
+    // Créer la nouvelle conversation spécifique à l'annonce
+    final conversationData = {
+      'particulierId': buyerId,
+      'sellerId': sellerId,
+      'adId': adId,
+      'isAdSold': false,
       'lastMessage': messageContent,
       'lastMessageTimestamp': FieldValue.serverTimestamp(),
-      'lastMessageSenderId': senderId,
+      'lastMessageSenderId': buyerId,
       'unreadCount': 1,
-      'unreadBy': receiverId,
-      'isGroup': false,
+      'unreadBy': sellerId,
+      'type': 'ad_conversation',
       'sellerHasRated': false,
       'buyerHasRated': false,
       'createdAt': FieldValue.serverTimestamp(),
     };
 
-    // Déterminer les types d'utilisateurs
-    final senderType = await _getUserType(senderId);
-    final receiverType = await _getUserType(receiverId);
+    // Créer la conversation
+    final docRef =
+        await _firestore.collection('conversations').add(conversationData);
 
+    // Ajouter le premier message
+    await _firestore
+        .collection('conversations')
+        .doc(docRef.id)
+        .collection('messages')
+        .add({
+      'content': messageContent,
+      'senderId': buyerId,
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'text',
+    });
+
+    return docRef.id;
+  }
+
+  Future<String?> checkExistingConversation({
+    required String userId1,
+    required String userId2,
+    String? adId,
+  }) async {
+    print('Début de check');
     if (adId != null) {
-      // Logique pour les conversations liées aux annonces
-      // ... code existant pour les annonces
-    } else if (senderType == 'company' || receiverType == 'company') {
-      // Logique pour les conversations avec une entreprise
-      conversationData['particulierId'] =
-          senderType == 'company' ? receiverId : senderId;
-      conversationData['entrepriseId'] =
-          senderType == 'company' ? senderId : receiverId;
-    } else {
-      // Conversation entre particuliers
-      conversationData['particulierId'] = senderId;
-      conversationData['otherUserId'] = receiverId;
-      conversationData['type'] =
-          'private'; // Ajouter un type pour identifier facilement
-    }
-
-    try {
-      // Créer la conversation
-      final docRef =
-          await _firestore.collection('conversations').add(conversationData);
-
-      // Ajouter le premier message
-      await _firestore
+      final adQuery = await _firestore
           .collection('conversations')
-          .doc(docRef.id)
-          .collection('messages')
-          .add({
-        'content': messageContent,
-        'senderId': senderId,
-        'timestamp': FieldValue.serverTimestamp(),
-        'type': 'normal',
-      });
+          .where('adId', isEqualTo: adId)
+          .where('particulierId', isEqualTo: userId1)
+          .where('sellerId', isEqualTo: userId2)
+          .limit(1)
+          .get();
 
-      return docRef.id;
-    } catch (e) {
-      rethrow;
+      if (adQuery.docs.isNotEmpty) {
+        return adQuery.docs.first.id;
+      }
+      return null;
     }
+
+    // Pour une conversation normale entre particuliers
+    final conversationsQuery = await _firestore
+        .collection('conversations')
+        .where('adId', isEqualTo: null)
+        .where('isGroup', isEqualTo: false)
+        .get();
+
+    // Vérifier manuellement les conversations pour trouver une correspondance
+    for (var doc in conversationsQuery.docs) {
+      final data = doc.data();
+      final bool isMatch = ((data['particulierId'] == userId1 &&
+              data['otherUserId'] == userId2) ||
+          (data['particulierId'] == userId2 && data['otherUserId'] == userId1));
+
+      if (isMatch) {
+        print('Ca marche on a trouvé une conversation');
+        return doc.id;
+      }
+    }
+
+    return null;
   }
 
   // Méthode principale pour envoyer un message (premier ou suivant)
@@ -201,17 +218,22 @@ class ConversationService extends ChangeNotifier {
     );
 
     if (existingConversationId != null) {
-      // Si la conversation existe, envoyer simplement le message
       await sendMessage(existingConversationId, senderId, content);
       return existingConversationId;
     }
 
-    // Si la conversation n'existe pas, la créer avec le premier message
-    return await createConversationWithFirstMessage(
+    // Si pas de conversation existante, créer une nouvelle
+    final senderType = await _getUserType(senderId);
+    final receiverType = await _getUserType(receiverId);
+    final isBusinessConversation =
+        senderType == 'company' || receiverType == 'company';
+
+    return createNewConversation(
       senderId: senderId,
       receiverId: receiverId,
       messageContent: content,
       adId: adId,
+      isBusinessConversation: isBusinessConversation,
     );
   }
 
@@ -222,47 +244,60 @@ class ConversationService extends ChangeNotifier {
     String? adId,
     bool isBusinessConversation = false,
   }) async {
-    // Déterminer qui est le particulier et qui est l'entreprise si nécessaire
-    String? particulierId;
-    String? entrepriseId;
+    final Map<String, dynamic> conversationData;
 
     if (isBusinessConversation) {
-      particulierId = senderId;
-      entrepriseId = receiverId;
-    } else {
-      // Pour une conversation entre particuliers
-      particulierId = senderId;
-    }
-
-    final Map<String, dynamic> conversationData = {
-      'particulierId': particulierId,
-      'entrepriseId': entrepriseId,
-      'lastMessage': messageContent,
-      'lastMessageTimestamp': FieldValue.serverTimestamp(),
-      'unreadCount': 1,
-      'unreadBy': receiverId,
-      'adId': adId,
-      'lastMessageSenderId': senderId,
-      'isGroup': false,
-      'sellerHasRated': false,
-      'buyerHasRated': false,
-    };
-
-    // Ajouter des champs spécifiques si c'est une conversation liée à une annonce
-    if (adId != null) {
+      // Pour les conversations avec une entreprise
+      conversationData = {
+        'particulierId': senderId,
+        'entrepriseId': receiverId,
+        'lastMessage': messageContent,
+        'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'unreadCount': 1,
+        'unreadBy': receiverId,
+        'lastMessageSenderId': senderId,
+        'isGroup': false,
+      };
+    } else if (adId != null) {
+      // Pour les conversations d'annonces
       final adDoc = await _firestore.collection('ads').doc(adId).get();
-      if (adDoc.exists) {
-        final adData = adDoc.data() as Map<String, dynamic>;
-        conversationData['sellerId'] = adData['userId'];
-        conversationData['isAdSold'] = false;
+      if (!adDoc.exists) {
+        throw Exception('Annonce introuvable');
       }
+      final adData = adDoc.data()!;
+
+      conversationData = {
+        'particulierId': senderId,
+        'sellerId': receiverId,
+        'adId': adId,
+        'isAdSold': false,
+        'lastMessage': messageContent,
+        'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': senderId,
+        'unreadCount': 1,
+        'unreadBy': receiverId,
+        'sellerHasRated': false,
+        'buyerHasRated': false,
+      };
+    } else {
+      // Pour les conversations entre particuliers
+      conversationData = {
+        'particulierId': senderId,
+        'otherUserId': receiverId,
+        'lastMessage': messageContent,
+        'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'unreadCount': 1,
+        'unreadBy': receiverId,
+        'lastMessageSenderId': senderId,
+        'isGroup': false,
+      };
     }
 
     // Créer la conversation
     final docRef =
         await _firestore.collection('conversations').add(conversationData);
 
-    // Créer le premier message
+    // Ajouter le premier message
     await _firestore
         .collection('conversations')
         .doc(docRef.id)
@@ -457,26 +492,24 @@ class ConversationService extends ChangeNotifier {
   }
 
   Future<void> initializeForUser(String userId) async {
-    if (_currentUserId == userId) {
-      return;
-    }
+    if (_currentUserId == userId) return;
 
     await cleanUp();
     _currentUserId = userId;
     _conversationsController = BehaviorSubject<List<Conversation>>();
 
     try {
-      // Créer une requête qui combine tous les types de conversations possibles
+      // Query combinée pour tous les types de conversations
       final query = _firestore
           .collection('conversations')
           .where(Filter.or(
-            // Pour les conversations où l'utilisateur est le particulier
+            // Pour les conversations normales où l'utilisateur est particulierId
             Filter('particulierId', isEqualTo: userId),
-            // Pour les conversations où l'utilisateur est l'entreprise
-            Filter('entrepriseId', isEqualTo: userId),
-            // Pour les conversations entre particuliers où l'utilisateur est l'autre utilisateur
+            // Pour les conversations où l'utilisateur est otherUserId
             Filter('otherUserId', isEqualTo: userId),
-            // Pour les conversations de groupe
+            // Pour les conversations business
+            Filter('entrepriseId', isEqualTo: userId),
+            // Pour les groupes
             Filter('memberIds', arrayContains: userId),
           ))
           .orderBy('lastMessageTimestamp', descending: true);
@@ -487,9 +520,10 @@ class ConversationService extends ChangeNotifier {
             final conversations = snapshot.docs
                 .map((doc) {
                   try {
-                    final conversation = Conversation.fromFirestore(doc);
-                    return conversation;
+                    return Conversation.fromFirestore(doc);
                   } catch (e) {
+                    print(
+                        'Erreur lors de la conversion de la conversation: $e');
                     return null;
                   }
                 })
@@ -501,7 +535,7 @@ class ConversationService extends ChangeNotifier {
           }
         },
         onError: (error) {
-          if (error.toString().contains('indexes?create_composite=')) {}
+          print('Erreur dans le stream des conversations: $error');
         },
       );
 
@@ -699,55 +733,144 @@ class ConversationService extends ChangeNotifier {
 
   // Gestion des annonces
   Future<void> markAdAsSold(String conversationId) async {
-    if (_currentUserId == null) return;
+    try {
+      // Récupérer d'abord les données de la conversation
+      final conversationDoc = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
+      if (!conversationDoc.exists) throw Exception('Conversation introuvable');
 
-    final conversationDoc =
-        await _firestore.collection('conversations').doc(conversationId).get();
-    if (!conversationDoc.exists) return;
+      final conversationData = conversationDoc.data() as Map<String, dynamic>;
 
-    final conversationData = conversationDoc.data() as Map<String, dynamic>;
-    final adId = conversationData['adId'] as String?;
-    if (adId == null) return;
+      // Vérifier si l'annonce est déjà marquée comme vendue dans la conversation
+      if (conversationData['isAdSold'] == true) {
+        throw Exception('Cette annonce a déjà été marquée comme vendue');
+      }
 
-    final adDoc = await _firestore.collection('ads').doc(adId).get();
-    if (!adDoc.exists) return;
+      final adId = conversationData['adId'] as String?;
+      if (adId == null) throw Exception('ID de l\'annonce manquant');
 
-    final adData = adDoc.data() as Map<String, dynamic>;
-    final sellerId = adData['userId'] as String;
+      // Vérifier le status de l'annonce
+      final adDoc = await _firestore.collection('ads').doc(adId).get();
+      if (!adDoc.exists) throw Exception('Annonce introuvable');
 
-    await _firestore.collection('conversations').doc(conversationId).update({
-      'isAdSold': true,
-      'soldDate': Timestamp.fromDate(DateTime.now()),
-      'sellerId': sellerId,
-      'sellerHasRated': false,
-      'buyerHasRated': false,
-    });
+      final adData = adDoc.data() as Map<String, dynamic>;
+      if (adData['status'] == 'sold') {
+        throw Exception('Cette annonce a déjà été marquée comme vendue');
+      }
 
-    await _firestore.collection('ads').doc(adId).update({
-      'status': 'sold',
-      'buyerId': conversationData['particulierId'],
-      'soldDate': Timestamp.fromDate(DateTime.now()),
-    });
+      final buyerId = conversationData['particulierId'] as String?;
+      if (buyerId == null) throw Exception('ID de l\'acheteur manquant');
 
-    notifyListeners();
+      // Utiliser une transaction pour assurer la cohérence des données
+      await _firestore.runTransaction((transaction) async {
+        // Vérifier une dernière fois le status pendant la transaction
+        final freshAdDoc =
+            await transaction.get(_firestore.collection('ads').doc(adId));
+        if (freshAdDoc.data()?['status'] == 'sold') {
+          throw Exception('Cette annonce a déjà été marquée comme vendue');
+        }
+
+        // Mettre à jour l'annonce
+        transaction.update(_firestore.collection('ads').doc(adId), {
+          'status': 'sold',
+          'buyerId': buyerId,
+          'soldDate': FieldValue.serverTimestamp(),
+          'buyerHasRated': false,
+          'sellerHasRated': false,
+        });
+
+        // Mettre à jour la conversation
+        transaction.update(
+            _firestore.collection('conversations').doc(conversationId), {
+          'isAdSold': true,
+          'soldDate': FieldValue.serverTimestamp(),
+          'buyerHasRated': false,
+          'sellerHasRated': false,
+        });
+      });
+
+      notifyListeners();
+    } catch (e) {
+      print('Erreur lors du marquage de l\'annonce comme vendue: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateRating(Rating rating) async {
+    try {
+      await _firestore
+          .collection('ratings')
+          .doc(rating.id)
+          .update(rating.toFirestore());
+      await _updateUserRating(rating.toUserId);
+      notifyListeners();
+    } catch (e) {
+      print('Erreur lors de la mise à jour de l\'évaluation: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteRating(String ratingId) async {
+    try {
+      final ratingDoc =
+          await _firestore.collection('ratings').doc(ratingId).get();
+      final ratingData = ratingDoc.data() as Map<String, dynamic>;
+      final toUserId = ratingData['toUserId'] as String;
+
+      await _firestore.collection('ratings').doc(ratingId).delete();
+      await _updateUserRating(toUserId);
+      notifyListeners();
+    } catch (e) {
+      print('Erreur lors de la suppression de l\'évaluation: $e');
+      rethrow;
+    }
   }
 
   // Système d'évaluation
   Future<void> submitRating(Rating rating) async {
     if (_currentUserId == null) return;
 
-    await _firestore.collection('ratings').add(rating.toFirestore());
+    try {
+      // Vérifier si une évaluation existe déjà
+      final existingRatings = await _firestore
+          .collection('ratings')
+          .where('conversationId', isEqualTo: rating.conversationId)
+          .where('fromUserId', isEqualTo: rating.fromUserId)
+          .get();
 
-    await _firestore
-        .collection('conversations')
-        .doc(rating.conversationId)
-        .update({
-      rating.isSellerRating ? 'sellerHasRated' : 'buyerHasRated': true,
-    });
+      if (existingRatings.docs.isNotEmpty) {
+        throw Exception('Vous avez déjà évalué cette transaction');
+      }
 
-    await _updateUserRating(rating.toUserId);
+      // Ajouter la nouvelle évaluation
+      final docRef =
+          await _firestore.collection('ratings').add(rating.toFirestore());
 
-    notifyListeners();
+      // Mettre à jour le statut dans la conversation
+      await _firestore
+          .collection('conversations')
+          .doc(rating.conversationId)
+          .update({
+        rating.isSellerRating ? 'sellerHasRated' : 'buyerHasRated': true,
+      });
+
+      await _updateUserRating(rating.toUserId);
+      notifyListeners();
+    } catch (e) {
+      print('Erreur lors de la soumission de l\'évaluation: $e');
+      rethrow;
+    }
+  }
+
+  Stream<List<Rating>> getConversationRatings(String conversationId) {
+    return _firestore
+        .collection('ratings')
+        .where('conversationId', isEqualTo: conversationId)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Rating.fromFirestore(doc)).toList());
   }
 
   Future<void> _updateUserRating(String userId) async {
@@ -827,5 +950,25 @@ class ConversationService extends ChangeNotifier {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<String> getOrCreatePrivateConversation(
+      String userId1, String userId2) async {
+    // D'abord, chercher une conversation existante
+    final existingConversationId = await checkExistingConversation(
+      userId1: userId1,
+      userId2: userId2,
+    );
+
+    if (existingConversationId != null) {
+      return existingConversationId;
+    }
+
+    // Si aucune conversation n'existe, en créer une nouvelle
+    return await createNewConversation(
+      senderId: userId1,
+      receiverId: userId2,
+      messageContent: '', // Message vide car on va partager un post
+    );
   }
 }

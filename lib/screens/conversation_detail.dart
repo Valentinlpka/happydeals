@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/conversation.dart';
+import 'package:happy/classes/rating.dart';
 import 'package:happy/providers/conversation_provider.dart';
+import 'package:happy/widgets/rating_dialog.dart';
 import 'package:happy/widgets/share_post_message.dart';
 import 'package:provider/provider.dart';
 
@@ -117,6 +119,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
       body: Column(
         children: [
           if (widget.ad != null) _buildAdInfo(widget.ad!),
+          _buildRatingButton(), // Ajoutez le bouton ici
           _buildMessageList(FirebaseAuth.instance.currentUser?.uid ?? ""),
           _buildMessageInput(FirebaseAuth.instance.currentUser?.uid ?? ""),
         ],
@@ -247,13 +250,177 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
   }
 
   Future<void> _markAsSold() async {
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
-    await conversationService.markAdAsSold(widget.conversationId);
+    // Vérifications de sécurité
+    if (widget.ad == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de trouver l\'annonce')),
+      );
+      return;
+    }
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Article marqué comme vendu')),
+    // Vérifier si l'annonce est déjà vendue
+    if (widget.ad!.status == 'sold') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Cette annonce a déjà été marquée comme vendue')),
+      );
+      return;
+    }
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vous devez être connecté')),
+      );
+      return;
+    }
+
+    // Vérifier que l'utilisateur actuel est bien le vendeur
+    if (currentUserId != widget.ad!.userId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Seul le vendeur peut marquer l\'annonce comme vendue')),
+      );
+      return;
+    }
+
+    // Afficher une boîte de dialogue de confirmation
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Marquer comme vendu'),
+          content: Text(
+            'Êtes-vous sûr de vouloir marquer "${widget.ad!.title}" comme vendu ? Cette action est irréversible.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Confirmer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      final conversationService =
+          Provider.of<ConversationService>(context, listen: false);
+      await conversationService.markAdAsSold(widget.conversationId);
+
+      if (!mounted) return;
+
+      // Afficher le dialogue d'évaluation pour le vendeur
+      showDialog(
+        context: context,
+        builder: (context) => RatingDialog(
+          adId: widget.ad!.id,
+          adTitle: widget.ad!.title,
+          toUserId: widget.ad!.buyerId ?? '',
+          conversationId: widget.conversationId,
+          isSellerRating: true,
+        ),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Article marqué comme vendu')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Widget _buildRatingButton() {
+    if (!widget.ad!.isSold) return const SizedBox.shrink();
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return const SizedBox.shrink();
+
+    // Vérifie si l'utilisateur est le vendeur ou l'acheteur et s'il a déjà évalué
+    final bool isUserSeller = currentUserId == widget.ad!.userId;
+    final bool hasRated =
+        isUserSeller ? widget.ad!.sellerHasRated : widget.ad!.buyerHasRated;
+
+    return StreamBuilder<List<Rating>>(
+      stream: Provider.of<ConversationService>(context, listen: false)
+          .getConversationRatings(widget.conversationId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+
+        final ratings = snapshot.data!;
+        final userRating = ratings.firstWhere(
+          (r) => r.fromUserId == currentUserId,
+          orElse: () => Rating(
+            id: '',
+            fromUserId: '',
+            toUserId: '',
+            adId: '',
+            adTitle: '',
+            rating: 0,
+            comment: '',
+            createdAt: DateTime.now(),
+            conversationId: '',
+            isSellerRating: false,
+          ),
+        );
+
+        // Si l'utilisateur a déjà évalué, on montre le bouton de modification
+        if (userRating.id.isNotEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.edit),
+              label: const Text('Modifier votre évaluation'),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => RatingDialog(
+                    adId: widget.ad!.id,
+                    adTitle: widget.ad!.title,
+                    toUserId:
+                        isUserSeller ? widget.ad!.buyerId! : widget.ad!.userId,
+                    conversationId: widget.conversationId,
+                    isSellerRating: isUserSeller,
+                    existingRating: userRating,
+                  ),
+                );
+              },
+            ),
+          );
+        }
+
+        // Si l'utilisateur n'a pas encore évalué
+        return Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.star),
+            label:
+                Text('Évaluer ${isUserSeller ? "l'acheteur" : "le vendeur"}'),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => RatingDialog(
+                  adId: widget.ad!.id,
+                  adTitle: widget.ad!.title,
+                  toUserId:
+                      isUserSeller ? widget.ad!.buyerId! : widget.ad!.userId,
+                  conversationId: widget.conversationId,
+                  isSellerRating: isUserSeller,
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -608,23 +775,22 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
 
     try {
       if (widget.isNewConversation && _actualConversationId == null) {
-        // Création d'une nouvelle conversation avec le premier message
-        _actualConversationId = await conversationService.sendFirstMessage(
+        // Créer une nouvelle conversation avec le premier message
+        _actualConversationId = await conversationService.createNewConversation(
           senderId: currentUserId,
           receiverId: widget.otherUserId!,
-          content: _messageController.text,
+          messageContent: _messageController.text,
           adId: widget.ad?.id,
+          // Le service déterminera le type de conversation en fonction des utilisateurs
         );
 
-        // Mettre à jour l'état avec l'ID de la nouvelle conversation
         setState(() {
           _actualConversationId = _actualConversationId;
         });
 
-        // Si c'est une nouvelle conversation, initialiser le chat après création
         _initializeChat();
       } else {
-        // Envoi normal de message dans une conversation existante
+        // Conversation existante
         await conversationService.sendMessage(
           _actualConversationId ?? widget.conversationId,
           currentUserId,

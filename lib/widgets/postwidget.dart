@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/contest.dart';
-import 'package:happy/classes/conversation.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/classes/happydeal.dart';
@@ -611,96 +610,60 @@ class _PostWidgetState extends State<PostWidget> {
                 ),
                 const Divider(),
                 Expanded(
-                  child: StreamBuilder<List<Conversation>>(
-                    stream: conversationService.getUserConversationsStream(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Center(child: Text('Erreur: ${snapshot.error}'));
-                      }
-
-                      if (!snapshot.hasData) {
+                  child: StreamBuilder<List<String>>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(users.userId)
+                        .snapshots()
+                        .map((doc) => List<String>.from(
+                            doc.data()?['followedUsers'] ?? [])),
+                    builder: (context, followedSnapshot) {
+                      if (!followedSnapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
 
-                      final conversations = snapshot.data!;
-                      if (conversations.isEmpty) {
-                        return const Center(
-                          child: Text('Aucune conversation'),
-                        );
-                      }
+                      final followedUsers = followedSnapshot.data!;
 
-                      return ListView.builder(
-                        controller: scrollController,
-                        itemCount: conversations.length,
-                        itemBuilder: (context, index) {
-                          final conversation = conversations[index];
-                          return FutureBuilder<DocumentSnapshot>(
-                            future: FirebaseFirestore.instance
-                                .collection(
-                                    conversation.particulierId == users.userId
-                                        ? 'users'
-                                        : 'users')
-                                .doc(conversation.entrepriseId ??
-                                    conversation.otherUserId)
-                                .get(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const ListTile(
-                                  leading: CircleAvatar(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                  title: Text('Chargement...'),
-                                );
-                              }
+                      return FutureBuilder<List<DocumentSnapshot>>(
+                        future: FirebaseFirestore.instance
+                            .collection('users')
+                            .where(FieldPath.documentId, whereIn: followedUsers)
+                            .get()
+                            .then((query) => query.docs),
+                        builder: (context, usersSnapshot) {
+                          if (!usersSnapshot.hasData) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
 
-                              if (!snapshot.hasData || !snapshot.data!.exists) {
-                                return const ListTile(
-                                  leading: CircleAvatar(
-                                    child: Icon(Icons.error),
-                                  ),
-                                  title: Text('Utilisateur inconnu'),
-                                );
-                              }
+                          final usersList = usersSnapshot.data!;
 
-                              final userData =
-                                  snapshot.data!.data() as Map<String, dynamic>;
-                              final String displayName;
-                              final String? profileImage;
-
-                              if (conversation.isGroup) {
-                                displayName =
-                                    conversation.groupName ?? 'Groupe';
-                                profileImage =
-                                    null; // Image par défaut pour les groupes
-                              } else if (userData.containsKey('companyName')) {
-                                // C'est une entreprise
-                                displayName =
-                                    userData['companyName'] ?? 'Entreprise';
-                                profileImage = userData['userProfilePicture'];
-                              } else {
-                                // C'est un utilisateur
-                                displayName =
-                                    '${userData['firstName']} ${userData['lastName']}';
-                                profileImage = userData['image_profile'];
-                              }
+                          return ListView.builder(
+                            controller: scrollController,
+                            itemCount: usersList.length,
+                            itemBuilder: (context, index) {
+                              final userData = usersList[index].data()
+                                  as Map<String, dynamic>;
+                              final userId = usersList[index].id;
 
                               return ListTile(
                                 leading: CircleAvatar(
-                                  backgroundImage: profileImage != null
-                                      ? NetworkImage(profileImage)
+                                  backgroundImage: userData['image_profile'] !=
+                                          null
+                                      ? NetworkImage(userData['image_profile'])
                                       : null,
-                                  child: profileImage == null
+                                  child: userData['image_profile'] == null
                                       ? const Icon(Icons.person)
                                       : null,
                                 ),
-                                title: Text(displayName),
+                                title: Text(
+                                    '${userData['firstName']} ${userData['lastName']}'),
                                 onTap: () async {
                                   try {
                                     await conversationService
                                         .sharePostInConversation(
-                                      conversationId: conversation.id,
                                       senderId: users.userId,
+                                      receiverId: userId,
                                       post: widget.post,
                                     );
                                     if (!context.mounted) return;

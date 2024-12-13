@@ -66,9 +66,15 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                 backgroundColor: WidgetStateProperty.all(Colors.blue[800]),
               ),
               onPressed: () {
-                // Implement ticket purchase functionality
+                showDialog(
+                  context: context,
+                  builder: (context) => AttendanceDialog(
+                    event: widget.event,
+                    userId: widget.currentUserId,
+                  ),
+                );
               },
-              child: const Text('Acheter un ticket'),
+              child: const Text('S\'inscrire'),
             ),
           ),
         ),

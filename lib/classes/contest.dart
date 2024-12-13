@@ -25,6 +25,32 @@ class Gift {
   }
 }
 
+class Participant {
+  final String userId;
+  final DateTime participationDate;
+  final Map<String, dynamic>? answers;
+
+  Participant({
+    required this.userId,
+    required this.participationDate,
+    this.answers,
+  });
+
+  factory Participant.fromMap(Map<String, dynamic> data) {
+    return Participant(
+      userId: data['userId'],
+      participationDate: (data['participationDate'] as Timestamp).toDate(),
+      answers: data['answers'],
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'userId': userId,
+        'participationDate': Timestamp.fromDate(participationDate),
+        'answers': answers,
+      };
+}
+
 class Contest extends Post {
   final String title;
   final String searchText;
@@ -35,6 +61,8 @@ class Contest extends Post {
   final DateTime startDate;
   final DateTime endDate;
   final String giftPhoto;
+  final int maxParticipants;
+  final int participantsCount;
 
   Contest({
     required super.id,
@@ -50,6 +78,8 @@ class Contest extends Post {
     required this.startDate,
     required this.endDate,
     required this.giftPhoto,
+    required this.maxParticipants,
+    required this.participantsCount,
     super.views,
     super.likes,
     super.likedBy,
@@ -79,6 +109,8 @@ class Contest extends Post {
       giftPhoto: data['giftPhoto'],
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
+      maxParticipants: data['maxParticipants'] ?? 0,
+      participantsCount: data['participantsCount'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)
@@ -102,6 +134,8 @@ class Contest extends Post {
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
       'giftPhoto': giftPhoto,
+      'maxParticipants': maxParticipants,
+      'participantsCount': participantsCount,
     });
     return map;
   }

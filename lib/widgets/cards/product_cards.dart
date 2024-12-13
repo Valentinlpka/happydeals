@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/classes/product_post.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
+import 'package:intl/intl.dart';
 
 class ProductCards extends StatelessWidget {
   final ProductPost post;
@@ -32,230 +34,246 @@ class ProductCards extends StatelessWidget {
     }
   }
 
+  String _formatDateTime(DateTime dateTime) {
+    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Card(
-          shadowColor: Colors.grey,
-          color: Colors.white,
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailsEntreprise(
+              entrepriseId: post.companyId,
+            ),
           ),
-          child: InkWell(
-            onTap: () async {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (BuildContext context) {
-                  return const Center(child: CircularProgressIndicator());
-                },
-              );
-
-              try {
-                final product = await _getProduct(post.productId);
-                Navigator.pop(context);
-                if (product != null && context.mounted) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          ModernProductDetailPage(product: product),
-                    ),
-                  );
-                }
-              } catch (e) {
-                Navigator.pop(context);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Erreur de chargement du produit')),
-                  );
-                }
-              }
-            },
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        );
+      },
+      child: Column(
+        children: [
+          // En-tête avec logo et informations
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                // Section Image et En-tête
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(8),
-                      topRight: Radius.circular(8),
-                    ),
-                    image: DecorationImage(
-                      colorFilter: ColorFilter.mode(
-                        Colors.black.withOpacity(0.40),
-                        BlendMode.darken,
-                      ),
-                      image: NetworkImage(post.images[0]),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  height: 123,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          ClipRRect(
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(15)),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.blue[700]!,
-                                    Colors.blue[300]!
-                                  ],
-                                ),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(
-                                    Icons.shopping_bag,
-                                    size: 18,
-                                    color: Colors.white,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Produit',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 15.0),
-                            child: CircleAvatar(
-                              radius: 26,
-                              backgroundColor: Colors.blue,
-                              child: CircleAvatar(
-                                radius: 24,
-                                backgroundImage: NetworkImage(companyLogo),
-                              ),
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                companyName,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                // Logo de l'entreprise
+                CircleAvatar(
+                  radius: 26,
+                  backgroundImage: NetworkImage(companyLogo),
+                  backgroundColor: Colors.transparent,
                 ),
-                // Section Information Produit
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  height: 100,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            post.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Nom de l'entreprise
+                    Text(
+                      companyName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Tag Produit et Date
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: const Text(
+                            'Produit',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
                             ),
                           ),
-                          Text(
-                            post.description,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color.fromARGB(255, 85, 85, 85),
-                            ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatDateTime(post.timestamp),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
                           ),
-                        ],
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (post.hasActiveHappyDeal &&
-                              post.discountedPrice != null) ...[
-                            Container(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 5),
-                              color: const Color.fromARGB(255, 231, 231, 231),
-                              child: Text(
-                                "${post.discountPercentage?.toStringAsFixed(0)} % de réduction",
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "${post.price.toStringAsFixed(2)} €",
-                              style: const TextStyle(
-                                decoration: TextDecoration.lineThrough,
-                                fontSize: 16,
-                                color: Color.fromARGB(255, 181, 11, 11),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "${post.discountedPrice!.toStringAsFixed(2)} €",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ] else
-                            Text(
-                              "${post.price.toStringAsFixed(2)} €",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-        ),
-      ],
+
+          // Carte produit
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: InkWell(
+              onTap: () async {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                );
+
+                try {
+                  final product = await _getProduct(post.productId);
+                  Navigator.pop(context);
+                  if (product != null && context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            ModernProductDetailPage(product: product),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  Navigator.pop(context);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Erreur de chargement du produit')),
+                    );
+                  }
+                }
+              },
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Image du produit
+                  Hero(
+                    tag: 'product-${post.productId}',
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        post.images[0],
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            width: 120,
+                            height: 120,
+                            color: Colors.grey[100],
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+
+                  // Colonne avec titre, description et prix
+                  Expanded(
+                    child: SizedBox(
+                      height: 120, // Même hauteur que l'image
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Titre et description
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                post.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                post.description,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+
+                          // Prix aligné en bas
+                          if (post.hasActiveHappyDeal &&
+                              post.discountedPrice != null)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  "${post.discountedPrice!.toStringAsFixed(2)} €",
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "${post.price.toStringAsFixed(2)} €",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    decoration: TextDecoration.lineThrough,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                "${post.price.toStringAsFixed(2)} €",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }

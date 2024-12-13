@@ -7,6 +7,134 @@ import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+class ParticipationDialog extends StatefulWidget {
+  final Contest contest;
+  final String userId;
+
+  const ParticipationDialog({
+    required this.contest,
+    required this.userId,
+    super.key,
+  });
+
+  @override
+  State<ParticipationDialog> createState() => _ParticipationDialogState();
+}
+
+class _ParticipationDialogState extends State<ParticipationDialog> {
+  int _currentStep = 0;
+  bool _acceptedConditions = false;
+
+  Future<void> _participate() async {
+    try {
+      print("Début de participation");
+      final participant = Participant(
+        userId: widget.userId,
+        participationDate: DateTime.now(),
+      );
+      print("Participant créé: ${participant.toMap()}");
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        print("Début transaction");
+        final contestRef = FirebaseFirestore.instance
+            .collection('posts')
+            .doc(widget.contest.id);
+        print("Contest ID: ${widget.contest.id}");
+
+        final contestDoc = await transaction.get(contestRef);
+        print("Doc exists: ${contestDoc.exists}");
+        print("Doc data: ${contestDoc.data()}");
+
+        if (!contestDoc.exists) throw 'Concours introuvable';
+
+        final currentParticipants =
+            contestDoc.data()?['participantsCount'] ?? 0;
+        if (currentParticipants >=
+            (widget.contest.maxParticipants > 0
+                ? widget.contest.maxParticipants
+                : 100)) {
+          throw 'Le concours est complet';
+        }
+        print("Participants actuels: $currentParticipants");
+        print("Max participants: ${contestDoc['maxParticipants']}");
+
+        if (currentParticipants >= widget.contest.maxParticipants) {
+          throw 'Le concours est complet';
+        }
+
+        transaction.set(
+          contestRef.collection('participants').doc(),
+          participant.toMap(),
+        );
+        print("Participant ajouté");
+
+        transaction.update(contestRef, {
+          'participantsCount': FieldValue.increment(1),
+        });
+        print("Compteur mis à jour");
+      });
+    } catch (e, stackTrace) {
+      print("Erreur: $e");
+      print("Stack trace: $stackTrace");
+      rethrow;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Stepper(
+          currentStep: _currentStep,
+          onStepContinue: () {
+            if (_currentStep < 2) {
+              setState(() => _currentStep++);
+            } else {
+              _participate();
+            }
+          },
+          onStepCancel: () {
+            if (_currentStep > 0) {
+              setState(() => _currentStep--);
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+          steps: [
+            Step(
+              title: const Text('Règlement'),
+              content: Column(
+                children: [
+                  Text(widget.contest.conditions),
+                  CheckboxListTile(
+                    value: _acceptedConditions,
+                    onChanged: (value) {
+                      setState(() => _acceptedConditions = value!);
+                    },
+                    title: const Text("J'accepte le règlement"),
+                  ),
+                ],
+              ),
+              isActive: _currentStep >= 0,
+            ),
+            Step(
+              title: const Text('Confirmation'),
+              content: const Text('Confirmez-vous votre participation ?'),
+              isActive: _currentStep >= 1,
+            ),
+            Step(
+              title: const Text('Terminé'),
+              content: const Text('Votre participation est enregistrée !'),
+              isActive: _currentStep >= 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class DetailsJeuxConcoursPage extends StatefulWidget {
   final Contest contest;
   final String currentUserId;
@@ -63,7 +191,13 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
               backgroundColor: WidgetStateProperty.all(Colors.blue[800]),
             ),
             onPressed: () {
-              // Implement contest participation functionality
+              showDialog(
+                context: context,
+                builder: (context) => ParticipationDialog(
+                  contest: widget.contest,
+                  userId: widget.currentUserId,
+                ),
+              );
             },
             child: const Text('Participer au jeu'),
           ),

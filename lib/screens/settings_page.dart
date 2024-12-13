@@ -1,8 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/liked_post_page.dart';
 import 'package:happy/screens/loyalty_card_page.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
+import 'package:happy/screens/mes_evenements.dart';
 import 'package:happy/screens/my_deals_express.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
@@ -221,6 +223,8 @@ class ParametrePage extends StatelessWidget {
   }
 
   Widget _buildServiceGrid(BuildContext context) {
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -312,6 +316,16 @@ class ParametrePage extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                     builder: (context) => const ClientBookingsPage()));
+          },
+        ),
+        _buildServiceCard(
+          icon: Icons.favorite,
+          title: "Mes Evènements",
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => MyEventsPage(userId: currentUserId)));
           },
         ),
       ],

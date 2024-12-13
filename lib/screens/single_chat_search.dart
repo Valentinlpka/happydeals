@@ -210,27 +210,47 @@ class _UserListItem extends StatelessWidget {
           fontSize: 16,
         ),
       ),
-      onTap: () => _startConversation(context),
-    );
-  }
+      onTap: () async {
+        // Vérifier d'abord si une conversation existe déjà
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+        if (currentUserId == null) return;
 
-  Future<void> _startConversation(BuildContext context) async {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    if (currentUserId == null) return;
+        final conversationQuery = await FirebaseFirestore.instance
+            .collection('conversations')
+            .where('adId', isEqualTo: null)
+            .where('isGroup', isEqualTo: false)
+            .get();
 
-    // Aller directement à l'écran de conversation sans créer la conversation
-    if (!context.mounted) return;
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ConversationDetailScreen(
-          conversationId: '', // ID vide car nouvelle conversation
-          otherUserName: '${user['firstName']} ${user['lastName']}',
-          otherUserId: userId,
-          isNewConversation: true,
-        ),
-      ),
+        for (var doc in conversationQuery.docs) {
+          final data = doc.data();
+          final bool isMatch = ((data['particulierId'] == userId &&
+                  data['otherUserId'] == currentUserId) ||
+              (data['particulierId'] == currentUserId &&
+                  data['otherUserId'] == userId));
+
+          String? existingConversationId;
+          if (isMatch) {
+            existingConversationId = doc.id;
+            print('Ca marche on a trouvé une conversation');
+          }
+
+          if (!context.mounted) return;
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ConversationDetailScreen(
+                conversationId: existingConversationId ??
+                    '', // Conversation existante ou vide
+                otherUserName: '${user['firstName']} ${user['lastName']}',
+                otherUserId: userId,
+                isNewConversation: existingConversationId ==
+                    null, // Nouveau seulement si pas d'existant
+              ),
+            ),
+          );
+        }
+      },
     );
   }
 }
