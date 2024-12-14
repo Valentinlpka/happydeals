@@ -70,9 +70,9 @@ class JobOfferCard extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Colors.indigo, Colors.blue],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
+                                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(5),
                             ),
@@ -85,7 +85,7 @@ class JobOfferCard extends StatelessWidget {
                                 ),
                                 SizedBox(width: 4),
                                 Text(
-                                  'Offre d\'emploi',
+                                  'Emplois',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,

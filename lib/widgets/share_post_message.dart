@@ -208,6 +208,8 @@ class SharedPostMessage extends StatelessWidget {
       case Event:
         return SizedBox(
           child: EvenementCard(
+            companyName: companyName,
+            companyLogo: companyLogo,
             event: post as Event,
             currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
           ),

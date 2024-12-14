@@ -91,7 +91,9 @@ class PromoCodeCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.blue[700],
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
+                            ),
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: const Text(

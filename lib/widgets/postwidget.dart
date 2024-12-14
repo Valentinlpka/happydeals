@@ -397,6 +397,8 @@ class _PostWidgetState extends State<PostWidget> {
         );
       case Event:
         return EvenementCard(
+          companyName: widget.companyName,
+          companyLogo: widget.companyLogo,
           event: post as Event,
           currentUserId: widget.currentUserId,
         );

@@ -85,9 +85,9 @@ class ConcoursCard extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Colors.purple, Colors.deepPurple],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
+                                colors: [Color(0xFFC62828), Color(0xFFEF5350)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(5),
                             ),
@@ -100,7 +100,7 @@ class ConcoursCard extends StatelessWidget {
                                 ),
                                 SizedBox(width: 4),
                                 Text(
-                                  'Jeu Concours',
+                                  'Jeux Concours',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
