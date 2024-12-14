@@ -29,16 +29,6 @@ class BookingService {
           throw Exception('Réservation non trouvée');
         }
 
-        // Libérer le créneau
-        final timeSlotId = bookingDoc.data()!['timeSlotId'];
-        transaction.update(
-          _firestore.collection('timeSlots').doc(timeSlotId),
-          {
-            'isAvailable': true,
-            'bookedByUserId': null,
-          },
-        );
-
         // Mettre à jour le statut de la réservation
         transaction.update(
           _firestore.collection('bookings').doc(bookingId),

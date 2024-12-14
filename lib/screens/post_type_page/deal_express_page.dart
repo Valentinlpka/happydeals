@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/widgets/cards/deals_express_card.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 
 class DealExpressPage extends StatefulWidget {
   const DealExpressPage({super.key});
@@ -14,6 +15,7 @@ class DealExpressPage extends StatefulWidget {
 class _DealExpressPageState extends State<DealExpressPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  String _searchQuery = '';
   String _selectedCategory = 'Toutes';
   List<String> _categories = ['Toutes'];
 
@@ -24,9 +26,8 @@ class _DealExpressPageState extends State<DealExpressPage> {
   }
 
   Future<void> _loadCategories() async {
-    final categoriesSnapshot = await _firestore.collection('companys').get();
-
-    final categories = categoriesSnapshot.docs
+    final companiesSnapshot = await _firestore.collection('companys').get();
+    final categories = companiesSnapshot.docs
         .map((doc) => doc['categorie'] as String)
         .toSet()
         .toList();
@@ -39,47 +40,193 @@ class _DealExpressPageState extends State<DealExpressPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Deal Express'),
+      appBar: CustomAppBar(
+        title: 'Deal Express',
+        align: Alignment.center,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterBottomSheet,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          _buildFilters(),
-          Expanded(
-            child: _buildHappyDealsList(),
-          ),
+          _buildSearchBar(),
+          _buildDealsList(),
         ],
       ),
     );
   }
 
-  Widget _buildFilters() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: DropdownButton<String>(
-        value: _selectedCategory,
-        onChanged: (String? newValue) {
-          if (newValue != null) {
-            setState(() {
-              _selectedCategory = newValue;
-            });
-          }
-        },
-        items: _categories.map<DropdownMenuItem<String>>((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
-        }).toList(),
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 10,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Rechercher un deal...',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                border: InputBorder.none,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+          if (_selectedCategory != 'Toutes')
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(_selectedCategory),
+                      onSelected: (_) {},
+                      onDeleted: () {
+                        setState(() {
+                          _selectedCategory = 'Toutes';
+                        });
+                      },
+                      selected: true,
+                      deleteIcon: const Icon(Icons.close,
+                          size: 18, color: Colors.white),
+                      backgroundColor: const Color(0xFF4B88DA),
+                      selectedColor: const Color(0xFF4B88DA),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      showCheckmark: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildHappyDealsList() {
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filtres',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            _selectedCategory = 'Toutes';
+                          });
+                        },
+                        child: const Text('Réinitialiser'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 80,
+                    child: SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _categories.map((category) {
+                          final isSelected = _selectedCategory == category;
+                          return FilterChip(
+                            selected: isSelected,
+                            label: Text(category),
+                            labelStyle: TextStyle(
+                              color:
+                                  isSelected ? Colors.white : Colors.grey[800],
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                            backgroundColor: Colors.grey[200],
+                            selectedColor: const Color(0xFF4B88DA),
+                            onSelected: (bool selected) {
+                              setModalState(() {
+                                _selectedCategory = category;
+                              });
+                            },
+                            showCheckmark: false,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4B88DA),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      setState(() {});
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Appliquer les filtres',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDealsList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('posts')
           .where('type', isEqualTo: 'express_deal')
+          .where('isActive', isEqualTo: true)
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -93,51 +240,58 @@ class _DealExpressPageState extends State<DealExpressPage> {
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('Aucun Happy Deal disponible'));
+          return const Expanded(
+            child: Center(child: Text('Aucun Deal Express disponible')),
+          );
         }
 
-        final happyDeals = snapshot.data!.docs;
+        final deals = snapshot.data!.docs;
 
-        return ListView.builder(
-          itemCount: happyDeals.length,
-          itemBuilder: (context, index) {
-            final happyDeal = ExpressDeal.fromDocument(happyDeals[index]);
+        return Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(20.0),
+            itemCount: deals.length,
+            itemBuilder: (context, index) {
+              final deal = ExpressDeal.fromDocument(deals[index]);
 
-            return FutureBuilder<DocumentSnapshot>(
-              future: _firestore
-                  .collection('companys')
-                  .doc(happyDeal.companyId)
-                  .get(),
-              builder: (context, companySnapshot) {
-                if (companySnapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const SizedBox.shrink();
-                }
+              return FutureBuilder<DocumentSnapshot>(
+                future:
+                    _firestore.collection('companys').doc(deal.companyId).get(),
+                builder: (context, companySnapshot) {
+                  if (!companySnapshot.hasData) return const SizedBox.shrink();
 
-                if (companySnapshot.hasError || !companySnapshot.hasData) {
-                  return const SizedBox.shrink();
-                }
+                  final companyData =
+                      companySnapshot.data!.data() as Map<String, dynamic>;
+                  final companyName = companyData['name'] as String;
+                  final companyCategorie = companyData['categorie'] as String;
+                  final companyLogo = companyData['logo'] as String;
 
-                final companyData =
-                    companySnapshot.data!.data() as Map<String, dynamic>;
-                final companyName = companyData['name'] as String;
-                final companyCategorie = companyData['categorie'] as String;
-                final companyLogo = companyData['logo'] as String;
+                  // Appliquer les filtres
+                  if (_selectedCategory != 'Toutes' &&
+                      companyCategorie != _selectedCategory) {
+                    return const SizedBox.shrink();
+                  }
 
-                if (_selectedCategory != 'Toutes' &&
-                    companyCategorie != _selectedCategory) {
-                  return const SizedBox.shrink();
-                }
+                  if (_searchQuery.isNotEmpty &&
+                      !deal.title
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase())) {
+                    return const SizedBox.shrink();
+                  }
 
-                return DealsExpressCard(
-                  post: happyDeal,
-                  companyName: companyName,
-                  companyLogo: companyLogo,
-                  currentUserId: currentUserId,
-                );
-              },
-            );
-          },
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: DealsExpressCard(
+                      post: deal,
+                      companyName: companyName,
+                      companyLogo: companyLogo,
+                      currentUserId: currentUserId,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         );
       },
     );

@@ -114,16 +114,14 @@ class HomeProvider extends ChangeNotifier {
       if (likedCompanies.isEmpty) {
         return [];
       }
-
       final postsQuery = _firestore
           .collection('posts')
           .where('companyId', whereIn: likedCompanies)
           .where('type', isNotEqualTo: 'shared')
+          .where('isActive', isEqualTo: true)
           .orderBy('timestamp', descending: true);
       final postsSnapshot = await postsQuery.get();
-
       List<Map<String, dynamic>> postsWithCompanyData = [];
-
       for (var postDoc in postsSnapshot.docs) {
         try {
           final post = _createPostFromDocument(postDoc);
@@ -135,11 +133,27 @@ class HomeProvider extends ChangeNotifier {
             final companyData = companyDoc.data() as Map<String, dynamic>;
             postsWithCompanyData.add({'post': post, 'company': companyData});
           }
-        } catch (e) {}
+        } catch (e) {
+          print('Erreur lors du traitement du post: $e');
+        }
       }
-
       return postsWithCompanyData;
     } catch (e) {
+      // Affichage détaillé de l'erreur
+      print('Erreur FirebaseException: $e');
+      if (e is FirebaseException) {
+        print('Code: ${e.code}');
+        print('Message: ${e.message}');
+        if (e.plugin == 'cloud_firestore') {
+          // Extrait l'URL de l'index requis si présent dans le message
+          final urlMatch =
+              RegExp(r'https://console\.firebase\.google\.com/[^\s]+')
+                  .firstMatch(e.message ?? '');
+          if (urlMatch != null) {
+            print('URL pour créer l\'index: ${urlMatch.group(0)}');
+          }
+        }
+      }
       return [];
     }
   }
@@ -328,12 +342,6 @@ class HomeProvider extends ChangeNotifier {
     _isLoading = false;
     notifyListeners();
   }
-
-
-
-
-
-
 
   Future<void> applyChanges() async {
     notifyListeners();

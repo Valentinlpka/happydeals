@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/user_referral.dart';
 import 'package:happy/screens/referral_detail_page.dart';
 import 'package:happy/services/referral_services.dart';
+import 'package:happy/widgets/company_selector_referral.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
 
@@ -41,6 +42,7 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const CompanyReferralButton(),
             _buildReferralSection(
               title: 'Parrainages envoyés',
               future: _sentReferralsFuture,

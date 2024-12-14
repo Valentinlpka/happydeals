@@ -14,6 +14,7 @@ class ParraiangePage extends StatefulWidget {
 class _ParraiangePageState extends State<ParraiangePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  String _searchQuery = '';
   String _selectedCategory = 'Toutes';
   List<String> _categories = ['Toutes'];
 
@@ -25,7 +26,6 @@ class _ParraiangePageState extends State<ParraiangePage> {
 
   Future<void> _loadCategories() async {
     final categoriesSnapshot = await _firestore.collection('companys').get();
-
     final categories = categoriesSnapshot.docs
         .map((doc) => doc['categorie'] as String)
         .toSet()
@@ -40,46 +40,159 @@ class _ParraiangePageState extends State<ParraiangePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Happy Deals'),
+        title: const Text('Parrainage'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterBottomSheet,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          _buildFilters(),
-          Expanded(
-            child: _buildHappyDealsList(),
-          ),
+          _buildSearchBar(),
+          _buildReferralList(),
         ],
       ),
     );
   }
 
-  Widget _buildFilters() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: DropdownButton<String>(
-        value: _selectedCategory,
-        onChanged: (String? newValue) {
-          if (newValue != null) {
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 10,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: TextField(
+          decoration: InputDecoration(
+            hintText: 'Rechercher un parrainage...',
+            hintStyle: TextStyle(color: Colors.grey[400]),
+            prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+            border: InputBorder.none,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          ),
+          onChanged: (value) {
             setState(() {
-              _selectedCategory = newValue;
+              _searchQuery = value;
             });
-          }
-        },
-        items: _categories.map<DropdownMenuItem<String>>((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
-        }).toList(),
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildHappyDealsList() {
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filtres',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            _selectedCategory = 'Toutes';
+                          });
+                        },
+                        child: const Text('Réinitialiser'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Catégories',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _categories.map((category) {
+                      final isSelected = _selectedCategory == category;
+                      return FilterChip(
+                        selected: isSelected,
+                        label: Text(category),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : Colors.grey[800],
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        backgroundColor: Colors.grey[200],
+                        selectedColor: const Color(0xFF4B88DA),
+                        onSelected: (bool selected) {
+                          setModalState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                        showCheckmark: false,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4B88DA),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      setState(() {});
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Appliquer les filtres',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildReferralList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('posts')
           .where('type', isEqualTo: 'referral')
+          .where('isActive', isEqualTo: true)
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -92,32 +205,27 @@ class _ParraiangePageState extends State<ParraiangePage> {
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('Aucun Happy Deal disponible'));
+          return const Expanded(
+            child: Center(child: Text('Aucun parrainage disponible')),
+          );
         }
 
-        final happyDeals = snapshot.data!.docs;
+        final referrals = snapshot.data!.docs;
 
-        return Padding(
-          padding: const EdgeInsets.all(20.0),
+        return Expanded(
           child: ListView.builder(
-            itemCount: happyDeals.length,
+            padding: const EdgeInsets.all(20.0),
+            itemCount: referrals.length,
             itemBuilder: (context, index) {
-              final happyDeal = Referral.fromDocument(happyDeals[index]);
+              final referral = Referral.fromDocument(referrals[index]);
 
               return FutureBuilder<DocumentSnapshot>(
                 future: _firestore
                     .collection('companys')
-                    .doc(happyDeal.companyId)
+                    .doc(referral.companyId)
                     .get(),
                 builder: (context, companySnapshot) {
-                  if (companySnapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const SizedBox.shrink();
-                  }
-
-                  if (companySnapshot.hasError || !companySnapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
+                  if (!companySnapshot.hasData) return const SizedBox.shrink();
 
                   final companyData =
                       companySnapshot.data!.data() as Map<String, dynamic>;
@@ -130,10 +238,17 @@ class _ParraiangePageState extends State<ParraiangePage> {
                     return const SizedBox.shrink();
                   }
 
+                  if (_searchQuery.isNotEmpty &&
+                      !referral.title
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase())) {
+                    return const SizedBox.shrink();
+                  }
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: ParrainageCard(
-                      post: happyDeal,
+                      post: referral,
                       companyName: companyName,
                       companyLogo: companyLogo,
                       currentUserId: currentUserId,

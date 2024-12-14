@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/review.dart';
 import 'package:happy/providers/review_service.dart';
 import 'package:happy/providers/users_provider.dart';
+import 'package:happy/screens/profile.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +15,7 @@ class ReviewListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reviewService = Provider.of<ReviewService>(context);
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
     return FutureBuilder<List<Review>>(
       future: reviewService.getReviewsForCompany(companyId),
@@ -24,37 +26,57 @@ class ReviewListWidget extends StatelessWidget {
         if (snapshot.hasError) {
           return Center(child: Text('Erreur: ${snapshot.error}'));
         }
-        final reviews = snapshot.data ?? [];
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        final reviews = snapshot.data ?? [];
+        final hasUserReviewed = currentUserId != null &&
+            reviews.any((review) => review.userId == currentUserId);
+
+        return ListView(
           children: [
+            // Section moyenne et bouton d'ajout
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (reviews.isNotEmpty) _buildAverageRating(reviews),
-                  TextButton(
-                    onPressed: () => _showAddReviewDialog(context),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  if (!hasUserReviewed && currentUserId != null)
+                    TextButton(
+                      onPressed: () => _showAddReviewDialog(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      child: const Text('Mettre un avis'),
                     ),
-                    child: const Text('Mettre un avis'),
-                  ),
                 ],
               ),
             ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(0),
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: reviews.length,
-                itemBuilder: (context, index) =>
-                    _buildReviewItem(reviews[index]),
+
+            // Message si aucun avis
+            if (reviews.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(
+                  child: Text(
+                    'Aucun avis pour le moment',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
               ),
-            ),
+
+            // Liste des avis
+            ...reviews.map((review) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: _buildReviewItem(review, context),
+                )),
+
+            // Espace en bas pour éviter que le dernier avis soit caché
+            const SizedBox(height: 20),
           ],
         );
       },
@@ -97,7 +119,10 @@ class ReviewListWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildReviewItem(Review review) {
+  Widget _buildReviewItem(Review review, context) {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final isCurrentUserReview = currentUserId == review.userId;
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Card(
@@ -110,48 +135,126 @@ class ReviewListWidget extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    backgroundImage: review.userPhotoUrl.isNotEmpty
-                        ? NetworkImage(review.userPhotoUrl)
-                        : null,
-                    child: review.userPhotoUrl.isEmpty
-                        ? Text(review.userName.isNotEmpty
-                            ? review.userName[0].toUpperCase()
-                            : '?')
-                        : null,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Profile(userId: review.userId),
+                        ),
+                      );
+                    },
+                    child: CircleAvatar(
+                      backgroundImage: review.userPhotoUrl.isNotEmpty
+                          ? NetworkImage(review.userPhotoUrl)
+                          : null,
+                      child: review.userPhotoUrl.isEmpty
+                          ? Text(review.userName.isNotEmpty
+                              ? review.userName[0].toUpperCase()
+                              : '?')
+                          : null,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(review.userName,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
-                        Row(
-                          children: List.generate(
-                            5,
-                            (index) => Icon(
-                              index < review.rating
-                                  ? Icons.star
-                                  : Icons.star_border,
-                              size: 16,
-                              color: Colors.amber,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                Profile(userId: review.userId),
+                          ),
+                        );
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            review.userName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
                             ),
                           ),
-                        ),
-                      ],
+                          Row(
+                            children: List.generate(
+                              5,
+                              (index) => Icon(
+                                index < review.rating
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                size: 16,
+                                color: Colors.amber,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  Text(DateFormat('dd/MM/yyyy').format(review.createdAt)),
+                  Row(
+                    children: [
+                      Text(DateFormat('dd/MM/yyyy').format(review.createdAt)),
+                      if (isCurrentUserReview) ...[
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 20),
+                          onPressed: () =>
+                              _showEditReviewDialog(context, review),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete,
+                              size: 20, color: Colors.red),
+                          onPressed: () =>
+                              _showDeleteConfirmation(context, review),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(review.comment),
-              const SizedBox(height: 8),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showEditReviewDialog(BuildContext context, Review review) {
+    showModalBottomSheet(
+      isScrollControlled: true,
+      context: context,
+      builder: (context) => AddReviewDialog(
+        companyId: review.companyId,
+        existingReview: review,
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, Review review) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer l\'avis'),
+        content: const Text('Êtes-vous sûr de vouloir supprimer votre avis ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final reviewService =
+                  Provider.of<ReviewService>(context, listen: false);
+              await reviewService.deleteReview(review.id);
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
+          ),
+        ],
       ),
     );
   }
@@ -167,8 +270,13 @@ class ReviewListWidget extends StatelessWidget {
 
 class AddReviewDialog extends StatefulWidget {
   final String companyId;
+  final Review? existingReview;
 
-  const AddReviewDialog({super.key, required this.companyId});
+  const AddReviewDialog({
+    super.key,
+    required this.companyId,
+    this.existingReview,
+  });
 
   @override
   _AddReviewDialogState createState() => _AddReviewDialogState();
@@ -176,18 +284,21 @@ class AddReviewDialog extends StatefulWidget {
 
 class _AddReviewDialogState extends State<AddReviewDialog> {
   double _rating = 0;
-  final _commentController = TextEditingController();
+  late TextEditingController _commentController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rating = widget.existingReview?.rating ?? 0;
+    _commentController =
+        TextEditingController(text: widget.existingReview?.comment ?? '');
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.only(
-          bottom: 20,
-          left: 25,
-          right: 25,
-          top: 25,
-        ),
+        padding: const EdgeInsets.all(25),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,7 +308,9 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Mettre un avis',
+                    widget.existingReview != null
+                        ? 'Modifier l\'avis'
+                        : 'Mettre un avis',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   IconButton(
@@ -232,10 +345,12 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ButtonStyle(
-                      backgroundColor:
-                          WidgetStatePropertyAll(Colors.blue[800])),
+                    backgroundColor: WidgetStateProperty.all(Colors.blue[800]),
+                  ),
                   onPressed: () => _submitReview(context),
-                  child: const Text('Ajouter mon avis'),
+                  child: Text(widget.existingReview != null
+                      ? 'Modifier'
+                      : 'Ajouter mon avis'),
                 ),
               ),
             ],
@@ -269,18 +384,31 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
         .loadUserData(); // Assurez-vous que les données utilisateur sont à jour
 
     final reviewService = Provider.of<ReviewService>(context, listen: false);
-    final review = Review(
-      id: '',
-      userId: user.uid,
-      companyId: widget.companyId,
-      rating: _rating,
-      comment: _commentController.text,
-      createdAt: DateTime.now(),
-      userName: '${userModel.firstName} ${userModel.lastName}',
-      userPhotoUrl: userModel.profileUrl,
-    );
-
-    await reviewService.addReview(review);
-    Navigator.of(context).pop();
+    try {
+      if (widget.existingReview != null) {
+        await reviewService.updateReview(
+          widget.existingReview!.id,
+          rating: _rating,
+          comment: _commentController.text,
+        );
+      } else {
+        final review = Review(
+          id: '',
+          userId: user.uid,
+          companyId: widget.companyId,
+          rating: _rating,
+          comment: _commentController.text,
+          createdAt: DateTime.now(),
+          userName: '${userModel.firstName} ${userModel.lastName}',
+          userPhotoUrl: userModel.profileUrl,
+        );
+        await reviewService.addReview(review);
+      }
+      Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
   }
 }

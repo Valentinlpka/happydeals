@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/classes/promo_codes.dart';
+import 'package:happy/classes/card_promo_code.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 
 import '../../classes/promo_code_post.dart';
@@ -206,6 +206,7 @@ class _CodePromoPageState extends State<CodePromoPage> {
       stream: _firestore
           .collection('posts')
           .where('type', isEqualTo: 'promo_code')
+          .where('isActive', isEqualTo: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {

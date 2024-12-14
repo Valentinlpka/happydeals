@@ -1,39 +1,125 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/referral.dart';
-// ignore: unused_import
-import 'package:happy/screens/details_page/details_evenement_page.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/details_page/details_parrainage.dart';
 import 'package:intl/intl.dart';
 
 class ParrainageCard extends StatelessWidget {
   final Referral post;
   final String currentUserId;
-
   final String companyLogo;
   final String companyName;
 
-  const ParrainageCard(
-      {required this.post,
-      super.key,
-      required this.currentUserId,
-      required this.companyLogo,
-      required this.companyName});
+  const ParrainageCard({
+    super.key,
+    required this.post,
+    required this.currentUserId,
+    required this.companyLogo,
+    required this.companyName,
+  });
+
+  String _formatDateTime(DateTime dateTime) {
+    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
+  }
 
   @override
   Widget build(BuildContext context) {
-    String formatDateTime(DateTime dateTime) {
-      return DateFormat('dd/MM/yyyy')
-          .format(dateTime); // Format comme "2024-06-13"
-    }
-
     return Column(
       children: [
-        Card(
-          shadowColor: Colors.grey,
-          color: Colors.white,
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
+        // En-tête avec logo et informations
+        InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DetailsEntreprise(
+                  entrepriseId: post.companyId,
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: const Color(0xFF3476B2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundImage: NetworkImage(companyLogo),
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        companyName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Colors.green, Color(0xFF3476B2)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.people_alt_outlined,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Parrainage',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Carte principale
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: InkWell(
             onTap: () {
@@ -47,170 +133,132 @@ class ParrainageCard extends StatelessWidget {
                 ),
               );
             },
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(8),
-                      topRight: Radius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Titre
+                  Text(
+                    post.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    image: DecorationImage(
-                      colorFilter: ColorFilter.mode(
-                        Colors.black.withOpacity(0.30),
-                        BlendMode.hue,
-                      ),
-                      alignment: Alignment.center,
-                      fit: BoxFit.cover,
-                      image: NetworkImage(post.image),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Date de fin
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.event_outlined,
+                          size: 16,
+                          color: Colors.grey[700],
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Jusqu'au ${_formatDateTime(post.dateFinal)}",
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  height: 80,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          ClipRRect(
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(15)),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Colors.pink, Colors.blue],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Padding(
-                                padding: EdgeInsets.only(
-                                    top: 3, bottom: 3, right: 7, left: 5),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Icon(
-                                      Icons.calendar_month_outlined,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    SizedBox(
-                                      width: 5,
-                                    ),
-                                    Text(
-                                      'Parrainage',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+
+                  // Description
+                  Text(
+                    post.description,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 16),
+
+                  // Avantages
+                  Row(
                     children: [
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            textAlign: TextAlign.left,
-                            softWrap: true,
-                            (post.title),
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(
-                        height: 5,
-                        width: 5,
-                      ),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 15),
-                          const SizedBox(
-                            width: 5,
-                          ),
-                          Text(
-                            "jusqu'au ${formatDateTime(post.dateFinal)}",
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color.fromARGB(255, 85, 85, 85),
-                            ),
-                          )
-                        ],
-                      ),
-                      const SizedBox(
-                        height: 5,
-                        width: 5,
-                      ),
-                      Text(
-                        post.description,
-                        style: const TextStyle(
-                          fontSize: 14,
+                      Expanded(
+                        child: _buildBenefitCard(
+                          "Parrain",
+                          post.sponsorBenefit,
+                          Colors.blue[700]!,
+                          Colors.blue[50]!,
                         ),
                       ),
-                      Divider(
-                        color: Colors.grey[300],
-                      ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: Colors.blue,
-                                child: CircleAvatar(
-                                  radius: 14,
-                                  backgroundImage: NetworkImage(companyLogo),
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 10,
-                                width: 10,
-                              ),
-                              Text(
-                                (companyName),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildBenefitCard(
+                          "Filleul",
+                          post.refereeBenefit,
+                          Colors.green[700]!,
+                          Colors.green[50]!,
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+        const SizedBox(height: 16),
       ],
+    );
+  }
+
+  Widget _buildBenefitCard(
+      String title, String benefit, Color textColor, Color backgroundColor) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: textColor.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            benefit,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

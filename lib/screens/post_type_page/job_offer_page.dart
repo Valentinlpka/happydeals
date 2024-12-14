@@ -296,6 +296,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
       stream: _firestore
           .collection('posts')
           .where('type', isEqualTo: 'job_offer')
+          .where('isActive', isEqualTo: true)
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
