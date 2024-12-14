@@ -119,7 +119,8 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
       body: Column(
         children: [
           if (widget.ad != null) _buildAdInfo(widget.ad!),
-          _buildRatingButton(), // Ajoutez le bouton ici
+          if (widget.ad != null)
+            _buildRatingButton(), // Condition ajoutée ici aussi
           _buildMessageList(FirebaseAuth.instance.currentUser?.uid ?? ""),
           _buildMessageInput(FirebaseAuth.instance.currentUser?.uid ?? ""),
         ],
@@ -340,12 +341,22 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
   }
 
   Widget _buildRatingButton() {
-    if (!widget.ad!.isSold) return const SizedBox.shrink();
+    // Vérification si l'annonce existe d'abord
+    if (widget.ad == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Si l'annonce n'est pas vendue, on ne montre pas le bouton
+    if (!widget.ad!.isSold) {
+      return const SizedBox.shrink();
+    }
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    if (currentUserId == null) return const SizedBox.shrink();
+    if (currentUserId == null) {
+      return const SizedBox.shrink();
+    }
 
-    // Vérifie si l'utilisateur est le vendeur ou l'acheteur et s'il a déjà évalué
+    // Vérifie si l'utilisateur est le vendeur ou l'acheteur
     final bool isUserSeller = currentUserId == widget.ad!.userId;
     final bool hasRated =
         isUserSeller ? widget.ad!.sellerHasRated : widget.ad!.buyerHasRated;
@@ -373,7 +384,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
           ),
         );
 
-        // Si l'utilisateur a déjà évalué, on montre le bouton de modification
+        // Si l'utilisateur a déjà évalué
         if (userRating.id.isNotEmpty) {
           return Padding(
             padding: const EdgeInsets.all(8.0),

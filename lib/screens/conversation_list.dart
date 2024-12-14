@@ -402,6 +402,7 @@ class ConversationTile extends StatelessWidget {
   }
 
   Future<void> _onTapConversation(BuildContext context, String userName) async {
+    // Cas d'une conversation de groupe
     if (conversation.isGroup) {
       Navigator.push(
         context,
@@ -413,46 +414,76 @@ class ConversationTile extends StatelessWidget {
           ),
         ),
       );
-      return; // Ajout du return pour éviter la suite du code
+      return;
     }
 
+    // Cas d'une conversation avec une entreprise
     if (conversation.entrepriseId != null) {
-    } else {}
-    if (!context.mounted) return;
-
-    // Code pour les conversations normales
-    if (conversation.adId != null && adData != null) {
-      final adDoc = await FirebaseFirestore.instance
-          .collection('ads')
-          .doc(conversation.adId)
-          .get();
-
-      if (!context.mounted) return;
-
-      if (adDoc.exists) {
-        final ad = await Ad.fromFirestore(adDoc);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ConversationDetailScreen(
-              conversationId: conversation.id,
-              otherUserName: userName,
-              ad: ad,
-            ),
-          ),
-        );
-      }
-    } else {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ConversationDetailScreen(
             conversationId: conversation.id,
             otherUserName: userName,
+            isGroup: false, // Explicitement préciser que ce n'est pas un groupe
           ),
         ),
       );
+      return;
     }
+
+    // Cas d'une conversation liée à une annonce
+    if (conversation.adId != null) {
+      try {
+        final adDoc = await FirebaseFirestore.instance
+            .collection('ads')
+            .doc(conversation.adId)
+            .get();
+
+        if (!context.mounted) return;
+
+        if (adDoc.exists) {
+          final ad = await Ad.fromFirestore(adDoc);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ConversationDetailScreen(
+                conversationId: conversation.id,
+                otherUserName: userName,
+                ad: ad,
+                isGroup: false,
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        // En cas d'erreur, ouvrir quand même la conversation sans l'annonce
+        if (!context.mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ConversationDetailScreen(
+              conversationId: conversation.id,
+              otherUserName: userName,
+              isGroup: false,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Cas d'une conversation normale entre particuliers
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ConversationDetailScreen(
+          conversationId: conversation.id,
+          otherUserName: userName,
+          isGroup: false,
+        ),
+      ),
+    );
   }
 }
 
