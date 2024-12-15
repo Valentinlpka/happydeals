@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -66,8 +68,16 @@ class PostWidget extends StatefulWidget {
   State<PostWidget> createState() => _PostWidgetState();
 }
 
-class _PostWidgetState extends State<PostWidget> {
+class _PostWidgetState extends State<PostWidget>
+    with AutomaticKeepAliveClientMixin {
   BuildContext? _scaffoldContext;
+
+  final GlobalKey _postKey = GlobalKey();
+  bool _isPostVisible = false;
+  StreamSubscription? _visibilitySubscription;
+
+  @override
+  bool get wantKeepAlive => _isPostVisible;
 
   @override
   void didChangeDependencies() {
@@ -76,19 +86,42 @@ class _PostWidgetState extends State<PostWidget> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkVisibility();
+    });
+  }
+
+  void _checkVisibility() {
+    if (!mounted) return;
+
+    final RenderBox? renderBox =
+        _postKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final bool isVisible = renderBox.hasSize && renderBox.size.height > 0;
+    if (isVisible != _isPostVisible) {
+      setState(() {
+        _isPostVisible = isVisible;
+      });
+      updateKeepAlive();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.post is SharedPost) _buildSharedPostHeader(),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPostContent(),
-            _buildInteractionBar(),
-          ],
-        ),
-      ],
+    super.build(context);
+    return RepaintBoundary(
+      key: _postKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.post is SharedPost) _buildSharedPostHeader(),
+          _buildPostContent(),
+          _buildInteractionBar(),
+        ],
+      ),
     );
   }
 
@@ -704,6 +737,8 @@ class _PostWidgetState extends State<PostWidget> {
   @override
   void dispose() {
     _scaffoldContext = null;
+    _visibilitySubscription?.cancel();
+
     super.dispose();
   }
 

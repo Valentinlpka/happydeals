@@ -2,20 +2,13 @@
 <html>
 
 <head>
+
   <base href="$FLUTTER_BASE_HREF">
+
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Up !">
-  <meta name="theme-color" content="#FFFAFA">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Favicon et icônes -->
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="icon" type="image/png" href="favicon.ico" />
-  <link rel="manifest" href="manifest.json">
 
   <!-- Polices et styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,97 +16,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.css" />
 
-  <title>Up !</title>
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="happydeals">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Script pour la gestion du routing sur GitHub Pages -->
-  <script>
-    window.addEventListener('load', function () {
-      var baseTag = document.createElement('base');
-      var path = window.location.pathname;
-      var base = path.substr(0, path.lastIndexOf('/'));
-      baseTag.href = base + '/';
-      document.head.appendChild(baseTag);
-    });
-  </script>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png" />
 
-  <!-- Configuration Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth.js"></script>
-
-  <!-- Service Worker -->
-  <script>
-    var serviceWorkerVersion = '1.0.0';
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/happydeals/service-worker.js')
-          .then(function (registration) {
-            console.log('Service Worker registered with scope: ', registration.scope);
-          })
-          .catch(function (error) {
-            console.error('Service Worker registration failed: ', error);
-          });
-      });
-    }
-  </script>
-
-  <!-- Gestion des redirections -->
-  <script>
-    (function () {
-      var redirect = sessionStorage.redirect;
-      delete sessionStorage.redirect;
-      if (redirect && redirect != location.href) {
-        history.replaceState(null, null, redirect);
-      }
-    })();
-  </script>
+  <title>Up</title>
+  <link rel="manifest" href="manifest.json">
 </head>
 
+<!-- Scripts externes -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+</script>
+
 <body>
-  <!-- Loading indicator -->
-  <div id="loading" style="
-        position: fixed;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #FFFFFF;">
-    <div
-      style="width: 50px; height: 50px; border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;">
-    </div>
-  </div>
-
-  <!-- Scripts externes -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
-  </script>
-
-  <!-- Flutter -->
-  <script src="flutter_bootstrap.js"></script>
-  <script src="main.dart.js" defer></script>
-
-  <script>
-    // Supprime l'indicateur de chargement une fois que l'application est chargée
-    window.addEventListener('load', function () {
-      document.getElementById('loading').style.display = 'none';
-    });
-  </script>
-
-  <style>
-    @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
-    }
-  </style>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 
 </html>

@@ -531,6 +531,7 @@ class _HomeState extends State<Home> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
