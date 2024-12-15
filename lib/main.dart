@@ -31,10 +31,8 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (kIsWeb) {
-    // Appliquer la stratégie d'URL uniquement pour le Web
-    setUrlStrategy(const HashUrlStrategy());
-  }
+  setUrlStrategy(const HashUrlStrategy());
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.white,
