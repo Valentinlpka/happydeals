@@ -20,13 +20,25 @@ class ConversationService extends ChangeNotifier {
 
   // Méthode pour vérifier le type d'utilisateur
   Future<String> _getUserType(String userId) async {
-    // Vérifier d'abord si c'est une entreprise
-    final companyDoc =
-        await _firestore.collection('companys').doc(userId).get();
-    if (companyDoc.exists) {
-      return 'company';
+    try {
+      // Vérifier d'abord si c'est une entreprise
+      final companyDoc =
+          await _firestore.collection('companys').doc(userId).get();
+      if (companyDoc.exists) {
+        return 'company';
+      }
+
+      // Si ce n'est pas une entreprise, c'est un utilisateur normal
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        return 'user';
+      }
+
+      throw Exception('Utilisateur non trouvé');
+    } catch (e) {
+      print('Erreur dans _getUserType: $e');
+      rethrow;
     }
-    return 'user';
   }
 
   Future<void> sharePostInConversation({
@@ -210,31 +222,59 @@ class ConversationService extends ChangeNotifier {
     required String content,
     String? adId,
   }) async {
-    // Vérifier si une conversation existe déjà
-    final existingConversationId = await checkExistingConversation(
-      userId1: senderId,
-      userId2: receiverId,
-      adId: adId,
-    );
+    try {
+      // Vérifier d'abord le type de chaque utilisateur
+      final senderType = await _getUserType(senderId);
+      final receiverType = await _getUserType(receiverId);
 
-    if (existingConversationId != null) {
-      await sendMessage(existingConversationId, senderId, content);
-      return existingConversationId;
+      // Déterminer le type de conversation
+      final isBusinessConversation =
+          senderType == 'company' || receiverType == 'company';
+
+      // Chercher une conversation existante avec les bons paramètres
+      String? existingConversationId;
+
+      if (isBusinessConversation) {
+        // Pour les conversations professionnelles
+        final querySnapshot = await _firestore
+            .collection('conversations')
+            .where('entrepriseId',
+                isEqualTo: receiverType == 'company' ? receiverId : senderId)
+            .where('particulierId',
+                isEqualTo: receiverType == 'company' ? senderId : receiverId)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          existingConversationId = querySnapshot.docs.first.id;
+        }
+      } else {
+        // Pour les conversations normales
+        existingConversationId = await checkExistingConversation(
+          userId1: senderId,
+          userId2: receiverId,
+          adId: adId,
+        );
+      }
+
+      if (existingConversationId != null) {
+        await sendMessage(existingConversationId, senderId, content);
+        return existingConversationId;
+      }
+
+      // Si pas de conversation existante, créer une nouvelle
+      return createNewConversation(
+        senderId: senderId,
+        receiverId: receiverId,
+        messageContent: content,
+        adId: adId,
+        isBusinessConversation: isBusinessConversation,
+        senderType: senderType,
+        receiverType: receiverType,
+      );
+    } catch (e) {
+      print('Erreur dans sendFirstMessage: $e');
+      rethrow;
     }
-
-    // Si pas de conversation existante, créer une nouvelle
-    final senderType = await _getUserType(senderId);
-    final receiverType = await _getUserType(receiverId);
-    final isBusinessConversation =
-        senderType == 'company' || receiverType == 'company';
-
-    return createNewConversation(
-      senderId: senderId,
-      receiverId: receiverId,
-      messageContent: content,
-      adId: adId,
-      isBusinessConversation: isBusinessConversation,
-    );
   }
 
   Future<String> createNewConversation({
@@ -243,20 +283,26 @@ class ConversationService extends ChangeNotifier {
     required String messageContent,
     String? adId,
     bool isBusinessConversation = false,
+    String? senderType,
+    String? receiverType,
   }) async {
     final Map<String, dynamic> conversationData;
 
     if (isBusinessConversation) {
-      // Pour les conversations avec une entreprise
+      // Déterminer qui est l'entreprise et qui est le particulier
+      final isReceiverCompany = receiverType == 'company';
+
       conversationData = {
-        'particulierId': senderId,
-        'entrepriseId': receiverId,
+        'particulierId': isReceiverCompany ? senderId : receiverId,
+        'entrepriseId': isReceiverCompany ? receiverId : senderId,
         'lastMessage': messageContent,
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': senderId,
         'unreadCount': 1,
         'unreadBy': receiverId,
-        'lastMessageSenderId': senderId,
         'isGroup': false,
+        'type':
+            'business', // Marquer explicitement comme conversation professionnelle
       };
     } else if (adId != null) {
       // Pour les conversations d'annonces
@@ -276,8 +322,10 @@ class ConversationService extends ChangeNotifier {
         'lastMessageSenderId': senderId,
         'unreadCount': 1,
         'unreadBy': receiverId,
+        'type': 'ad',
         'sellerHasRated': false,
         'buyerHasRated': false,
+        'isGroup': false,
       };
     } else {
       // Pour les conversations entre particuliers
@@ -286,30 +334,36 @@ class ConversationService extends ChangeNotifier {
         'otherUserId': receiverId,
         'lastMessage': messageContent,
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': senderId,
         'unreadCount': 1,
         'unreadBy': receiverId,
-        'lastMessageSenderId': senderId,
         'isGroup': false,
+        'type': 'normal',
       };
     }
 
-    // Créer la conversation
-    final docRef =
-        await _firestore.collection('conversations').add(conversationData);
+    try {
+      // Créer la conversation
+      final docRef =
+          await _firestore.collection('conversations').add(conversationData);
 
-    // Ajouter le premier message
-    await _firestore
-        .collection('conversations')
-        .doc(docRef.id)
-        .collection('messages')
-        .add({
-      'content': messageContent,
-      'senderId': senderId,
-      'timestamp': FieldValue.serverTimestamp(),
-      'type': 'normal'
-    });
+      // Ajouter le premier message
+      await _firestore
+          .collection('conversations')
+          .doc(docRef.id)
+          .collection('messages')
+          .add({
+        'content': messageContent,
+        'senderId': senderId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'normal'
+      });
 
-    return docRef.id;
+      return docRef.id;
+    } catch (e) {
+      print('Erreur dans createNewConversation: $e');
+      rethrow;
+    }
   }
 
   Future<String> createGroupConversation(
@@ -397,18 +451,24 @@ class ConversationService extends ChangeNotifier {
             .where((m) => m['id'] != senderId)
             .map((m) => m['id'])
             .toList();
-      } else {
+      } else if (data['entrepriseId'] != null) {
+        // Conversation professionnelle
+        unreadBy = data['entrepriseId'] == senderId
+            ? data[
+                'particulierId'] // Si l'entreprise envoie, le particulier doit lire
+            : data[
+                'entrepriseId']; // Si le particulier envoie, l'entreprise doit lire
         // Pour les conversations normales et annonces
-        if (data['adId'] != null) {
-          // Pour les annonces, mettre unreadBy sur le destinataire
-          unreadBy = data['particulierId'] == senderId
-              ? data['entrepriseId']
-              : data['particulierId'];
-        } else if (data['particulierId'] == senderId) {
-          unreadBy = data['entrepriseId'] ?? data['otherUserId'];
-        } else {
-          unreadBy = data['particulierId'];
-        }
+      } else if (data['adId'] != null) {
+        // Pour les annonces
+        unreadBy = data['particulierId'] == senderId
+            ? data['sellerId']
+            : data['particulierId'];
+      } else {
+        // Conversation normale entre particuliers
+        unreadBy = data['particulierId'] == senderId
+            ? data['otherUserId']
+            : data['particulierId'];
       }
 
       // Mettre à jour le document principal de la conversation

@@ -786,13 +786,12 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
 
     try {
       if (widget.isNewConversation && _actualConversationId == null) {
-        // Créer une nouvelle conversation avec le premier message
-        _actualConversationId = await conversationService.createNewConversation(
+        // Utiliser sendFirstMessage au lieu de createNewConversation directement
+        _actualConversationId = await conversationService.sendFirstMessage(
           senderId: currentUserId,
           receiverId: widget.otherUserId!,
-          messageContent: _messageController.text,
+          content: _messageController.text,
           adId: widget.ad?.id,
-          // Le service déterminera le type de conversation en fonction des utilisateurs
         );
 
         setState(() {
