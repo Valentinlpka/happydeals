@@ -1,6 +1,7 @@
 {
   "projects": {
-    "staging": "happy-deals-3f03d"
+    "staging": "happy-deals-3f03d",
+    "default": "happy-deals-3f03d"
   },
   "targets": {},
   "etags": {},
