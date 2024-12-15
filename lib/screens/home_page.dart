@@ -36,6 +36,7 @@ class _HomeState extends State<Home> {
   List<CombinedItem> _feedItems = [];
   bool _isLoading = true;
   final ScrollController _scrollController = ScrollController();
+  final Set<String> _displayedPostIds = {}; // Ajoutez cette ligne
 
   final List<NavigationItem> _navigationItems = [
     NavigationItem(
@@ -97,6 +98,7 @@ class _HomeState extends State<Home> {
     setState(() {
       _isLoading = true;
       _feedItems.clear();
+      _displayedPostIds.clear();
     });
 
     try {
@@ -147,16 +149,61 @@ class _HomeState extends State<Home> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels ==
-        _scrollController.position.maxScrollExtent) {
+    if (!_scrollController.hasClients) return;
+
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+
+    // Charge plus de contenu quand on est à 200 pixels de la fin
+    if (currentScroll >= (maxScroll - 200)) {
       _loadMoreData();
     }
   }
 
   Future<void> _loadMoreData() async {
-    // Implement pagination logic here
-    // This should call a method in HomeProvider to fetch more data
-    // and append it to _feedItems
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+      final userProvider = Provider.of<UserModel>(context, listen: false);
+
+      final lastItem = _feedItems.isNotEmpty ? _feedItems.last : null;
+      final newItems = await homeProvider.loadMoreUnifiedFeed(
+        userProvider.likedCompanies,
+        userProvider.followedUsers,
+        lastItem,
+      );
+
+      if (mounted) {
+        setState(() {
+          for (var item in newItems) {
+            // Vérifiez que l'item n'existe pas déjà
+            if (item.type == 'post') {
+              final postData = item.item as Map<String, dynamic>;
+              final uniqueId = postData['uniqueId'] as String;
+
+              if (!_displayedPostIds.contains(uniqueId)) {
+                _displayedPostIds.add(uniqueId);
+                _feedItems.add(item);
+              }
+            } else {
+              _feedItems.add(item);
+            }
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -367,15 +414,25 @@ class _HomeState extends State<Home> {
     } else if (items.isEmpty) {
       return const Center(child: Text('Aucun élément trouvé'));
     } else {
-      final filteredItems = items;
       return ListView.builder(
         controller: _scrollController,
-        itemCount: filteredItems.length + 1,
+        itemCount: items.length + 1, // +1 pour l'indicateur de chargement
         itemBuilder: (context, index) {
-          if (index == filteredItems.length) {
-            return _buildLoadingIndicator();
+          // Si on est au dernier élément, montrer le loader
+          if (index == items.length) {
+            if (_isLoading) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            } else {
+              return const SizedBox
+                  .shrink(); // Widget vide si pas de chargement
+            }
           }
-          return _buildItem(filteredItems[index]);
+          return _buildItem(items[index]);
         },
       );
     }

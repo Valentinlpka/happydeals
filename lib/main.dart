@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
@@ -21,6 +20,7 @@ import 'package:happy/screens/payment_cancel.dart';
 import 'package:happy/screens/payment_success.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/services/cart_service.dart';
+import 'package:happy/widgets/url_strategy.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -31,7 +31,8 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  setUrlStrategy(const HashUrlStrategy());
+
+  initializeUrlStrategy();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -52,6 +53,7 @@ void main() async {
   );
 
   await initializeDateFormatting('fr_FR', null);
+
   timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
 
   runApp(const MyApp());

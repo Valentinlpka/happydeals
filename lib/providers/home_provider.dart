@@ -4,7 +4,6 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:happy/classes/combined_item.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
@@ -20,7 +19,10 @@ import 'package:happy/classes/share_post.dart';
 
 class HomeProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final TextEditingController addressController = TextEditingController();
+
+  static const int _pageSize = 10;
+  DocumentSnapshot? _lastDocument;
+  bool _hasMoreData = true;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -31,7 +33,13 @@ class HomeProvider extends ChangeNotifier {
       _errorMessage ?? "Une erreur inconnue est survenue";
 
   Future<List<CombinedItem>> loadUnifiedFeed(
-      List<String> likedCompanies, List<String> followedUsers) async {
+      List<String> likedCompanies, List<String> followedUsers,
+      {bool refresh = false}) async {
+    if (refresh) {
+      _lastDocument = null;
+      _hasMoreData = true;
+    }
+
     try {
       if (kDebugMode) {
         print("### Début de loadUnifiedFeed ###");
@@ -42,68 +50,178 @@ class HomeProvider extends ChangeNotifier {
       final Set<String> addedPostIds = {};
       final List<CombinedItem> combinedItems = [];
 
-      // 1. Charger d'abord les posts qui ne dépendent pas de la position
+      // Chargement paginé des posts
       await Future.wait([
-        // Posts des entreprises likées
-        _loadLikedCompanyPosts(likedCompanies, addedPostIds, combinedItems),
-        // Posts partagés
-        _loadSharedPosts(followedUsers, addedPostIds, combinedItems),
+        _loadLikedCompanyPostsPaginated(
+            likedCompanies, addedPostIds, combinedItems),
+        _loadSharedPostsPaginated(followedUsers, addedPostIds, combinedItems),
       ]);
 
-      // 2. Charger les posts qui dépendent de la position
-
-      // Trier tous les éléments par date
       combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-      if (kDebugMode) {
-        print("Nombre total d'éléments chargés : ${combinedItems.length}");
-      }
-
       return combinedItems;
     } catch (e) {
       return [];
     }
   }
 
-  Future<void> _loadLikedCompanyPosts(List<String> likedCompanies,
-      Set<String> addedPostIds, List<CombinedItem> combinedItems) async {
-    final likedPosts =
-        await fetchLikedCompanyPostsWithCompanyData(likedCompanies);
-    _addUniquePosts(likedPosts, addedPostIds, combinedItems);
-  }
+  Future<List<CombinedItem>> loadMoreUnifiedFeed(List<String> likedCompanies,
+      List<String> followedUsers, CombinedItem? lastItem,
+      {int limit = 10}) async {
+    if (!_hasMoreData) return [];
 
-  Future<void> _loadSharedPosts(List<String> followedUsers,
-      Set<String> addedPostIds, List<CombinedItem> combinedItems) async {
-    if (followedUsers.isEmpty) {
-      if (kDebugMode) {
-        print("Pas d'utilisateurs suivis, ignorant les posts partagés");
+    try {
+      if (lastItem?.type == 'post') {
+        final lastPostData = lastItem?.item as Map<String, dynamic>;
+        final lastPost = lastPostData['post'] as Post;
+        final lastTimestamp = lastPost.timestamp;
+
+        final List<CombinedItem> allNewItems = [];
+        final Set<String> addedPostIds = {};
+
+        // Obtenir les posts des entreprises
+        if (likedCompanies.isNotEmpty) {
+          var companyQuery = _firestore
+              .collection('posts')
+              .where('companyId', whereIn: likedCompanies)
+              .where('type', isNotEqualTo: 'shared')
+              .where('isActive', isEqualTo: true)
+              .where('timestamp', isLessThan: lastTimestamp)
+              .orderBy('timestamp', descending: true)
+              .limit(limit);
+
+          final companyPosts = await companyQuery.get();
+          await _processPostsSnapshot(companyPosts, addedPostIds, allNewItems);
+        }
+
+        // Obtenir les posts partagés
+        if (followedUsers.isNotEmpty) {
+          var sharedQuery = _firestore
+              .collection('posts')
+              .where('sharedBy', whereIn: followedUsers)
+              .where('type', isEqualTo: 'shared')
+              .where('timestamp', isLessThan: lastTimestamp)
+              .orderBy('timestamp', descending: true)
+              .limit(limit);
+
+          final sharedPosts = await sharedQuery.get();
+          await _processPostsSnapshot(sharedPosts, addedPostIds, allNewItems);
+        }
+
+        // Trier par date et prendre les plus récents
+        allNewItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+        if (allNewItems.isEmpty) {
+          _hasMoreData = false;
+          return [];
+        }
+
+        // Ne retourner que le nombre demandé d'éléments les plus récents
+        return allNewItems.take(limit).toList();
       }
-      return;
-    }
-
-    if (kDebugMode) {
-      print("Chargement des posts partagés...");
-    }
-
-    final sharedPosts = await fetchSharedPostsWithCompanyData(followedUsers);
-    _addUniquePosts(sharedPosts, addedPostIds, combinedItems);
-
-    if (kDebugMode) {
-      print("${sharedPosts.length} posts partagés chargés");
+      return [];
+    } catch (e) {
+      print('Erreur dans loadMoreUnifiedFeed: $e');
+      return [];
     }
   }
 
-  void _addUniquePosts(List<Map<String, dynamic>> posts,
-      Set<String> addedPostIds, List<CombinedItem> combinedItems) {
-    for (var postData in posts) {
-      final post = postData['post'] as Post;
-      String uniqueId = post is SharedPost
-          ? '${post.id}_${post.originalPostId}_${postData['isAd'] ? 'ad' : 'post'}'
-          : post.id;
+  Future<void> _loadLikedCompanyPostsPaginated(List<String> likedCompanies,
+      Set<String> addedPostIds, List<CombinedItem> combinedItems,
+      {DocumentSnapshot? startAfter, int limit = _pageSize}) async {
+    if (likedCompanies.isEmpty) return;
 
-      if (!addedPostIds.contains(uniqueId)) {
-        addedPostIds.add(uniqueId);
-        combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
+    var query = _firestore
+        .collection('posts')
+        .where('companyId', whereIn: likedCompanies)
+        .where('type', isNotEqualTo: 'shared')
+        .where('isActive', isEqualTo: true)
+        .orderBy('timestamp', descending: true)
+        .limit(limit);
+
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+
+    final postsSnapshot = await query.get();
+    await _processPostsSnapshot(postsSnapshot, addedPostIds, combinedItems);
+  }
+
+  Future<void> _loadSharedPostsPaginated(List<String> followedUsers,
+      Set<String> addedPostIds, List<CombinedItem> combinedItems,
+      {DocumentSnapshot? startAfter, int limit = _pageSize}) async {
+    if (followedUsers.isEmpty) return;
+
+    var query = _firestore
+        .collection('posts')
+        .where('type', isEqualTo: 'shared')
+        .where('sharedBy', whereIn: followedUsers)
+        .orderBy('timestamp', descending: true)
+        .limit(limit);
+
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+
+    final postsSnapshot = await query.get();
+    await _processPostsSnapshot(postsSnapshot, addedPostIds, combinedItems);
+  }
+
+  Future<void> _processPostsSnapshot(
+    QuerySnapshot postsSnapshot,
+    Set<String> addedPostIds,
+    List<CombinedItem> combinedItems,
+  ) async {
+    for (var postDoc in postsSnapshot.docs) {
+      try {
+        final post = _createPostFromDocument(postDoc);
+        if (post != null) {
+          // ID unique basé sur le type et l'identifiant du post
+          String uniqueId = post is SharedPost
+              ? '${post.id}_${post.originalPostId}_${postDoc.id}_${post.timestamp}'
+              : '${post.id}_${postDoc.id}_${post.timestamp}';
+
+          if (!addedPostIds.contains(uniqueId)) {
+            // Ajout au Set pour éviter les doublons
+            addedPostIds.add(uniqueId);
+
+            final Map<String, dynamic> postData;
+
+            if (post is SharedPost) {
+              final sharedByUserData =
+                  await _getSharedByUserData(post.sharedBy);
+              final contentData = await _getOriginalContent(post);
+              if (contentData == null || sharedByUserData == null) continue;
+
+              postData = {
+                'post': post,
+                ...contentData,
+                'sharedByUser': sharedByUserData,
+                'uniqueId': uniqueId, // Ajoutez l'ID unique aux données
+              };
+            } else {
+              final companyDoc = await _firestore
+                  .collection('companys')
+                  .doc(post.companyId)
+                  .get();
+
+              if (!companyDoc.exists) continue;
+
+              postData = {
+                'post': post,
+                'company': companyDoc.data(),
+                'uniqueId': uniqueId, // Ajoutez l'ID unique aux données
+              };
+            }
+
+            // Ajouter l'élément au tableau final
+            combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Erreur lors du traitement du post: $e');
+        }
+        continue;
       }
     }
   }
@@ -345,11 +463,5 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> applyChanges() async {
     notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    addressController.dispose();
-    super.dispose();
   }
 }
