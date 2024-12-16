@@ -291,6 +291,8 @@ class _HomeState extends State<Home> {
         height: 35,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: ListView.separated(
+          cacheExtent: 500,
+          shrinkWrap: true,
           scrollDirection: Axis.horizontal,
           itemCount: _navigationItems.length,
           separatorBuilder: (context, index) => const SizedBox(width: 12),
@@ -415,6 +417,8 @@ class _HomeState extends State<Home> {
       return const Center(child: Text('Aucun élément trouvé'));
     } else {
       return ListView.builder(
+        shrinkWrap: true,
+        cacheExtent: 500,
         controller: _scrollController,
         itemCount: items.length + 1, // +1 pour l'indicateur de chargement
         itemBuilder: (context, index) {
