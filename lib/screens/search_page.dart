@@ -3,11 +3,12 @@ import 'package:happy/screens/marketplace/ad_list_page.dart';
 import 'package:happy/screens/post_type_page/code_promo_page.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
-import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/service_list_page.dart';
+import 'package:happy/screens/shop/products_page.dart';
+import 'package:happy/screens/update_category.dart';
 import 'package:happy/widgets/search_result.dart';
 
 class SearchPage extends StatefulWidget {
@@ -190,68 +191,6 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildDiscoverGrid(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 2.5,
-      padding: const EdgeInsets.all(16),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      children: [
-        _buildDiscoverItem('Annuaire', Icons.book, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const CompaniesPage()));
-        }),
-        _buildDiscoverItem('Offres d\'emploi', Icons.work, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const JobOffersPage()));
-        }),
-        _buildDiscoverItem('Happy Deals', Icons.local_offer, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const HappyDealsPage()));
-        }),
-        _buildDiscoverItem('Deals Express', Icons.flash_on, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const DealExpressPage()));
-        }),
-        _buildDiscoverItem('Jeux concours', Icons.emoji_events, () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const JeuxConcoursPage()));
-        }),
-        _buildDiscoverItem('Offres de parrainage', Icons.card_giftcard, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const ParraiangePage()));
-        }),
-        _buildDiscoverItem('Marketplace', Icons.store, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const AdListPage()));
-        }),
-        _buildDiscoverItem('Services', Icons.store, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const ServiceListPage()));
-        }),
-        _buildDiscoverItem('Code promo', Icons.store, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const CodePromoPage()));
-        }),
-      ],
-    );
-  }
-
   List<DiscoverItem> _getDiscoverItems(BuildContext context) {
     return [
       DiscoverItem(
@@ -281,7 +220,7 @@ class _SearchPageState extends State<SearchPage> {
         ),
       ),
       DiscoverItem(
-        title: 'Happy Deals',
+        title: 'Produits',
         icon: Icons.local_offer,
         gradient: const LinearGradient(
           colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
@@ -290,7 +229,7 @@ class _SearchPageState extends State<SearchPage> {
         ),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const HappyDealsPage()),
+          MaterialPageRoute(builder: (context) => const ProductsPage()),
         ),
       ),
       DiscoverItem(
@@ -369,6 +308,19 @@ class _SearchPageState extends State<SearchPage> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const CodePromoPage()),
+        ),
+      ),
+      DiscoverItem(
+        title: 'Importer catégories',
+        icon: Icons.confirmation_number,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CategoryImportScreen()),
         ),
       ),
     ];

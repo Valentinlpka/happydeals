@@ -3,46 +3,75 @@ import 'package:happy/classes/product.dart';
 
 class CartItem {
   final Product product;
-  int quantity;
+  final ProductVariant variant;
   final double appliedPrice;
+  final double tva;
+  int quantity;
 
   CartItem({
     required this.product,
+    required this.variant,
     required this.appliedPrice,
+    required this.tva,
     this.quantity = 1,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'productId': product.id,
+      'variantId': variant.id,
       'name': product.name,
+      'originalPrice': variant.price,
+      'appliedPrice': appliedPrice,
       'quantity': quantity,
-      'price': appliedPrice,
+      'tva': tva,
+      'image': variant.images.isNotEmpty ? variant.images[0] : '',
+      'variantAttributes': variant.attributes,
     };
   }
 
   Map<String, dynamic> toMaps() {
     return {
       'productId': product.id,
+      'variantId': variant.id,
       'name': product.name,
-      'images': product.imageUrl,
-      'price': product.price,
-      'tva': product.tva,
+      'images': variant.images,
+      'price': variant.price,
+      'attributes': variant.attributes,
       'quantity': quantity,
       'appliedPrice': appliedPrice,
       'sellerId': product.sellerId,
-      'entrepriseId': product.entrepriseId,
+      'entrepriseId': product.sellerId,
       'description': product.description,
-      'stock': product.stock,
+      'stock': variant.stock,
       'isActive': product.isActive,
     };
   }
 
-  static CartItem fromMap(Map<String, dynamic> map, Product product) {
+  static CartItem? fromMap(Map<String, dynamic> map, Product product) {
+    final variantId = map['variantId'] as String?;
+    if (variantId == null) return null;
+
+    final variant = product.variants.firstWhere(
+      (v) => v.id == variantId,
+      orElse: () => throw Exception('Variant not found'),
+    );
+
+    final basePrice = variant.price;
+    double appliedPrice =
+        (map['appliedPrice'] as num?)?.toDouble() ?? basePrice;
+
+    // Appliquer la réduction de la variante si elle existe et est valide
+    if (variant.discount?.isValid() ?? false) {
+      appliedPrice = variant.discount!.calculateDiscountedPrice(basePrice);
+    }
+
     return CartItem(
       product: product,
+      variant: variant,
       quantity: (map['quantity'] as num?)?.toInt() ?? 1,
-      appliedPrice: (map['appliedPrice'] as num?)?.toDouble() ?? product.price,
+      appliedPrice: appliedPrice,
+      tva: (map['tva'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -50,76 +79,55 @@ class CartItem {
 class Cart {
   String id;
   final String sellerId;
-  final String entrepriseId;
+  final String merchantId;
   final String sellerName;
   final List<CartItem> items;
   final DateTime createdAt;
-  final DateTime expiresAt;
   String? appliedPromoCode;
   double discountAmount;
 
   Cart({
     required this.id,
     required this.sellerId,
-    required this.entrepriseId,
+    required this.merchantId,
     required this.sellerName,
     List<CartItem>? items,
     DateTime? createdAt,
     this.appliedPromoCode,
     this.discountAmount = 0.0,
   })  : items = items ?? [],
-        createdAt = createdAt ?? DateTime.now(),
-        expiresAt = (createdAt ?? DateTime.now()).add(const Duration(hours: 2));
+        createdAt = createdAt ?? DateTime.now();
 
-  bool get isExpired => DateTime.now().isAfter(expiresAt);
+  bool get isExpired => DateTime.now().difference(createdAt).inHours > 24;
 
-  // Prix original sans aucune réduction
-  double get subtotal =>
-      items.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
+  // Prix total sans réductions de code promo
+  double get total => items.fold(
+        0,
+        (sum, item) => sum + (item.appliedPrice * item.quantity),
+      );
 
-  // Prix après réductions Happy Deals
-  double get total =>
-      items.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
-
-  // Économies des Happy Deals
-  double get totalSavings => subtotal - total;
-
-  // Prix final après toutes les réductions (Happy Deals + code promo)
-  double get totalAfterDiscount {
-    // Debug
-    // Debug
+  // Prix final après toutes les réductions (codes promo)
+  double get finalTotal {
     if (discountAmount <= 0) return total;
-
-    // S'assurer que la réduction ne rend pas le prix négatif
     double finalPrice = total - discountAmount;
-    // Debug
-
     return finalPrice > 0 ? finalPrice : 0;
-  }
-
-  // Pourcentage de réduction total
-  double get totalDiscountPercentage {
-    if (subtotal <= 0) return 0;
-    return ((subtotal - totalAfterDiscount) / subtotal) * 100;
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'sellerId': sellerId,
-      'entrepriseId': entrepriseId,
+      'merchantId': merchantId,
       'sellerName': sellerName,
       'items': items.map((item) => item.toMaps()).toList(),
       'createdAt': Timestamp.fromDate(createdAt),
-      'expiresAt': Timestamp.fromDate(expiresAt),
+      'expiresAt': Timestamp.fromDate(
+        createdAt.add(const Duration(hours: 24)),
+      ),
       'appliedPromoCode': appliedPromoCode,
       'discountAmount': discountAmount,
-      // Ajouter les calculs pour référence
-      'subtotal': subtotal,
       'total': total,
-      'totalAfterDiscount': totalAfterDiscount,
-      'totalSavings': totalSavings,
-      'totalDiscountPercentage': totalDiscountPercentage,
+      'finalTotal': finalTotal,
     };
   }
 
@@ -128,11 +136,10 @@ class Cart {
       final data = doc.data() as Map<String, dynamic>?;
       if (data == null) return null;
 
-      // Créer d'abord le Cart avec les données de base
       final cart = Cart(
         id: doc.id,
-        entrepriseId: data['entrepriseId'] as String? ?? '',
         sellerId: data['sellerId'] as String? ?? '',
+        merchantId: data['merchantId'] as String? ?? '',
         sellerName: data['sellerName'] as String? ?? '',
         createdAt:
             (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -140,7 +147,6 @@ class Cart {
         discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0.0,
       );
 
-      // Charger les items
       if (data['items'] != null) {
         final itemsData = data['items'] as List<dynamic>;
         for (var itemData in itemsData) {
@@ -150,36 +156,18 @@ class Cart {
               .get();
 
           if (productDoc.exists) {
-            final productData = productDoc.data()!;
-            final product = Product(
-              id: productDoc.id,
-              name: productData['name'] as String? ?? '',
-              price: (productData['price'] as num?)?.toDouble() ?? 0.0,
-              tva: (productData['tva'] as num?)?.toDouble() ?? 0.0,
-              imageUrl: List<String>.from(productData['images'] ?? []),
-              sellerId: productData['sellerId'] as String? ?? '',
-              entrepriseId: productData['entrepriseId'] as String? ?? '',
-              description: productData['description'] as String? ?? '',
-              stock: productData['stock'] as int? ?? 0,
-              isActive: productData['isActive'] as bool? ?? false,
-              discountedPrice:
-                  (productData['discountedPrice'] as num?)?.toDouble(),
-              hasActiveHappyDeal:
-                  productData['hasActiveHappyDeal'] as bool? ?? false,
-            );
-
-            cart.items.add(CartItem(
-              product: product,
-              quantity: (itemData['quantity'] as num?)?.toInt() ?? 1,
-              appliedPrice: (itemData['appliedPrice'] as num?)?.toDouble() ??
-                  product.price,
-            ));
+            final product = Product.fromFirestore(productDoc);
+            final cartItem = CartItem.fromMap(itemData, product);
+            if (cartItem != null) {
+              cart.items.add(cartItem);
+            }
           }
         }
       }
 
       return cart;
     } catch (e) {
+      print('Error creating Cart from Firestore: $e');
       return null;
     }
   }

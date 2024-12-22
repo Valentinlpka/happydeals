@@ -53,12 +53,10 @@ class ProductCards extends StatelessWidget {
       },
       child: Column(
         children: [
-          // En-tête avec logo et informations
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Logo de l'entreprise
                 CircleAvatar(
                   radius: 26,
                   backgroundImage: NetworkImage(companyLogo),
@@ -68,7 +66,6 @@ class ProductCards extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Nom de l'entreprise
                     Text(
                       companyName,
                       style: const TextStyle(
@@ -77,7 +74,6 @@ class ProductCards extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Tag Produit et Date
                     Row(
                       children: [
                         Container(
@@ -112,8 +108,6 @@ class ProductCards extends StatelessWidget {
               ],
             ),
           ),
-
-          // Carte produit
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.all(16),
@@ -163,13 +157,15 @@ class ProductCards extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Image du produit
                   Hero(
                     tag: 'product-${post.productId}',
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(
-                        post.images[0],
+                        post.variants.isNotEmpty &&
+                                post.variants[0].images.isNotEmpty
+                            ? post.variants[0].images[0]
+                            : 'placeholder_image_url',
                         width: 120,
                         height: 120,
                         fit: BoxFit.cover,
@@ -188,16 +184,13 @@ class ProductCards extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 16),
-
-                  // Colonne avec titre, description et prix
                   Expanded(
                     child: SizedBox(
-                      height: 120, // Même hauteur que l'image
+                      height: 120,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Titre et description
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -222,47 +215,54 @@ class ProductCards extends StatelessWidget {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              if (post.variants.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'À partir de',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
-
-                          // Prix aligné en bas
-                          if (post.hasActiveHappyDeal &&
-                              post.discountedPrice != null)
+                          if (post.variants.isNotEmpty) ...[
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               crossAxisAlignment: CrossAxisAlignment.baseline,
                               textBaseline: TextBaseline.alphabetic,
                               children: [
-                                Text(
-                                  "${post.discountedPrice!.toStringAsFixed(2)} €",
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
+                                if (post.variants[0].discount?.isValid() ??
+                                    false) ...[
+                                  Text(
+                                    "${post.variants[0].discount!.calculateDiscountedPrice(post.variants[0].price).toStringAsFixed(2)} €",
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  "${post.price.toStringAsFixed(2)} €",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    decoration: TextDecoration.lineThrough,
-                                    color: Colors.grey[500],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    "${post.variants[0].price.toStringAsFixed(2)} €",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      decoration: TextDecoration.lineThrough,
+                                      color: Colors.grey[500],
+                                    ),
                                   ),
-                                ),
+                                ] else
+                                  Text(
+                                    "${post.variants[0].price.toStringAsFixed(2)} €",
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                               ],
-                            )
-                          else
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                "${post.price.toStringAsFixed(2)} €",
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                             ),
+                          ],
                         ],
                       ),
                     ),

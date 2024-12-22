@@ -6,7 +6,7 @@
   "background_color": "#FFFFFF",
   "theme_color": "#FFFFFF",
   "description": "L'app pour tout faire !",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "prefer_related_applications": false,
   "icons": [
     {

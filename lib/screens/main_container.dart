@@ -59,8 +59,6 @@ class _MainContainerState extends State<MainContainer> {
     const CartScreen(),
   ];
 
-
-
 // Méthode helper pour créer un item de navigation standard
 
 // Méthode helper pour créer l'item de navigation des messages avec badge
@@ -68,23 +66,37 @@ class _MainContainerState extends State<MainContainer> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<String>(
-        stream: _currentUserIdStream,
-        builder: (context, snapshot) {
-          final currentUserId = snapshot.data ?? "";
-
-          return SafeArea(
-            child: Scaffold(
-              body: IndexedStack(
+      stream: _currentUserIdStream,
+      builder: (context, snapshot) {
+        final currentUserId = snapshot.data ?? "";
+        return Scaffold(
+          extendBody: true,
+          extendBodyBehindAppBar: true, // Ajoutez cette ligne
+          body: Container(
+            color: Colors.white,
+            child: SafeArea(
+              bottom: false,
+              child: IndexedStack(
                 index: _currentIndex,
                 children: _children,
               ),
-              bottomNavigationBar: StreamBuilder<Map<String, int>>(
+            ),
+          ),
+          bottomNavigationBar: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.pink, Colors.blue],
+              ),
+            ),
+            child: SafeArea(
+              child: StreamBuilder<Map<String, int>>(
                 stream: Provider.of<ConversationService>(context, listen: false)
                     .getDetailedUnreadCount(currentUserId),
                 builder: (context, snapshot) {
                   final unreadCounts =
                       snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
-
                   return CustomBottomNavBar(
                     currentIndex: _currentIndex,
                     onTap: setCurrentIndex,
@@ -93,7 +105,9 @@ class _MainContainerState extends State<MainContainer> {
                 },
               ),
             ),
-          );
-        });
+          ),
+        );
+      },
+    );
   }
 }

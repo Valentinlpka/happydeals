@@ -27,12 +27,16 @@ class CustomBottomNavBar extends StatelessWidget {
     return Container(
       height: 56 + extraPadding,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.pink, Colors.blue],
-        ),
-      ),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.pink, Colors.blue],
+          ),
+          border: Border(
+              top: BorderSide(
+            color: Colors.transparent,
+            width: 0,
+          ))),
       child: Column(
         children: [
           Expanded(

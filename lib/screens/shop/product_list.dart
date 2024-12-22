@@ -17,6 +17,7 @@ class ProductList extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('products')
           .where('merchantId', isEqualTo: sellerId)
+          .where('isActive', isEqualTo: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -32,7 +33,7 @@ class ProductList extends StatelessWidget {
         }
 
         final products = snapshot.data!.docs
-            .map((doc) => Product.fromDocument(doc))
+            .map((doc) => Product.fromFirestore(doc))
             .toList();
 
         return ListView.separated(
@@ -56,8 +57,9 @@ class ProductListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasActiveHappyDeal =
-        product.hasActiveHappyDeal && product.discountedPrice != null;
+    final mainVariant =
+        product.variants.isNotEmpty ? product.variants[0] : null;
+    final hasDiscount = mainVariant?.discount?.isValid() ?? false;
 
     return InkWell(
       onTap: () {
@@ -69,51 +71,53 @@ class ProductListItem extends StatelessWidget {
         );
       },
       child: Container(
-        decoration: const BoxDecoration(color: Colors.white, boxShadow: [
-          BoxShadow(
-            color: Color.fromRGBO(149, 157, 165, 0.2),
-            blurRadius: 24,
-            spreadRadius: 0,
-            offset: Offset(0, 8),
-          ),
-        ]),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Color.fromRGBO(149, 157, 165, 0.2),
+              blurRadius: 24,
+              spreadRadius: 0,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image du produit
-              Stack(
-                children: [
-                  ClipRRect(
-                    child: Image.network(
-                      product.imageUrl[0],
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  if (hasActiveHappyDeal)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '-${product.discountPercentage?.toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 10),
-                        ),
+              if (mainVariant != null && mainVariant.images.isNotEmpty)
+                Stack(
+                  children: [
+                    ClipRRect(
+                      child: Image.network(
+                        mainVariant.images[0],
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
                       ),
                     ),
-                ],
-              ),
+                    if (hasDiscount)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '-${mainVariant.discount!.value.toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 10),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               const SizedBox(width: 16),
-              // Informations du produit
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,97 +130,141 @@ class ProductListItem extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    if (hasActiveHappyDeal) ...[
+                    if (mainVariant != null) ...[
+                      const SizedBox(height: 4),
+                      if (hasDiscount) ...[
+                        Text(
+                          '${mainVariant.price.toStringAsFixed(2)} €',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        Text(
+                          '${mainVariant.discount!.calculateDiscountedPrice(mainVariant.price).toStringAsFixed(2)} €',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red[700],
+                          ),
+                        ),
+                      ] else
+                        Text(
+                          '${mainVariant.price.toStringAsFixed(2)} €',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.blue[800],
+                          ),
+                        ),
                       Text(
-                        '${product.price.toStringAsFixed(2)} €',
+                        'Stock: ${mainVariant.stock}',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 12,
                           color: Colors.grey[600],
-                          decoration: TextDecoration.lineThrough,
                         ),
                       ),
-                      Text(
-                        '${product.discountedPrice!.toStringAsFixed(2)} €',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red[700],
-                        ),
-                      ),
-                    ] else
-                      Text(
-                        '${product.price.toStringAsFixed(2)} €',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.blue[800],
-                        ),
-                      ),
+                    ],
                   ],
                 ),
               ),
-              // Bouton d'ajout au panier
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.add_shopping_cart),
-                    onPressed: () {
-                      try {
-                        context.read<CartService>().addToCart(product);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.white),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'Produit ajouté',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      Text(
-                                        'Votre produit a été ajouté au panier',
-                                        style: TextStyle(fontSize: 12),
-                                      ),
-                                    ],
+                  if (mainVariant != null && mainVariant.stock > 0)
+                    IconButton(
+                      icon: const Icon(Icons.add_shopping_cart),
+                      onPressed: () async {
+                        try {
+                          // Si le produit a plusieurs variantes, afficher un dialogue de sélection
+                          if (product.variants.length > 1) {
+                            final selectedVariant =
+                                await showDialog<ProductVariant>(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: const Text('Choisir une variante'),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: product.variants
+                                          .where((v) => v.stock > 0)
+                                          .map((variant) {
+                                        // Créer un label avec les attributs de la variante
+                                        final attributes = variant
+                                            .attributes.entries
+                                            .map((e) => '${e.key}: ${e.value}')
+                                            .join(', ');
+                                        final price =
+                                            variant.discount?.isValid() ?? false
+                                                ? variant.discount!
+                                                    .calculateDiscountedPrice(
+                                                        variant.price)
+                                                : variant.price;
+
+                                        return ListTile(
+                                          title: Text(attributes),
+                                          subtitle: Text(
+                                              '${price.toStringAsFixed(2)}€'),
+                                          trailing:
+                                              Text('Stock: ${variant.stock}'),
+                                          onTap: () {
+                                            Navigator.of(context).pop(variant);
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: Colors.blue[800],
-                            duration: const Duration(seconds: 4),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            action: SnackBarAction(
-                              label: 'VOIR LE PANIER',
-                              textColor: Colors.white,
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) => const CartScreen()),
                                 );
                               },
+                            );
+
+                            if (selectedVariant != null) {
+                              context.read<CartService>().addToCart(
+                                    product,
+                                    variantId: selectedVariant.id,
+                                  );
+                            }
+                          } else {
+                            // Si une seule variante, l'ajouter directement
+                            context.read<CartService>().addToCart(
+                                  product,
+                                  variantId: mainVariant.id,
+                                );
+                          }
+
+                          // Afficher le message de confirmation
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.white),
+                                  SizedBox(width: 12),
+                                  Text('Produit ajouté au panier'),
+                                ],
+                              ),
+                              action: SnackBarAction(
+                                label: 'VOIR LE PANIER',
+                                textColor: Colors.white,
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const CartScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                        );
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(e.toString())),
-                        );
-                      }
-                    },
-                  ),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(e.toString())),
+                          );
+                        }
+                      },
+                    ),
                 ],
               ),
             ],

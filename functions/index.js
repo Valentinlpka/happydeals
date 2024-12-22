@@ -268,12 +268,9 @@ exports.requestPayout = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Création d'un produit avec variantes
 exports.createProduct = functions.https.onCall(async (data, context) => {
-  console.log("Début de la fonction createProduct");
-  console.log("Données reçues:", JSON.stringify(data));
-
   if (!context.auth) {
-    console.log("Erreur: Utilisateur non authentifié");
     throw new functions.https.HttpsError(
       "unauthenticated",
       "L'utilisateur doit être authentifié."
@@ -281,105 +278,197 @@ exports.createProduct = functions.https.onCall(async (data, context) => {
   }
 
   try {
-    console.log("Récupération des données utilisateur");
     const userDoc = await admin
       .firestore()
       .collection("users")
       .doc(context.auth.uid)
       .get();
 
-    if (!userDoc.exists) {
-      console.log("Erreur: Document utilisateur non trouvé");
-      throw new functions.https.HttpsError(
-        "not-found",
-        "Document utilisateur non trouvé"
-      );
-    }
-
-    const userData = userDoc.data();
-    console.log("Données utilisateur:", JSON.stringify(userData));
-
-    if (!userData || !userData.stripeAccountId) {
-      console.log("Erreur: Pas de Stripe Account ID trouvé");
+    if (!userDoc.exists || !userDoc.data().stripeAccountId) {
       throw new functions.https.HttpsError(
         "failed-precondition",
         "L'utilisateur n'a pas de compte Stripe associé"
       );
     }
 
-    const stripeAccountId = userData.stripeAccountId;
+    const stripeAccountId = userDoc.data().stripeAccountId;
 
-    if (!data.name || typeof data.name !== "string") {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Le nom du produit est requis et doit être une chaîne de caractères"
-      );
-    }
-
-    if (!data.price || typeof data.price !== "number" || data.price <= 0) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Le prix du produit est requis et doit être un nombre positif"
-      );
-    }
-
-    console.log("Création du produit Stripe");
+    // Créer le produit principal dans Stripe
     const stripeProduct = await stripe.products.create(
       {
         name: data.name,
         description: data.description || "",
+        metadata: {
+          categoryId: data.categoryId,
+          tva: data.tva.toString(),
+          categoryPath: JSON.stringify(data.categoryPath),
+        },
       },
       {
         stripeAccount: stripeAccountId,
       }
     );
-    console.log("Produit Stripe créé:", stripeProduct.id);
 
-    console.log("Création du prix Stripe");
-    const stripePrice = await stripe.prices.create(
-      {
-        product: stripeProduct.id,
-        unit_amount: Math.round(data.price * 100),
-        currency: "eur",
-      },
-      {
-        stripeAccount: stripeAccountId,
-      }
+    // Créer les variantes dans Stripe
+    const variantsWithStripeData = await Promise.all(
+      data.variants.map(async (variant) => {
+        const variantName = Object.entries(variant.attributes)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(", ");
+
+        const stripePrice = await stripe.prices.create(
+          {
+            product: stripeProduct.id,
+            unit_amount: Math.round(variant.price * 100),
+            currency: "eur",
+            metadata: {
+              variantId: variant.id,
+              attributes: JSON.stringify(variant.attributes),
+              stock: variant.stock.toString(),
+              tva: data.tva.toString(),
+              priceTTC: variant.price.toString(),
+            },
+          },
+          {
+            stripeAccount: stripeAccountId,
+          }
+        );
+
+        return {
+          ...variant,
+          stripePriceId: stripePrice.id,
+        };
+      })
     );
-    console.log("Prix Stripe créé:", stripePrice.id);
 
-    console.log("Ajout du produit à Firestore");
-
-    const productRef = admin.firestore().collection("products").doc(); // Créer d'abord la référence
-    const productId = productRef.id; // Obtenir l'ID
-
+    // Créer le document dans Firestore
+    const productRef = admin.firestore().collection("products").doc();
     await productRef.set({
+      id: productRef.id,
       name: data.name,
-      description: data.description || "",
-      price: data.price,
+      description: data.description,
+      basePrice: data.basePrice, //Prix TTC
+      categoryId: data.categoryId,
+      categoryPath: data.categoryPath,
       tva: data.tva,
-      stock: data.stock,
-      images: data.images,
-      isActive: data.isActive,
-      sellerId: data.sellerId,
-      stripeProductId: stripeProduct.id,
-      stripePriceId: stripePrice.id,
+      isActive: true,
       merchantId: stripeAccountId,
+      sellerId: context.auth.uid,
+      stripeProductId: stripeProduct.id,
+      variants: variantsWithStripeData,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    console.log("Produit ajouté à Firestore:", productRef.id);
 
     return {
       success: true,
-      productId: productId,
+      productId: productRef.id,
       stripeProductId: stripeProduct.id,
-      stripePriceId: stripePrice.id,
     };
   } catch (error) {
-    console.error("Erreur détaillée:", error);
+    console.error("Erreur:", error);
     throw new functions.https.HttpsError(
       "internal",
       `Impossible de créer le produit: ${error.message}`
+    );
+  }
+});
+
+// Mise à jour d'un produit avec variantes
+exports.updateProduct = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  try {
+    const productRef = admin.firestore().collection("products").doc(data.id);
+    const product = await productRef.get();
+
+    if (!product.exists) {
+      throw new functions.https.HttpsError("not-found", "Produit non trouvé");
+    }
+
+    // Mettre à jour le produit dans Stripe
+    await stripe.products.update(
+      data.stripeProductId,
+      {
+        name: data.name,
+        description: data.description,
+        metadata: {
+          categoryId: data.categoryId,
+          tva: data.tva.toString(),
+        },
+      },
+      {
+        stripeAccount: data.merchantId,
+      }
+    );
+
+    // Gérer les variantes
+    const existingVariants = product.data().variants || [];
+    const updatedVariants = await Promise.all(
+      data.variants.map(async (variant) => {
+        const existingVariant = existingVariants.find(
+          (v) => v.id === variant.id
+        );
+
+        if (existingVariant?.stripePriceId) {
+          // Mettre à jour le prix existant
+          await stripe.prices.update(
+            existingVariant.stripePriceId,
+            {
+              active: false,
+            },
+            {
+              stripeAccount: data.merchantId,
+            }
+          );
+        }
+
+        // Créer un nouveau prix pour la variante
+        const stripePrice = await stripe.prices.create(
+          {
+            product: data.stripeProductId,
+            unit_amount: Math.round(variant.price * 100),
+            currency: "eur",
+            metadata: {
+              variantId: variant.id,
+              attributes: JSON.stringify(variant.attributes),
+              stock: variant.stock.toString(),
+              tva: data.tva.toString(),
+              priceTTC: variant.price.toString(),
+            },
+          },
+          {
+            stripeAccount: data.merchantId,
+          }
+        );
+
+        return {
+          ...variant,
+          stripePriceId: stripePrice.id,
+        };
+      })
+    );
+
+    // Mettre à jour Firestore
+    await productRef.update({
+      name: data.name,
+      description: data.description,
+      basePrice: data.basePrice,
+      categoryId: data.categoryId,
+      variants: updatedVariants,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erreur:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      `Impossible de mettre à jour le produit: ${error.message}`
     );
   }
 });
@@ -422,71 +511,6 @@ exports.updateStock = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError(
       "internal",
       "Impossible de mettre à jour le stock"
-    );
-  }
-});
-
-// Modification d'un article
-exports.updateProduct = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "L'utilisateur doit être authentifié."
-    );
-  }
-
-  const { productId, name, description, price, images, isActive, stock } = data;
-
-  try {
-    const productRef = admin.firestore().collection("products").doc(productId);
-    const product = await productRef.get();
-
-    if (!product.exists) {
-      throw new functions.https.HttpsError("not-found", "Produit non trouvé");
-    }
-
-    // Mise à jour dans Firestore
-    await productRef.update({
-      name,
-      description,
-      price,
-      images,
-      isActive,
-      stock,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Mise à jour dans Stripe
-    await stripe.products.update(
-      product.data().stripeProductId,
-      {
-        name,
-        description,
-        images,
-        active: isActive,
-        metadata: { stock: stock.toString() },
-      },
-      {
-        stripeAccount: product.data().merchantId,
-      }
-    );
-
-    await stripe.prices.update(
-      product.data().stripePriceId,
-      {
-        active: isActive,
-      },
-      {
-        stripeAccount: product.data().merchantId,
-      }
-    );
-
-    return { success: true, productId };
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour du produit:", error);
-    throw new functions.https.HttpsError(
-      "internal",
-      "Impossible de mettre à jour le produit"
     );
   }
 });
@@ -1814,11 +1838,30 @@ async function handleOrderPayment(session) {
     }
 
     const pendingOrderData = pendingOrderDoc.data();
-    console.log("PendingOrderData:", pendingOrderData); // Ajout du log
+    console.log("PendingOrderData:", pendingOrderData);
 
     // 1. Exécuter la transaction Firestore
     await admin.firestore().runTransaction(async (transaction) => {
+      // LECTURES D'ABORD
+      // Lire tous les documents de produits nécessaires
+      const productReads = await Promise.all(
+        pendingOrderData.items.map(async (item) => {
+          const productRef = admin
+            .firestore()
+            .collection("products")
+            .doc(item.productId);
+          return {
+            ref: productRef,
+            doc: await transaction.get(productRef),
+            item: item,
+          };
+        })
+      );
+
+      // PUIS LES ÉCRITURES
       const orderRef = admin.firestore().collection("orders").doc(orderId);
+
+      // Mise à jour de la commande
       transaction.set(orderRef, {
         ...pendingOrderData,
         status: "paid",
@@ -1827,28 +1870,49 @@ async function handleOrderPayment(session) {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      for (const item of pendingOrderData.items) {
-        const productRef = admin
-          .firestore()
-          .collection("products")
-          .doc(item.productId);
+      // Mise à jour des stocks
+      for (const { ref, doc, item } of productReads) {
+        if (!doc.exists) {
+          console.error(`Product not found: ${item.productId}`);
+          continue;
+        }
 
-        transaction.update(productRef, {
-          stock: admin.firestore.FieldValue.increment(-parseInt(item.quantity)),
+        const productData = doc.data();
+        const variant = productData.variants.find(
+          (v) => v.id === item.variantId
+        );
+
+        if (!variant) {
+          console.error(
+            `Variant not found: ${item.variantId} for product ${item.productId}`
+          );
+          continue;
+        }
+
+        const updatedVariants = productData.variants.map((v) => {
+          if (v.id === item.variantId) {
+            return {
+              ...v,
+              stock: Math.max(0, v.stock - item.quantity),
+            };
+          }
+          return v;
         });
+
+        transaction.update(ref, { variants: updatedVariants });
       }
 
+      // Suppression du panier
       if (cartId) {
         const cartRef = admin.firestore().collection("carts").doc(cartId);
         transaction.delete(cartRef);
       }
 
+      // Suppression de la commande en attente
       transaction.delete(pendingOrderDoc.ref);
 
-      // Notifications dans la transaction
+      // Notifications
       const notificationsRef = admin.firestore().collection("notifications");
-
-      // Vérifier que sellerId existe
       if (pendingOrderData.sellerId) {
         transaction.set(notificationsRef.doc(), {
           userId,

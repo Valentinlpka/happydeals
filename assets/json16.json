@@ -1,0 +1,226 @@
+{
+  "categories": {
+    "cuisine_salle_bains": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Cuisine, Salle de bains, WC",
+      "parentId": "maison_animaux_jardin"
+    },
+    "sauna_accessoires": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Accessoires sauna",
+      "parentId": "cuisine_salle_bains"
+    },
+    "filtres_eau": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Filtres à eau et adoucisseurs",
+      "parentId": "cuisine_salle_bains"
+    },
+    "installations_buanderie": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Installations buanderie",
+      "parentId": "cuisine_salle_bains"
+    },
+    "installations_cuisine": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Installations cuisine",
+      "parentId": "cuisine_salle_bains"
+    },
+    "installations_sdb": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Installations salles de bain",
+      "parentId": "cuisine_salle_bains"
+    },
+    "chauffage_clim": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Chauffage & Climatisation",
+      "parentId": "maison_animaux_jardin"
+    },
+    "chauffage_central": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Chauffage central et accessoires",
+      "parentId": "chauffage_clim"
+    },
+    "commandes_temperature": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Commandes de température",
+      "parentId": "chauffage_clim"
+    },
+    "conduits_chauffage": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Conduits de chauffage et climatisation",
+      "parentId": "chauffage_clim"
+    },
+    "pieces_chaudieres": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Pièces et accessoires pour chaudières",
+      "parentId": "chauffage_clim"
+    },
+    "ventilateurs": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Ventilateurs domestiques",
+      "parentId": "chauffage_clim"
+    },
+    "electricite": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Electricité",
+      "parentId": "maison_animaux_jardin"
+    },
+    "adaptateurs_internationaux": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Adaptateurs pour l'international",
+      "parentId": "electricite"
+    },
+    "cablage": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Câblage de surface",
+      "parentId": "electricite"
+    },
+    "carillons": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Carillons et sonnettes",
+      "parentId": "electricite"
+    },
+    "interrupteurs": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Interrupteurs et variateurs d'intensité",
+      "parentId": "electricite"
+    },
+    "prises_electriques": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Prises électriques et accessoires",
+      "parentId": "electricite"
+    },
+    "securite": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Sécurité",
+      "parentId": "maison_animaux_jardin"
+    },
+    "detecteurs": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Détecteurs pour la maison",
+      "parentId": "securite"
+    },
+    "eclairage_securite": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Éclairage de sécurité",
+      "parentId": "securite"
+    },
+    "coffres_forts": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Coffres-forts et accessoires",
+      "parentId": "securite"
+    },
+    "systemes_alarme": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Systèmes sécurité pour la maison",
+      "parentId": "securite"
+    },
+    "piscine_spa": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Piscine & Spa",
+      "parentId": "maison_animaux_jardin"
+    },
+    "accessoires_piscine": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Bâches et accessoires pour piscine",
+      "parentId": "piscine_spa"
+    },
+    "bains_remous": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Bains à remous d'extérieur",
+      "parentId": "piscine_spa"
+    },
+    "filtration_piscine": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Filtres, pompes et accessoires de piscines",
+      "parentId": "piscine_spa"
+    },
+    "animalerie": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Animalerie",
+      "parentId": "maison_animaux_jardin"
+    },
+    "chiens": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Chiens",
+      "parentId": "animalerie"
+    },
+    "alimentation_chien": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Alimentation pour chiens",
+      "parentId": "chiens"
+    },
+    "accessoires_chien": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Accessoires pour chiens",
+      "parentId": "chiens"
+    },
+    "chats": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Chats",
+      "parentId": "animalerie"
+    },
+    "alimentation_chat": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Alimentation pour chats",
+      "parentId": "chats"
+    },
+    "accessoires_chat": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Accessoires pour cats",
+      "parentId": "chats"
+    },
+    "nac": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "NAC",
+      "parentId": "animalerie"
+    },
+    "alimentation_nac": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Alimentation pour NAC",
+      "parentId": "nac"
+    },
+    "accessoires_nac": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Accessoires pour NAC",
+      "parentId": "nac"
+    }
+  }
+}

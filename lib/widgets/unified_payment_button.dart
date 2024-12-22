@@ -46,7 +46,16 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
           await FirebaseFirestore.instance
               .collection('pending_orders')
               .doc(widget.metadata['orderId'])
-              .set({...widget.orderData!, 'status': 'pending'});
+              .set({
+            ...widget.orderData!,
+            'items': widget.orderData!['items']
+                .map((item) => {
+                      ...item,
+                      'tva': item['tva'] ?? 20.0,
+                    })
+                .toList(),
+            'status': 'pending'
+          });
           break;
 
         case 'express_deal':

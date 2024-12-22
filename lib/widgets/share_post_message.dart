@@ -7,7 +7,6 @@ import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/conversation.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
-import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
@@ -21,7 +20,6 @@ import 'package:happy/widgets/cards/concours_card.dart';
 import 'package:happy/widgets/cards/deals_express_card.dart';
 import 'package:happy/widgets/cards/emploi_card.dart';
 import 'package:happy/widgets/cards/evenement_card.dart';
-import 'package:happy/widgets/cards/happy_deals_card.dart';
 import 'package:happy/widgets/cards/news_card.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:happy/widgets/cards/product_cards.dart';
@@ -170,18 +168,6 @@ class SharedPostMessage extends StatelessWidget {
             currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
             companyName: companyName,
             companyLogo: companyLogo,
-          ),
-        );
-
-      case HappyDeal:
-        return SizedBox(
-          child: HappyDealsCard(
-            companyCategorie: '',
-            post: post as HappyDeal,
-            currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-            companyName: companyName,
-            companyLogo: companyLogo,
-            companyCover: companyCover,
           ),
         );
 

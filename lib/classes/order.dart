@@ -1,156 +1,136 @@
+// orders.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-class Orders {
-  final String id;
-  final String userId;
-  final String sellerId;
-  final List<OrderItem> items;
-  final double subtotal;
-  final double happyDealSavings;
-  final double totalPrice;
-  final String status;
-  final DateTime createdAt;
-  final String pickupAddress;
-  final String? pickupCode;
-  final String entrepriseId;
-  final String? promoCode;
-  final double? discountAmount;
-
-  Orders({
-    required this.id,
-    required this.userId,
-    required this.sellerId,
-    required this.items,
-    required this.subtotal,
-    required this.happyDealSavings,
-    required this.totalPrice,
-    required this.status,
-    required this.createdAt,
-    required this.pickupAddress,
-    required this.entrepriseId,
-    this.pickupCode,
-    this.promoCode,
-    this.discountAmount,
-  });
-
-  factory Orders.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-
-
-    double safeParseDouble(dynamic value, String fieldName) {
-      if (value == null) {
-        return 0.0;
-      }
-      if (value is int) return value.toDouble();
-      if (value is double) return value;
-      if (value is String) {
-        final parsed = double.tryParse(value);
-        if (parsed == null) {
-          return 0.0;
-        }
-        return parsed;
-      }
-      return 0.0;
-    }
-
-    return Orders(
-      id: doc.id,
-      userId: data['userId'] ?? '',
-      sellerId: data['sellerId'] ?? '',
-      items: (data['items'] as List? ?? [])
-          .map((item) => OrderItem.fromMap(item))
-          .toList(),
-      subtotal: safeParseDouble(data['subtotal'], 'subtotal'),
-      happyDealSavings:
-          safeParseDouble(data['happyDealSavings'], 'happyDealSavings'),
-      totalPrice: safeParseDouble(data['totalPrice'], 'totalPrice'),
-      discountAmount: safeParseDouble(data['discountAmount'], 'discountAmount'),
-      status: data['status'] ?? '',
-      entrepriseId: data['entrepriseId'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      pickupAddress: data['pickupAddress'] ?? '',
-      pickupCode: data['pickupCode'],
-      promoCode: data['promoCode'],
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'sellerId': sellerId,
-      'items': items.map((item) => item.toMap()).toList(),
-      'subtotal': subtotal.toDouble(),
-      'happyDealSavings': happyDealSavings,
-      'totalPrice': totalPrice,
-      'status': status,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'pickupAddress': pickupAddress,
-      'pickupCode': pickupCode,
-      'entrepriseId': entrepriseId,
-      'promoCode': promoCode,
-      'discountAmount': discountAmount,
-    };
-  }
-}
 
 class OrderItem {
   final String productId;
-  final String image;
+  final String variantId;
   final String name;
-  final int quantity;
-  final double tva;
   final double originalPrice;
   final double appliedPrice;
+  final int quantity;
+  final double tva;
+  final String image;
+  final Map<String, String> variantAttributes;
 
   OrderItem({
     required this.productId,
-    required this.image,
+    required this.variantId,
     required this.name,
-    required this.quantity,
     required this.originalPrice,
     required this.appliedPrice,
+    required this.quantity,
     required this.tva,
+    required this.image,
+    required this.variantAttributes,
   });
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
-    // Log raw data
-
-    double safeParseDouble(dynamic value, String fieldName) {
-      if (value == null) {
-        return 0.0;
-      }
-      if (value is int) return value.toDouble();
-      if (value is double) return value;
-      if (value is String) {
-        final parsed = double.tryParse(value);
-        if (parsed == null) {
-          return 0.0;
-        }
-        return parsed;
-      }
-      return 0.0;
-    }
-
     return OrderItem(
       productId: map['productId'] ?? '',
-      image: map['image'] ?? '',
+      variantId: map['variantId'] ?? '',
       name: map['name'] ?? '',
-      quantity: (map['quantity'] as num?)?.toInt() ?? 0,
-      originalPrice: safeParseDouble(map['originalPrice'], 'originalPrice'),
-      appliedPrice: safeParseDouble(map['appliedPrice'], 'appliedPrice'),
-      tva: safeParseDouble(map['tva'], 'tva'),
+      originalPrice: (map['originalPrice'] ?? 0.0).toDouble(),
+      appliedPrice: (map['appliedPrice'] ?? 0.0).toDouble(),
+      quantity: map['quantity'] ?? 0,
+      tva: (map['tva'] ?? 20.0).toDouble(),
+      image: map['image'] ?? '',
+      variantAttributes:
+          Map<String, String>.from(map['variantAttributes'] ?? {}),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'productId': productId,
-      'image': image,
+      'variantId': variantId,
       'name': name,
-      'quantity': quantity,
       'originalPrice': originalPrice,
       'appliedPrice': appliedPrice,
+      'quantity': quantity,
       'tva': tva,
+      'image': image,
+      'variantAttributes': variantAttributes,
     };
+  }
+}
+
+class Orders {
+  final String id;
+  final String status;
+  final DateTime createdAt;
+  final List<OrderItem> items;
+  final String pickupAddress;
+  final String? pickupCode;
+  final String? promoCode;
+  final double? discountAmount;
+  final String sellerId;
+  final String userId;
+
+  final String entrepriseId;
+  final double totalPrice;
+
+  Orders({
+    required this.id,
+    required this.status,
+    required this.createdAt,
+    required this.items,
+    required this.pickupAddress,
+    this.pickupCode,
+    this.promoCode,
+    this.discountAmount,
+    required this.sellerId,
+    required this.userId,
+    required this.entrepriseId,
+    required this.totalPrice,
+  });
+
+  // Calcul du sous-total (somme des prix originaux)
+  double get subtotal => items.fold(
+        0,
+        (sum, item) => sum + (item.originalPrice * item.quantity),
+      );
+
+  // Calcul des réductions totales
+  double get totalDiscount => items.fold(
+        0,
+        (sum, item) =>
+            sum + ((item.originalPrice - item.appliedPrice) * item.quantity),
+      );
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'status': status,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'items': items.map((item) => item.toMap()).toList(),
+      'pickupAddress': pickupAddress,
+      'pickupCode': pickupCode,
+      'promoCode': promoCode,
+      'discountAmount': discountAmount,
+      'sellerId': sellerId,
+      'userId': userId,
+      'entrepriseId': entrepriseId,
+      'totalPrice': totalPrice,
+    };
+  }
+
+  factory Orders.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Orders(
+      id: doc.id,
+      status: data['status'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      items: (data['items'] as List<dynamic>)
+          .map((item) => OrderItem.fromMap(item))
+          .toList(),
+      pickupAddress: data['pickupAddress'] ?? '',
+      pickupCode: data['pickupCode'],
+      promoCode: data['promoCode'],
+      discountAmount: data['discountAmount']?.toDouble(),
+      sellerId: data['sellerId'] ?? '',
+      entrepriseId: data['entrepriseId'] ?? '',
+      userId: data['userId'] ?? '',
+      totalPrice: (data['totalPrice'] ?? 0.0).toDouble(),
+    );
   }
 }

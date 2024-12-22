@@ -1,0 +1,208 @@
+{
+  "categories": {
+    "high_tech": {
+      "hasAttributes": false,
+      "level": 1,
+      "name": "Informatique, High Tech & Multimédia",
+      "parentId": null
+    },
+    "alimentation_accessoires": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Alimentation et accessoires",
+      "parentId": "high_tech"
+    },
+    "audio_video_portable": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Appareils audio et video portable",
+      "parentId": "high_tech"
+    },
+    "casques_ecouteurs": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Casques, écouteurs et accessoires",
+      "parentId": "high_tech"
+    },
+    "cigarettes_electroniques": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Cigarettes électroniques, chichas et accessoires",
+      "parentId": "high_tech"
+    },
+    "electronique_vehicules": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Electronique embarquée des véhicules",
+      "parentId": "high_tech"
+    },
+    "gps_accessoires": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "GPS et accessoires",
+      "parentId": "high_tech"
+    },
+    "photo_video": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Photo et caméscopes",
+      "parentId": "high_tech"
+    },
+    "accessoires_photo": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Accessoires Photo et Caméscopes",
+      "parentId": "photo_video"
+    },
+    "appareils_photo_etanches": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Appareils photo et caméras étanche",
+      "parentId": "photo_video"
+    },
+    "appareils_photo": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Appareils photo numériques",
+      "parentId": "photo_video"
+    },
+    "cameras_surveillance": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Caméras de surveillance",
+      "parentId": "photo_video"
+    },
+    "drones": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Drones et accessoires",
+      "parentId": "photo_video"
+    },
+    "objectifs": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Objectifs",
+      "parentId": "photo_video"
+    },
+    "trepieds": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Trépieds et monopods",
+      "parentId": "photo_video"
+    },
+    "tv_video": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "TV, vidéo et home cinéma",
+      "parentId": "high_tech"
+    },
+    "televiseurs": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Téléviseurs",
+      "parentId": "tv_video"
+    },
+    "home_cinema": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Ensembles Home Cinéma",
+      "parentId": "tv_video"
+    },
+    "videoprojecteurs": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Vidéoprojecteurs",
+      "parentId": "tv_video"
+    },
+    "smartphones": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Téléphones portables et accessoires",
+      "parentId": "high_tech"
+    },
+    "telephones": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Smartphones",
+      "parentId": "smartphones"
+    },
+    "coques": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Coques",
+      "parentId": "smartphones"
+    },
+    "chargeurs": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Chargeurs",
+      "parentId": "smartphones"
+    },
+    "jeux_video": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Jeux vidéo",
+      "parentId": "high_tech"
+    },
+    "xbox": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Xbox Series X et S : Consoles, jeux et accessoires",
+      "parentId": "jeux_video"
+    },
+    "playstation": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "PlayStation 5: Consoles, jeux et accessoires",
+      "parentId": "jeux_video"
+    },
+    "nintendo": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Nintendo Switch: Consoles, jeux et accessoires",
+      "parentId": "jeux_video"
+    },
+    "pc_gaming": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "PC: Jeux et accessoires",
+      "parentId": "jeux_video"
+    },
+    "informatique": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Informatique",
+      "parentId": "high_tech"
+    },
+    "ordinateurs_portables": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Ordinateurs portables",
+      "parentId": "informatique"
+    },
+    "ordinateurs_bureau": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Ordinateurs de bureau",
+      "parentId": "informatique"
+    },
+    "composants": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Composants et pièces de remplacement",
+      "parentId": "informatique"
+    },
+    "imprimantes": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Imprimantes, scanners et accessoires",
+      "parentId": "informatique"
+    },
+    "reseaux": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Réseaux",
+      "parentId": "informatique"
+    }
+  }
+}

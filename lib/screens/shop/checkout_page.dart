@@ -22,7 +22,7 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  String? _orderId; // Ajoutez cette ligne
+  String? _orderId;
   String? _pickupAddress;
   final TextEditingController _promoCodeController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -38,9 +38,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _cart = widget.cart;
-    _generateOrderId(); // Ajoutez cette ligne
-    _loadPickupAddress(); // Ajouter cette ligne
-
+    _generateOrderId();
+    _loadPickupAddress();
     _startExpirationTimer();
     _listenToCartChanges();
   }
@@ -54,7 +53,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _loadPickupAddress() async {
-    final address = await _fetchPickupAddress(_cart.entrepriseId);
+    final address = await _fetchPickupAddress(_cart.sellerId);
     if (mounted) {
       setState(() {
         _pickupAddress = address;
@@ -62,9 +61,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  // Ajoutez cette méthode
   Future<void> _generateOrderId() async {
-    // Créer une référence de document vide dans la collection 'orders'
     final orderRef = FirebaseFirestore.instance.collection('orders').doc();
     setState(() {
       _orderId = orderRef.id;
@@ -128,8 +125,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildExpirationBadge() {
-    final remainingMinutes =
-        _cart.expiresAt.difference(DateTime.now()).inMinutes;
+    final remainingMinutes = _cart.createdAt
+        .add(const Duration(hours: 24))
+        .difference(DateTime.now())
+        .inMinutes;
     final isNearExpiration = remainingMinutes < 30;
 
     return Container(
@@ -155,21 +154,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildOrderItem(CartItem item) {
+    final hasDiscount = item.variant.discount?.isValid() ?? false;
+
     return material.Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                item.product.imageUrl[0],
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
+            if (item.variant.images.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  item.variant.images[0],
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                ),
               ),
-            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -184,15 +186,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Quantité: ${item.quantity}',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                    ),
+                    item.variant.attributes.entries
+                        .map((e) => '${e.key}: ${e.value}')
+                        .join(', '),
+                    style: TextStyle(color: Colors.grey[600]),
                   ),
-                  if (item.product.hasActiveHappyDeal &&
-                      item.product.discountedPrice != null)
+                  Text(
+                    'Quantité: ${item.quantity}',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  if (hasDiscount)
                     Text(
-                      '${item.product.price.toStringAsFixed(2)} €',
+                      '${item.variant.price.toStringAsFixed(2)} €',
                       style: const TextStyle(
                         decoration: TextDecoration.lineThrough,
                         color: Colors.grey,
@@ -206,7 +211,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: item.product.hasActiveHappyDeal ? Colors.red : null,
+                color: hasDiscount ? Colors.red : null,
               ),
             ),
           ],
@@ -227,25 +232,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Sous-total'),
-                Text('${_cart.subtotal.toStringAsFixed(2)} €'),
+                Text('${_cart.total.toStringAsFixed(2)} €'),
               ],
             ),
-            if (_cart.totalSavings > 0) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Économies Happy Deals',
-                    style: TextStyle(color: Colors.green),
-                  ),
-                  Text(
-                    '-${_cart.totalSavings.toStringAsFixed(2)} €',
-                    style: const TextStyle(color: Colors.green),
-                  ),
-                ],
-              ),
-            ],
             if (_cart.discountAmount > 0) ...[
               const SizedBox(height: 8),
               Row(
@@ -268,7 +257,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
                 Text(
-                  '${_cart.totalAfterDiscount.toStringAsFixed(2)} €',
+                  '${_cart.finalTotal.toStringAsFixed(2)} €',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -310,7 +299,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
                 Text(
-                  '${_cart.totalAfterDiscount.toStringAsFixed(2)} €',
+                  '${_cart.finalTotal.toStringAsFixed(2)} €',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
@@ -321,54 +310,52 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const SizedBox(height: 12),
             UnifiedPaymentButton(
               type: 'order',
-              amount: (_cart.totalAfterDiscount * 100).round(),
-              // Metadata minimales pour Stripe
+              amount: (_cart.finalTotal * 100).round(),
               metadata: {
                 'orderId': _orderId!,
                 'cartId': _cart.id,
                 'userId': _auth.currentUser?.uid,
               },
-              // Données complètes stockées dans Firestore avant le paiement
               orderData: {
-                'userId': _auth.currentUser?.uid, // Ajout du userId ici
+                'userId': _auth.currentUser?.uid,
                 'items': _cart.items
                     .map((item) => {
                           'productId': item.product.id,
+                          'variantId': item.variant.id,
                           'name': item.product.name,
+                          'variantAttributes': item.variant.attributes,
                           'quantity': item.quantity,
                           'appliedPrice': item.appliedPrice,
-                          'originalPrice': item.product.price,
-                          'image': item.product.imageUrl.isNotEmpty
-                              ? item.product.imageUrl[0]
+                          'originalPrice': item.variant.price,
+                          'image': item.variant.images.isNotEmpty
+                              ? item.variant.images[0]
                               : '',
-                          'tva': item.product.tva,
-                          'sellerId': item.product.sellerId,
-                          'entrepriseId': _cart.entrepriseId,
+                          'sellerId': _cart.sellerId,
+                          'entrepriseId': _cart.sellerId,
                         })
                     .toList(),
                 'sellerId': _cart.sellerId,
-                'entrepriseId': _cart.entrepriseId,
-                'subtotal': _cart.subtotal,
-                'happyDealSavings': _cart.totalSavings,
+                'entrepriseId': _cart.sellerId,
+                'subtotal': _cart.total,
                 'promoCode': _cart.appliedPromoCode,
                 'discountAmount': _cart.discountAmount,
-                'totalPrice': _cart.totalAfterDiscount,
-                'pickupAddress': _pickupAddress, // Utiliser l'adresse stockée
+                'totalPrice': _cart.finalTotal,
+                'pickupAddress': _pickupAddress,
               },
               successUrl: '${Uri.base.origin}/#/payment-success',
               cancelUrl: '${Uri.base.origin}/payment-cancel',
-            )
+            ),
           ],
         ),
       ),
     );
   }
 
-  Future<String?> _fetchPickupAddress(String entrepriseId) async {
+  Future<String?> _fetchPickupAddress(String sellerId) async {
     try {
       final companyDoc = await FirebaseFirestore.instance
           .collection('companys')
-          .doc(entrepriseId)
+          .doc(sellerId)
           .get();
 
       if (!companyDoc.exists) {
@@ -568,6 +555,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ],
     );
   }
+
+  // Les autres méthodes restent identiques
+  // _fetchPickupAddress, _buildPromoCodeSection, _applyPromoCode,
+  // _buildExpiredCart, _buildCheckoutContent, build
 
   @override
   Widget build(BuildContext context) {

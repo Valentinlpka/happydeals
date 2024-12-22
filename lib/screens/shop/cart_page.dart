@@ -22,7 +22,6 @@ class CartScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Icône personnalisée
                 Container(
                   width: 80,
                   height: 80,
@@ -43,7 +42,6 @@ class CartScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Message
                 const Text(
                   'Êtes-vous sûr de vouloir\nsupprimer ce panier ?',
                   textAlign: TextAlign.center,
@@ -53,7 +51,6 @@ class CartScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Boutons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -127,76 +124,62 @@ class CartScreen extends StatelessWidget {
             itemCount: activeCarts.length,
             itemBuilder: (context, cartIndex) {
               final cart = activeCarts[cartIndex];
-              final remainingTime = cart.expiresAt.difference(DateTime.now());
+              final remainingHours =
+                  24 - DateTime.now().difference(cart.createdAt).inHours;
 
               return Card(
                 margin: const EdgeInsets.all(8.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // En-tête du panier
                     Container(
                       color: Colors.blue[50],
                       padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  cart.sellerName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                'Expire dans: ${remainingTime.inMinutes}min',
-                                style: TextStyle(
-                                  color: remainingTime.inMinutes < 30
-                                      ? Colors.red
-                                      : Colors.grey[600],
-                                ),
-                              ),
-                              IconButton(
-                                icon:
-                                    const Icon(Icons.close, color: Colors.red),
-                                onPressed: () => _showDeleteConfirmation(
-                                  context,
-                                  cart,
-                                  cartService,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (cart.totalSavings > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(
-                                'Économies: ${cart.totalSavings.toStringAsFixed(2)} €',
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          Expanded(
+                            child: Text(
+                              cart.sellerName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                          ),
+                          Text(
+                            'Expire dans: ${remainingHours}h',
+                            style: TextStyle(
+                              color: remainingHours < 2
+                                  ? Colors.red
+                                  : Colors.grey[600],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            onPressed: () => _showDeleteConfirmation(
+                              context,
+                              cart,
+                              cartService,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-
-                    // Liste des articles
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: cart.items.length,
                       itemBuilder: (context, itemIndex) {
                         final item = cart.items[itemIndex];
+                        final hasDiscount =
+                            item.variant.discount?.isValid() ?? false;
+
                         return ListTile(
                           leading: Image.network(
-                            item.product.imageUrl[0],
+                            item.variant.images.isNotEmpty
+                                ? item.variant.images[0]
+                                : 'placeholder_url',
                             width: 50,
                             height: 50,
                             fit: BoxFit.cover,
@@ -205,10 +188,18 @@ class CartScreen extends StatelessWidget {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (item.product.hasActiveHappyDeal &&
-                                  item.product.discountedPrice != null)
+                              Text(
+                                item.variant.attributes.entries
+                                    .map((e) => '${e.key}: ${e.value}')
+                                    .join(', '),
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                              ),
+                              if (hasDiscount)
                                 Text(
-                                  '${item.product.price.toStringAsFixed(2)} €',
+                                  '${item.variant.price.toStringAsFixed(2)} €',
                                   style: const TextStyle(
                                     decoration: TextDecoration.lineThrough,
                                     color: Colors.grey,
@@ -217,9 +208,7 @@ class CartScreen extends StatelessWidget {
                               Text(
                                 '${item.appliedPrice.toStringAsFixed(2)} €',
                                 style: TextStyle(
-                                  color: item.product.hasActiveHappyDeal
-                                      ? Colors.red
-                                      : null,
+                                  color: hasDiscount ? Colors.red : null,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -233,6 +222,7 @@ class CartScreen extends StatelessWidget {
                                 onPressed: () => cartService.removeFromCart(
                                   cart.sellerId,
                                   item.product.id,
+                                  item.variant.id,
                                 ),
                               ),
                               Text('${item.quantity}'),
@@ -240,7 +230,10 @@ class CartScreen extends StatelessWidget {
                                 icon: const Icon(Icons.add),
                                 onPressed: () async {
                                   try {
-                                    await cartService.addToCart(item.product);
+                                    await cartService.addToCart(
+                                      item.product,
+                                      variantId: item.variant.id,
+                                    );
                                   } catch (e) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(content: Text(e.toString())),
@@ -253,8 +246,6 @@ class CartScreen extends StatelessWidget {
                         );
                       },
                     ),
-
-                    // Pied du panier avec total et bouton d'achat
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -274,7 +265,7 @@ class CartScreen extends StatelessWidget {
                             ),
                             onPressed: () => _proceedToCheckout(context, cart),
                             child: Text(
-                              'Payer ce panier (${cart.totalAfterDiscount.toStringAsFixed(2)} €)',
+                              'Payer ce panier (${cart.finalTotal.toStringAsFixed(2)} €)',
                             ),
                           ),
                         ],

@@ -76,6 +76,8 @@ dependencies:
   uuid: ^4.5.1
   path_provider: ^2.1.5
   flutter_map_cancellable_tile_provider: ^3.0.2
+  animated_custom_dropdown: ^3.1.1
+  flutter_card_swiper: ^7.0.2
 
 dev_dependencies:
   flutter_launcher_icons: ^0.13.1
@@ -107,6 +109,25 @@ flutter:
     - assets/images/UP.png
     - assets/french_cities.json
     - assets/Roboto-Regular.ttf
+    - assets/json1.json
+    - assets/json2.json
+    - assets/json3.json
+    - assets/json4.json
+    - assets/json5.json
+    - assets/json6.json
+    - assets/json7.json
+    - assets/json8.json
+    - assets/json9.json
+    - assets/json10.json
+    - assets/json11.json
+    - assets/json12.json
+    - assets/json13.json
+    - assets/json14.json
+    - assets/json15.json
+    - assets/json16.json
+    - assets/json17.json
+    - assets/json18.json
+    - assets/json19.json
 
   #   - images/a_dot_ham.jpeg
 

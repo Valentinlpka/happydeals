@@ -12,27 +12,72 @@ class OrderService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseFunctions _functions = FirebaseFunctions.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  Future<String> createOrder(Orders order) async {
+  // Récupérer une commande spécifique
+  Future<Orders> getOrder(String orderId) async {
     try {
-      final result =
-          await FirebaseFunctions.instance.httpsCallable('createOrder').call({
-        'sellerId': order.sellerId,
-        'items': order.items.map((item) => item.toMap()).toList(),
-        'subtotal': order.subtotal.toDouble(),
-        'happyDealSavings': order.happyDealSavings.toDouble(),
-        'promoCode': order.promoCode,
-        'discountAmount': order.discountAmount?.toDouble(),
-        'totalPrice': order.totalPrice.toDouble(),
-        'pickupAddress': order.pickupAddress,
-        'entrepriseId': order.entrepriseId,
-      });
+      final doc = await _firestore.collection('orders').doc(orderId).get();
 
-      await updateProductStock(order.items);
+      if (!doc.exists) {
+        throw Exception('Commande non trouvée');
+      }
 
-      return result.data['orderId'];
+      return Orders.fromFirestore(doc);
     } catch (e) {
-      rethrow;
+      throw Exception('Erreur lors de la récupération de la commande: $e');
+    }
+  }
+
+  // Récupérer toutes les commandes d'un utilisateur
+
+  Stream<List<Orders>> getUserOrders(String userId) {
+    try {
+      return _firestore
+          .collection('orders')
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) => Orders.fromFirestore(doc)).toList();
+      });
+    } catch (e) {
+      print('Erreur dans getUserOrders: $e');
+      // Retourner un stream vide en cas d'erreur
+      return Stream.value([]);
+    }
+  }
+
+  // Récupérer les commandes d'un vendeur
+  Stream<List<Orders>> getSellerOrders(String sellerId) {
+    return _firestore
+        .collection('orders')
+        .where('sellerId', isEqualTo: sellerId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Orders.fromFirestore(doc)).toList());
+  }
+
+  // Mettre à jour le statut d'une commande
+  Future<void> updateOrderStatus(String orderId, String status) async {
+    try {
+      await _firestore.collection('orders').doc(orderId).update({
+        'status': status,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de la mise à jour du statut: $e');
+    }
+  }
+
+  // Ajouter un code de retrait
+  Future<void> addPickupCode(String orderId, String pickupCode) async {
+    try {
+      await _firestore.collection('orders').doc(orderId).update({
+        'pickupCode': pickupCode,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de l\'ajout du code de retrait: $e');
     }
   }
 
@@ -44,59 +89,6 @@ class OrderService {
       batch.update(productRef, {'stock': FieldValue.increment(-item.quantity)});
     }
     await batch.commit();
-  }
-
-  Future<Orders> getOrder(String orderId) async {
-    DocumentSnapshot orderDoc =
-        await _firestore.collection('orders').doc(orderId).get();
-
-    if (!orderDoc.exists) {
-      throw Exception('Commande non trouvée');
-    }
-
-    Map<String, dynamic> data = orderDoc.data() as Map<String, dynamic>;
-
-    return Orders(
-        id: orderDoc.id,
-        userId: data['userId'],
-        sellerId: data['sellerId'],
-        items: (data['items'] as List)
-            .map((item) => OrderItem.fromMap(item))
-            .toList(),
-        totalPrice: data['totalPrice'].toDouble(),
-        status: data['status'],
-        createdAt: (data['createdAt'] as Timestamp).toDate(),
-        pickupAddress: data['pickupAddress'],
-        pickupCode: data['pickupCode'],
-        entrepriseId: data['entrepriseId'],
-        promoCode: data['promoCode'],
-        discountAmount: data['discountAmount'],
-        subtotal: data['subtotal'],
-        happyDealSavings: data['happyDealSavings']);
-  }
-
-  Future<List<Orders>> getUserOrders(String userId) async {
-    QuerySnapshot snapshot = await _firestore
-        .collection('orders')
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .get();
-    return snapshot.docs.map((doc) => Orders.fromFirestore(doc)).toList();
-  }
-
-  Future<void> updateOrderStatus(String orderId, String newStatus) async {
-    try {
-      await _functions.httpsCallable('updateOrderStatus').call({
-        'orderId': orderId,
-        'newStatus': newStatus,
-      });
-
-      if (newStatus == 'completed') {
-        await _updateLoyaltyProgram(orderId);
-      }
-    } catch (e) {
-      rethrow;
-    }
   }
 
   Future<void> _updateLoyaltyProgram(String orderId) async {
@@ -144,9 +136,7 @@ class OrderService {
           }
         }
       }
-    } catch (e) {
-      
-    }
+    } catch (e) {}
   }
 
   Future<void> _generateReward(LoyaltyCard card, LoyaltyProgram program) async {

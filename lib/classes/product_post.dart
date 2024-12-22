@@ -5,26 +5,23 @@ import 'package:happy/classes/product.dart';
 class ProductPost extends Post {
   final String productId;
   final String name;
-  final double price;
   final String description;
-  final List<String> images;
-  final bool hasActiveHappyDeal;
-  final double? discountedPrice;
-  final double? discountPercentage;
+  final String categoryId;
+  final double basePrice;
+  final List<ProductVariant> variants;
+  final String merchantId;
 
   ProductPost({
     required super.id,
-    required super.companyId, // S'assurer que ce champ est toujours rempli
+    required super.companyId,
     required super.timestamp,
     required this.productId,
     required this.name,
-    required this.price,
     required this.description,
-    required this.images,
-    required String sellerId, // Ajouter sellerId comme paramètre requis
-    this.hasActiveHappyDeal = false,
-    this.discountedPrice,
-    this.discountPercentage,
+    required this.categoryId,
+    required this.basePrice,
+    required this.variants,
+    required this.merchantId,
     super.views = 0,
     super.likes = 0,
     super.likedBy = const [],
@@ -37,32 +34,21 @@ class ProductPost extends Post {
       throw Exception('Product ID cannot be empty');
     }
 
-    if (product.imageUrl.isEmpty) {
-      throw Exception('Product must have at least one image');
-    }
-
-    // Utiliser sellerId comme companyId si entrepriseId est vide
-    final String companyId = product.entrepriseId.isNotEmpty
-        ? product.entrepriseId
-        : product.sellerId;
-
-    if (companyId.isEmpty) {
-      throw Exception('CompanyId cannot be empty');
+    if (product.variants.isEmpty) {
+      throw Exception('Product must have at least one variant');
     }
 
     return ProductPost(
       id: FirebaseFirestore.instance.collection('posts').doc().id,
-      companyId: companyId, // Utiliser le companyId déterminé ci-dessus
+      companyId: product.sellerId,
       timestamp: DateTime.now(),
       productId: product.id,
       name: product.name,
-      price: product.price,
       description: product.description,
-      images: product.imageUrl,
-      sellerId: product.sellerId,
-      hasActiveHappyDeal: product.hasActiveHappyDeal,
-      discountedPrice: product.discountedPrice,
-      discountPercentage: product.discountPercentage,
+      categoryId: product.categoryId,
+      basePrice: product.basePrice,
+      variants: product.variants,
+      merchantId: product.merchantId,
     );
   }
 
@@ -72,39 +58,31 @@ class ProductPost extends Post {
     map.addAll({
       'productId': productId,
       'name': name,
-      'price': price,
       'description': description,
-      'images': images,
-      'hasActiveHappyDeal': hasActiveHappyDeal,
-      'discountedPrice': discountedPrice,
-      'discountPercentage': discountPercentage,
-      'sellerId': companyId, // Ajouter le sellerId dans le map
+      'categoryId': categoryId,
+      'basePrice': basePrice,
+      'variants': variants.map((v) => v.toMap()).toList(),
+      'merchantId': merchantId,
     });
     return map;
   }
 
   factory ProductPost.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-
-    // S'assurer que nous avons un companyId valide
-    final String companyId = data['companyId'] ?? data['sellerId'] ?? '';
-    if (companyId.isEmpty) {
-      throw Exception('CompanyId is missing in the document');
-    }
-
     return ProductPost(
       id: doc.id,
-      companyId: companyId,
+      companyId: data['companyId'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       productId: data['productId'] ?? '',
       name: data['name'] ?? '',
-      price: (data['price'] ?? 0.0).toDouble(),
       description: data['description'] ?? '',
-      images: List<String>.from(data['images'] ?? []),
-      sellerId: data['sellerId'] ?? companyId,
-      hasActiveHappyDeal: data['hasActiveHappyDeal'] ?? false,
-      discountedPrice: data['discountedPrice']?.toDouble(),
-      discountPercentage: data['discountPercentage']?.toDouble(),
+      categoryId: data['categoryId'] ?? '',
+      basePrice: (data['basePrice'] ?? 0.0).toDouble(),
+      variants: (data['variants'] as List<dynamic>?)
+              ?.map((v) => ProductVariant.fromMap(v as Map<String, dynamic>))
+              .toList() ??
+          [],
+      merchantId: data['merchantId'] ?? '',
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),

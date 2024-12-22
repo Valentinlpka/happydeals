@@ -4,11 +4,11 @@ import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/liked_post_page.dart';
 import 'package:happy/screens/loyalty_card_page.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
+import 'package:happy/screens/match_market/match_market_intro_page.dart';
 import 'package:happy/screens/mes_evenements.dart';
 import 'package:happy/screens/my_deals_express.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
-import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
@@ -328,6 +328,16 @@ class ParametrePage extends StatelessWidget {
                     builder: (context) => MyEventsPage(userId: currentUserId)));
           },
         ),
+        _buildServiceCard(
+          icon: Icons.favorite,
+          title: "Match Market",
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const MatchMarketIntroPage()));
+          },
+        ),
       ],
     );
   }
@@ -404,10 +414,10 @@ class ParametrePage extends StatelessWidget {
           Navigator.push(context,
               MaterialPageRoute(builder: (context) => const JobOffersPage()));
         }),
-        _buildServiceItem('Happy Deals', Icons.local_offer, () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const HappyDealsPage()));
-        }),
+        // _buildServiceItem('Happy Deals', Icons.local_offer, () {
+        //   Navigator.push(context,
+        //       MaterialPageRoute(builder: (context) => const HappyDealsPage()));
+        // }),
         _buildServiceItem('Deals Express', Icons.flash_on, () {
           Navigator.push(context,
               MaterialPageRoute(builder: (context) => const DealExpressPage()));

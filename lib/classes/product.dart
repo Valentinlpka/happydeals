@@ -3,62 +3,50 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Product {
   final String id;
   final String name;
-  final double tva;
+  final List<String> categoryPath;
   final String description;
-  final double price;
-  final List<String> imageUrl;
-  final String sellerId;
-  final String entrepriseId;
-  final int stock;
+  final String categoryId;
+  final double basePrice;
+  final double tva;
   final bool isActive;
-
-  // Nouveaux champs pour le Happy Deal
-  final bool hasActiveHappyDeal;
-  final double? discountedPrice;
-  final double? discountPercentage;
-  final DateTime? happyDealStartDate;
-  final DateTime? happyDealEndDate;
+  final String merchantId;
+  final String sellerId;
+  final String stripeProductId;
+  final String stripePriceId;
+  final List<ProductVariant> variants;
 
   Product({
     required this.id,
     required this.name,
+    required this.categoryPath,
     required this.description,
-    required this.price,
+    required this.categoryId,
+    required this.basePrice,
     required this.tva,
-    required this.imageUrl,
-    required this.sellerId,
-    required this.entrepriseId,
-    required this.stock,
     required this.isActive,
-    this.hasActiveHappyDeal = false,
-    this.discountedPrice,
-    this.discountPercentage,
-    this.happyDealStartDate,
-    this.happyDealEndDate,
+    required this.merchantId,
+    required this.sellerId,
+    required this.stripeProductId,
+    required this.stripePriceId,
+    required this.variants,
   });
 
-  factory Product.fromMap(Map<String, dynamic> map, String id) {
-    return Product(
-      id: id,
-      name: map['name'] ?? '',
-      description: map['description'] ?? '',
-      price: (map['price'] ?? 0).toDouble(),
-      tva: (map['tva'] ?? 0).toDouble(),
-      imageUrl: List<String>.from(map['images'] ?? []),
-      sellerId: map['merchantId'] ?? '',
-      entrepriseId: map['sellerId'] ?? '',
-      stock: map['stock'] ?? 0,
-      isActive: map['isActive'] ?? false,
-      hasActiveHappyDeal: map['hasActiveHappyDeal'] ?? false,
-      discountedPrice: map['discountedPrice']?.toDouble(),
-      discountPercentage: map['discountPercentage']?.toDouble(),
-      happyDealStartDate: map['happyDealStartDate'] != null
-          ? (map['happyDealStartDate'] as Timestamp).toDate()
-          : null,
-      happyDealEndDate: map['happyDealEndDate'] != null
-          ? (map['happyDealEndDate'] as Timestamp).toDate()
-          : null,
-    );
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'categoryPath': categoryPath,
+      'description': description,
+      'categoryId': categoryId,
+      'basePrice': basePrice,
+      'tva': tva,
+      'isActive': isActive,
+      'merchantId': merchantId,
+      'sellerId': sellerId,
+      'stripeProductId': stripeProductId,
+      'stripePriceId': stripePriceId,
+      'variants': variants.map((v) => v.toMap()).toList(),
+    };
   }
 
   factory Product.fromFirestore(DocumentSnapshot doc) {
@@ -66,49 +54,129 @@ class Product {
     return Product(
       id: doc.id,
       name: data['name'] ?? '',
+      categoryPath: List<String>.from(data['categoryPath'] ?? []),
       description: data['description'] ?? '',
-      price: (data['price'] ?? 0).toDouble(),
+      categoryId: data['categoryId'] ?? '',
+      basePrice: (data['basePrice'] ?? 0).toDouble(),
       tva: (data['tva'] ?? 0).toDouble(),
-      imageUrl: List<String>.from(data['images'] ?? []),
-      sellerId: data['merchantId'] ?? '',
-      entrepriseId: data['sellerId'] ?? '',
-      stock: data['stock'] ?? 0,
       isActive: data['isActive'] ?? false,
-      hasActiveHappyDeal: data['hasActiveHappyDeal'] ?? false,
-      discountedPrice: data['discountedPrice']?.toDouble(),
-      discountPercentage: data['discountPercentage']?.toDouble(),
-      happyDealStartDate: data['happyDealStartDate'] != null
-          ? (data['happyDealStartDate'] as Timestamp).toDate()
-          : null,
-      happyDealEndDate: data['happyDealEndDate'] != null
-          ? (data['happyDealEndDate'] as Timestamp).toDate()
-          : null,
+      merchantId: data['merchantId'] ?? '',
+      sellerId: data['sellerId'] ?? '',
+      stripeProductId: data['stripeProductId'] ?? '',
+      stripePriceId: data['stripePriceId'] ?? '',
+      variants: (data['variants'] as List<dynamic>? ?? [])
+          .map((v) => ProductVariant.fromMap(v as Map<String, dynamic>))
+          .toList(),
     );
   }
+}
 
-  // Nouvelle méthode fromDocument
-  factory Product.fromDocument(DocumentSnapshot doc) {
-    return Product.fromFirestore(doc);
+class ProductVariant {
+  final String id;
+  final Map<String, String> attributes;
+  final double price;
+  final int stock;
+  final List<String> images;
+  final ProductDiscount? discount;
+  final String stripePriceId;
+
+  ProductVariant({
+    required this.id,
+    required this.attributes,
+    required this.price,
+    required this.stock,
+    required this.images,
+    this.discount,
+    required this.stripePriceId,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'attributes': attributes,
+      'price': price,
+      'stock': stock,
+      'images': images,
+      'discount': discount?.toMap(),
+      'stripePriceId': stripePriceId,
+    };
+  }
+
+  factory ProductVariant.fromMap(Map<String, dynamic> map) {
+    return ProductVariant(
+      id: map['id'] ?? '',
+      attributes: Map<String, String>.from(map['attributes'] ?? {}),
+      price: (map['price'] ?? 0).toDouble(),
+      stock: map['stock'] ?? 0,
+      images: List<String>.from(map['images'] ?? []),
+      discount: map['discount'] != null
+          ? ProductDiscount.fromMap(map['discount'])
+          : null,
+      stripePriceId: map['stripePriceId'] ?? '',
+    );
+  }
+}
+
+class ProductDiscount {
+  final String type;
+  final double value;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? promoCode;
+  final int? maxUses;
+  final int currentUses;
+
+  ProductDiscount({
+    required this.type,
+    required this.value,
+    this.startDate,
+    this.endDate,
+    this.promoCode,
+    this.maxUses,
+    this.currentUses = 0,
+  });
+
+  bool isValid() {
+    final now = DateTime.now();
+    if (startDate != null && now.isBefore(startDate!)) return false;
+    if (endDate != null && now.isAfter(endDate!)) return false;
+    if (maxUses != null && currentUses >= maxUses!) return false;
+    return true;
+  }
+
+  double calculateDiscountedPrice(double originalPrice) {
+    if (type == 'percentage') {
+      return originalPrice * (1 - value / 100);
+    } else {
+      return originalPrice - value;
+    }
+  }
+
+  factory ProductDiscount.fromMap(Map<String, dynamic> map) {
+    return ProductDiscount(
+      type: map['type'] ?? 'percentage',
+      value: (map['value'] ?? 0).toDouble(),
+      startDate: map['startDate'] != null
+          ? (map['startDate'] as Timestamp).toDate()
+          : null,
+      endDate: map['endDate'] != null
+          ? (map['endDate'] as Timestamp).toDate()
+          : null,
+      promoCode: map['promoCode'],
+      maxUses: map['maxUses'],
+      currentUses: map['currentUses'] ?? 0,
+    );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'name': name,
-      'description': description,
-      'price': price,
-      'tva': tva,
-      'images': imageUrl,
-      'merchantId': sellerId,
-      'entrepriseId': entrepriseId,
-      'stock': stock,
-      'isActive': isActive,
-      'discountPercentage': discountPercentage,
-      'happyDealStartDate': happyDealStartDate != null
-          ? Timestamp.fromDate(happyDealStartDate!)
-          : null,
-      'happyDealEndDate': happyDealEndDate != null
-          ? Timestamp.fromDate(happyDealEndDate!)
-          : null,
+      'type': type,
+      'value': value,
+      'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
+      'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
+      'promoCode': promoCode,
+      'maxUses': maxUses,
+      'currentUses': currentUses,
     };
   }
 }

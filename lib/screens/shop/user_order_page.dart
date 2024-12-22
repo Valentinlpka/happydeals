@@ -14,7 +14,7 @@ class UserOrdersPages extends StatefulWidget {
 
 class _UserOrdersPagesState extends State<UserOrdersPages> {
   final OrderService _orderService = OrderService();
-  late Future<List<Orders>> _ordersFuture;
+  late Stream<List<Orders>> _ordersStream;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -22,10 +22,8 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
 
-    if (user != null) {
-      _ordersFuture = _orderService.getUserOrders(
-          user.uid); // Remplacez par l'ID de l'utilisateur actuel
-    }
+    _ordersStream =
+        user != null ? _orderService.getUserOrders(user.uid) : Stream.value([]);
     _scrollController.addListener(_onScroll);
   }
 
@@ -53,15 +51,18 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
             height: 1.0,
           ),
         ),
-        title: const Text('Mes commandes',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                color: Colors.black,
-                fontSize: 17,
-                fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Mes commandes',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
-      body: FutureBuilder<List<Orders>>(
-        future: _ordersFuture,
+      body: StreamBuilder<List<Orders>>(
+        stream: _ordersStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -69,16 +70,21 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
             return const Center(child: Text('Une erreur est survenue'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
-                child: Text('Vous n\'avez pas encore de commandes'));
+              child: Text('Vous n\'avez pas encore de commandes'),
+            );
           }
+
+          final orders = snapshot.data!;
+          // Trier les commandes par date de création (plus récentes en premier)
+          orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
           return Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 8),
             child: ListView.builder(
               controller: _scrollController,
-              itemCount: snapshot.data!.length,
+              itemCount: orders.length,
               itemBuilder: (context, index) {
-                final order = snapshot.data![index];
+                final order = orders[index];
                 return _buildOrderCard(order);
               },
             ),
@@ -98,9 +104,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => OrderDetailPage(
-                orderId: order.id,
-              ),
+              builder: (context) => OrderDetailPage(orderId: order.id),
             ),
           );
         },
@@ -113,7 +117,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    order.id.substring(0, 8),
+                    'Commande #${order.id.substring(0, 8)}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   _buildStatusChip(order.status),
@@ -121,19 +125,42 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Date: ${DateFormat('dd/MM/yyyy').format(order.createdAt)}',
+                'Passée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
+              ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Payée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 '${order.items.length} article${order.items.length > 1 ? 's' : ''}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Total: ${order.totalPrice.toStringAsFixed(2)}€',
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (order.subtotal != order.totalPrice) ...[
+                    Text(
+                      'Sous-total: ${order.subtotal.toStringAsFixed(2)}€',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                  ],
+                  Text(
+                    'Total: ${order.totalPrice.toStringAsFixed(2)}€',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               if (order.status == 'en préparation')
@@ -150,7 +177,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
     String text;
     switch (status) {
       case 'paid':
-        text = "Payé";
+        text = "Payée";
         color = Colors.blue;
         break;
       case 'en préparation':
@@ -166,24 +193,25 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
         color = Colors.grey;
         break;
       default:
-        text = "Default";
+        text = status;
         color = Colors.grey;
     }
 
     return Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(5),
-          color: color,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(5),
+        color: color,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 18.0,
+          vertical: 7,
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 18.0,
-            vertical: 7,
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
-        ));
+        child: Text(
+          text,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        ),
+      ),
+    );
   }
 }

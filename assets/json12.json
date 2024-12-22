@@ -1,0 +1,184 @@
+{
+  "categories": {
+    "maison_animaux_jardin": {
+      "hasAttributes": false,
+      "level": 1,
+      "name": "Maison, Animaux & Jardin",
+      "parentId": null
+    },
+    "petit_electromenager": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Petit électroménager",
+      "parentId": "maison_animaux_jardin"
+    },
+    "mise_sous_vide": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Appareils de mise sous vide",
+      "parentId": "petit_electromenager"
+    },
+    "balances_cuisine": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Balances de cuisine",
+      "parentId": "petit_electromenager"
+    },
+    "blenders_soupe": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Blenders chauffant et machines à soupe",
+      "parentId": "petit_electromenager"
+    },
+    "bouilloires": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Bouilloires et distributeurs d'eau chaude",
+      "parentId": "petit_electromenager"
+    },
+    "cafetieres": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Cafetières électriques",
+      "parentId": "petit_electromenager"
+    },
+    "extracteurs_jus": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Centrifugeuses, extracteurs de jus et presses-agrumes électriques",
+      "parentId": "petit_electromenager"
+    },
+    "couteaux_electriques": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Couteaux électriques",
+      "parentId": "petit_electromenager"
+    },
+    "cuiseurs_vapeur": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Cuiseurs vapeurs électriques",
+      "parentId": "petit_electromenager"
+    },
+    "fours_microondes": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Fours micro-ondes",
+      "parentId": "petit_electromenager"
+    },
+    "friteuses": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Friteuses",
+      "parentId": "petit_electromenager"
+    },
+    "grille_pain": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Grille-pains",
+      "parentId": "petit_electromenager"
+    },
+    "grills_planchas": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Grills, planchas et raclettes",
+      "parentId": "petit_electromenager"
+    },
+    "machines_gaufres": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Machines à gaufres, paninis et croques",
+      "parentId": "petit_electromenager"
+    },
+    "machines_pain": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Machines à Pain",
+      "parentId": "petit_electromenager"
+    },
+    "mijoteuses": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Mijoteuses",
+      "parentId": "petit_electromenager"
+    },
+    "mixeurs_robots": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Mixeurs, batteurs et robots multifonctions",
+      "parentId": "petit_electromenager"
+    },
+    "meubles": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Meubles",
+      "parentId": "maison_animaux_jardin"
+    },
+    "meubles_audio_video": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles pour audio/vidéo",
+      "parentId": "meubles"
+    },
+    "meubles_bar": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles pour bar",
+      "parentId": "meubles"
+    },
+    "meubles_bureau": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles de bureau",
+      "parentId": "meubles"
+    },
+    "meubles_chambre": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles de chambre d'adulte",
+      "parentId": "meubles"
+    },
+    "meubles_chambre_enfant": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles de chambre d'enfant",
+      "parentId": "meubles"
+    },
+    "meubles_cuisine": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles de cuisine",
+      "parentId": "meubles"
+    },
+    "meubles_entree": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles pour entrée",
+      "parentId": "meubles"
+    },
+    "mobilier_jardin": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Mobilier de jardin",
+      "parentId": "meubles"
+    },
+    "meubles_salle_manger": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles de salle à manger",
+      "parentId": "meubles"
+    },
+    "meubles_salle_bain": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles de salle de bain",
+      "parentId": "meubles"
+    },
+    "meubles_salon": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Meubles de salon",
+      "parentId": "meubles"
+    }
+  }
+}
