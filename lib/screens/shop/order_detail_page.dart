@@ -39,60 +39,66 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      bottomNavigationBar: FutureBuilder<Orders>(
-        future: _orderFuture,
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            return _buildBottomBar(snapshot.data!);
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-      appBar: AppBar(
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1.0),
-          child: Container(
-            color: Colors.grey[300],
-            height: 1.0,
+    return SafeArea(
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        bottomNavigationBar: FutureBuilder<Orders>(
+          future: _orderFuture,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              return _buildBottomBar(snapshot.data!);
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+        appBar: AppBar(
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1.0),
+            child: Container(
+              color: Colors.grey[300],
+              height: 1.0,
+            ),
+          ),
+          title: const Text(
+            'Détail de la commande',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Colors.black, fontSize: 17, fontWeight: FontWeight.bold),
           ),
         ),
-        title: const Text(
-          'Détail de la commande',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              color: Colors.black, fontSize: 17, fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: FutureBuilder<Orders>(
-        future: _orderFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return const Center(child: Text('Une erreur est survenue'));
-          } else if (!snapshot.hasData) {
-            return const Center(child: Text('Commande non trouvée'));
-          }
+        body: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: FutureBuilder<Orders>(
+            future: _orderFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return const Center(child: Text('Une erreur est survenue'));
+              } else if (!snapshot.hasData) {
+                return const Center(child: Text('Commande non trouvée'));
+              }
 
-          final order = snapshot.data!;
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildOrderHeader(order),
-                  _buildOrderStatus(order),
-                  _buildPickupCode(order),
-                  _buildPickupInfo(order),
-                  _buildOrderItems(order),
-                  _buildOrderSummary(order),
-                ],
-              ),
-            ),
-          );
-        },
+              final order = snapshot.data!;
+              return SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildOrderHeader(order),
+                      _buildOrderStatus(order),
+                      _buildPickupCode(order),
+                      _buildPickupInfo(order),
+                      _buildOrderItems(order),
+                      _buildOrderSummary(order),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

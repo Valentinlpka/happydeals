@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting on merge
+name: Deploy to Firebase Hosting
 on:
   push:
     branches:
@@ -16,8 +16,17 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Clean old builds
+        run: |
+          rm -rf build/
+          rm -rf .dart_tool/
+          rm -rf .flutter-plugins
+          rm -rf .flutter-plugins-dependencies
+
       - name: Get dependencies
-        run: flutter pub get
+        run: |
+          flutter clean
+          flutter pub get
 
       - name: Enable web
         run: flutter config --enable-web
@@ -25,7 +34,8 @@ jobs:
       - name: Build web
         run: flutter build web --release
 
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
           firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_HAPPY_DEALS_3F03D }}"

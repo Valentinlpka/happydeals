@@ -292,6 +292,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
     );
   }
 
+// Dans DetailsEntreprise
   Widget _buildCoverImage(Company entreprise) {
     return SliverToBoxAdapter(
       child: SizedBox(
@@ -300,14 +301,17 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
         child: CachedNetworkImage(
           imageUrl: entreprise.cover,
           fit: BoxFit.cover,
-          colorBlendMode: BlendMode.darken,
-          color: Colors.black.withOpacity(0.2),
-          placeholder: (context, url) => const Center(
-            child: CircularProgressIndicator(),
+          placeholder: (context, url) => Container(
+            color: Colors.grey[200], // Ajoute un placeholder visible
+            child: const Center(child: CircularProgressIndicator()),
           ),
-          errorWidget: (context, url, error) => const Center(
-            child: Icon(Icons.error),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.grey[200],
+            child: const Icon(Icons.error),
           ),
+          // Ajoutez des options de cache
+          memCacheWidth: 800, // Limitez la taille en cache
+          memCacheHeight: 400,
         ),
       ),
     );
