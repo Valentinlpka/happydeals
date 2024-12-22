@@ -1,0 +1,100 @@
+{
+  "categories": {
+    "beaute_sante": {
+      "hasAttributes": false,
+      "level": 1,
+      "name": "Beauté, Santé & Bien être",
+      "parentId": null
+    },
+    "accessoires_beaute": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Accessoires de beauté",
+      "parentId": "beaute_sante"
+    },
+    "bain_soins_corps": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Bain, savons et soins du corps",
+      "parentId": "beaute_sante"
+    },
+    "coiffure_soins_cheveux": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Coiffure et soins des cheveux",
+      "parentId": "beaute_sante"
+    },
+    "maquillage": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Maquillage",
+      "parentId": "beaute_sante"
+    },
+    "mobilier_coiffure": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Mobilier et matériel pour salons de coiffure",
+      "parentId": "beaute_sante"
+    },
+    "parfums": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Parfums",
+      "parentId": "beaute_sante"
+    },
+    "rasage_epilation": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Rasage et épilation",
+      "parentId": "beaute_sante"
+    },
+    "soins_peau": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Soins pour la peau",
+      "parentId": "beaute_sante"
+    },
+    "vernis_manucure": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Vernis à ongles et manucure",
+      "parentId": "beaute_sante"
+    },
+    "soins_beaute_homme": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Soins et beauté homme",
+      "parentId": "beaute_sante"
+    },
+    "soins_beaute_enfant": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Soins et beauté enfant",
+      "parentId": "beaute_sante"
+    },
+    "bien_etre_animal": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Bien être animal",
+      "parentId": "beaute_sante"
+    },
+    "beaute_bio": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Beauté bio",
+      "parentId": "beaute_sante"
+    },
+    "coffrets_cadeaux": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Coffrets cadeaux",
+      "parentId": "beaute_sante"
+    },
+    "massage_spa_relaxation": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Massage, spa et relaxation",
+      "parentId": "beaute_sante"
+    }
+  }
+}

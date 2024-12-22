@@ -1,0 +1,172 @@
+{
+  "categories": {
+    "boissons_sans_alcool": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Café, thé et boissons sans alcool",
+      "parentId": "alimentation_entretien"
+    },
+    "bieres_sans_alcool": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Bières sans alcool",
+      "parentId": "boissons_sans_alcool"
+    },
+    "boissons_energetiques": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Boissons énergétiques",
+      "parentId": "boissons_sans_alcool"
+    },
+    "boissons_gazeuses": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Boissons gazeuses",
+      "parentId": "boissons_sans_alcool"
+    },
+    "boissons_sportifs": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Boissons pour sportifs",
+      "parentId": "boissons_sans_alcool"
+    },
+    "cafes": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Cafés",
+      "parentId": "boissons_sans_alcool"
+    },
+    "chocolats_chauds": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Chocolats chauds et boissons maltées",
+      "parentId": "boissons_sans_alcool"
+    },
+    "citronnades": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Citronnades pétillantes",
+      "parentId": "boissons_sans_alcool"
+    },
+    "eaux": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Eaux",
+      "parentId": "boissons_sans_alcool"
+    },
+    "ginger_beer": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Ginger ale et Ginger beer",
+      "parentId": "boissons_sans_alcool"
+    },
+    "jus": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Jus",
+      "parentId": "boissons_sans_alcool"
+    },
+    "lait_vegetal": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Lait végétal",
+      "parentId": "boissons_sans_alcool"
+    },
+    "preparations_cocktails": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Préparations pour cocktails",
+      "parentId": "boissons_sans_alcool"
+    },
+    "poudres_boissons": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Poudres pour boissons",
+      "parentId": "boissons_sans_alcool"
+    },
+    "sirops": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Sirops et concentrés pour boissons",
+      "parentId": "boissons_sans_alcool"
+    },
+    "the_perles": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Produits pour le thé aux perles",
+      "parentId": "boissons_sans_alcool"
+    },
+    "the_infusions": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Thé et infusions",
+      "parentId": "boissons_sans_alcool"
+    },
+    "vins_sans_alcool": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Vins sans alcool",
+      "parentId": "boissons_sans_alcool"
+    },
+    "alimentation_bio": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Alimentation Bio et sans gluten",
+      "parentId": "alimentation_entretien"
+    },
+    "alimentation_bebe_bio": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Alimentation bébé",
+      "parentId": "alimentation_bio"
+    },
+    "boissons_bio": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Café, thé et boissons",
+      "parentId": "alimentation_bio"
+    },
+    "cereales_bio": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Céréales pour petit-déjeuner",
+      "parentId": "alimentation_bio"
+    },
+    "confitures_bio": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Confiture, miel et pâte à tartiner",
+      "parentId": "alimentation_bio"
+    },
+    "producteurs_locaux": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Les producteurs locaux",
+      "parentId": "alimentation_entretien"
+    },
+    "alimentation_bebe_local": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Alimentation bébé",
+      "parentId": "producteurs_locaux"
+    },
+    "boissons_local": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Bières, vins et spiritueux",
+      "parentId": "producteurs_locaux"
+    },
+    "cafe_the_local": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Café, thé et boissons",
+      "parentId": "producteurs_locaux"
+    },
+    "cereales_local": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Céréales pour petit-déjeuner",
+      "parentId": "producteurs_locaux"
+    }
+  }
+}

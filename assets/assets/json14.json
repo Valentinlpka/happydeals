@@ -1,0 +1,232 @@
+{
+  "categories": {
+    "luminaires": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Luminaires et Eclairage",
+      "parentId": "maison_animaux_jardin"
+    },
+    "ampoules": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Ampoules",
+      "parentId": "luminaires"
+    },
+    "ampoules_led": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "LED",
+      "parentId": "ampoules"
+    },
+    "ampoules_halogenes": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Halogènes",
+      "parentId": "ampoules"
+    },
+    "ampoules_economie": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Economie d'énergie",
+      "parentId": "ampoules"
+    },
+    "ampoules_tubes": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Tubes",
+      "parentId": "ampoules"
+    },
+    "luminaires_interieur": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Luminaires intérieur",
+      "parentId": "luminaires"
+    },
+    "lustres": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Lustres",
+      "parentId": "luminaires_interieur"
+    },
+    "plafonniers": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Plafonniers",
+      "parentId": "luminaires_interieur"
+    },
+    "lampadaires": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Lampadaires",
+      "parentId": "luminaires_interieur"
+    },
+    "appliques": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Appliques",
+      "parentId": "luminaires_interieur"
+    },
+    "spots": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Spots",
+      "parentId": "luminaires_interieur"
+    },
+    "luminaires_exterieur": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Luminaire extérieur",
+      "parentId": "luminaires"
+    },
+    "projecteurs_ext": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Projecteurs et lampadaires",
+      "parentId": "luminaires_exterieur"
+    },
+    "eclairage_mural_ext": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Eclairage mural",
+      "parentId": "luminaires_exterieur"
+    },
+    "eclairage_solaire": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Eclairage solaire",
+      "parentId": "luminaires_exterieur"
+    },
+    "decoration": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Décoration",
+      "parentId": "maison_animaux_jardin"
+    },
+    "accessoires_deco": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Accessoires de décoration intérieure",
+      "parentId": "decoration"
+    },
+    "fontaines_interieur": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Accessoires pour fontaine d'intérieur",
+      "parentId": "decoration"
+    },
+    "accessoires_rideaux": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Accessoires pour rideaux et stores",
+      "parentId": "decoration"
+    },
+    "aimants_deco": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Aimants décoratifs",
+      "parentId": "decoration"
+    },
+    "cadres_photos": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Albums, cadres et accessoires pour photos",
+      "parentId": "decoration"
+    },
+    "bougies": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Bougies et bougeoirs",
+      "parentId": "decoration"
+    },
+    "coussins": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Coussins et accessoires",
+      "parentId": "decoration"
+    },
+    "deco_enfant": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Décoration de chambre d'enfant",
+      "parentId": "decoration"
+    },
+    "deco_fetes": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Décorations de saison et de fêtes",
+      "parentId": "decoration"
+    },
+    "rangement": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Rangement et Organisation",
+      "parentId": "maison_animaux_jardin"
+    },
+    "buanderie": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Buanderie",
+      "parentId": "rangement"
+    },
+    "etageres": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Casiers, étagères et tiroirs",
+      "parentId": "rangement"
+    },
+    "crochets_pateres": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Crochets et patères pour la maison",
+      "parentId": "rangement"
+    },
+    "dechets_recyclage": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Déchets et recyclage",
+      "parentId": "rangement"
+    },
+    "garage": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Organisation du garage",
+      "parentId": "rangement"
+    },
+    "boites_bijoux": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Boîtes à bijoux et présentoirs",
+      "parentId": "rangement"
+    },
+    "paniers_rangement": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Paniers et boîtes de rangement",
+      "parentId": "rangement"
+    },
+    "rangement_bureau": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Rangement pour espace de travail",
+      "parentId": "rangement"
+    },
+    "rangement_cuisine": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Rangement et organisation de cuisine",
+      "parentId": "rangement"
+    },
+    "rangement_vetements": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Rangement pour vêtements et penderies",
+      "parentId": "rangement"
+    },
+    "rangement_salle_bain": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Rangement et organisation de la salle de bain",
+      "parentId": "rangement"
+    }
+  }
+}

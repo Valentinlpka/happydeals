@@ -1,0 +1,214 @@
+{
+  "categories": {
+    "mode_enfants": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Enfants",
+      "parentId": "mode_et_accessoires"
+    },
+    "mode_fille": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Fille",
+      "parentId": "mode_enfants"
+    },
+    "vetements_exterieur_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Vêtements d'extérieur",
+      "parentId": "mode_fille"
+    },
+    "pulls_gilets_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pulls & Gilets",
+      "parentId": "mode_fille"
+    },
+    "tshirts_debardeurs_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "T-shirts & Débardeurs",
+      "parentId": "mode_fille"
+    },
+    "pantalons_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pantalons",
+      "parentId": "mode_fille"
+    },
+    "ensembles_piece_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Ensembles & Une pièce",
+      "parentId": "mode_fille"
+    },
+    "sous_vetements_pyjamas_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sous-vêtements & Pyjamas",
+      "parentId": "mode_fille"
+    },
+    "robes_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Robes",
+      "parentId": "mode_fille"
+    },
+    "vetements_sport_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Vêtements de sport",
+      "parentId": "mode_fille"
+    },
+    "jeans_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Jeans",
+      "parentId": "mode_fille"
+    },
+    "chaussettes_collants_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussettes & Collants",
+      "parentId": "mode_fille"
+    },
+    "cadeaux_naissance_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Cadeaux de naissance",
+      "parentId": "mode_fille"
+    },
+    "shorts_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Shorts",
+      "parentId": "mode_fille"
+    },
+    "maillots_peignoirs_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Maillots de bain & Peignoirs",
+      "parentId": "mode_fille"
+    },
+    "jupes_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Jupes",
+      "parentId": "mode_fille"
+    },
+    "costumes_blazers_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Costumes & Blazers",
+      "parentId": "mode_fille"
+    },
+    "chaussures_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures",
+      "parentId": "mode_fille"
+    },
+    "accessoires_fille": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Accessoires",
+      "parentId": "mode_fille"
+    },
+    "mode_garcon": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Garçon",
+      "parentId": "mode_enfants"
+    },
+    "vetements_exterieur_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Vêtements d'extérieur",
+      "parentId": "mode_garcon"
+    },
+    "pulls_gilets_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pulls & Gilets",
+      "parentId": "mode_garcon"
+    },
+    "tshirts_debardeurs_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "T-shirts & Débardeurs",
+      "parentId": "mode_garcon"
+    },
+    "pantalons_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pantalons",
+      "parentId": "mode_garcon"
+    },
+    "ensembles_piece_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Ensembles & Une pièce",
+      "parentId": "mode_garcon"
+    },
+    "sous_vetements_pyjamas_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sous-vêtements & Pyjamas",
+      "parentId": "mode_garcon"
+    },
+    "vetements_sport_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Vêtements de sport",
+      "parentId": "mode_garcon"
+    },
+    "jeans_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Jeans",
+      "parentId": "mode_garcon"
+    },
+    "chaussettes_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussettes",
+      "parentId": "mode_garcon"
+    },
+    "cadeaux_naissance_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Cadeaux de naissance",
+      "parentId": "mode_garcon"
+    },
+    "shorts_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Shorts",
+      "parentId": "mode_garcon"
+    },
+    "maillots_peignoirs_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Maillots de bain & Peignoirs",
+      "parentId": "mode_garcon"
+    },
+    "costumes_blazers_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Costumes & Blazers",
+      "parentId": "mode_garcon"
+    },
+    "chaussures_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures",
+      "parentId": "mode_garcon"
+    },
+    "accessoires_garcon": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Accessoires",
+      "parentId": "mode_garcon"
+    }
+  }
+}

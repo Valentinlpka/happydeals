@@ -1,0 +1,226 @@
+{
+  "categories": {
+    "mode_homme": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Homme",
+      "parentId": "mode_et_accessoires"
+    },
+    "vetements_homme": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Vêtements",
+      "parentId": "mode_homme"
+    },
+    "tshirts_polos_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "T-shirts & Polos",
+      "parentId": "vetements_homme"
+    },
+    "chemises_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chemises",
+      "parentId": "vetements_homme"
+    },
+    "sweats_hoodies_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sweats & Hoodies",
+      "parentId": "vetements_homme"
+    },
+    "pantalons_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pantalons",
+      "parentId": "vetements_homme"
+    },
+    "jeans_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Jeans",
+      "parentId": "vetements_homme"
+    },
+    "vestes_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Vestes",
+      "parentId": "vetements_homme"
+    },
+    "manteaux_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Manteaux",
+      "parentId": "vetements_homme"
+    },
+    "maille_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Maille",
+      "parentId": "vetements_homme"
+    },
+    "vetements_sport_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Vêtements de sport",
+      "parentId": "vetements_homme"
+    },
+    "joggings_survetements_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Joggings & Survêtements",
+      "parentId": "vetements_homme"
+    },
+    "costumes_cravates_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Costumes & Cravates",
+      "parentId": "vetements_homme"
+    },
+    "shorts_bermudas_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Shorts & Bermudas",
+      "parentId": "vetements_homme"
+    },
+    "sous_vetements_chaussettes_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sous-vêtements & Chaussettes",
+      "parentId": "vetements_homme"
+    },
+    "maillots_peignoirs_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Maillots de bain & Peignoirs",
+      "parentId": "vetements_homme"
+    },
+    "pyjamas_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pyjamas",
+      "parentId": "vetements_homme"
+    },
+    "chaussures_homme": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Chaussures",
+      "parentId": "mode_homme"
+    },
+    "sneakers_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sneakers",
+      "parentId": "chaussures_homme"
+    },
+    "bottes_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Bottes",
+      "parentId": "chaussures_homme"
+    },
+    "chaussures_ville_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures de ville",
+      "parentId": "chaussures_homme"
+    },
+    "sandales_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sandales",
+      "parentId": "chaussures_homme"
+    },
+    "chaussons_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussons",
+      "parentId": "chaussures_homme"
+    },
+    "chaussures_sport_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures de sport",
+      "parentId": "chaussures_homme"
+    },
+    "chaussures_marche_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures de marche",
+      "parentId": "chaussures_homme"
+    },
+    "entretien_chaussures_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Entretien",
+      "parentId": "chaussures_homme"
+    },
+    "accessoires_homme": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Bijoux & Accessoires",
+      "parentId": "mode_homme"
+    },
+    "casquettes_chapeaux_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Casquettes & Chapeaux",
+      "parentId": "accessoires_homme"
+    },
+    "sacs_valises_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sacs & Valises",
+      "parentId": "accessoires_homme"
+    },
+    "bijoux_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Bijoux",
+      "parentId": "accessoires_homme"
+    },
+    "lunettes_soleil_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Lunettes de soleil",
+      "parentId": "accessoires_homme"
+    },
+    "foulards_echarpes_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Foulards & Écharpes",
+      "parentId": "accessoires_homme"
+    },
+    "gants_moufles_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Gants & Moufles",
+      "parentId": "accessoires_homme"
+    },
+    "montres_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Montres",
+      "parentId": "accessoires_homme"
+    },
+    "ceintures_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Ceintures",
+      "parentId": "accessoires_homme"
+    },
+    "portefeuilles_etuis_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Portefeuilles & Étuis",
+      "parentId": "accessoires_homme"
+    },
+    "cravates_accessoires_homme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Cravates & Accessoires",
+      "parentId": "accessoires_homme"
+    }
+  }
+}

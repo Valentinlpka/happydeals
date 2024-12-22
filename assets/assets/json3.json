@@ -1,0 +1,298 @@
+{
+  "categories": {
+    "mode_femme": {
+      "hasAttributes": false,
+      "level": 2,
+      "name": "Femme",
+      "parentId": "mode_et_accessoires"
+    },
+    "vetements_femme": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Vêtements",
+      "parentId": "mode_femme"
+    },
+    "robes_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Robes",
+      "parentId": "vetements_femme"
+    },
+    "tops_tshirts_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Tops & T-shirts",
+      "parentId": "vetements_femme"
+    },
+    "sweats_hoodies_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sweats & Sweatshirts à capuche",
+      "parentId": "vetements_femme"
+    },
+    "pantalons_leggings_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pantalons & Leggings",
+      "parentId": "vetements_femme"
+    },
+    "jeans_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Jeans",
+      "parentId": "vetements_femme"
+    },
+    "pulls_gilets_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pulls & Gilets",
+      "parentId": "vetements_femme"
+    },
+    "vestes_blazers_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Vestes & Blazers",
+      "parentId": "vetements_femme"
+    },
+    "manteaux_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Manteaux",
+      "parentId": "vetements_femme"
+    },
+    "chemisiers_blouses_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chemisiers & Blouses",
+      "parentId": "vetements_femme"
+    },
+    "jupes_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Jupes",
+      "parentId": "vetements_femme"
+    },
+    "vetements_sport_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Vêtements de sport",
+      "parentId": "vetements_femme"
+    },
+    "combinaisons_salopettes_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Combinaisons & Salopettes",
+      "parentId": "vetements_femme"
+    },
+    "maillots_bain_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Maillots de bain",
+      "parentId": "vetements_femme"
+    },
+    "shorts_bermudas_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Shorts & Bermudas",
+      "parentId": "vetements_femme"
+    },
+    "lingerie_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Lingerie",
+      "parentId": "vetements_femme"
+    },
+    "pyjamas_nuisettes_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Pyjamas & Nuisettes",
+      "parentId": "vetements_femme"
+    },
+    "collants_chaussettes_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Collants & Chaussettes",
+      "parentId": "vetements_femme"
+    },
+    "chaussures_femme": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Chaussures",
+      "parentId": "mode_femme"
+    },
+    "sneakers_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sneakers",
+      "parentId": "chaussures_femme"
+    },
+    "bottines_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Bottines",
+      "parentId": "chaussures_femme"
+    },
+    "bottes_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Bottes",
+      "parentId": "chaussures_femme"
+    },
+    "escarpins_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Escarpins",
+      "parentId": "chaussures_femme"
+    },
+    "chaussures_plates_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures plates",
+      "parentId": "chaussures_femme"
+    },
+    "talons_hauts_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Talons hauts",
+      "parentId": "chaussures_femme"
+    },
+    "sandales_nupieds_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sandales & Nu-pieds",
+      "parentId": "chaussures_femme"
+    },
+    "mules_sabots_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Mules & Sabots",
+      "parentId": "chaussures_femme"
+    },
+    "chaussons_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussons",
+      "parentId": "chaussures_femme"
+    },
+    "chaussures_sport_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures de sport",
+      "parentId": "chaussures_femme"
+    },
+    "ballerines_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Ballerines",
+      "parentId": "chaussures_femme"
+    },
+    "chaussures_mariee_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures de mariée",
+      "parentId": "chaussures_femme"
+    },
+    "sandales_plage_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sandales de plage",
+      "parentId": "chaussures_femme"
+    },
+    "chaussures_marche_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chaussures de marche",
+      "parentId": "chaussures_femme"
+    },
+    "entretien_chaussures_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Entretien",
+      "parentId": "chaussures_femme"
+    },
+    "promos_chaussures_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Promos",
+      "parentId": "chaussures_femme"
+    },
+    "accessoires_femme": {
+      "hasAttributes": false,
+      "level": 3,
+      "name": "Accessoires",
+      "parentId": "mode_femme"
+    },
+    "sacs_valises_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Sacs & Valises",
+      "parentId": "accessoires_femme"
+    },
+    "bijoux_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Bijoux",
+      "parentId": "accessoires_femme"
+    },
+    "lunettes_soleil_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Lunettes de soleil",
+      "parentId": "accessoires_femme"
+    },
+    "chapeaux_foulards_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Chapeaux & foulards",
+      "parentId": "accessoires_femme"
+    },
+    "echarpes_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Écharpes",
+      "parentId": "accessoires_femme"
+    },
+    "gants_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Gants",
+      "parentId": "accessoires_femme"
+    },
+    "ceintures_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Ceintures",
+      "parentId": "accessoires_femme"
+    },
+    "montres_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Montres",
+      "parentId": "accessoires_femme"
+    },
+    "portefeuilles_etuis_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Portefeuilles & Étuis",
+      "parentId": "accessoires_femme"
+    },
+    "parapluies_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Parapluies",
+      "parentId": "accessoires_femme"
+    },
+    "divers_accessoires_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Divers",
+      "parentId": "accessoires_femme"
+    },
+    "lifestyle_electronique_femme": {
+      "hasAttributes": false,
+      "level": 4,
+      "name": "Lifestyle & électronique",
+      "parentId": "accessoires_femme"
+    }
+  }
+}
