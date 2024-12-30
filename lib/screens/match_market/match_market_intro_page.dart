@@ -13,7 +13,8 @@ class MatchMarketIntroPage extends StatefulWidget {
 
 class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
   Category? selectedCategory;
-  Category? selectedSubCategory;
+  Category? parentCategory;
+  int currentLevel = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -30,27 +31,90 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
                 color: Colors.grey,
               ),
             ),
+            if (currentLevel > 1)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () {
+                        setState(() {
+                          currentLevel--;
+                          if (currentLevel == 1) {
+                            parentCategory = null;
+                          } else {
+                            selectedCategory = parentCategory;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Retour au niveau précédent',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: _buildCategorySelection(),
             ),
-            if (selectedSubCategory != null)
+            if (selectedCategory != null)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MatchMarketSwipePage(
-                          category: selectedSubCategory!,
-                        ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Catégorie sélectionnée : ${selectedCategory!.name}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                  ),
-                  child: const Text('Commencer'),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MatchMarketSwipePage(
+                                    category: selectedCategory!,
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(50),
+                            ),
+                            child: const Text('Commencer avec cette catégorie'),
+                          ),
+                        ),
+                        if (currentLevel < 4) ...[
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  currentLevel++;
+                                  parentCategory = selectedCategory;
+                                  selectedCategory = null;
+                                });
+                              },
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(50),
+                              ),
+                              child: const Text('Voir les sous-catégories'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -60,93 +124,14 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
   }
 
   Widget _buildCategorySelection() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (selectedCategory == null) ...[
-            const Text(
-              'Choisissez une catégorie',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildMainCategories(),
-          ] else ...[
-            InkWell(
-              onTap: () {
-                setState(() {
-                  selectedCategory = null;
-                  selectedSubCategory = null;
-                });
-              },
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_back),
-                  const SizedBox(width: 8),
-                  Text(
-                    selectedCategory!.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildSubCategories(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainCategories() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('categories')
-          .where('level', isEqualTo: 1)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final categories = snapshot.data!.docs
-            .map((doc) => Category.fromFirestore(doc))
-            .toList();
-
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: categories.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            return ListTile(
-              title: Text(category.name),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                setState(() {
-                  selectedCategory = category;
-                });
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildSubCategories() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('categories')
-          .where('parentId', isEqualTo: selectedCategory!.id)
+          .where('level', isEqualTo: currentLevel)
+          .where(
+            'parentId',
+            isEqualTo: currentLevel == 1 ? null : parentCategory?.id,
+          )
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -158,33 +143,36 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
             .toList();
 
         if (categories.isEmpty) {
-          return Center(
-            child: ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  selectedSubCategory = selectedCategory;
-                });
-              },
-              child: const Text('Sélectionner cette catégorie'),
+          return const Center(
+            child: Text(
+              'Aucune sous-catégorie disponible',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
             ),
           );
         }
 
         return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           itemCount: categories.length,
-          separatorBuilder: (_, __) => const Divider(),
+          separatorBuilder: (context, index) => const Divider(),
           itemBuilder: (context, index) {
             final category = categories[index];
-            final isSelected = selectedSubCategory?.id == category.id;
-
             return ListTile(
-              title: Text(category.name),
+              title: Text(
+                category.name,
+                style: TextStyle(
+                  fontWeight: selectedCategory?.id == category.id
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (isSelected)
+                  if (selectedCategory?.id == category.id)
                     Icon(
                       Icons.check_circle,
                       color: Theme.of(context).primaryColor,
@@ -193,13 +181,14 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
                     const Icon(Icons.chevron_right),
                 ],
               ),
+              selected: selectedCategory?.id == category.id,
+              selectedTileColor:
+                  Theme.of(context).primaryColor.withOpacity(0.1),
               onTap: () {
                 setState(() {
                   selectedCategory = category;
-                  selectedSubCategory = null;
                 });
               },
-              selected: isSelected,
             );
           },
         );

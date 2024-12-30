@@ -80,20 +80,12 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
 
   Future<void> _loadProducts() async {
     try {
-      final categoryDoc = await FirebaseFirestore.instance
-          .collection('categories')
-          .doc(widget.category.id)
-          .get();
-
-      final categoryData = categoryDoc.data() as Map<String, dynamic>;
-      final categoryPath = categoryData['path'] as List<dynamic>? ?? [];
-
-      print('Loading products for category path: $categoryPath');
+      print('Loading products for category: ${widget.category.id}');
 
       final snapshot = await FirebaseFirestore.instance
           .collection('products')
-          .where('categoryPath',
-              arrayContainsAny: [...categoryPath, widget.category.id]).get();
+          .where('categoryPath', arrayContains: widget.category.id)
+          .get();
 
       final filteredProducts = snapshot.docs
           .map((doc) => Product.fromFirestore(doc))
@@ -145,6 +137,109 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
     });
   }
 
+  Widget _buildLastCard(Product product) {
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity == null) return;
+
+        if (details.primaryVelocity! > 0) {
+          // Swipe vers la droite
+          _handleSwipe(0, null, CardSwiperDirection.right);
+        } else if (details.primaryVelocity! < 0) {
+          // Swipe vers la gauche
+          _handleSwipe(0, null, CardSwiperDirection.left);
+        }
+      },
+      child: _buildCard(product),
+    );
+  }
+
+  Widget _buildEndScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.category.name),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.check_circle_outline,
+              size: 80,
+              color: Colors.green[400],
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Vous avez tout vu !',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Vous avez liké $likesCount produits',
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LikedProductsPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.favorite),
+                    label: const Text('Voir mes coups de cœur'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 24,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MatchMarketIntroPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.category),
+                    label: const Text('Choisir une autre catégorie'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -160,73 +255,7 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
     }
 
     if (products.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Match Market'),
-          elevation: 0,
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.check_circle_outline,
-                size: 80,
-                color: Colors.green[400],
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Vous avez tout vu !',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Vous avez liké $likesCount produits',
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LikedProductsPage(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.favorite),
-                label: const Text('Voir mes coups de cœur'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MatchMarketIntroPage(),
-                    ),
-                  );
-                },
-                child: const Text('Choisir une autre catégorie'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildEndScreen();
     }
 
     return Scaffold(
@@ -242,7 +271,8 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => const LikedProductsPage()),
+                  builder: (context) => const LikedProductsPage(),
+                ),
               );
             },
           ),
@@ -252,38 +282,51 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
         child: Column(
           children: [
             Expanded(
-              child: CardSwiper(
-                controller: controller,
-                cardsCount: products.length,
-                onSwipe: _handleSwipe,
-                numberOfCardsDisplayed:
-                    products.length < 3 ? products.length : 3,
-                backCardOffset: const Offset(40, 40),
-                padding: const EdgeInsets.all(24.0),
-                cardBuilder:
-                    (context, index, horizontalThreshold, verticalThreshold) =>
-                        _buildCard(products[index]),
-              ),
+              child: products.length == 1
+                  ? _buildLastCard(products[0])
+                  : CardSwiper(
+                      controller: controller,
+                      cardsCount: products.length,
+                      onSwipe: _handleSwipe,
+                      numberOfCardsDisplayed: 1,
+                      backCardOffset: const Offset(40, 40),
+                      padding: const EdgeInsets.all(24.0),
+                      cardBuilder: (context, index, horizontalThreshold,
+                              verticalThreshold) =>
+                          _buildCard(products[index]),
+                    ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  FloatingActionButton(
-                    onPressed: () => controller.swipe(CardSwiperDirection.left),
-                    backgroundColor: Colors.red,
-                    child: const Icon(Icons.close),
-                  ),
-                  FloatingActionButton(
-                    onPressed: () =>
-                        controller.swipe(CardSwiperDirection.right),
-                    backgroundColor: Colors.green,
-                    child: const Icon(Icons.favorite),
-                  ),
-                ],
+            if (products.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    FloatingActionButton(
+                      onPressed: () {
+                        if (products.length == 1) {
+                          _handleSwipe(0, null, CardSwiperDirection.left);
+                        } else {
+                          controller.swipe(CardSwiperDirection.left);
+                        }
+                      },
+                      backgroundColor: Colors.red,
+                      child: const Icon(Icons.close),
+                    ),
+                    FloatingActionButton(
+                      onPressed: () {
+                        if (products.length == 1) {
+                          _handleSwipe(0, null, CardSwiperDirection.right);
+                        } else {
+                          controller.swipe(CardSwiperDirection.right);
+                        }
+                      },
+                      backgroundColor: Colors.green,
+                      child: const Icon(Icons.favorite),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -356,6 +399,8 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
     int? currentIndex,
     CardSwiperDirection direction,
   ) async {
+    if (previousIndex >= products.length) return false;
+
     final product = products[previousIndex];
 
     if (direction == CardSwiperDirection.right) {
@@ -364,9 +409,11 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
 
     await _markProductAsViewed(product.id);
 
-    setState(() {
-      products.removeAt(previousIndex);
-    });
+    if (mounted) {
+      setState(() {
+        products.removeAt(previousIndex);
+      });
+    }
 
     return true;
   }

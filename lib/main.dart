@@ -34,18 +34,14 @@ void main() async {
 
   initializeUrlStrategy();
 
-  PaintingBinding.instance.imageCache.maximumSize = 100;
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20; // 50 MB
-
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.white,
-      systemNavigationBarColor: Colors.white,
-    ),
-  );
-
   if (kIsWeb) {
   } else {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.white,
+        systemNavigationBarColor: Colors.white,
+      ),
+    );
     Stripe.publishableKey =
         'pk_test_51LTLueEdQ2kxvmjkFjbvo65zeyYFfgfwZJ4yX8msvLiOkHju26pIj77RZ1XaZOoCG6ULyzn95z1irjk18AsNmwZx00OlxLu8Yt';
     await Stripe.instance.applySettings();

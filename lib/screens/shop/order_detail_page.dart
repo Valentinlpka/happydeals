@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -212,7 +211,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       child: item.image != ''
                           ? Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: CachedNetworkImage(imageUrl: item.image),
+                              child: Image.network(item.image),
                             )
                           : null,
                     ),

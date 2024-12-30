@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
@@ -297,17 +296,11 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
       child: SizedBox(
         height: 200,
         width: double.infinity,
-        child: CachedNetworkImage(
-          imageUrl: entreprise.cover,
+        child: Image.network(
+          entreprise.cover,
           fit: BoxFit.cover,
           colorBlendMode: BlendMode.darken,
           color: Colors.black.withOpacity(0.2),
-          placeholder: (context, url) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-          errorWidget: (context, url, error) => const Center(
-            child: Icon(Icons.error),
-          ),
         ),
       ),
     );
@@ -326,7 +319,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
                 backgroundColor: Colors.blue,
                 child: CircleAvatar(
                   radius: 40,
-                  backgroundImage: CachedNetworkImageProvider(entreprise.logo),
+                  backgroundImage: NetworkImage(entreprise.logo),
                 ),
               ),
               const SizedBox(width: 16),
@@ -1003,8 +996,6 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise> {
     );
   }
 }
-
-
 
 // import 'package:cached_network_image/cached_network_image.dart';
 // import 'package:cloud_firestore/cloud_firestore.dart';
