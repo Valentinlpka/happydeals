@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -76,8 +75,7 @@ class LoyaltyCardsPage extends StatelessWidget {
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundImage:
-                              CachedNetworkImageProvider(companyLogo),
+                          backgroundImage: NetworkImage(companyLogo),
                           radius: 24,
                         ),
                         const SizedBox(width: 16),
@@ -127,7 +125,6 @@ class LoyaltyCardsPage extends StatelessWidget {
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const SizedBox.shrink();
         }
-
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
