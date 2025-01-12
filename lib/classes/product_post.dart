@@ -73,7 +73,7 @@ class ProductPost extends Post {
       id: doc.id,
       companyId: data['companyId'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      productId: data['productId'] ?? '',
+      productId: data['id'] ?? '',
       name: data['name'] ?? '',
       description: data['description'] ?? '',
       categoryId: data['categoryId'] ?? '',

@@ -75,45 +75,55 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
     final hasDiscount = selectedVariant?.discount?.isValid() ?? false;
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(isFavorite),
-          SliverToBoxAdapter(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildImageCarousel(),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.product.name,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              _buildSliverAppBar(isFavorite),
+              SliverPadding(
+                padding: const EdgeInsets.only(bottom: 80),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildImageCarousel(),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.product.name,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildVariantSelector(),
+                            if (selectedVariant != null)
+                              _buildPriceSection(hasDiscount),
+                            const SizedBox(height: 16),
+                            _buildProductDetails(),
+                            _buildSellerInfo(),
+                            _buildSimilarProducts(),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        _buildVariantSelector(),
-                        if (selectedVariant != null)
-                          _buildPriceSection(hasDiscount),
-                        const SizedBox(height: 16),
-                        _buildProductDetails(),
-                        _buildSellerInfo(),
-                        _buildSimilarProducts(),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildBottomSheet(),
           ),
         ],
       ),
-      bottomSheet: _buildBottomSheet(),
     );
   }
 
@@ -502,7 +512,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         : selectedVariant!.price;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -510,6 +520,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
             color: Colors.grey.withOpacity(0.2),
             spreadRadius: 1,
             blurRadius: 10,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -517,6 +528,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         child: Row(
           children: [
             Container(
+              height: 44,
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey[300]!),
                 borderRadius: BorderRadius.circular(8),
@@ -524,7 +536,12 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove),
+                    icon: const Icon(Icons.remove, size: 20),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    padding: EdgeInsets.zero,
                     onPressed: () {
                       if (quantity > 1) setState(() => quantity--);
                     },
@@ -537,7 +554,12 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(Icons.add, size: 20),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    padding: EdgeInsets.zero,
                     onPressed: () {
                       if (quantity < selectedVariant!.stock) {
                         setState(() => quantity++);
@@ -549,25 +571,27 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: ElevatedButton(
-                onPressed: selectedVariant!.stock > 0
-                    ? () => _addToCart(quantity)
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.blue[600],
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: selectedVariant!.stock > 0
+                      ? () => _addToCart(quantity)
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.blue[600],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                child: Text(
-                  selectedVariant!.stock > 0
-                      ? 'Ajouter au panier • ${(price * quantity).toStringAsFixed(2)}€'
-                      : 'Rupture de stock',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  child: Text(
+                    selectedVariant!.stock > 0
+                        ? 'Ajouter • ${(price * quantity).toStringAsFixed(2)}€'
+                        : 'Rupture de stock',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

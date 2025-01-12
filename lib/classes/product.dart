@@ -14,6 +14,7 @@ class Product {
   final String stripeProductId;
   final String stripePriceId;
   final List<ProductVariant> variants;
+  final ProductDiscount? discount;
 
   Product({
     required this.id,
@@ -22,14 +23,26 @@ class Product {
     required this.description,
     required this.categoryId,
     required this.basePrice,
-    required this.tva,
+    this.tva = 20.0,
     required this.isActive,
     required this.merchantId,
     required this.sellerId,
     required this.stripeProductId,
     required this.stripePriceId,
     required this.variants,
+    this.discount,
   });
+
+  double get priceHT => basePrice / (1 + (tva / 100));
+  double get priceTTC => basePrice;
+  double get tvaAmount => priceTTC - priceHT;
+
+  double get finalPrice {
+    if (discount != null && discount!.isValid()) {
+      return discount!.calculateDiscountedPrice(priceTTC);
+    }
+    return priceTTC;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -58,7 +71,7 @@ class Product {
       description: data['description'] ?? '',
       categoryId: data['categoryId'] ?? '',
       basePrice: (data['basePrice'] ?? 0).toDouble(),
-      tva: (data['tva'] ?? 0).toDouble(),
+      tva: (data['tva'] ?? 20).toDouble(),
       isActive: data['isActive'] ?? false,
       merchantId: data['merchantId'] ?? '',
       sellerId: data['sellerId'] ?? '',
@@ -67,6 +80,9 @@ class Product {
       variants: (data['variants'] as List<dynamic>? ?? [])
           .map((v) => ProductVariant.fromMap(v as Map<String, dynamic>))
           .toList(),
+      discount: data['discount'] != null
+          ? ProductDiscount.fromMap(data['discount'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -122,49 +138,60 @@ class ProductDiscount {
   final double value;
   final DateTime? startDate;
   final DateTime? endDate;
-  final String? promoCode;
-  final int? maxUses;
-  final int currentUses;
+  final bool applyToAllVariants;
+  final List<String> appliedVariantIds;
+  final bool isActive;
 
   ProductDiscount({
     required this.type,
     required this.value,
     this.startDate,
     this.endDate,
-    this.promoCode,
-    this.maxUses,
-    this.currentUses = 0,
+    this.applyToAllVariants = true,
+    this.appliedVariantIds = const [],
+    this.isActive = true,
   });
 
   bool isValid() {
+    if (!isActive) return false;
+
     final now = DateTime.now();
     if (startDate != null && now.isBefore(startDate!)) return false;
     if (endDate != null && now.isAfter(endDate!)) return false;
-    if (maxUses != null && currentUses >= maxUses!) return false;
+
     return true;
   }
 
+  bool appliesTo(String variantId) {
+    return applyToAllVariants || appliedVariantIds.contains(variantId);
+  }
+
   double calculateDiscountedPrice(double originalPrice) {
+    if (!isValid()) return originalPrice;
+
     if (type == 'percentage') {
-      return originalPrice * (1 - value / 100);
+      return originalPrice * (1 - (value / 100));
     } else {
       return originalPrice - value;
     }
   }
 
   factory ProductDiscount.fromMap(Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is Timestamp) return value.toDate();
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      return null;
+    }
+
     return ProductDiscount(
       type: map['type'] ?? 'percentage',
       value: (map['value'] ?? 0).toDouble(),
-      startDate: map['startDate'] != null
-          ? (map['startDate'] as Timestamp).toDate()
-          : null,
-      endDate: map['endDate'] != null
-          ? (map['endDate'] as Timestamp).toDate()
-          : null,
-      promoCode: map['promoCode'],
-      maxUses: map['maxUses'],
-      currentUses: map['currentUses'] ?? 0,
+      startDate: parseDate(map['startDate']),
+      endDate: parseDate(map['endDate']),
+      applyToAllVariants: map['applyToAllVariants'] ?? true,
+      appliedVariantIds: List<String>.from(map['appliedVariantIds'] ?? []),
+      isActive: map['isActive'] ?? true,
     );
   }
 
@@ -174,9 +201,9 @@ class ProductDiscount {
       'value': value,
       'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
       'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
-      'promoCode': promoCode,
-      'maxUses': maxUses,
-      'currentUses': currentUses,
+      'applyToAllVariants': applyToAllVariants,
+      'appliedVariantIds': appliedVariantIds,
+      'isActive': isActive,
     };
   }
 }

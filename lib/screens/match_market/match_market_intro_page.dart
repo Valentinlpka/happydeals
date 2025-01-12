@@ -13,8 +13,35 @@ class MatchMarketIntroPage extends StatefulWidget {
 
 class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
   Category? selectedCategory;
-  Category? parentCategory;
+  List<Category> categoryPath = [];
   int currentLevel = 1;
+
+  void _goToNextLevel(Category category) {
+    setState(() {
+      selectedCategory = category;
+      categoryPath.add(category);
+      currentLevel++;
+    });
+  }
+
+  void _goToPreviousLevel() {
+    setState(() {
+      currentLevel--;
+      categoryPath.removeLast();
+      if (categoryPath.isEmpty) {
+        selectedCategory = null;
+      } else {
+        selectedCategory = categoryPath.last;
+      }
+    });
+  }
+
+  String _getPreviousLevelText() {
+    if (categoryPath.isEmpty || categoryPath.length < 2) {
+      return 'Retour au niveau précédent';
+    }
+    return categoryPath[categoryPath.length - 2].name;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,21 +66,15 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      onPressed: () {
-                        setState(() {
-                          currentLevel--;
-                          if (currentLevel == 1) {
-                            parentCategory = null;
-                          } else {
-                            selectedCategory = parentCategory;
-                          }
-                        });
-                      },
+                      onPressed: _goToPreviousLevel,
                     ),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Retour au niveau précédent',
-                      style: TextStyle(fontSize: 16),
+                    Expanded(
+                      child: Text(
+                        _getPreviousLevelText(),
+                        style: const TextStyle(fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -61,65 +82,62 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
             Expanded(
               child: _buildCategorySelection(),
             ),
-            if (selectedCategory != null)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Text(
-                      'Catégorie sélectionnée : ${selectedCategory!.name}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MatchMarketSwipePage(
-                                    category: selectedCategory!,
-                                  ),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(50),
-                            ),
-                            child: const Text('Commencer avec cette catégorie'),
-                          ),
-                        ),
-                        if (currentLevel < 4) ...[
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  currentLevel++;
-                                  parentCategory = selectedCategory;
-                                  selectedCategory = null;
-                                });
-                              },
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(50),
-                              ),
-                              child: const Text('Voir les sous-catégories'),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
+      bottomNavigationBar: selectedCategory != null
+          ? Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, -1),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Catégorie sélectionnée :',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    selectedCategory!.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MatchMarketSwipePage(
+                            category: selectedCategory!,
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                    ),
+                    child: const Text('Commencer'),
+                  ),
+                ],
+              ),
+            )
+          : null,
     );
   }
 
@@ -130,7 +148,7 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
           .where('level', isEqualTo: currentLevel)
           .where(
             'parentId',
-            isEqualTo: currentLevel == 1 ? null : parentCategory?.id,
+            isEqualTo: currentLevel == 1 ? null : categoryPath.last.id,
           )
           .snapshots(),
       builder: (context, snapshot) {
@@ -169,26 +187,11 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
                       : FontWeight.normal,
                 ),
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (selectedCategory?.id == category.id)
-                    Icon(
-                      Icons.check_circle,
-                      color: Theme.of(context).primaryColor,
-                    )
-                  else
-                    const Icon(Icons.chevron_right),
-                ],
-              ),
+              trailing: const Icon(Icons.chevron_right),
               selected: selectedCategory?.id == category.id,
               selectedTileColor:
                   Theme.of(context).primaryColor.withOpacity(0.1),
-              onTap: () {
-                setState(() {
-                  selectedCategory = category;
-                });
-              },
+              onTap: () => _goToNextLevel(category),
             );
           },
         );

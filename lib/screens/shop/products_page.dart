@@ -2,8 +2,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/category_product.dart';
 import 'package:happy/classes/product.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
 import 'package:happy/widgets/filter_bottom_sheet.dart';
+
+String formatCategoryName(String categoryId) {
+  if (categoryId.isEmpty) return '';
+
+  // Remplacer les underscores par des espaces
+  String name = categoryId.replaceAll('_', ' ');
+
+  // Capitaliser chaque mot
+  List<String> words = name.split(' ');
+  words = words.map((word) {
+    if (word.isEmpty) return '';
+    return word[0].toUpperCase() + word.substring(1).toLowerCase();
+  }).toList();
+
+  return words.join(' ');
+}
 
 class ProductsPage extends StatefulWidget {
   const ProductsPage({super.key});
@@ -242,7 +259,14 @@ class _ProductsPageState extends State<ProductsPage> {
   Widget _buildProductsGrid() {
     Query productsQuery = FirebaseFirestore.instance.collection('products');
 
-    if (selectedSubCategory != null) {
+    // Filtrer par catégorie si une est sélectionnée
+    if (selectedSubCategory3 != null) {
+      productsQuery = productsQuery.where('categoryPath',
+          arrayContains: selectedSubCategory3!.id);
+    } else if (selectedSubCategory2 != null) {
+      productsQuery = productsQuery.where('categoryPath',
+          arrayContains: selectedSubCategory2!.id);
+    } else if (selectedSubCategory != null) {
       productsQuery = productsQuery.where('categoryPath',
           arrayContains: selectedSubCategory!.id);
     } else if (selectedMainCategory != null) {
@@ -253,10 +277,30 @@ class _ProductsPageState extends State<ProductsPage> {
     return StreamBuilder<QuerySnapshot>(
       stream: productsQuery.snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverToBoxAdapter(
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return SliverToBoxAdapter(
+            child: Center(
+              child: Text('Erreur: ${snapshot.error}'),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const SliverToBoxAdapter(
             child: Center(
-              child: CircularProgressIndicator(),
+              child: Text(
+                'Aucun produit trouvé',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+              ),
             ),
           );
         }
@@ -273,18 +317,10 @@ class _ProductsPageState extends State<ProductsPage> {
           });
         }).toList();
 
-        if (products.isEmpty) {
-          return const SliverToBoxAdapter(
-            child: Center(
-              child: Text('Aucun produit trouvé'),
-            ),
-          );
-        }
-
         return SliverGrid(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.75,
+            childAspectRatio: 0.65,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
           ),
@@ -302,112 +338,364 @@ class _ProductsPageState extends State<ProductsPage> {
         product.variants.isNotEmpty ? product.variants[0] : null;
     if (mainVariant == null) return const SizedBox();
 
+    final hasMultipleVariants = product.variants.length > 1;
+
+    // On prend en priorité la réduction de la variante, sinon celle du produit
+    final activeDiscount = mainVariant.discount?.isValid() ?? false
+        ? mainVariant.discount
+        : product.discount?.isValid() ?? false
+            ? product.discount
+            : null;
+
+    final hasDiscount = activeDiscount != null;
+
+    // Calculer le prix final avec une seule réduction
+    double finalPrice = mainVariant.price;
+    if (hasDiscount) {
+      finalPrice = activeDiscount.calculateDiscountedPrice(finalPrice);
+    }
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (context) => ModernProductDetailPage(product: product)),
+            builder: (context) => ModernProductDetailPage(product: product),
+          ),
         );
       },
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image du produit
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
-                  image: mainVariant.images.isNotEmpty
-                      ? DecorationImage(
-                          image: NetworkImage(mainVariant.images[0]),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-              ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-
-            // Informations du produit
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image et badges
+              Stack(
                 children: [
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${mainVariant.price.toStringAsFixed(2)}€',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Informations du vendeur
-                  FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('companys')
-                        .doc(product.sellerId)
-                        .get(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const SizedBox();
-
-                      final company =
-                          snapshot.data!.data() as Map<String, dynamic>?;
-                      if (company == null) return const SizedBox();
-
-                      return Row(
-                        children: [
-                          if (company['logo'] != null)
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                image: DecorationImage(
-                                  image: NetworkImage(company['logo']),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
+                  // Image
+                  AspectRatio(
+                    aspectRatio: 1,
+                    child: mainVariant.images.isNotEmpty
+                        ? Hero(
+                            tag: 'product-${product.id}',
+                            child: Image.network(
+                              mainVariant.images[0],
+                              fit: BoxFit.cover,
                             ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              company['name'] ?? '',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
+                          )
+                        : Container(
+                            color: Colors.grey[100],
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 40,
                                 color: Colors.grey,
                               ),
                             ),
                           ),
-                        ],
-                      );
-                    },
+                  ),
+
+                  // Overlay gradient
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.3),
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.2),
+                          ],
+                          stops: const [0.0, 0.3, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Badges en haut
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    right: 12,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Badges à gauche
+                        Row(
+                          children: [
+                            if (hasDiscount)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '-${((1 - finalPrice / mainVariant.price) * 100).toStringAsFixed(0)}%',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            if (hasMultipleVariants)
+                              Container(
+                                margin: const EdgeInsets.only(left: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.style,
+                                      size: 12,
+                                      color: Colors.grey[800],
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${product.variants.length} options',
+                                      style: TextStyle(
+                                        color: Colors.grey[800],
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        // Bouton favoris
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.favorite_border,
+                            size: 20,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Prix en bas
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (hasDiscount) ...[
+                          Text(
+                            '${finalPrice.toStringAsFixed(2)}€',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            '${mainVariant.price.toStringAsFixed(2)}€',
+                            style: TextStyle(
+                              fontSize: 14,
+                              decoration: TextDecoration.lineThrough,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                        ] else
+                          Text(
+                            '${mainVariant.price.toStringAsFixed(2)}€',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+
+              // Informations produit
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Catégorie
+                    FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('categories')
+                          .doc(product.categoryId)
+                          .get(),
+                      builder: (context, snapshot) {
+                        String categoryName = '';
+                        if (snapshot.hasData && snapshot.data!.exists) {
+                          final categoryData =
+                              snapshot.data!.data() as Map<String, dynamic>;
+                          categoryName = categoryData['name'] as String? ?? '';
+                        } else {
+                          categoryName =
+                              formatCategoryName(product.categoryId ?? '');
+                        }
+
+                        return Text(
+                          categoryName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Nom du produit
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Stock
+                    if (mainVariant.stock <= 5)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: mainVariant.stock > 0
+                              ? Colors.orange.withOpacity(0.1)
+                              : Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          mainVariant.stock > 0
+                              ? 'Plus que ${mainVariant.stock} en stock'
+                              : 'Rupture de stock',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: mainVariant.stock > 0
+                                ? Colors.orange[700]
+                                : Colors.red[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+
+                    // Séparateur
+                    const Divider(),
+
+                    // Vendeur
+                    FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('companys')
+                          .doc(product.sellerId)
+                          .get(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const SizedBox();
+                        final company =
+                            snapshot.data!.data() as Map<String, dynamic>?;
+                        if (company == null) return const SizedBox();
+
+                        return InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => DetailsEntreprise(
+                                  entrepriseId: product.sellerId,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              if (company['logo'] != null)
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    image: DecorationImage(
+                                      image: NetworkImage(company['logo']),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Vendu par',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    Text(
+                                      company['name'] ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 20,
+                                color: Colors.grey[400],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

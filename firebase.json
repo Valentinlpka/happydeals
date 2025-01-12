@@ -63,6 +63,7 @@
         ]
       }
     ],
+    "site": "happy-deals-3f03d",
     "public": "build/web",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [

@@ -13,6 +13,7 @@ import 'package:happy/screens/marketplace/ad_list_page.dart';
 import 'package:happy/screens/post_type_page/code_promo_page.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
+import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
@@ -48,11 +49,11 @@ class _HomeState extends State<Home> {
       icon: Icons.flash_on, // Icône éclair pour la rapidité/instantanéité
       page: const DealExpressPage(),
     ),
-    // NavigationItem(
-    //   title: 'Happy Deals',
-    //   icon: Icons.local_offer, // Icône étiquette pour les offres
-    //   page: const HappyDealsPage(),
-    // ),
+    NavigationItem(
+      title: 'Happy Deals',
+      icon: Icons.local_offer,
+      page: const HappyDealsPage(),
+    ),
     NavigationItem(
       title: 'Code Promo',
       icon: Icons.confirmation_number, // Icône ticket/coupon

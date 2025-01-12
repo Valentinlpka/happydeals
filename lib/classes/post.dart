@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
@@ -24,6 +25,7 @@ class Post {
   final DateTime? sharedAt; // Date de partage
   final String? originalPostId; // ID du post original si c'est un partage
   final String? comment;
+  List<String> viewedBy = [];
 
   Post({
     required this.id,
@@ -92,7 +94,7 @@ class Post {
           : null,
       originalPostId: map['originalPostId'],
       comment: map['comment'],
-    );
+    )..viewedBy = List<String>.from(map['viewedBy'] ?? []);
   }
 
   Map<String, dynamic> toMap() {
@@ -110,7 +112,90 @@ class Post {
       'sharedAt': sharedAt != null ? Timestamp.fromDate(sharedAt!) : null,
       'originalPostId': originalPostId,
       'comment': comment,
+      'viewedBy': viewedBy,
     };
+  }
+
+  Future<void> incrementViews() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      final postRef = FirebaseFirestore.instance.collection('posts').doc(id);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final postDoc = await transaction.get(postRef);
+
+        if (!postDoc.exists) return;
+
+        final viewedBy = List<String>.from(postDoc.data()?['viewedBy'] ?? []);
+
+        if (!viewedBy.contains(currentUser.uid)) {
+          transaction.update(postRef, {
+            'views': FieldValue.increment(1),
+            'viewedBy': FieldValue.arrayUnion([currentUser.uid]),
+          });
+
+          // Mise à jour locale
+          views++;
+          this.viewedBy.add(currentUser.uid);
+        }
+      });
+    } catch (e) {
+      print('Erreur lors de l\'incrémentation des vues: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> toggleLike(String userId) async {
+    try {
+      final postRef = FirebaseFirestore.instance.collection('posts').doc(id);
+
+      if (likedBy.contains(userId)) {
+        await postRef.update({
+          'likes': FieldValue.increment(-1),
+          'likedBy': FieldValue.arrayRemove([userId]),
+        });
+        likes--;
+        likedBy.remove(userId);
+      } else {
+        await postRef.update({
+          'likes': FieldValue.increment(1),
+          'likedBy': FieldValue.arrayUnion([userId]),
+        });
+        likes++;
+        likedBy.add(userId);
+      }
+    } catch (e) {
+      print('Erreur lors de la gestion du like: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> incrementCommentsCount() async {
+    try {
+      final postRef = FirebaseFirestore.instance.collection('posts').doc(id);
+      await postRef.update({
+        'commentsCount': FieldValue.increment(1),
+      });
+      commentsCount++;
+    } catch (e) {
+      print('Erreur lors de l\'incrémentation des commentaires: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> decrementCommentsCount() async {
+    try {
+      final postRef = FirebaseFirestore.instance.collection('posts').doc(id);
+      await postRef.update({
+        'commentsCount': FieldValue.increment(-1),
+      });
+      commentsCount--;
+    } catch (e) {
+      print('Erreur lors de la décrémentation des commentaires: $e');
+      rethrow;
+    }
   }
 }
 

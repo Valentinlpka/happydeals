@@ -134,19 +134,19 @@ exports.updateMerchantBalance = functions.firestore
         const companySnapshot = await admin
           .firestore()
           .collection("companys")
-          .where("sellerId", "==", sellerId)
-          .limit(1)
+          .doc(sellerId)
           .get();
 
-        if (companySnapshot.empty) {
+        // Vérifier si le document existe
+        if (!companySnapshot.exists) {
           console.error(
             `Aucune entreprise trouvée pour le sellerId: ${sellerId}`
           );
           return null;
         }
 
-        const companyDoc = companySnapshot.docs[0];
-        const companyId = companyDoc.id;
+        // Le sellerId est déjà l'ID du document
+        const companyId = sellerId;
 
         // Mise à jour des soldes de l'entreprise
         await admin

@@ -1,41 +1,47 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/classes/product.dart';
 
 class HappyDeal extends Post {
   final String title;
   final String searchText;
-
   final String productName;
   final String description;
-  final String productId; // Référence au produit existant
-  final num discountPercentage; // Pourcentage de réduction
-  final num newPrice; // Pourcentage de réduction
-  final num oldPrice; // Pourcentage de réduction
+  final String productId;
+  final num discountPercentage;
+  final num newPrice;
+  final num oldPrice;
   final DateTime startDate;
   final DateTime endDate;
   final String photo;
+  final List<String> categoryPath;
+  final String categoryId;
+  final bool isActive;
 
-  HappyDeal(
-      {required super.timestamp,
-      required this.title,
-      required this.searchText,
-      required this.productName,
-      required this.newPrice,
-      required this.oldPrice,
-      required this.description,
-      required this.productId,
-      required this.discountPercentage,
-      required this.startDate,
-      required this.endDate,
-      required this.photo,
-      super.views,
-      super.likes,
-      super.likedBy,
-      super.commentsCount,
-      super.comments,
-      required super.companyId,
-      required super.id})
-      : super(type: 'happy_deal');
+  HappyDeal({
+    required super.timestamp,
+    required this.title,
+    required this.searchText,
+    required this.productName,
+    required this.description,
+    required this.productId,
+    required this.discountPercentage,
+    required this.startDate,
+    required this.endDate,
+    required this.photo,
+    required this.categoryPath,
+    required this.categoryId,
+    required this.isActive,
+    required this.newPrice,
+    required this.oldPrice,
+    super.views,
+    super.likes,
+    super.likedBy,
+    super.commentsCount,
+    super.comments,
+    required super.companyId,
+    required super.id,
+  }) : super(type: 'happy_deal');
 
   factory HappyDeal.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -62,6 +68,43 @@ class HappyDeal extends Post {
           [],
       newPrice: data['newPrice'],
       oldPrice: data['oldPrice'],
+      categoryId: data['categoryId'] ?? '',
+      categoryPath: List<String>.from(data['categoryPath'] ?? []),
+      isActive: data['isActive'] ?? true,
+    );
+  }
+
+  factory HappyDeal.fromProduct(
+    Product product, {
+    required String title,
+    required String description,
+    required num discountPercentage,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String photo,
+  }) {
+    final newPrice = product.basePrice * (1 - (discountPercentage / 100));
+
+    return HappyDeal(
+      id: '', // À générer
+      timestamp: DateTime.now(),
+      title: title,
+      searchText:
+          '${title.toLowerCase()} ${product.name.toLowerCase()} $description'
+              .toLowerCase(),
+      productName: product.name,
+      description: description,
+      productId: product.id,
+      discountPercentage: discountPercentage,
+      startDate: startDate,
+      endDate: endDate,
+      photo: photo,
+      categoryPath: product.categoryPath,
+      categoryId: product.categoryId,
+      isActive: product.isActive,
+      newPrice: newPrice,
+      oldPrice: product.basePrice,
+      companyId: product.merchantId,
     );
   }
 
@@ -81,23 +124,10 @@ class HappyDeal extends Post {
       'endDate': Timestamp.fromDate(endDate),
       'companyId': companyId,
       'photo': photo,
+      'categoryId': categoryId,
+      'categoryPath': categoryPath,
+      'isActive': isActive,
     });
     return map;
-  }
-
-  Map<String, dynamic> toEditableMap() {
-    return {
-      'title': title,
-      'searchText': searchText,
-      'description': description,
-      'productId': productId,
-      'newPrice': newPrice,
-      'productName': productName,
-      'oldPrice': oldPrice,
-      'discountPercentage': discountPercentage,
-      'startDate': Timestamp.fromDate(startDate),
-      'endDate': Timestamp.fromDate(endDate),
-      'photo': photo,
-    };
   }
 }

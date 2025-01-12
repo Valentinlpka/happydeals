@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/card_promo_code.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
+import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
@@ -26,12 +28,14 @@ import 'package:happy/widgets/cards/concours_card.dart';
 import 'package:happy/widgets/cards/deals_express_card.dart';
 import 'package:happy/widgets/cards/emploi_card.dart';
 import 'package:happy/widgets/cards/evenement_card.dart';
+import 'package:happy/widgets/cards/happy_deals_card.dart';
 import 'package:happy/widgets/cards/news_card.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:happy/widgets/cards/product_cards.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:visibility_detector/visibility_detector.dart';
 
 class PostWidget extends StatefulWidget {
   final Ad? ad;
@@ -73,6 +77,7 @@ class _PostWidgetState extends State<PostWidget>
   final GlobalKey _postKey = GlobalKey();
   bool _isPostVisible = false;
   StreamSubscription? _visibilitySubscription;
+  bool _hasIncrementedView = false; // Pour éviter les incrémentations multiples
 
   @override
   bool get wantKeepAlive => _isPostVisible;
@@ -104,21 +109,50 @@ class _PostWidgetState extends State<PostWidget>
         _isPostVisible = isVisible;
       });
       updateKeepAlive();
+
+      if (isVisible && !_hasIncrementedView) {
+        _incrementPostViews();
+        _hasIncrementedView = true;
+      }
+    }
+  }
+
+  Future<void> _incrementPostViews() async {
+    if (!mounted) return;
+
+    try {
+      await widget.post.incrementViews();
+      if (kDebugMode) {
+        print('Vues incrémentées pour le post: ${widget.post.id}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Erreur lors de l\'incrémentation des vues: $e');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return RepaintBoundary(
-      key: _postKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.post is SharedPost) _buildSharedPostHeader(),
-          _buildPostContent(),
-          _buildInteractionBar(),
-        ],
+    return VisibilityDetector(
+      key: Key(widget.post.id),
+      onVisibilityChanged: (VisibilityInfo info) {
+        if (info.visibleFraction > 0.5 && !_hasIncrementedView) {
+          _incrementPostViews();
+          _hasIncrementedView = true;
+        }
+      },
+      child: RepaintBoundary(
+        key: _postKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.post is SharedPost) _buildSharedPostHeader(),
+            _buildPostContent(),
+            _buildInteractionBar(),
+          ],
+        ),
       ),
     );
   }
@@ -403,6 +437,15 @@ class _PostWidgetState extends State<PostWidget>
           companyName: widget.companyName,
           companyLogo: widget.companyLogo,
         );
+      case HappyDeal:
+        return HappyDealsCard(
+          post: post as HappyDeal,
+          companyName: widget.companyName,
+          companyCover: widget.companyCover,
+          companyCategorie: widget.companyCategorie,
+          companyLogo: widget.companyLogo,
+          currentUserId: widget.currentUserId,
+        );
       case ExpressDeal:
         return DealsExpressCard(
           currentUserId: widget.currentUserId,
@@ -475,6 +518,7 @@ class _PostWidgetState extends State<PostWidget>
         final postData = snapshot.data!.data() as Map<String, dynamic>;
         final commentsCount = postData['commentsCount'] ?? 0;
         final likes = postData['likes'] ?? 0;
+        final views = postData['views'] ?? 0;
 
         return Consumer<UserModel>(
           builder: (context, users, _) {
@@ -484,6 +528,20 @@ class _PostWidgetState extends State<PostWidget>
 
             return Column(
               children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.remove_red_eye_outlined,
+                          size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$views vues',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -494,9 +552,16 @@ class _PostWidgetState extends State<PostWidget>
                             isLiked ? Icons.favorite : Icons.favorite_border,
                             color: isLiked ? Colors.red : null,
                           ),
-                          onPressed: () async => await context
-                              .read<UserModel>()
-                              .handleLike(widget.post),
+                          onPressed: () async {
+                            try {
+                              await widget.post
+                                  .toggleLike(widget.currentUserId);
+                            } catch (e) {
+                              if (kDebugMode) {
+                                print('Erreur lors du like: $e');
+                              }
+                            }
+                          },
                         ),
                         Text('$likes'),
                         const SizedBox(width: 20),
@@ -504,8 +569,7 @@ class _PostWidgetState extends State<PostWidget>
                           icon: const Icon(Icons.comment_outlined),
                           onPressed: () => _navigateToComments(context),
                         ),
-                        const SizedBox(width: 5),
-                        Text('$commentsCount')
+                        Text('$commentsCount'),
                       ],
                     ),
                     if (!isCurrentUser)

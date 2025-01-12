@@ -49,10 +49,12 @@ class Company {
       phone: data['phone'] ?? '',
       sellerId: data['sellerId'] ?? '',
       adress: Address.fromMap(data['adress'] ?? {}),
-      openingHours: Map<String, String>.from(data['openingHours'] ?? {}),
-      averageRating: (data['averageRating'] ?? 0.0).toDouble() ?? 0,
+      openingHours: Map<String, dynamic>.from(data['openingHours'] ?? {}),
+      averageRating: (data['averageRating'] ?? 0.0).toDouble(),
       numberOfReviews: data['numberOfReviews'] ?? 0,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
     );
   }
 

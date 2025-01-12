@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class DealProduct extends StatelessWidget {
   final String name;
-  final num oldPrice;
-  final num newPrice;
+  final double oldPrice;
+  final double newPrice;
   final num discount;
   const DealProduct(
       {super.key,
@@ -58,48 +58,51 @@ class DealProduct extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.normal,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(
-                    height: 5,
-                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Text(
-                        '$oldPrice €',
+                        '${oldPrice.toStringAsFixed(2)} €',
                         style: const TextStyle(
                           fontSize: 15,
                           letterSpacing: 0.5,
                           decoration: TextDecoration.lineThrough,
+                          color: Colors.grey,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '$newPrice €',
+                        '${newPrice.toStringAsFixed(2)} €',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
-                          color: Colors.blue[700],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        color: Colors.blue[100],
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 3,
-                        ),
-                        child: Text(
-                          '$discount% de réduction',
-                          style: TextStyle(
-                            color: Colors.blue[900],
-                            fontWeight: FontWeight.bold,
-                          ),
+                          color: Colors.blue[800],
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      '-$discount%',
+                      style: TextStyle(
+                        color: Colors.blue[900],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
