@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/providers/users_provider.dart';
@@ -19,7 +21,7 @@ class DetailsEmploiPage extends StatefulWidget {
   });
 
   @override
-  _DetailsEmploiPageState createState() => _DetailsEmploiPageState();
+  State<DetailsEmploiPage> createState() => _DetailsEmploiPageState();
 }
 
 class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
@@ -31,9 +33,52 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
         return ApplicationBottomSheet(
           jobOfferId: widget.post.id,
           companyId: widget.post.companyId,
+          jobTitle: widget.post.title,
+          companyName: widget.individualName,
+          companyLogo: widget.individualPhoto,
+          onApplicationSubmitted: _createApplication,
         );
       },
     );
+  }
+
+  Future<void> _createApplication() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('applications').add({
+        'applicantId': userId,
+        'companyId': widget.post.companyId,
+        'jobOfferId': widget.post.id,
+        'jobTitle': widget.post.title,
+        'companyName': widget.individualName,
+        'companyLogo': widget.individualPhoto,
+        'status': 'Envoyé',
+        'appliedAt': Timestamp.now(),
+        'lastUpdate': Timestamp.now(),
+        'messages': [],
+        'hasUnreadMessages': false,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Candidature envoyée avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'envoi de la candidature: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   String formatDate(DateTime date) {

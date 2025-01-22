@@ -222,7 +222,7 @@ class _CodePromoPageState extends State<CodePromoPage> {
 
         return Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(5.0),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               final postDoc = snapshot.data!.docs[index];

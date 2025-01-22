@@ -105,6 +105,31 @@ class CartScreen extends StatelessWidget {
     );
   }
 
+  void _proceedToCheckout(BuildContext context, Cart cart) {
+    if (cart.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Votre panier est vide')),
+      );
+      return;
+    }
+
+    try {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CheckoutScreen(
+            key: UniqueKey(),
+            cart: cart,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du passage à la caisse: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -176,14 +201,9 @@ class CartScreen extends StatelessWidget {
                             item.variant.discount?.isValid() ?? false;
 
                         return ListTile(
-                          leading: Image.network(
-                            item.variant.images.isNotEmpty
-                                ? item.variant.images[0]
-                                : 'placeholder_url',
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                          ),
+                          leading: item.variant.images.isNotEmpty
+                              ? _buildProductImage(item.variant.images[0])
+                              : const Icon(Icons.image_not_supported),
                           title: Text(item.product.name),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,12 +301,60 @@ class CartScreen extends StatelessWidget {
     );
   }
 
-  void _proceedToCheckout(BuildContext context, Cart cart) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CheckoutScreen(cart: cart),
-      ),
+  String _validateImageUrl(String url) {
+    if (url.isEmpty) {
+      return 'https://via.placeholder.com/50';
+    }
+
+    try {
+      // Convertir l'URL en Uri pour la validation et l'encodage
+      var uri = Uri.parse(url);
+
+      // Si l'URL est relative (commence par '/'), ajoutez le domaine de base
+      if (url.startsWith('/')) {
+        return 'https://votre-domaine.com$url';
+      }
+
+      // S'assurer que l'URL utilise HTTPS pour iOS
+      if (uri.scheme == 'http') {
+        uri = uri.replace(scheme: 'https');
+      }
+
+      // Si aucun schéma n'est spécifié, ajouter HTTPS
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return 'https://$url';
+      }
+
+      // Encoder l'URL pour gérer les caractères spéciaux
+      return uri.toString();
+    } catch (e) {
+      print('Erreur de validation d\'URL: $e');
+      return 'https://via.placeholder.com/50';
+    }
+  }
+
+  Widget _buildProductImage(String imageUrl) {
+    return Image.network(
+      _validateImageUrl(imageUrl),
+      width: 50,
+      height: 50,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        print('Erreur de chargement d\'image: $error');
+        return const Icon(Icons.image_not_supported);
+      },
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(
+          child: SizedBox(
+            width: 50,
+            height: 50,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+            ),
+          ),
+        );
+      },
     );
   }
 }

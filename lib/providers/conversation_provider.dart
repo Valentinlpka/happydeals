@@ -672,8 +672,10 @@ class ConversationService extends ChangeNotifier {
         .collection('messages')
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList());
+        .map((snapshot) {
+      print('Messages récupérés pour $conversationId: ${snapshot.docs.length}');
+      return snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList();
+    });
   }
 
   Future<String> getOrCreateConversationForAd(

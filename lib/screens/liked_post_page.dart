@@ -83,7 +83,7 @@ class LikedPostsPage extends StatelessWidget {
                   final companyData = companySnapshot.data!;
 
                   return Padding(
-                    padding: const EdgeInsets.all(15.0),
+                    padding: const EdgeInsets.all(5.0),
                     child: PostWidget(
                       key: ValueKey(post.id),
                       post: post,

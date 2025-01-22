@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/combined_item.dart';
@@ -31,12 +30,13 @@ class Home extends StatefulWidget {
   _HomeState createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   late String currentUserId;
-  List<CombinedItem> _feedItems = [];
-  bool _isLoading = true;
   final ScrollController _scrollController = ScrollController();
-  final Set<String> _displayedPostIds = {}; // Ajoutez cette ligne
+  bool _isLoading = false;
+
+  @override
+  bool get wantKeepAlive => true; // Garde la page en vie
 
   final List<NavigationItem> _navigationItems = [
     NavigationItem(
@@ -90,124 +90,33 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-    _loadData();
     _scrollController.addListener(_onScroll);
-  }
-
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _feedItems.clear();
-      _displayedPostIds.clear();
+    // Initialisation différée pour éviter les problèmes de context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeFeed();
     });
-
-    try {
-      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-      final userProvider = Provider.of<UserModel>(context, listen: false);
-
-      // 1. S'assurer que les données utilisateur sont chargées en premier
-      if (userProvider.likedCompanies.isEmpty ||
-          userProvider.followedUsers.isEmpty) {
-        if (kDebugMode) {
-          print("Chargement des données utilisateur...");
-        }
-        await userProvider.loadUserData();
-      }
-
-      // 2. Maintenant charger le feed avec les données utilisateur garanties
-      if (kDebugMode) {
-        print(
-            "Nombre d'entreprises likées avant chargement: ${userProvider.likedCompanies.length}");
-        print(
-            "Nombre d'utilisateurs suivis avant chargement: ${userProvider.followedUsers.length}");
-      }
-
-      final feedItems = await homeProvider.loadUnifiedFeed(
-        userProvider.likedCompanies,
-        userProvider.followedUsers,
-      );
-
-      if (mounted) {
-        setState(() {
-          _feedItems = feedItems;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Une erreur est survenue lors du chargement des données.'),
-          ),
-        );
-      }
-    }
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
+  Future<void> _initializeFeed() async {
+    final userProvider = Provider.of<UserModel>(context, listen: false);
+    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
 
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    final currentScroll = _scrollController.offset;
-
-    // Charge plus de contenu quand on est à 200 pixels de la fin
-    if (currentScroll >= (maxScroll - 200)) {
-      _loadMoreData();
+    // Vérifier si les données sont déjà chargées
+    if (homeProvider.currentFeedItems.isNotEmpty) {
+      return;
     }
-  }
 
-  Future<void> _loadMoreData() async {
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-      final userProvider = Provider.of<UserModel>(context, listen: false);
-
-      final lastItem = _feedItems.isNotEmpty ? _feedItems.last : null;
-      final newItems = await homeProvider.loadMoreUnifiedFeed(
-        userProvider.likedCompanies,
-        userProvider.followedUsers,
-        lastItem,
-      );
-
-      if (mounted) {
-        setState(() {
-          for (var item in newItems) {
-            // Vérifiez que l'item n'existe pas déjà
-            if (item.type == 'post') {
-              final postData = item.item as Map<String, dynamic>;
-              final uniqueId = postData['uniqueId'] as String;
-
-              if (!_displayedPostIds.contains(uniqueId)) {
-                _displayedPostIds.add(uniqueId);
-                _feedItems.add(item);
-              }
-            } else {
-              _feedItems.add(item);
-            }
-          }
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    await userProvider.loadUserData();
+    await homeProvider.initializeFeed(
+      userProvider.likedCompanies,
+      userProvider.followedUsers,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Nécessaire pour AutomaticKeepAliveClientMixin
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: SafeArea(
@@ -216,20 +125,71 @@ class _HomeState extends State<Home> {
             _buildHeader(),
             _buildNavigationButtons(),
             Divider(
-              color: Colors.grey[300], // Couleur
-              thickness: 1, // Épaisseur
-              height:
-                  20, // Hauteur totale (incluant l'espace au-dessus et en-dessous)
+              color: Colors.grey[300],
+              thickness: 1,
             ),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _handleRefresh,
-                child: _buildContentList(_feedItems),
+                child: _buildStreamBuilder(),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStreamBuilder() {
+    return Consumer<HomeProvider>(
+      builder: (context, homeProvider, _) {
+        return StreamBuilder<List<CombinedItem>>(
+          stream: homeProvider.feedStream,
+          builder: (context, snapshot) {
+            // Afficher les données existantes pendant le chargement
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData &&
+                homeProvider.currentFeedItems.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(child: Text('Erreur: ${snapshot.error}'));
+            }
+
+            final items = snapshot.data ?? homeProvider.currentFeedItems;
+            return _buildContentList(items);
+          },
+        );
+      },
+    );
+  }
+
+  // Modifiez _handleRefresh pour utiliser le nouveau système
+  Future<void> _handleRefresh() async {
+    final userProvider = Provider.of<UserModel>(context, listen: false);
+    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+
+    // Vérifier si le dernier refresh était il y a moins de 2 minutes
+    if (homeProvider.lastRefreshTime != null) {
+      final timeSinceLastRefresh =
+          DateTime.now().difference(homeProvider.lastRefreshTime!);
+      if (timeSinceLastRefresh < const Duration(minutes: 2)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Veuillez patienter quelques minutes avant de rafraîchir à nouveau'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+    }
+
+    await homeProvider.loadUnifiedFeed(
+      userProvider.likedCompanies,
+      userProvider.followedUsers,
+      refresh: true,
     );
   }
 
@@ -418,24 +378,20 @@ class _HomeState extends State<Home> {
       return ListView.builder(
         key: const PageStorageKey('feed-list'),
         cacheExtent: 1000,
+        padding: EdgeInsets.zero,
         addRepaintBoundaries: true,
-
         addAutomaticKeepAlives: true,
         controller: _scrollController,
-        itemCount: items.length + 1, // +1 pour l'indicateur de chargement
+        itemCount: items.length + 1,
         itemBuilder: (context, index) {
-          // Si on est au dernier élément, montrer le loader
           if (index == items.length) {
             if (_isLoading) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: CircularProgressIndicator(),
-                ),
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Center(child: CircularProgressIndicator()),
               );
             } else {
-              return const SizedBox
-                  .shrink(); // Widget vide si pas de chargement
+              return const SizedBox.shrink();
             }
           }
           return RepaintBoundary(
@@ -446,17 +402,45 @@ class _HomeState extends State<Home> {
     }
   }
 
-  Widget _buildLoadingIndicator() {
-    return _isLoading
-        ? const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        : const SizedBox.shrink();
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+
+    // Charge plus de contenu quand on est à 200 pixels de la fin
+    if (currentScroll >= (maxScroll - 200)) {
+      _loadMoreData();
+    }
   }
 
-  Future<void> _handleRefresh() async {
-    await _loadData();
+  Future<void> _loadMoreData() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+      final userProvider = Provider.of<UserModel>(context, listen: false);
+
+      final lastItem = homeProvider.currentFeedItems.isNotEmpty
+          ? homeProvider.currentFeedItems.last
+          : null;
+
+      await homeProvider.loadMoreUnifiedFeed(
+        userProvider.likedCompanies,
+        userProvider.followedUsers,
+        lastItem,
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Widget _buildItem(CombinedItem item) {
@@ -510,7 +494,7 @@ class _HomeState extends State<Home> {
       } else {
         // Gestion des posts normaux
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(vertical: 0.0, horizontal: 05.0),
           child: PostWidget(
             key: ValueKey(post.id),
             post: post,
@@ -531,7 +515,7 @@ class _HomeState extends State<Home> {
     } else {
       // Gestion des autres types (companies)
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10.0),
         child: CompanyCard(item.item as Company),
       );
     }

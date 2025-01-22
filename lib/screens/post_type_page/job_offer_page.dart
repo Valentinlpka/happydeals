@@ -315,7 +315,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
         final jobOffers = snapshot.data!.docs;
 
         return Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(5.0),
           child: ListView.builder(
             itemCount: jobOffers.length,
             itemBuilder: (context, index) {

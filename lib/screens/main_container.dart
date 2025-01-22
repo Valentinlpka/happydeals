@@ -24,9 +24,7 @@ final currentUserIds = FirebaseAuth.instance.currentUser?.uid ?? "";
 class _MainContainerState extends State<MainContainer> {
   int _currentIndex = 0;
   late StreamSubscription<User?> _authStateSubscription;
-
-  Stream<String> get _currentUserIdStream =>
-      FirebaseAuth.instance.authStateChanges().map((user) => user?.uid ?? "");
+  final PageController _pageController = PageController();
 
   @override
   void initState() {
@@ -41,12 +39,14 @@ class _MainContainerState extends State<MainContainer> {
   @override
   void dispose() {
     _authStateSubscription.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
   void setCurrentIndex(int index) {
     setState(() {
       _currentIndex = index;
+      _pageController.jumpToPage(index);
     });
   }
 
@@ -65,49 +65,72 @@ class _MainContainerState extends State<MainContainer> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<String>(
-      stream: _currentUserIdStream,
-      builder: (context, snapshot) {
-        final currentUserId = snapshot.data ?? "";
-        return Scaffold(
-          extendBody: true,
-          extendBodyBehindAppBar: true, // Ajoutez cette ligne
-          body: Container(
-            color: Colors.white,
-            child: SafeArea(
-              bottom: false,
-              child: IndexedStack(
-                index: _currentIndex,
-                children: _children,
-              ),
-            ),
+    return Scaffold(
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: _children.length,
+        physics:
+            const NeverScrollableScrollPhysics(), // Si vous utilisez BottomNavigationBar
+        itemBuilder: (context, index) {
+          return KeepAliveWrapper(
+            child: _children[index],
+          );
+        },
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.pink, Colors.blue],
           ),
-          bottomNavigationBar: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.pink, Colors.blue],
-              ),
-            ),
-            child: SafeArea(
-              child: StreamBuilder<Map<String, int>>(
-                stream: Provider.of<ConversationService>(context, listen: false)
-                    .getDetailedUnreadCount(currentUserId),
-                builder: (context, snapshot) {
-                  final unreadCounts =
-                      snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
-                  return CustomBottomNavBar(
-                    currentIndex: _currentIndex,
-                    onTap: setCurrentIndex,
-                    unreadCounts: unreadCounts,
-                  );
-                },
-              ),
-            ),
+        ),
+        child: SafeArea(
+          child: StreamBuilder<Map<String, int>>(
+            stream: Provider.of<ConversationService>(context, listen: false)
+                .getDetailedUnreadCount(currentUserIds),
+            builder: (context, snapshot) {
+              final unreadCounts =
+                  snapshot.data ?? {'total': 0, 'ads': 0, 'business': 0};
+              return CustomBottomNavBar(
+                currentIndex: _currentIndex,
+                onTap: setCurrentIndex,
+                unreadCounts: unreadCounts,
+              );
+            },
           ),
-        );
-      },
+        ),
+      ),
     );
+  }
+}
+
+// Créez cette classe d'utilitaire
+class KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+
+  const KeepAliveWrapper({
+    super.key,
+    required this.child,
+  });
+
+  @override
+  _KeepAliveWrapperState createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

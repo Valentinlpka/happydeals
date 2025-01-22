@@ -176,6 +176,9 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
     final isLiked =
         context.watch<UserModel>().likedPosts.contains(widget.contest.id);
 
+    final bool isContestOver = widget.contest.winner != null ||
+        DateTime.now().isAfter(widget.contest.endDate);
+
     return Scaffold(
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -188,18 +191,24 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
           padding: const EdgeInsets.all(20.0),
           child: ElevatedButton(
             style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.all(Colors.blue[800]),
+              backgroundColor: WidgetStateProperty.all(
+                isContestOver ? Colors.grey : Colors.blue[800],
+              ),
             ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => ParticipationDialog(
-                  contest: widget.contest,
-                  userId: widget.currentUserId,
-                ),
-              );
-            },
-            child: const Text('Participer au jeu'),
+            onPressed: isContestOver
+                ? null // Désactiver le bouton si le concours est terminé
+                : () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => ParticipationDialog(
+                        contest: widget.contest,
+                        userId: widget.currentUserId,
+                      ),
+                    );
+                  },
+            child: Text(
+              isContestOver ? 'Concours terminé' : 'Participer au jeu',
+            ),
           ),
         ),
       ),
@@ -345,7 +354,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                         child: Row(
                           children: [
                             Image.network(
-                              gift.imageUrl,
+                              gift.image,
                               fit: BoxFit.cover,
                               height: 80,
                               width: 80,

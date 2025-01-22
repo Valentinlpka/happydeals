@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
-import 'package:happy/screens/shop/product_detail_page.dart';
+import 'package:happy/widgets/product_card.dart';
 
 class LikedProductsPage extends StatelessWidget {
   const LikedProductsPage({super.key});
@@ -10,7 +10,6 @@ class LikedProductsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    print('Current userId: $userId');
 
     if (userId == null) {
       return const Scaffold(
@@ -32,15 +31,9 @@ class LikedProductsPage extends StatelessWidget {
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          print('Snapshot hasData: ${snapshot.hasData}');
-          print('Snapshot hasError: ${snapshot.hasError}');
-          if (snapshot.hasError) print('Snapshot error: ${snapshot.error}');
-
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-
-          print('Number of likes: ${snapshot.data!.docs.length}');
 
           if (snapshot.data!.docs.isEmpty) {
             return Center(
@@ -67,12 +60,17 @@ class LikedProductsPage extends StatelessWidget {
             );
           }
 
-          return ListView.builder(
+          return GridView.builder(
             padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               final like = snapshot.data!.docs[index];
-              print('Loading product details for like: ${like.id}');
 
               return FutureBuilder<DocumentSnapshot>(
                 future: FirebaseFirestore.instance
@@ -80,18 +78,11 @@ class LikedProductsPage extends StatelessWidget {
                     .doc(like['productId'])
                     .get(),
                 builder: (context, productSnapshot) {
-                  print(
-                      'Product snapshot for ${like['productId']} - hasData: ${productSnapshot.hasData}');
-                  if (productSnapshot.hasError) {
-                    print('Error loading product: ${productSnapshot.error}');
-                  }
-
                   if (!productSnapshot.hasData) {
-                    return const SizedBox(height: 100);
+                    return const SizedBox();
                   }
 
                   if (!productSnapshot.data!.exists) {
-                    // Le produit a été supprimé
                     FirebaseFirestore.instance
                         .collection('likes')
                         .doc(like.id)
@@ -100,9 +91,6 @@ class LikedProductsPage extends StatelessWidget {
                   }
 
                   final product = Product.fromFirestore(productSnapshot.data!);
-                  final mainVariant =
-                      product.variants.isNotEmpty ? product.variants[0] : null;
-                  if (mainVariant == null) return const SizedBox();
 
                   return Dismissible(
                     key: Key(like.id),
@@ -119,73 +107,9 @@ class LikedProductsPage extends StatelessWidget {
                           .doc(like.id)
                           .delete();
                     },
-                    child: Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ModernProductDetailPage(product: product),
-                            ),
-                          );
-                        },
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.horizontal(
-                                  left: Radius.circular(12)),
-                              child: SizedBox(
-                                width: 120,
-                                height: 120,
-                                child: mainVariant.images.isNotEmpty
-                                    ? Image.network(
-                                        mainVariant.images[0],
-                                        fit: BoxFit.cover,
-                                      )
-                                    : const Icon(Icons.image, size: 40),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      product.name,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '${mainVariant.price.toStringAsFixed(2)}€',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    if (product.description.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        product.description,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style:
-                                            const TextStyle(color: Colors.grey),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: ProductCard(
+                      product: product,
+                      width: double.infinity,
                     ),
                   );
                 },

@@ -249,7 +249,7 @@ class _DealExpressPageState extends State<DealExpressPage> {
 
         return Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 5),
             itemCount: deals.length,
             itemBuilder: (context, index) {
               final deal = ExpressDeal.fromDocument(deals[index]);

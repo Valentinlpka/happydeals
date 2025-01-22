@@ -310,7 +310,15 @@ class _CompaniesPageState extends State<CompaniesPage> {
         }
 
         final companies = snapshot.data!.docs
-            .map((doc) => Company.fromDocument(doc))
+            .map((doc) {
+              try {
+                return Company.fromDocument(doc);
+              } catch (e) {
+                print('Erreur lors de la conversion du document ${doc.id}: $e');
+                return null;
+              }
+            })
+            .whereType<Company>() // Filtre les valeurs null
             .where((company) =>
                 (_selectedCategory == 'Toutes' ||
                     company.categorie == _selectedCategory) &&
@@ -325,7 +333,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
 
         return Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(5.0),
             itemCount: companies.length,
             itemBuilder: (context, index) {
               return Padding(

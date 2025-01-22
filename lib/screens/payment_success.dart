@@ -98,24 +98,39 @@ class _UnifiedPaymentSuccessScreenState
   }
 
   Future<Map<String, dynamic>?> _getPaymentDetails(String sessionId) async {
-    // Map pour convertir les noms de collections en types
-    final typeMap = {
-      'pending_order_payments': 'order',
-      'pending_express_deal_payments': 'express_deal',
-      'pending_service_payments': 'service'
-    };
+    try {
+      // Vérifier d'abord dans pending_orders
+      final orderDoc =
+          await _firestore.collection('pending_orders').doc(sessionId).get();
 
-    // Vérifier dans les trois collections de paiements en attente
-    for (String collection in typeMap.keys) {
-      final doc = await _firestore.collection(collection).doc(sessionId).get();
-      if (doc.exists) {
+      if (orderDoc.exists) {
+        final data = orderDoc.data()!;
+        print('Payment details found: $data'); // Debug log
         return {
-          ...doc.data()!,
-          'type': typeMap[collection] // Utiliser le type mappé au lieu de split
+          ...data,
+          'type': 'order',
         };
       }
+
+      // Si pas trouvé, vérifier les autres collections...
+      final typeMap = {
+        'pending_express_deal_payments': 'express_deal',
+        'pending_service_payments': 'service'
+      };
+
+      for (String collection in typeMap.keys) {
+        final doc =
+            await _firestore.collection(collection).doc(sessionId).get();
+        if (doc.exists) {
+          return {...doc.data()!, 'type': typeMap[collection]};
+        }
+      }
+
+      return null;
+    } catch (e) {
+      print('Error getting payment details: $e');
+      return null;
     }
-    return null;
   }
 
   Future<void> _handleOrderSuccess() async {

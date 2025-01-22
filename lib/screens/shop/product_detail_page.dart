@@ -3,9 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/providers/users_provider.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/services/cart_service.dart';
+import 'package:happy/services/like_service.dart';
+import 'package:happy/widgets/product_card.dart';
 import 'package:provider/provider.dart';
 
 class ModernProductDetailPage extends StatefulWidget {
@@ -81,7 +82,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
             slivers: [
               _buildSliverAppBar(isFavorite),
               SliverPadding(
-                padding: const EdgeInsets.only(bottom: 80),
+                padding: const EdgeInsets.only(bottom: 100),
                 sliver: SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,15 +93,15 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            _buildVariantSelector(),
+                            const SizedBox(height: 10),
                             Text(
                               widget.product.name,
                               style: const TextStyle(
-                                fontSize: 24,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            _buildVariantSelector(),
                             if (selectedVariant != null)
                               _buildPriceSection(hasDiscount),
                             const SizedBox(height: 16),
@@ -116,10 +117,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
               ),
             ],
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+          Align(
+            alignment: Alignment.bottomCenter,
             child: _buildBottomSheet(),
           ),
         ],
@@ -132,20 +131,32 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
       expandedHeight: 0,
       floating: true,
       pinned: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50],
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
         onPressed: () => Navigator.pop(context),
       ),
+      title: Text(
+        widget.product.name,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+        ),
+      ),
       actions: [
-        IconButton(
-          icon: Icon(
-            isFavorite ? Icons.favorite : Icons.favorite_border,
-            color: isFavorite ? Colors.red : Colors.black,
-          ),
-          onPressed: () {
-            // Gérer les favoris
+        StreamBuilder<bool>(
+          stream: LikeService.isLiked(widget.product.id),
+          builder: (context, snapshot) {
+            final isLiked = snapshot.data ?? false;
+            return IconButton(
+              icon: Icon(
+                isLiked ? Icons.favorite : Icons.favorite_border,
+                color: isLiked ? Colors.red : Colors.black,
+              ),
+              onPressed: () =>
+                  LikeService.toggleLike(widget.product.id, context),
+            );
           },
         ),
         IconButton(
@@ -166,15 +177,27 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
       children: [
         CarouselSlider(
           options: CarouselOptions(
-            height: 350,
+            height: MediaQuery.of(context).size.width * 0.8,
             viewportFraction: 1,
             onPageChanged: (index, reason) => setState(() => current = index),
           ),
           items: images.map((url) {
             return Container(
               width: double.infinity,
-              color: Colors.grey[100],
-              child: Image.network(url, fit: BoxFit.contain),
+              color: Colors.grey[50],
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                  return Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.width * 0.8,
+                      minHeight: 200,
+                    ),
+                    child: child,
+                  );
+                },
+              ),
             );
           }).toList(),
         ),
@@ -249,7 +272,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                attribute,
+                attribute[0].toUpperCase() +
+                    attribute.substring(1).toLowerCase(),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -261,7 +285,16 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
               children: validOptions.map((value) {
                 final isSelected = selectedAttributes[attribute] == value;
                 return ChoiceChip(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                    side: BorderSide(
+                      width: isSelected ? 0 : 1,
+                    ),
+                  ),
+                  color: WidgetStatePropertyAll(
+                      isSelected ? Colors.blue[700] : Colors.white),
                   label: Text(value),
+
                   selected: isSelected,
                   onSelected: validOptions.contains(value)
                       ? (bool selected) {
@@ -300,33 +333,34 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   Widget _buildPriceSection(bool hasDiscount) {
     if (selectedVariant == null) return const SizedBox();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      spacing: 10,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (hasDiscount) ...[
           Text(
-            '${selectedVariant!.price.toStringAsFixed(2)}€',
+            '${selectedVariant!.discount!.calculateDiscountedPrice(selectedVariant!.price).toStringAsFixed(2)} €',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.red[500],
+            ),
+          ),
+          Text(
+            '${selectedVariant!.price.toStringAsFixed(2)} €',
             style: const TextStyle(
               decoration: TextDecoration.lineThrough,
               color: Colors.grey,
               fontSize: 16,
             ),
           ),
-          Text(
-            '${selectedVariant!.discount!.calculateDiscountedPrice(selectedVariant!.price).toStringAsFixed(2)}€',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
         ] else
           Text(
-            '${selectedVariant!.price.toStringAsFixed(2)}€',
+            '${selectedVariant!.price.toStringAsFixed(2)} €',
             style: const TextStyle(
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.blue,
+              color: Colors.black,
             ),
           ),
       ],
@@ -334,34 +368,13 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   }
 
   Widget _buildProductDetails() {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Description',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(widget.product.description),
-            if (selectedVariant != null) ...[
-              const Divider(height: 32),
-              Text(
-                'Stock disponible: ${selectedVariant!.stock}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ],
-        ),
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.product.description),
+        ],
       ),
     );
   }
@@ -373,25 +386,48 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         if (!snapshot.hasData) return const SizedBox();
 
         final company = snapshot.data!;
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundImage: NetworkImage(company['logo'] ?? ''),
-            ),
-            title: Text(company['name'] ?? ''),
-            subtitle: Text(company['description'] ?? ''),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DetailsEntreprise(
-                    entrepriseId: widget.product.sellerId,
-                  ),
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundImage: NetworkImage(company['logo'] ?? ''),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      company['name'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      company['description'] ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-              );
-            },
+              ),
+              const Icon(Icons.chevron_right, color: Colors.grey),
+            ],
           ),
         );
       },
@@ -430,75 +466,21 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
               ),
             ),
             SizedBox(
-              height: 200,
+              height: 280,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: products.length,
                 itemBuilder: (context, index) {
-                  final product = products[index];
-                  return _buildSimilarProductCard(product);
+                  return ProductCard(
+                    product: products[index],
+                    width: 180,
+                  );
                 },
               ),
             ),
           ],
         );
       },
-    );
-  }
-
-  Widget _buildSimilarProductCard(Product product) {
-    final mainVariant =
-        product.variants.isNotEmpty ? product.variants[0] : null;
-    if (mainVariant == null) return const SizedBox();
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ModernProductDetailPage(product: product),
-          ),
-        );
-      },
-      child: Container(
-        width: 150,
-        margin: const EdgeInsets.only(right: 16),
-        child: Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (mainVariant.images.isNotEmpty)
-                Image.network(
-                  mainVariant.images[0],
-                  height: 100,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '${mainVariant.price.toStringAsFixed(2)}€',
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -512,23 +494,26 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         : selectedVariant!.price;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.grey.withOpacity(0.3),
+            spreadRadius: 2,
+            blurRadius: 15,
+            offset: const Offset(0, -3),
           ),
         ],
       ),
       child: SafeArea(
+        top: false,
         child: Row(
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Container(
-              height: 44,
+              margin: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey[300]!),
                 borderRadius: BorderRadius.circular(8),

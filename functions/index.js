@@ -45,6 +45,7 @@ exports.createConnectAccount = functions.https.onCall(async (data, context) => {
       );
     }
 
+    // Créer le compte Stripe Connect
     const account = await stripe.accounts.create({
       type: "express",
       country: "FR",
@@ -55,10 +56,21 @@ exports.createConnectAccount = functions.https.onCall(async (data, context) => {
       },
     });
 
+    // Mettre à jour l'utilisateur avec l'ID du compte Stripe
     await admin.firestore().collection("users").doc(context.auth.uid).update({
       stripeAccountId: account.id,
     });
 
+    // Créer l'entreprise dans la collection companys
+    await admin
+      .firestore()
+      .collection("companys")
+      .doc(context.auth.uid)
+      .update({
+        sellerId: account.id,
+      });
+
+    // Créer le lien d'onboarding
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
       refresh_url: `https://yourapp.com/reauth`,
@@ -609,6 +621,97 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Confirmation de la réception d'une réservation Happy Deal
+exports.confirmDealExpressPickup = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "L'utilisateur doit être authentifié."
+      );
+    }
+
+    const { reservationId, pickupCode } = data;
+
+    try {
+      const reservationRef = admin
+        .firestore()
+        .collection("reservations")
+        .doc(reservationId);
+      const reservation = await reservationRef.get();
+
+      if (!reservation.exists) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "Réservation non trouvée"
+        );
+      }
+
+      const reservationData = reservation.data();
+
+      if (reservationData.status !== "prête à être retirée") {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "La réservation n'est pas prête à être retirée"
+        );
+      }
+
+      if (reservationData.validationCode !== pickupCode) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Code de retrait invalide"
+        );
+      }
+
+      // Confirmation de la réception
+      await reservationRef.update({
+        status: "termined",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        // Mettre à jour le stock du produit si nécessaire
+      });
+
+      // Envoyer une notification au client
+      const userRef = admin
+        .firestore()
+        .collection("users")
+        .doc(reservationData.buyerId);
+      const userDoc = await userRef.get();
+
+      if (userDoc.exists) {
+        await admin
+          .firestore()
+          .collection("notifications")
+          .add({
+            userId: reservationData.buyerId,
+            type: "deal_express_completed",
+            title: "Réservation retirée",
+            message: "Votre réservation Deal Express a été retirée avec succès",
+            data: {
+              reservationId: reservationId,
+            },
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+      }
+
+      return {
+        success: true,
+        reservationId,
+        message: "Réservation confirmée avec succès",
+      };
+    } catch (error) {
+      console.error(
+        "Erreur lors de la confirmation de la réservation Deal Express:",
+        error
+      );
+      throw new functions.https.HttpsError(
+        "internal",
+        error.message || "Impossible de confirmer la réservation"
+      );
+    }
+  }
+);
+
 // Confirmation de la réception de la commande
 exports.confirmOrderPickup = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -936,26 +1039,10 @@ exports.createExpressDeal = functions.https.onCall(async (data, context) => {
       }
     );
 
-    // Création du lien de paiement pour le web
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      success_url: `${data.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: data.cancelUrl,
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: price.id,
-          quantity: 1,
-        },
-      ],
-    });
-
     return {
       success: true,
       stripeProductId: product.id,
       stripePriceId: price.id,
-      sessionUrl: session.url,
-      sessionId: session.id,
     };
   } catch (error) {
     console.error("Erreur lors de la création de l'Express Deal:", error);
@@ -1651,82 +1738,59 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
   try {
     const { type, amount, metadata, successUrl, cancelUrl, isWeb } = data;
 
-    // Préparer les metadata proprement
+    // Préparer les metadata
     let processedMetadata = {};
-
-    // Traiter chaque clé individuellement
     Object.keys(metadata).forEach((key) => {
-      let value = metadata[key];
-
-      // Traitement spécial pour les items
-      if (key === "items" && Array.isArray(value)) {
-        value = value.map((item) => ({
-          productId: item.productId || "",
-          name: item.name || "",
-          quantity: String(item.quantity || 0),
-          price: String(item.price || 0),
-          appliedPrice: String(item.appliedPrice || 0),
-          // autres champs nécessaires...
-        }));
-      }
-
-      // Convertir en string de manière sûre
-      processedMetadata[key] =
-        typeof value === "object" ? JSON.stringify(value) : String(value || "");
+      processedMetadata[key] = String(metadata[key] || "");
     });
 
-    // Log pour debug
-    console.log("Processed metadata:", processedMetadata);
-
-    const sessionData = {
-      payment_method_types: ["card"],
-      mode: "payment",
-      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl,
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            unit_amount: amount,
-            product_data: {
-              name: type === "order" ? "Commande Happy Deals" : "Paiement",
-              description: processedMetadata.promoCode
-                ? `Code promo appliqué: ${processedMetadata.promoCode}`
-                : undefined,
+    if (isWeb) {
+      // Créer une session Checkout pour le web
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl,
+        line_items: [
+          {
+            price_data: {
+              currency: "eur",
+              unit_amount: amount,
+              product_data: {
+                name: type === "order" ? "Commande Happy Deals" : "Paiement",
+              },
             },
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        metadata: {
+          type,
+          userId: context.auth.uid,
+          ...processedMetadata,
         },
-      ],
-      metadata: {
-        type,
-        userId: context.auth.uid,
-        ...processedMetadata,
-      },
-    };
-
-    // Log pour debug
-    console.log("Session data:", sessionData);
-
-    const session = await stripe.checkout.sessions.create(sessionData);
-
-    // Stocker la transaction en attente
-    await admin
-      .firestore()
-      .collection(`pending_${type}_payments`)
-      .doc(session.id)
-      .set({
-        userId: context.auth.uid,
-        amount,
-        status: "pending",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        metadata: processedMetadata,
       });
 
-    return {
-      sessionId: session.id,
-      url: session.url,
-    };
+      return {
+        url: session.url,
+        sessionId: session.id,
+      };
+    } else {
+      // Créer un Payment Intent pour mobile
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency: "eur",
+        metadata: {
+          type,
+          userId: context.auth.uid,
+          ...processedMetadata,
+        },
+      });
+
+      return {
+        clientSecret: paymentIntent.client_secret,
+        sessionId: paymentIntent.id, // Ajoutez ceci
+      };
+    }
   } catch (error) {
     console.error("Payment creation error:", error);
     throw new functions.https.HttpsError("internal", error.message);
@@ -2506,7 +2570,7 @@ function generateDealCustomerEmail(orderData, customer) {
           orderData.pickupDate
         ).toLocaleString("fr-FR", {
           weekday: "long",
-          year: "numeric",
+
           month: "long",
           day: "numeric",
           hour: "2-digit",

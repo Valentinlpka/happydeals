@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 
 class ParraiangePage extends StatefulWidget {
   const ParraiangePage({super.key});
@@ -39,8 +40,9 @@ class _ParraiangePageState extends State<ParraiangePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Parrainage'),
+      appBar: CustomAppBar(
+        align: Alignment.center,
+        title: 'Parrainage',
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -214,7 +216,7 @@ class _ParraiangePageState extends State<ParraiangePage> {
 
         return Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(5.0),
             itemCount: referrals.length,
             itemBuilder: (context, index) {
               final referral = Referral.fromDocument(referrals[index]);

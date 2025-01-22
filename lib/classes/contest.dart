@@ -3,24 +3,24 @@ import 'package:happy/classes/post.dart';
 
 class Gift {
   final String name;
-  final String imageUrl;
+  final String image;
 
   Gift({
     required this.name,
-    required this.imageUrl,
+    required this.image,
   });
 
   factory Gift.fromMap(Map<String, dynamic> data) {
     return Gift(
-      name: data['name'],
-      imageUrl: data['image'],
+      name: data['name'] ?? 'Nom inconnu',
+      image: data['image'] ?? '',
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'name': name,
-      'image': imageUrl,
+      'image': image,
     };
   }
 }
@@ -63,6 +63,11 @@ class Contest extends Post {
   final String giftPhoto;
   final int maxParticipants;
   final int participantsCount;
+  final bool isActive;
+  @override
+  final List<String> viewedBy;
+  final List<Participant>? participants;
+  final Map<String, dynamic>? winner;
 
   Contest({
     required super.id,
@@ -80,6 +85,10 @@ class Contest extends Post {
     required this.giftPhoto,
     required this.maxParticipants,
     required this.participantsCount,
+    required this.isActive,
+    required this.viewedBy,
+    this.participants,
+    this.winner,
     super.views,
     super.likes,
     super.likedBy,
@@ -94,23 +103,33 @@ class Contest extends Post {
     return Contest(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      authorId: data['authorId'],
-      title: data['title'],
-      searchText: data['searchText'],
-      description: data['description'],
-      gifts: (data['gifts'] as List<dynamic>)
-          .map((giftsData) => Gift.fromMap(giftsData as Map<String, dynamic>))
-          .toList(),
-      companyId: data['companyId'],
-      howToParticipate: data['howToParticipate'],
-      conditions: data['conditions'],
-      startDate: (data['startDate'] as Timestamp).toDate(),
-      endDate: (data['endDate'] as Timestamp).toDate(),
-      giftPhoto: data['giftPhoto'],
-      views: data['views'] ?? 0,
-      likes: data['likes'] ?? 0,
+      authorId: data['authorId'] ?? 'Auteur inconnu',
+      title: data['title'] ?? 'Titre inconnu',
+      searchText: data['searchText'] ?? '',
+      description: data['description'] ?? '',
+      gifts: (data['gifts'] as List<dynamic>?)
+              ?.map((giftsData) =>
+                  Gift.fromMap(giftsData as Map<String, dynamic>))
+              .toList() ??
+          [],
+      companyId: data['companyId'] ?? '',
+      howToParticipate: data['howToParticipate'] ?? '',
+      conditions: data['conditions'] ?? '',
+      startDate: (data['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      endDate: (data['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      giftPhoto: data['giftPhoto'] ?? '',
       maxParticipants: data['maxParticipants'] ?? 0,
       participantsCount: data['participantsCount'] ?? 0,
+      isActive: data['isActive'] ?? false,
+      viewedBy: List<String>.from(data['viewedBy'] ?? []),
+      participants: (data['participants'] as List<dynamic>?)
+              ?.map((participantData) =>
+                  Participant.fromMap(participantData as Map<String, dynamic>))
+              .toList() ??
+          [],
+      winner: data['winner'],
+      views: data['views'] ?? 0,
+      likes: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)
@@ -127,7 +146,7 @@ class Contest extends Post {
       'title': title,
       'searchText': searchText,
       'description': description,
-      'gifts': gifts,
+      'gifts': gifts.map((gift) => gift.toMap()).toList(),
       'companyId': companyId,
       'howToParticipate': howToParticipate,
       'conditions': conditions,
@@ -136,6 +155,9 @@ class Contest extends Post {
       'giftPhoto': giftPhoto,
       'maxParticipants': maxParticipants,
       'participantsCount': participantsCount,
+      'isActive': isActive,
+      'viewedBy': viewedBy,
+      'winner': winner,
     });
     return map;
   }

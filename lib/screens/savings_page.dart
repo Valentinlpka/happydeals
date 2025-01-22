@@ -2,167 +2,228 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
 
 class SavingsPage extends StatelessWidget {
-  const SavingsPage({
-    super.key,
-  });
+  const SavingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: '€');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes Économies'),
-        elevation: 0,
+      backgroundColor: Colors.grey[50],
+      appBar: const CustomAppBarBack(title: 'Mes Économies'),
+      body: StreamBuilder<SavingsData>(
+        stream: _getSavingsData(userId),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Erreur: ${snapshot.error}'),
+            );
+          }
+
+          final savingsData = snapshot.data ?? SavingsData.empty();
+
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child:
+                    _buildSavingsSummary(context, savingsData, currencyFormat),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: _buildStatisticsCards(savingsData, currencyFormat),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                sliver: SliverToBoxAdapter(
+                  child: Text(
+                    'Historique des économies',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(16.0),
+                sliver: _buildTransactionsList(savingsData.transactions),
+              ),
+            ],
+          );
+        },
       ),
-      body: Column(
-        children: [
-          // Widget pour afficher le total des économies
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('orders')
-                .where('userId', isEqualTo: userId)
-                .snapshots(),
-            builder: (context, ordersSnapshot) {
-              return StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('reservations')
-                    .where('userId', isEqualTo: userId)
-                    .snapshots(),
-                builder: (context, reservationsSnapshot) {
-                  double totalSavings = 0;
+    );
+  }
 
-                  // Calculer les économies des commandes
-                  if (ordersSnapshot.hasData) {
-                    for (var doc in ordersSnapshot.data!.docs) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final happyDealSavings =
-                          (data['happyDealSavings'] ?? 0.0) as num;
-                      final discountAmount =
-                          (data['discountAmount'] ?? 0.0) as num;
-                      totalSavings += happyDealSavings + discountAmount;
-                    }
-                  }
-
-                  // Calculer les économies des réservations
-                  if (reservationsSnapshot.hasData) {
-                    for (var doc in reservationsSnapshot.data!.docs) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final originalPrice =
-                          (data['originalPrice'] ?? 0.0) * 2 as num;
-                      totalSavings += originalPrice;
-                    }
-                  }
-
-                  // Mettre à jour le UserModel avec le nouveau total
-
-                  return Container(
-                    padding: const EdgeInsets.all(20),
-                    margin: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Theme.of(context).primaryColor,
-                          Theme.of(context).primaryColor.withOpacity(0.8)
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'Total des économies',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${totalSavings.toStringAsFixed(2)}€',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
+  Widget _buildSavingsSummary(
+      BuildContext context, SavingsData data, NumberFormat formatter) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).primaryColor,
+            Theme.of(context).primaryColor.withOpacity(0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
-          // Liste des transactions
-          Expanded(
-            child: StreamBuilder<List<TransactionData>>(
-              stream: _getTransactions(userId),
-              builder: (context, snapshot) {
-                debugPrint(
-                    'État du StreamBuilder: ${snapshot.connectionState}');
+        ],
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'Total des économies',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            formatter.format(data.totalSavings),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 36,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSavingsStat(
+                'Ce mois',
+                formatter.format(data.monthSavings),
+                Colors.white,
+              ),
+              Container(
+                width: 1,
+                height: 40,
+                color: Colors.white.withOpacity(0.3),
+              ),
+              _buildSavingsStat(
+                'Moyenne/commande',
+                formatter.format(data.averageSavings),
+                Colors.white,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-                if (snapshot.hasError) {
-                  debugPrint('Erreur: ${snapshot.error}');
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline,
-                            size: 48, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text('Erreur: ${snapshot.error}'),
-                      ],
-                    ),
-                  );
-                }
+  Widget _buildSavingsStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: color.withOpacity(0.8),
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  debugPrint('En attente des données...');
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Chargement des transactions...'),
-                      ],
-                    ),
-                  );
-                }
+  Widget _buildStatisticsCards(SavingsData data, NumberFormat formatter) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            'Happy Deals',
+            formatter.format(data.happyDealSavings),
+            Icons.local_offer,
+            Colors.orange,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            'Codes Promo',
+            formatter.format(data.promoCodeSavings),
+            Icons.confirmation_number,
+            Colors.purple,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            'Deal Express',
+            formatter.format(data.dealExpressSavings),
+            Icons.flash_on,
+            Colors.green,
+          ),
+        ),
+      ],
+    );
+  }
 
-                final transactions = snapshot.data ?? [];
-                debugPrint(
-                    'Nombre de transactions reçues: ${transactions.length}');
-
-                if (transactions.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.account_balance_wallet_outlined,
-                            size: 48, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('Aucune économie réalisée pour le moment'),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: transactions.length,
-                  itemBuilder: (context, index) {
-                    final transaction = transactions[index];
-                    debugPrint('Affichage transaction $index');
-                    return TransactionCard(transaction: transaction);
-                  },
-                );
-              },
+  Widget _buildStatCard(
+      String title, String amount, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            amount,
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -170,147 +231,52 @@ class SavingsPage extends StatelessWidget {
     );
   }
 
-// Modifiez uniquement la partie _getTransactions dans votre code :
+  Widget _buildTransactionsList(List<Transaction> transactions) {
+    if (transactions.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.savings_outlined, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'Aucune économie réalisée',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
-  Stream<List<TransactionData>> _getTransactions(String userId) {
-    debugPrint('Démarrage de _getTransactions pour userId: $userId');
-
-    return Stream.fromFuture(Future(() async {
-      try {
-        debugPrint('Vérification des commandes...');
-        final ordersQuery = await FirebaseFirestore.instance
-            .collection('orders')
-            .where('userId', isEqualTo: userId)
-            .get();
-        debugPrint('Nombre de commandes trouvées: ${ordersQuery.docs.length}');
-
-        List<TransactionData> orderTransactions = ordersQuery.docs
-            .map((doc) {
-              try {
-                final data = doc.data();
-                debugPrint('Traitement commande ${doc.id}');
-
-                final happyDealSavings =
-                    (data['happyDealSavings'] ?? 0.0) as num;
-                final discountAmount = (data['discountAmount'] ?? 0.0) as num;
-
-                // Si pas d'économies, on ignore cette transaction
-                if (happyDealSavings == 0 && discountAmount == 0) {
-                  return null;
-                }
-
-                // Gérer les timestamps de manière sécurisée
-                Timestamp timestamp;
-                if (data['completedAt'] != null) {
-                  timestamp = data['completedAt'] as Timestamp;
-                } else if (data['createdAt'] != null) {
-                  timestamp = data['createdAt'] as Timestamp;
-                } else {
-                  timestamp = Timestamp.now();
-                }
-
-                final isHappyDeal = happyDealSavings > 0;
-
-                final items = data['items'] as List?;
-                final firstItem =
-                    items?.isNotEmpty == true ? items!.first : null;
-                final itemName =
-                    firstItem is Map ? firstItem['name'] as String? ?? '' : '';
-
-                return TransactionData(
-                  type: isHappyDeal
-                      ? TransactionType.happyDeal
-                      : TransactionType.promoCode,
-                  date: timestamp,
-                  savings: isHappyDeal ? happyDealSavings : discountAmount,
-                  originalPrice: (data['subtotal'] ?? 0.0) as num,
-                  finalPrice: (data['totalPrice'] ?? 0.0) as num,
-                  companyName: data['entrepriseId']?.toString() ?? '',
-                  promoCode: isHappyDeal
-                      ? null
-                      : data['promoCode']
-                          ?.toString(), // N'afficher le code promo que si c'est une réduction par code promo
-                  itemName: itemName,
-                );
-              } catch (e) {
-                debugPrint('Erreur lors du traitement de la commande: $e');
-                return null;
-              }
-            })
-            .where((transaction) =>
-                transaction != null) // Filtrer les transactions nulles
-            .cast<TransactionData>()
-            .toList();
-
-        debugPrint('Vérification des réservations...');
-        final reservationsQuery = await FirebaseFirestore.instance
-            .collection('reservations')
-            .where('userId', isEqualTo: userId)
-            .get();
-
-        List<TransactionData> reservationTransactions = reservationsQuery.docs
-            .map((doc) {
-              try {
-                final data = doc.data();
-                debugPrint('Traitement réservation ${doc.id}');
-
-                final originalPrice = (data['originalPrice'] ?? 0.0) as num;
-                final price = (data['price'] ?? 0.0) as num;
-
-                // Si pas d'économies, on ignore cette réservation
-                if (originalPrice <= 0) {
-                  return null;
-                }
-
-                return TransactionData(
-                  type: TransactionType.dealExpress,
-                  date: (data['createdAt'] as Timestamp?) ?? Timestamp.now(),
-                  savings: originalPrice,
-                  originalPrice: originalPrice * 2,
-                  finalPrice: price,
-                  companyName: data['companyName']?.toString() ?? '',
-                  basketType: data['basketType']?.toString(),
-                );
-              } catch (e) {
-                debugPrint('Erreur lors du traitement de la réservation: $e');
-                return null;
-              }
-            })
-            .where((transaction) => transaction != null)
-            .cast<TransactionData>()
-            .toList();
-
-        final allTransactions = [
-          ...orderTransactions,
-          ...reservationTransactions
-        ];
-        allTransactions.sort((a, b) => b.date.compareTo(a.date));
-
-        debugPrint(
-            'Total transactions avec économies: ${allTransactions.length}');
-        return allTransactions;
-      } catch (e, stackTrace) {
-        debugPrint('Erreur lors de la récupération des données: $e');
-        debugPrint('Stack trace: $stackTrace');
-        return <TransactionData>[];
-      }
-    }));
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final transaction = transactions[index];
+          return _buildTransactionCard(transaction);
+        },
+        childCount: transactions.length,
+      ),
+    );
   }
-}
 
-class TransactionCard extends StatelessWidget {
-  final TransactionData transaction;
-
-  const TransactionCard({super.key, required this.transaction});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildTransactionCard(Transaction transaction) {
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm', 'fr_FR');
+    final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: '€');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -319,59 +285,109 @@ class TransactionCard extends StatelessWidget {
               children: [
                 _buildTransactionTypeChip(transaction.type),
                 Text(
-                  '-${transaction.savings.toStringAsFixed(2)}€',
+                  '-${currencyFormat.format(transaction.savings)}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.green,
+                    color: Color(0xFF2ECC71),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              transaction.itemName.isNotEmpty
-                  ? transaction.itemName
-                  : transaction.basketType ?? '',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.calendar_today, size: 16),
-                const SizedBox(width: 4),
-                Text(dateFormat.format(transaction.date.toDate())),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _getTypeColor(transaction.type).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _getTypeIcon(transaction.type),
+                    color: _getTypeColor(transaction.type),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        transaction.itemName.isNotEmpty
+                            ? transaction.itemName
+                            : transaction.basketType ?? '',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        dateFormat.format(transaction.date.toDate()),
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             if (transaction.promoCode != null) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(Icons.local_offer, size: 16),
+                  Icon(Icons.local_offer, size: 16, color: Colors.purple[700]),
                   const SizedBox(width: 4),
-                  Text('Code promo: ${transaction.promoCode}'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.purple[50],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      transaction.promoCode!,
+                      style: TextStyle(
+                        color: Colors.purple[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ],
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Prix initial: ${transaction.originalPrice.toStringAsFixed(2)}€',
-                  style: const TextStyle(
-                    decoration: TextDecoration.lineThrough,
-                    color: Colors.grey,
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Prix initial: ${currencyFormat.format(transaction.originalPrice)}',
+                    style: const TextStyle(
+                      decoration: TextDecoration.lineThrough,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
-                Text(
-                  'Prix final: ${transaction.finalPrice.toStringAsFixed(2)}€',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
+                  Text(
+                    'Prix final: ${currencyFormat.format(transaction.finalPrice)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -411,6 +427,134 @@ class TransactionCard extends StatelessWidget {
       backgroundColor: color,
     );
   }
+
+  Color _getTypeColor(TransactionType type) {
+    switch (type) {
+      case TransactionType.happyDeal:
+        return Colors.orange[700]!;
+      case TransactionType.dealExpress:
+        return Colors.purple[700]!;
+      case TransactionType.promoCode:
+        return Colors.blue[700]!;
+    }
+  }
+
+  IconData _getTypeIcon(TransactionType type) {
+    switch (type) {
+      case TransactionType.happyDeal:
+        return Icons.celebration;
+      case TransactionType.dealExpress:
+        return Icons.flash_on;
+      case TransactionType.promoCode:
+        return Icons.local_offer;
+    }
+  }
+
+  Stream<SavingsData> _getSavingsData(String userId) {
+    return Stream.fromFuture(() async {
+      try {
+        final ordersQuery = await FirebaseFirestore.instance
+            .collection('orders')
+            .where('userId', isEqualTo: userId)
+            .get();
+
+        final reservationsQuery = await FirebaseFirestore.instance
+            .collection('reservations')
+            .where('userId', isEqualTo: userId)
+            .get();
+
+        final transactions = <Transaction>[];
+        var totalSavings = 0.0;
+        var monthSavings = 0.0;
+        var happyDealSavings = 0.0;
+        var promoCodeSavings = 0.0;
+        var dealExpressSavings = 0.0;
+
+        // Traitement des commandes
+        for (var doc in ordersQuery.docs) {
+          final data = doc.data();
+          final items = data['items'] as List;
+
+          if (items.isEmpty) continue;
+
+          final firstItem = items.first as Map<String, dynamic>;
+          final originalPrice = firstItem['originalPrice'] as num;
+          final appliedPrice = firstItem['appliedPrice'] as num;
+          final discountAmount = (data['discountAmount'] ?? 0.0) as num;
+
+          final happyDealDiscount = originalPrice - appliedPrice;
+          final totalDiscount = happyDealDiscount + discountAmount;
+
+          if (totalDiscount <= 0) continue;
+
+          final date = (data['completedAt'] ?? data['createdAt']) as Timestamp;
+          final now = DateTime.now();
+
+          if (date.toDate().month == now.month &&
+              date.toDate().year == now.year) {
+            monthSavings += totalDiscount;
+          }
+
+          happyDealSavings += happyDealDiscount;
+          promoCodeSavings += discountAmount;
+          totalSavings += totalDiscount;
+
+          transactions.add(Transaction(
+            type: data['promoCode'] != null
+                ? TransactionType.promoCode
+                : TransactionType.happyDeal,
+            date: date,
+            savings: totalDiscount,
+            originalPrice: originalPrice,
+            finalPrice: appliedPrice,
+            itemName: firstItem['name'] as String,
+            promoCode: data['promoCode'] as String?,
+          ));
+        }
+
+        // Traitement des Deal Express
+        for (var doc in reservationsQuery.docs) {
+          final data = doc.data();
+          final originalPrice = (data['originalPrice'] ?? 0.0) as num;
+
+          if (originalPrice <= 0) continue;
+
+          final date = data['createdAt'] as Timestamp;
+          if (date.toDate().month == DateTime.now().month) {
+            monthSavings += originalPrice;
+          }
+
+          dealExpressSavings += originalPrice;
+          totalSavings += originalPrice;
+
+          transactions.add(Transaction(
+            type: TransactionType.dealExpress,
+            date: date,
+            savings: originalPrice,
+            originalPrice: originalPrice * 2,
+            finalPrice: data['price'] ?? 0.0,
+            itemName: data['basketType'] ?? 'Panier surprise',
+          ));
+        }
+
+        transactions.sort((a, b) => b.date.compareTo(a.date));
+
+        return SavingsData(
+          totalSavings: totalSavings,
+          monthSavings: monthSavings,
+          happyDealSavings: happyDealSavings,
+          promoCodeSavings: promoCodeSavings,
+          dealExpressSavings: dealExpressSavings,
+          averageSavings:
+              transactions.isEmpty ? 0 : totalSavings / transactions.length,
+          transactions: transactions,
+        );
+      } catch (e) {
+        print('Erreur lors de la récupération des économies: $e');
+        return SavingsData.empty();
+      }
+    }());
+  }
 }
 
 enum TransactionType {
@@ -419,26 +563,53 @@ enum TransactionType {
   promoCode,
 }
 
-class TransactionData {
+class Transaction {
   final TransactionType type;
   final Timestamp date;
   final num savings;
   final num originalPrice;
   final num finalPrice;
-  final String companyName;
+  final String itemName;
   final String? promoCode;
   final String? basketType;
-  final String itemName;
 
-  TransactionData({
+  Transaction({
     required this.type,
     required this.date,
     required this.savings,
     required this.originalPrice,
     required this.finalPrice,
-    required this.companyName,
+    required this.itemName,
     this.promoCode,
     this.basketType,
-    this.itemName = '',
   });
+}
+
+class SavingsData {
+  final double totalSavings;
+  final double monthSavings;
+  final double happyDealSavings;
+  final double promoCodeSavings;
+  final double dealExpressSavings;
+  final double averageSavings;
+  final List<Transaction> transactions;
+
+  const SavingsData({
+    required this.totalSavings,
+    required this.monthSavings,
+    required this.happyDealSavings,
+    required this.promoCodeSavings,
+    required this.dealExpressSavings,
+    required this.averageSavings,
+    required this.transactions,
+  });
+
+  SavingsData.empty()
+      : totalSavings = 0.0,
+        monthSavings = 0.0,
+        happyDealSavings = 0.0,
+        promoCodeSavings = 0.0,
+        dealExpressSavings = 0.0,
+        averageSavings = 0.0,
+        transactions = [];
 }

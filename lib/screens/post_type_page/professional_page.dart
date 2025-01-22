@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/post_type_page/job_search_profile_page.dart';
+import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -25,43 +26,86 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil général'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      backgroundColor: Colors.grey[50],
+      appBar: const CustomAppBarBack(
+        title: 'Profil général',
       ),
       body: Consumer<UserModel>(
         builder: (context, userModel, child) {
           return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: _buildProfileImage(userModel),
+                    _buildSectionTitle('Photo de profil'),
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Center(
+                          child: _buildProfileImage(userModel),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    _buildTextField('Prénom', userModel.firstName,
-                        (value) => userModel.firstName = value),
-                    _buildTextField('Nom', userModel.lastName,
-                        (value) => userModel.lastName = value),
-                    _buildTextField('Email', userModel.email,
-                        (value) => userModel.email = value),
-                    _buildTextField('Téléphone', userModel.phone,
-                        (value) => userModel.phone = value),
+                    _buildSectionTitle('Informations personnelles'),
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            _buildTextField('Prénom', userModel.firstName,
+                                (value) => userModel.firstName = value),
+                            _buildTextField('Nom', userModel.lastName,
+                                (value) => userModel.lastName = value),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Coordonnées'),
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            _buildTextField('Email', userModel.email,
+                                (value) => userModel.email = value),
+                            _buildTextField('Téléphone', userModel.phone,
+                                (value) => userModel.phone = value),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     Center(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
+                          backgroundColor: Colors.blue[700],
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 32, vertical: 16),
+                              horizontal: 48, vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
+                          elevation: 0,
                         ),
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
@@ -79,14 +123,31 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
                             );
                           }
                         },
-                        child: const Text('Enregistrer',
-                            style: TextStyle(fontSize: 16)),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Enregistrer',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.check_circle_outline, size: 20),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      child: InkWell(
+                        onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -94,9 +155,28 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
                                     const JobSearchProfilePage()),
                           );
                         },
-                        child: const Text(
-                            'Configurer mon profil de recherche d\'emploi',
-                            style: TextStyle(fontSize: 16)),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          leading: Icon(
+                            Icons.work_outline,
+                            color: Colors.blue[700],
+                          ),
+                          title: const Text(
+                            'Profil de recherche d\'emploi',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -109,44 +189,85 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
     );
   }
 
-  Widget _buildTextField(
-      String label, String initialValue, Function(String) onSaved) {
+  Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: TextFormField(
-        initialValue: initialValue,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 14,
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey[300]!),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey[300]!),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.blue[600]!),
-          ),
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
         ),
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'Ce champ ne peut pas être vide';
-          }
-          return null;
-        },
-        onSaved: (value) => onSaved(value!),
       ),
     );
+  }
+
+  Widget _buildTextField(
+      String label, String initialValue, Function(String) onSaved) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          initialValue: initialValue,
+          decoration: InputDecoration(
+            hintText: 'Entrez votre $label',
+            hintStyle: TextStyle(color: Colors.grey[400]),
+            prefixIcon: Icon(
+              _getIconForField(label),
+              color: Colors.grey[600],
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[200]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[200]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.blue[700]!, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red[300]!, width: 1),
+            ),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.black87,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Ce champ ne peut pas être vide';
+            }
+            return null;
+          },
+          onSaved: (value) => onSaved(value!),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  IconData _getIconForField(String label) {
+    switch (label.toLowerCase()) {
+      case 'prénom':
+        return Icons.person_outline;
+      case 'nom':
+        return Icons.person_outline;
+      case 'email':
+        return Icons.email_outlined;
+      case 'téléphone':
+        return Icons.phone_outlined;
+      default:
+        return Icons.edit_outlined;
+    }
   }
 
   Future<void> _pickImage() async {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' as material show Card;
 import 'package:flutter/material.dart' hide Card;
 import 'package:happy/screens/shop/cart_models.dart';
@@ -106,8 +107,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Column(
+          spacing: 10,
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Commande chez ${_cart.sellerName}',
@@ -342,8 +345,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'totalPrice': _cart.finalTotal,
                 'pickupAddress': _pickupAddress,
               },
-              successUrl: '${Uri.base.origin}/#/payment-success',
-              cancelUrl: '${Uri.base.origin}/payment-cancel',
+              successUrl: kIsWeb
+                  ? '${Uri.base.origin}/#/payment-success'
+                  : 'happydeals://payment-success',
+              cancelUrl: kIsWeb
+                  ? '${Uri.base.origin}/#/payment-cancel'
+                  : 'happydeals://payment-cancel',
             ),
           ],
         ),

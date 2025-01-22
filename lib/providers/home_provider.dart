@@ -19,6 +19,10 @@ import 'package:happy/classes/share_post.dart';
 
 class HomeProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  DateTime? _lastRefreshTime;
+  DateTime? get lastRefreshTime => _lastRefreshTime;
+  static const Duration _minRefreshInterval =
+      Duration(minutes: 2); // ou autre durée
 
   static const int _pageSize = 10;
   DocumentSnapshot? _lastDocument;
@@ -26,6 +30,19 @@ class HomeProvider extends ChangeNotifier {
 
   bool _isLoading = false;
   String? _errorMessage;
+
+  final _feedController = StreamController<List<CombinedItem>>.broadcast();
+  Stream<List<CombinedItem>> get feedStream => _feedController.stream;
+  List<CombinedItem> _currentFeedItems = [];
+  List<CombinedItem> get currentFeedItems => _currentFeedItems;
+  bool _isInitialized = false;
+
+  // Ajout d'un singleton pour persister les données
+  static final HomeProvider _instance = HomeProvider._internal();
+  factory HomeProvider() {
+    return _instance;
+  }
+  HomeProvider._internal();
 
   bool get isLoading => _isLoading;
   bool get hasError => _errorMessage != null;
@@ -35,9 +52,20 @@ class HomeProvider extends ChangeNotifier {
   Future<List<CombinedItem>> loadUnifiedFeed(
       List<String> likedCompanies, List<String> followedUsers,
       {bool refresh = false}) async {
+    // Vérifier si le dernier refresh n'est pas trop récent
+    if (refresh && _lastRefreshTime != null) {
+      final timeSinceLastRefresh = DateTime.now().difference(_lastRefreshTime!);
+      if (timeSinceLastRefresh < _minRefreshInterval) {
+        // Retourner les données existantes si le refresh est trop récent
+        return _currentFeedItems;
+      }
+    }
+
     if (refresh) {
       _lastDocument = null;
       _hasMoreData = true;
+      _currentFeedItems.clear();
+      notifyListeners();
     }
 
     try {
@@ -50,7 +78,6 @@ class HomeProvider extends ChangeNotifier {
       final Set<String> addedPostIds = {};
       final List<CombinedItem> combinedItems = [];
 
-      // Chargement paginé des posts
       await Future.wait([
         _loadLikedCompanyPostsPaginated(
             likedCompanies, addedPostIds, combinedItems),
@@ -58,8 +85,12 @@ class HomeProvider extends ChangeNotifier {
       ]);
 
       combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      _currentFeedItems = combinedItems;
+      _feedController.add(_currentFeedItems);
+      _lastRefreshTime = DateTime.now();
       return combinedItems;
     } catch (e) {
+      _feedController.addError(e);
       return [];
     }
   }
@@ -67,8 +98,9 @@ class HomeProvider extends ChangeNotifier {
   Future<List<CombinedItem>> loadMoreUnifiedFeed(List<String> likedCompanies,
       List<String> followedUsers, CombinedItem? lastItem,
       {int limit = 10}) async {
-    if (!_hasMoreData) return [];
+    if (!_hasMoreData || _isLoading) return [];
 
+    _isLoading = true;
     try {
       if (lastItem?.type == 'post') {
         final lastPostData = lastItem?.item as Map<String, dynamic>;
@@ -116,12 +148,19 @@ class HomeProvider extends ChangeNotifier {
         }
 
         // Ne retourner que le nombre demandé d'éléments les plus récents
-        return allNewItems.take(limit).toList();
+        final newItems = allNewItems.take(limit).toList();
+
+        _currentFeedItems.addAll(newItems);
+        _feedController.add(_currentFeedItems);
+        return newItems;
       }
       return [];
     } catch (e) {
+      _feedController.addError(e);
       print('Erreur dans loadMoreUnifiedFeed: $e');
       return [];
+    } finally {
+      _isLoading = false;
     }
   }
 
@@ -463,5 +502,30 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> applyChanges() async {
     notifyListeners();
+  }
+
+  Future<void> initializeFeed(
+      List<String> likedCompanies, List<String> followedUsers) async {
+    // Vérifie si on a déjà des données avant de recharger
+    if (_isInitialized && _currentFeedItems.isNotEmpty) {
+      _feedController.add(_currentFeedItems);
+      return;
+    }
+
+    try {
+      final items = await loadUnifiedFeed(likedCompanies, followedUsers);
+      _currentFeedItems = items;
+      _feedController.add(_currentFeedItems);
+      _isInitialized = true;
+    } catch (e) {
+      _feedController.addError(e);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Ne pas fermer le StreamController pour maintenir l'état
+    // _feedController.close();
+    super.dispose();
   }
 }

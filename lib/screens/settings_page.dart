@@ -225,120 +225,124 @@ class ParametrePage extends StatelessWidget {
   Widget _buildServiceGrid(BuildContext context) {
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.4, // Ajusté pour accommoder le texte sur 2 lignes
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      children: [
-        _buildServiceCard(
-          icon: Icons.shopping_bag,
-          title: 'Mes deals',
-          onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const UserOrdersPages()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.calendar_today,
-          title: 'Mes Deals Express',
-          onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const ReservationListDealExpress()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.people,
-          title: 'Mes parrainages',
-          onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const UserReferralsPage()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.people,
-          title: 'Mes économies',
-          onTap: () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const SavingsPage()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.work,
-          title: 'Mes candidatures',
-          onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const UserApplicationsPage()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.card_membership,
-          title: 'Mes cartes de fidélité',
-          onTap: () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => LoyaltyCardsPage()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.store,
-          title: 'Marketplace',
-          onTap: () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const AdListPage()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.favorite,
-          title: "Mes Likes",
-          onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const LikedPostsPage()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.favorite,
-          title: "Mes Réservations",
-          onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const ClientBookingsPage()));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.favorite,
-          title: "Mes Evènements",
-          onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => MyEventsPage(userId: currentUserId)));
-          },
-        ),
-        _buildServiceCard(
-          icon: Icons.favorite,
-          title: "Match Market",
-          onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const MatchMarketIntroPage()));
-          },
-        ),
-      ],
+    return SingleChildScrollView(
+      child: GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        childAspectRatio: 1.2,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        children: [
+          _buildServiceCard(
+            icon: Icons.shopping_bag,
+            title: 'Mes deals',
+            onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const UserOrdersPages()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.calendar_today,
+            title: 'Mes Deals Express',
+            onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          const ReservationListDealExpress()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.people,
+            title: 'Mes parrainages',
+            onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const UserReferralsPage()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.people,
+            title: 'Mes économies',
+            onTap: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => const SavingsPage()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.work,
+            title: 'Mes candidatures',
+            onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const UserApplicationsPage()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.card_membership,
+            title: 'Mes cartes de fidélité',
+            onTap: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => LoyaltyCardsPage()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.store,
+            title: 'Marketplace',
+            onTap: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => const AdListPage()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.favorite,
+            title: "Mes Likes",
+            onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const LikedPostsPage()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.favorite,
+            title: "Mes Réservations",
+            onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ClientBookingsPage()));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.favorite,
+            title: "Mes Evènements",
+            onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          MyEventsPage(userId: currentUserId)));
+            },
+          ),
+          _buildServiceCard(
+            icon: Icons.favorite,
+            title: "Match Market",
+            onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const MatchMarketIntroPage()));
+            },
+          ),
+        ],
+      ),
     );
   }
 

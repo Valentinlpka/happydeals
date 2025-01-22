@@ -209,7 +209,7 @@ class HappyDealsCard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.blue[800],
+                              color: Colors.red[800],
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -274,18 +274,18 @@ class HappyDealsCard extends StatelessWidget {
                         // Prix
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           textBaseline: TextBaseline.alphabetic,
+                          spacing: 5,
                           children: [
                             Text(
                               "${post.newPrice.toStringAsFixed(2)} €",
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
+                                color: Colors.red[800],
                               ),
                             ),
-                            const SizedBox(width: 4),
                             Text(
                               "${post.oldPrice.toStringAsFixed(2)} €",
                               style: TextStyle(

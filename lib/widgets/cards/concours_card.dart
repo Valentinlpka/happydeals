@@ -249,6 +249,29 @@ class ConcoursCard extends StatelessWidget {
                   ],
                 ),
 
+                // Indication que le gagnant a été tiré
+                if (contest.winner != null)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.emoji_events, size: 16, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Un gagnant a été désigné',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Lots à gagner
                 if (contest.gifts.isNotEmpty)
                   Padding(

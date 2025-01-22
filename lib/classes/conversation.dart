@@ -33,17 +33,14 @@ class Message {
     final data = doc.data() as Map<String, dynamic>;
     return Message(
       id: doc.id,
-      senderId: data['senderId'],
+      senderId: data['senderId'] ?? '',
       content: data['content'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      type: data['type'],
+      type: data['type'] ?? 'text',
       isDeleted: data['isDeleted'] ?? false,
       isEdited: data['isEdited'] ?? false,
       metadata: data['metadata'] as Map<String, dynamic>?,
-
-      postData:
-          data['postData'] as Map<String, dynamic>?, // Conversion du postData
-
+      postData: data['postData'] as Map<String, dynamic>?,
       editedAt: data['editedAt'] != null
           ? (data['editedAt'] as Timestamp).toDate()
           : null,

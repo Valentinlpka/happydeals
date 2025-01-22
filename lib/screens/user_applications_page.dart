@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/screens/modify_application_page.dart';
+import 'package:happy/screens/application_details_page.dart';
 import 'package:happy/screens/post_type_page/job_search_profile_page.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +12,7 @@ class UserApplicationsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    print('Current user ID: ${user?.uid}');
 
     return Scaffold(
       appBar: const CustomAppBarBack(
@@ -21,90 +22,172 @@ class UserApplicationsPage extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const JobSearchProfilePage(),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue[700]!, Colors.blue[800]!],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    spreadRadius: 1,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-                );
-              },
-              child: const Text('Gérer mon espace candidature'),
+                ],
+              ),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const JobSearchProfilePage(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Gérer mon espace candidature',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('applications')
-                  .where('applicantId', isEqualTo: user != null ? user.uid : '')
+                  .where('applicantId', isEqualTo: user?.uid)
+                  .orderBy('lastUpdate', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
+                print('Connection State: ${snapshot.connectionState}');
+                print('Has Error: ${snapshot.hasError}');
+                if (snapshot.hasError) {
+                  print('Error: ${snapshot.error}');
+                }
+                print('Has Data: ${snapshot.hasData}');
+                if (snapshot.hasData) {
+                  print('Number of docs: ${snapshot.data?.docs.length}');
+                  snapshot.data?.docs.forEach((doc) {
+                    print('Application ID: ${doc.id}');
+                    print('Application Data: ${doc.data()}');
+                  });
+                }
+
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Une erreur est survenue'));
-                }
-
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                      child: Text('Aucune candidature trouvée'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.work_off_outlined,
+                            size: 64, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Aucune candidature trouvée',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
                 return ListView.builder(
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     var application = snapshot.data!.docs[index];
-                    return FutureBuilder<DocumentSnapshot>(
-                      future: FirebaseFirestore.instance
-                          .collection('posts')
-                          .doc(application['jobOfferId'])
-                          .get(),
-                      builder: (context, jobSnapshot) {
-                        if (jobSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Card(
-                              child: ListTile(title: Text('Chargement...')));
-                        }
-
-                        if (jobSnapshot.hasError || !jobSnapshot.hasData) {
-                          return const Card(
-                              child: ListTile(
-                                  title: Text('Erreur de chargement')));
-                        }
-
-                        return Card(
-                          margin: const EdgeInsets.all(8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              maxRadius: 20,
-                              backgroundColor: Colors.blue[800],
-                              child: CircleAvatar(
-                                maxRadius: 18,
-                                backgroundImage: NetworkImage(
-                                    application['companyLogo'] ?? ''),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue[700],
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundImage: NetworkImage(
+                              application['companyLogo'] ?? '',
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          application['jobTitle'] ?? 'Titre inconnu',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(application['companyName'] ?? ''),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Postuler le: ${_formatDate(application['appliedAt'])}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
                               ),
                             ),
-                            title: Text(
-                                application['jobTitle'] ?? 'Titre inconnu'),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  (application['companyName']),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
+                            const SizedBox(height: 8),
+                            _buildStatusChip(application['status']),
+                          ],
+                        ),
+                        trailing: application['hasUnreadMessages'] == true
+                            ? Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
                                 ),
-                                Text(
-                                    'Postuler le: ${_formatDate(application['appliedAt'])}'),
-                              ],
-                            ),
-                            onTap: () => _showBottomSheet(context, application),
-                          ),
-                        );
-                      },
+                                child: const Text(
+                                  '!',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            : null,
+                        onTap: () => _navigateToApplicationDetails(
+                          context,
+                          application,
+                        ),
+                      ),
                     );
                   },
                 );
@@ -116,90 +199,65 @@ class UserApplicationsPage extends StatelessWidget {
     );
   }
 
-  void _showBottomSheet(BuildContext context, DocumentSnapshot application) {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext bc) {
-        return SafeArea(
-          child: Wrap(
-            children: <Widget>[
-              ListTile(
-                  leading: const Icon(Icons.edit),
-                  title: const Text('Modifier la candidature'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _modifyApplication(context, application);
-                  }),
-              ListTile(
-                leading: const Icon(Icons.delete),
-                title: const Text('Supprimer la candidature'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _deleteApplication(context, application);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  Widget _buildStatusChip(String status) {
+    Color backgroundColor;
+    Color textColor = Colors.white;
 
-  void _modifyApplication(BuildContext context, DocumentSnapshot application) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditApplicationPage(application: application),
+    switch (status) {
+      case 'Envoyé':
+        backgroundColor = Colors.blue;
+        break;
+      case 'Nouveau Message':
+        backgroundColor = Colors.orange;
+        break;
+      case 'Accepté':
+        backgroundColor = Colors.green;
+        break;
+      case 'Refusé':
+        backgroundColor = Colors.red;
+        break;
+      case 'Demande d\'infos':
+        backgroundColor = Colors.purple;
+        break;
+      default:
+        backgroundColor = Colors.grey;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
 
-  void _deleteApplication(BuildContext context, DocumentSnapshot application) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmer la suppression'),
-          content: const Text(
-              'Êtes-vous sûr de vouloir supprimer cette candidature ?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Annuler'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text('Supprimer'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                FirebaseFirestore.instance
-                    .collection('applications')
-                    .doc(application.id)
-                    .delete()
-                    .then((_) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Candidature supprimée avec succès')),
-                  );
-                }).catchError((error) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('Erreur lors de la suppression: $error')),
-                  );
-                });
-              },
-            ),
-          ],
-        );
-      },
+  void _navigateToApplicationDetails(
+    BuildContext context,
+    DocumentSnapshot application,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ApplicationDetailsPage(
+          application: application,
+        ),
+      ),
     );
   }
 
   String _formatDate(Timestamp timestamp) {
     return DateFormat('dd/MM/yyyy').format(timestamp.toDate());
   }
-
-
 }

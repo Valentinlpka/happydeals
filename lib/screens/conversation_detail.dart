@@ -490,6 +490,10 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
                 .getConversationMessages(_actualConversationId!)
             : Stream.value([]),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Erreur: ${snapshot.error}'));
+          }
+
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }

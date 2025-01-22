@@ -254,7 +254,7 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
 
         return Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(5.0),
             itemCount: happyDeals.length,
             itemBuilder: (context, index) {
               final happyDeal = HappyDeal.fromDocument(happyDeals[index]);

@@ -1,8 +1,8 @@
+import 'package:app_links/app_links.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:happy/providers/ads_provider.dart';
@@ -29,6 +29,8 @@ import 'package:universal_html/html.dart' as html;
 
 import 'firebase_options.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -36,15 +38,21 @@ void main() async {
 
   if (kIsWeb) {
   } else {
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.white,
-        systemNavigationBarColor: Colors.white,
-      ),
-    );
     Stripe.publishableKey =
         'pk_test_51LTLueEdQ2kxvmjkFjbvo65zeyYFfgfwZJ4yX8msvLiOkHju26pIj77RZ1XaZOoCG6ULyzn95z1irjk18AsNmwZx00OlxLu8Yt';
     await Stripe.instance.applySettings();
+
+    // Remplacer la gestion des deep links
+    final appLinks = AppLinks();
+
+    // Gérer les liens initiaux
+    final uri = await appLinks.getInitialLink();
+    if (uri != null) _handleDeepLink(uri);
+
+    // Écouter les liens entrants
+    appLinks.uriLinkStream.listen((uri) {
+      _handleDeepLink(uri);
+    });
   }
 
   await Firebase.initializeApp(
@@ -56,6 +64,16 @@ void main() async {
   timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
 
   runApp(const MyApp());
+}
+
+void _handleDeepLink(Uri uri) {
+  if (uri.path == '/payment-success') {
+    final sessionId = uri.queryParameters['session_id'];
+    navigatorKey.currentState?.pushNamed(
+      '/payment-success',
+      arguments: {'sessionId': sessionId},
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -73,55 +91,56 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ReviewService())
       ],
       child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: _buildTheme(context),
-          home: const AuthWrapper(),
-          initialRoute: '/',
-          routes: {
-            '/signup': (context) => const SignUpPage(),
-            '/login': (context) => const Login(),
-            '/profile_completion': (context) => const ProfileCompletionPage(),
-            '/home': (context) => const MainContainer(),
-            '/cart': (context) => const CartScreen(),
-            '/payment-cancel': (context) => const PaymentCancel(),
-            '/payment-success': (context) =>
-                const UnifiedPaymentSuccessScreen(),
-            '/entreprise/:entrepriseId': (context) => const DetailsEntreprise(),
-            '/company/:entrepriseId': (context) => const DetailsEntreprise(),
-          },
-          onGenerateRoute: (settings) {
-            if (settings.name?.startsWith('/entreprise/') ?? false) {
-              // On extrait directement l'ID depuis le settings.name
-              final entrepriseId = settings.name!.split('/entreprise/')[1];
+        navigatorKey: navigatorKey,
+        debugShowCheckedModeBanner: false,
+        theme: _buildTheme(context),
+        home: const AuthWrapper(),
+        initialRoute: '/',
+        routes: {
+          '/signup': (context) => const SignUpPage(),
+          '/login': (context) => const Login(),
+          '/profile_completion': (context) => const ProfileCompletionPage(),
+          '/home': (context) => const MainContainer(),
+          '/cart': (context) => const CartScreen(),
+          '/payment-cancel': (context) => const PaymentCancel(),
+          '/payment-success': (context) => const UnifiedPaymentSuccessScreen(),
+          '/entreprise/:entrepriseId': (context) => const DetailsEntreprise(),
+          '/company/:entrepriseId': (context) => const DetailsEntreprise(),
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name?.startsWith('/entreprise/') ?? false) {
+            // On extrait directement l'ID depuis le settings.name
+            final entrepriseId = settings.name!.split('/entreprise/')[1];
 
-              return MaterialPageRoute(
-                builder: (context) =>
-                    DetailsEntreprise(entrepriseId: entrepriseId),
-                settings: settings,
-              );
-            }
+            return MaterialPageRoute(
+              builder: (context) =>
+                  DetailsEntreprise(entrepriseId: entrepriseId),
+              settings: settings,
+            );
+          }
 
-            if (settings.name?.startsWith('/payment-success') ?? false) {
-              // Extraire le session_id de l'URL complète
-              String fullUrl = html.window.location.href;
-              String? sessionId;
+          if (settings.name?.startsWith('/payment-success') ?? false) {
+            // Extraire le session_id de l'URL complète
+            String fullUrl = html.window.location.href;
+            String? sessionId;
 
-              try {
-                String hashPart = fullUrl.split('#')[1];
-                String queryPart = hashPart.split('?')[1];
-                Map<String, String> params = Uri.splitQueryString(queryPart);
-                sessionId = params['session_id'];
-              } catch (e) {}
+            try {
+              String hashPart = fullUrl.split('#')[1];
+              String queryPart = hashPart.split('?')[1];
+              Map<String, String> params = Uri.splitQueryString(queryPart);
+              sessionId = params['session_id'];
+            } catch (e) {}
 
-              return MaterialPageRoute(
-                builder: (context) => UnifiedPaymentSuccessScreen(
-                  sessionId: sessionId,
-                ),
-                settings: settings,
-              );
-            }
-            return null;
-          }),
+            return MaterialPageRoute(
+              builder: (context) => UnifiedPaymentSuccessScreen(
+                sessionId: sessionId,
+              ),
+              settings: settings,
+            );
+          }
+          return null;
+        },
+      ),
     );
   }
 
@@ -136,12 +155,13 @@ class MyApp extends StatelessWidget {
               )),
 
       scaffoldBackgroundColor: Colors.grey[50],
+      dialogBackgroundColor: Colors.grey[50],
 
       primarySwatch: Colors.blue,
       splashColor: Colors.transparent, // <- Here
       highlightColor: Colors.transparent, // <- Here
       hoverColor: Colors.transparent, // <- Here
-      primaryColorLight: Colors.white,
+      primaryColorLight: Colors.grey[50],
       primaryColorDark: Colors.black,
       textTheme: GoogleFonts.nunitoSansTextTheme(Theme.of(context).textTheme),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -158,13 +178,7 @@ class MyApp extends StatelessWidget {
       primaryColor: Colors.blue[600],
       brightness: Brightness.light,
       appBarTheme: AppBarTheme(
-          systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarColor: Colors.grey[50],
-            statusBarBrightness: Brightness.light,
-            statusBarIconBrightness: Brightness.dark,
-          ),
-          surfaceTintColor: Colors.white,
-          backgroundColor: Colors.grey[50]),
+          surfaceTintColor: Colors.grey[50], backgroundColor: Colors.grey[50]),
 
       useMaterial3: true,
       colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blue),
