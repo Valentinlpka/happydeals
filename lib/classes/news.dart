@@ -7,6 +7,7 @@ class News extends Post {
   final String searchText;
   final String content;
   final List<String> photos;
+  final List<String> videos;
 
   News({
     required super.id,
@@ -16,6 +17,7 @@ class News extends Post {
     required this.content,
     required super.companyId,
     required this.photos,
+    required this.videos,
     super.views,
     super.likes,
     super.likedBy,
@@ -30,6 +32,7 @@ class News extends Post {
       title: data['title'] ?? '',
       content: data['content'],
       photos: List<String>.from(data['photos'] ?? []),
+      videos: List<String>.from(data['videos'] ?? []),
       companyId: data['companyId'] ?? FirebaseAuth.instance.currentUser?.uid,
       searchText: data['searchText'],
       timestamp: (data['timestamp'] as Timestamp).toDate(),
@@ -43,6 +46,7 @@ class News extends Post {
       title: data['title'] ?? '',
       content: data['content'],
       photos: List<String>.from(data['photos'] ?? []),
+      videos: List<String>.from(data['videos'] ?? []),
       companyId: data['companyId'] ?? FirebaseAuth.instance.currentUser?.uid,
       searchText: data['searchText'] ?? "",
       timestamp: data['timestamp'] != null
@@ -67,6 +71,7 @@ class News extends Post {
       'searchText': searchText,
       'content': content,
       'photos': photos,
+      'videos': videos,
       'timestamp': timestamp,
       'companyId': companyId,
     });
@@ -79,6 +84,7 @@ class News extends Post {
       'searchText': searchText,
       'content': content,
       'photos': photos,
+      'videos': videos,
       'timestamp': timestamp,
       'companyId': companyId,
     };

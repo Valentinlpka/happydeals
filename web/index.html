@@ -36,6 +36,64 @@
 
   <title>Up</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Métadonnées Open Graph dynamiques qui seront mises à jour via JavaScript -->
+  <meta property="og:title" content="Happy Shop" />
+  <meta property="og:description" content="Découvrez notre boutique en ligne" />
+  <meta property="og:image" content="" />
+  <meta property="og:url" content="" />
+  <meta property="og:type" content="website" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Happy Shop">
+  <meta name="twitter:description" content="Découvrez notre boutique en ligne">
+  <meta name="twitter:image" content="">
+
+  <!-- Ajoutez ce script pour mettre à jour les métadonnées dynamiquement -->
+  <script>
+    window.updateMetaTags = function (title, description, image, url) {
+      document.querySelector('meta[property="og:title"]').setAttribute('content', title);
+      document.querySelector('meta[property="og:description"]').setAttribute('content', description);
+      document.querySelector('meta[property="og:image"]').setAttribute('content', image);
+      document.querySelector('meta[property="og:url"]').setAttribute('content', url);
+
+      document.querySelector('meta[name="twitter:title"]').setAttribute('content', title);
+      document.querySelector('meta[name="twitter:description"]').setAttribute('content', description);
+      document.querySelector('meta[name="twitter:image"]').setAttribute('content', image);
+    }
+  </script>
+
+  <!-- Firebase Configuration -->
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js"></script>
+
+  <script>
+    // Initialisation de Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAF_EaXi4OI5SEndI-Phe4FfJ6P7M5MaoA",
+      authDomain: "happy-deals-3f03d.firebaseapp.com",
+      projectId: "happy-deals-3f03d",
+      storageBucket: "happy-deals-3f03d.appspot.com",
+      messagingSenderId: "289031542511",
+      appId: "1:289031542511:web:e608b4fb09685d0d8b6d1a"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('firebase-messaging-sw.js')
+          .then(function (registration) {
+            console.log('Service Worker registered with scope:', registration.scope);
+          })
+          .catch(function (error) {
+            console.error('Service Worker registration failed:', error);
+          });
+      });
+    }
+  </script>
 </head>
 
 <!-- Scripts externes -->
@@ -46,6 +104,11 @@
 </script>
 
 <body>
+  <script>    document.addEventListener('touchstart', (startEvent) => {
+      if (startEvent.touches.length > 1) return;
+      startEvent.preventDefault();
+    }, { passive: false });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 

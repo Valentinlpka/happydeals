@@ -128,13 +128,6 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
                 'Passée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
-              ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Payée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ],
               const SizedBox(height: 8),
               Text(
                 '${order.items.length} article${order.items.length > 1 ? 's' : ''}',

@@ -100,41 +100,74 @@ class CartService extends ChangeNotifier {
 
   Future<void> applyPromoCode(String sellerId, String code) async {
     final cart = _carts[sellerId];
-    if (cart == null) return;
-
-    final isValid = await _promoService.validatePromoCode(
-      code,
-      cart.sellerId,
-      _auth.currentUser?.uid ?? '',
-    );
-
-    if (!isValid) {
-      throw Exception('Code promo invalide ou expiré');
+    if (cart == null) {
+      throw Exception('Panier non trouvé');
     }
 
-    final promoDetails = await _promoService.getPromoCodeDetails(code);
-    if (promoDetails != null) {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      throw Exception('Vous devez être connecté pour utiliser un code promo');
+    }
+
+    try {
+      // 1. Récupérer les détails du code promo
+      final promoDetails = await _promoService.getPromoCodeDetails(code);
+      if (promoDetails == null) {
+        throw Exception('Code promo introuvable');
+      }
+      print('Détails du code promo: ${promoDetails.toString()}');
+
+      // 2. Vérifier les conditions de quantité d'abord
+      final productQuantities = <String, int>{};
+      for (var item in cart.items) {
+        productQuantities[item.product.id] = item.quantity;
+      }
       final productIds = cart.items.map((item) => item.product.id).toList();
-      final isApplicable = await _promoService.isPromoCodeApplicableToProducts(
+      print('Vérification des conditions de quantité:');
+      print('Produits dans le panier: $productIds');
+      print('Quantités dans le panier: $productQuantities');
+
+      await _promoService.isPromoCodeApplicableToProducts(
         code,
         cart.sellerId,
         productIds,
+        productQuantities,
       );
 
-      if (!isApplicable) {
-        throw Exception(
-            'Ce code promo ne s\'applique pas aux produits sélectionnés');
+      // 3. Ensuite vérifier si le code est valide (date, utilisation max, etc.)
+      final isValid = await _promoService.validatePromoCode(
+        code,
+        cart.sellerId,
+        userId,
+      );
+      if (!isValid) {
+        throw Exception('Code promo invalide ou expiré');
       }
 
-      cart.appliedPromoCode = code;
+      // 4. Si toutes les vérifications sont OK, calculer la réduction
+      double discountAmount;
       if (promoDetails['isPercentage']) {
-        cart.discountAmount = cart.total * (promoDetails['value'] / 100);
+        final percentageValue = promoDetails['value'] as double;
+        discountAmount = cart.total * (percentageValue / 100);
       } else {
-        cart.discountAmount = promoDetails['value'];
+        discountAmount = promoDetails['value'] as double;
       }
 
-      await _promoService.usePromoCode(code, cart.sellerId);
+      // 5. Appliquer le code promo
+      await _firestore.collection('carts').doc(cart.id).update({
+        'appliedPromoCode': code,
+        'discountAmount': discountAmount,
+      });
+
+      // 6. Mettre à jour l'état local
+      cart.appliedPromoCode = code;
+      cart.discountAmount = discountAmount;
       await _saveCart(cart);
+
+      print('Code promo appliqué avec succès');
+    } catch (e) {
+      print('Erreur lors de l\'application du code promo: $e');
+      rethrow;
     }
   }
 

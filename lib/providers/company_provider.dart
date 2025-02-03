@@ -139,6 +139,7 @@ extension CompanyExtension on Company {
     String? sellerId,
     Address? adress,
     Map<String, String>? openingHours,
+    String? entityType,
   }) {
     return Company(
       id: id ?? this.id,
@@ -151,6 +152,7 @@ extension CompanyExtension on Company {
       logo: logo ?? this.logo,
       phone: phone ?? this.phone,
       sellerId: sellerId ?? this.sellerId,
+      entityType: entityType ?? this.entityType,
       adress: adress ?? this.adress,
       openingHours: openingHours ?? this.openingHours,
     );

@@ -272,7 +272,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Description du service',
+                  const Text('Description du poste',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                   const SizedBox(height: 10),
@@ -311,7 +311,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                   const SizedBox(height: 10),
                   Text(widget.post.benefits),
                   const SizedBox(height: 20),
-                  const Text('Pourquoi me choisir',
+                  const Text('Pourquoi nous rejoindre',
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),

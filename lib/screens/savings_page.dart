@@ -474,42 +474,68 @@ class SavingsPage extends StatelessWidget {
         for (var doc in ordersQuery.docs) {
           final data = doc.data();
           final items = data['items'] as List;
+          final discountAmount = (data['discountAmount'] ?? 0.0) as num;
+          final subtotal = (data['subtotal'] ?? 0.0) as num;
+          final totalPrice = (data['totalPrice'] ?? 0.0) as num;
 
           if (items.isEmpty) continue;
 
-          final firstItem = items.first as Map<String, dynamic>;
-          final originalPrice = firstItem['originalPrice'] as num;
-          final appliedPrice = firstItem['appliedPrice'] as num;
-          final discountAmount = (data['discountAmount'] ?? 0.0) as num;
+          // Calculer les économies Happy Deal pour chaque produit
+          for (var item in items) {
+            final itemData = item as Map<String, dynamic>;
+            final originalPrice = itemData['originalPrice'] as num;
+            final appliedPrice = itemData['appliedPrice'] as num;
+            final itemSaving = originalPrice - appliedPrice;
 
-          final happyDealDiscount = originalPrice - appliedPrice;
-          final totalDiscount = happyDealDiscount + discountAmount;
+            if (itemSaving > 0) {
+              final date =
+                  (data['completedAt'] ?? data['createdAt']) as Timestamp;
+              final now = DateTime.now();
 
-          if (totalDiscount <= 0) continue;
+              if (date.toDate().month == now.month &&
+                  date.toDate().year == now.year) {
+                monthSavings += itemSaving;
+              }
 
-          final date = (data['completedAt'] ?? data['createdAt']) as Timestamp;
-          final now = DateTime.now();
+              happyDealSavings += itemSaving;
+              totalSavings += itemSaving;
 
-          if (date.toDate().month == now.month &&
-              date.toDate().year == now.year) {
-            monthSavings += totalDiscount;
+              // Créer une transaction pour chaque produit avec une économie
+              transactions.add(Transaction(
+                type: TransactionType.happyDeal,
+                date: date,
+                savings: itemSaving,
+                originalPrice: originalPrice,
+                finalPrice: appliedPrice,
+                itemName: itemData['name'] as String,
+              ));
+            }
           }
 
-          happyDealSavings += happyDealDiscount;
-          promoCodeSavings += discountAmount;
-          totalSavings += totalDiscount;
+          // Traiter le code promo séparément
+          if (discountAmount > 0) {
+            final date =
+                (data['completedAt'] ?? data['createdAt']) as Timestamp;
+            final now = DateTime.now();
 
-          transactions.add(Transaction(
-            type: data['promoCode'] != null
-                ? TransactionType.promoCode
-                : TransactionType.happyDeal,
-            date: date,
-            savings: totalDiscount,
-            originalPrice: originalPrice,
-            finalPrice: appliedPrice,
-            itemName: firstItem['name'] as String,
-            promoCode: data['promoCode'] as String?,
-          ));
+            if (date.toDate().month == now.month &&
+                date.toDate().year == now.year) {
+              monthSavings += discountAmount;
+            }
+
+            promoCodeSavings += discountAmount;
+            totalSavings += discountAmount;
+
+            transactions.add(Transaction(
+              type: TransactionType.promoCode,
+              date: date,
+              savings: discountAmount,
+              originalPrice: subtotal,
+              finalPrice: totalPrice,
+              itemName: 'Code promo',
+              promoCode: data['promoCode'] as String?,
+            ));
+          }
         }
 
         // Traitement des Deal Express

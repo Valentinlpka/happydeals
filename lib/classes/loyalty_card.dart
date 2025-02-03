@@ -6,6 +6,12 @@ class LoyaltyCard {
   final String loyaltyProgramId;
   final String companyId;
   int currentValue;
+  final DateTime createdAt;
+  final DateTime? lastUsed;
+  final LastTransaction? lastTransaction;
+  final int totalEarned;
+  final int totalRedeemed;
+  final String status;
 
   LoyaltyCard({
     required this.id,
@@ -13,16 +19,33 @@ class LoyaltyCard {
     required this.loyaltyProgramId,
     required this.companyId,
     required this.currentValue,
+    required this.createdAt,
+    this.lastUsed,
+    this.lastTransaction,
+    this.totalEarned = 0,
+    this.totalRedeemed = 0,
+    this.status = 'active',
   });
 
   factory LoyaltyCard.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
     return LoyaltyCard(
       id: doc.id,
       customerId: data['customerId'],
       loyaltyProgramId: data['loyaltyProgramId'],
       companyId: data['companyId'],
       currentValue: data['currentValue'],
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      lastUsed: data['lastUsed'] != null
+          ? (data['lastUsed'] as Timestamp).toDate()
+          : null,
+      lastTransaction: data['lastTransaction'] != null
+          ? LastTransaction.fromMap(data['lastTransaction'])
+          : null,
+      totalEarned: data['totalEarned'] ?? 0,
+      totalRedeemed: data['totalRedeemed'] ?? 0,
+      status: data['status'] ?? 'active',
     );
   }
 
@@ -32,6 +55,12 @@ class LoyaltyCard {
       'loyaltyProgramId': loyaltyProgramId,
       'companyId': companyId,
       'currentValue': currentValue,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'lastUsed': lastUsed != null ? Timestamp.fromDate(lastUsed!) : null,
+      'lastTransaction': lastTransaction?.toMap(),
+      'totalEarned': totalEarned,
+      'totalRedeemed': totalRedeemed,
+      'status': status,
     };
   }
 
@@ -41,6 +70,12 @@ class LoyaltyCard {
     String? loyaltyProgramId,
     String? companyId,
     int? currentValue,
+    DateTime? createdAt,
+    DateTime? lastUsed,
+    LastTransaction? lastTransaction,
+    int? totalEarned,
+    int? totalRedeemed,
+    String? status,
   }) {
     return LoyaltyCard(
       id: id ?? this.id,
@@ -48,6 +83,40 @@ class LoyaltyCard {
       loyaltyProgramId: loyaltyProgramId ?? this.loyaltyProgramId,
       companyId: companyId ?? this.companyId,
       currentValue: currentValue ?? this.currentValue,
+      createdAt: createdAt ?? this.createdAt,
+      lastUsed: lastUsed ?? this.lastUsed,
+      lastTransaction: lastTransaction ?? this.lastTransaction,
+      totalEarned: totalEarned ?? this.totalEarned,
+      totalRedeemed: totalRedeemed ?? this.totalRedeemed,
+      status: status ?? this.status,
     );
+  }
+}
+
+class LastTransaction {
+  final DateTime date;
+  final double amount;
+  final String type;
+
+  LastTransaction({
+    required this.date,
+    required this.amount,
+    required this.type,
+  });
+
+  factory LastTransaction.fromMap(Map<String, dynamic> map) {
+    return LastTransaction(
+      date: (map['date'] as Timestamp).toDate(),
+      amount: map['amount'].toDouble(),
+      type: map['type'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'date': Timestamp.fromDate(date),
+      'amount': amount,
+      'type': type,
+    };
   }
 }

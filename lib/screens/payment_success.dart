@@ -9,9 +9,15 @@ import 'package:universal_html/html.dart' as html;
 
 class UnifiedPaymentSuccessScreen extends StatefulWidget {
   final String? sessionId;
+  final String? orderId;
+  final String? reservationId;
+  final String? bookingId;
 
   const UnifiedPaymentSuccessScreen({
     this.sessionId,
+    this.orderId,
+    this.reservationId,
+    this.bookingId,
     super.key,
   });
 
@@ -33,6 +39,22 @@ class _UnifiedPaymentSuccessScreenState
   @override
   void initState() {
     super.initState();
+    if (widget.orderId != null) {
+      _paymentDetails = {
+        'type': 'order',
+        'metadata': {'orderId': widget.orderId},
+      };
+    } else if (widget.reservationId != null) {
+      _paymentDetails = {
+        'type': 'express_deal',
+        'metadata': {'reservationId': widget.reservationId},
+      };
+    } else if (widget.bookingId != null) {
+      _paymentDetails = {
+        'type': 'service',
+        'metadata': {'bookingId': widget.bookingId},
+      };
+    }
     _verifyPayment();
   }
 
@@ -40,20 +62,79 @@ class _UnifiedPaymentSuccessScreenState
     if (!kIsWeb) return widget.sessionId;
 
     try {
-      String url = html.window.location.href;
-      String hashPart = url.split('#')[1];
-      String queryPart = hashPart.split('?')[1];
-      Map<String, String> params = Uri.splitQueryString(queryPart);
+      final uri = Uri.parse(html.window.location.href);
+      final params = uri.queryParameters;
+
+      print('URL params: $params'); // Debug log
+
+      if (_paymentDetails == null) {
+        if (params['orderId'] != null) {
+          print('Found orderId: ${params['orderId']}'); // Debug log
+          _paymentDetails = {
+            'type': 'order',
+            'metadata': {'orderId': params['orderId']},
+          };
+        } else if (params['reservationId'] != null) {
+          print('Found reservationId: ${params['reservationId']}'); // Debug log
+          _paymentDetails = {
+            'type': 'express_deal',
+            'metadata': {'reservationId': params['reservationId']},
+          };
+        } else if (params['bookingId'] != null) {
+          print('Found bookingId: ${params['bookingId']}'); // Debug log
+          _paymentDetails = {
+            'type': 'service',
+            'metadata': {'bookingId': params['bookingId']},
+          };
+        }
+      }
+
+      print('Final paymentDetails: $_paymentDetails'); // Debug log
       return params['session_id'];
     } catch (e) {
+      print('Error parsing URL: $e'); // Debug log
       return null;
     }
   }
 
   Future<void> _verifyPayment() async {
     try {
+      print('Début de _verifyPayment');
+      print('PaymentDetails initial: $_paymentDetails');
+
       if (_auth.currentUser == null) {
         throw Exception('Utilisateur non authentifié');
+      }
+
+      // Si nous avons déjà les détails du paiement (via les paramètres du widget)
+      if (_paymentDetails != null) {
+        print('Utilisation des détails existants: $_paymentDetails');
+
+        switch (_paymentDetails!['type']) {
+          case 'order':
+            final orderId = _paymentDetails!['metadata']['orderId'];
+            print('Attente de la création de la commande: $orderId');
+            await _waitForOrder(orderId);
+            if (mounted) {
+              print('Redirection vers OrderDetailPage');
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OrderDetailPage(orderId: orderId),
+                ),
+              );
+            }
+            break;
+          case 'express_deal':
+            await _handleExpressDealSuccess();
+            break;
+          case 'service':
+            await _handleServiceSuccess();
+            break;
+          default:
+            throw Exception('Type de paiement inconnu');
+        }
+        return; // Sortir de la fonction si nous avons déjà traité les détails
       }
 
       final sessionId = _getSessionId();
@@ -73,10 +154,20 @@ class _UnifiedPaymentSuccessScreenState
         _statusMessage = 'Finalisation de votre commande...';
       });
 
-      // Gérer en fonction du type
+      // Rediriger selon le type
       switch (_paymentType) {
         case 'order':
-          await _handleOrderSuccess();
+          final orderId = _paymentDetails!['metadata']['orderId'];
+          // Attendre que la commande soit créée
+          await _waitForOrder(orderId);
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrderDetailPage(orderId: orderId),
+              ),
+            );
+          }
           break;
         case 'express_deal':
           await _handleExpressDealSuccess();
@@ -88,7 +179,6 @@ class _UnifiedPaymentSuccessScreenState
           throw Exception('Type de paiement inconnu');
       }
 
-      // Afficher le succès
       _showSuccessMessage();
     } catch (e) {
       _handleError('Une erreur est survenue: $e');
@@ -99,13 +189,17 @@ class _UnifiedPaymentSuccessScreenState
 
   Future<Map<String, dynamic>?> _getPaymentDetails(String sessionId) async {
     try {
+      print('Recherche des détails pour la session: $sessionId');
+
       // Vérifier d'abord dans pending_orders
-      final orderDoc =
-          await _firestore.collection('pending_orders').doc(sessionId).get();
+      final orderDoc = await _firestore
+          .collection('pending_orders') // Changé de 'pending_order_payments'
+          .doc(sessionId)
+          .get();
 
       if (orderDoc.exists) {
         final data = orderDoc.data()!;
-        print('Payment details found: $data'); // Debug log
+        print('Détails de commande trouvés: $data');
         return {
           ...data,
           'type': 'order',
@@ -126,38 +220,11 @@ class _UnifiedPaymentSuccessScreenState
         }
       }
 
+      print('Aucun détail trouvé pour la session: $sessionId');
       return null;
     } catch (e) {
       print('Error getting payment details: $e');
       return null;
-    }
-  }
-
-  Future<void> _handleOrderSuccess() async {
-    if (_paymentDetails == null) return;
-
-    final orderId = _paymentDetails!['metadata']['orderId'];
-    await _firestore.collection('orders').doc(orderId).update({
-      'status': 'paid',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    // Nettoyer le panier si nécessaire
-    final cartId = _paymentDetails!['cartId'];
-    if (cartId != null) {
-      await _firestore.collection('carts').doc(cartId).delete();
-    }
-
-    // Rediriger vers les détails de la commande
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OrderDetailPage(
-            orderId: orderId,
-          ),
-        ),
-      );
     }
   }
 
@@ -202,19 +269,16 @@ class _UnifiedPaymentSuccessScreenState
   }
 
   void _handleError(String message) {
+    print('Erreur dans payment_success: $message');
     setState(() {
       _statusMessage = message;
       _isLoading = false;
     });
 
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-
-      // Rediriger vers l'accueil après un délai
-      Future.delayed(const Duration(seconds: 3), () {
-        Navigator.of(context).pushReplacementNamed('/home');
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     }
   }
 
@@ -313,6 +377,32 @@ class _UnifiedPaymentSuccessScreenState
         ],
       ),
     );
+  }
+
+  // Nouvelle fonction pour attendre la création de la commande
+  Future<void> _waitForOrder(String orderId) async {
+    print('Début de _waitForOrder pour orderId: $orderId');
+    const maxAttempts = 10;
+    const delaySeconds = 2;
+    int attempts = 0;
+
+    while (attempts < maxAttempts) {
+      print('Tentative ${attempts + 1}/$maxAttempts');
+      final orderDoc = await _firestore.collection('orders').doc(orderId).get();
+
+      if (orderDoc.exists) {
+        print('Commande trouvée après ${attempts + 1} tentatives');
+        return;
+      }
+
+      print(
+          'Commande non trouvée, nouvelle tentative dans $delaySeconds secondes...');
+      await Future.delayed(const Duration(seconds: delaySeconds));
+      attempts++;
+    }
+
+    throw Exception(
+        'La commande n\'a pas été créée après ${maxAttempts * delaySeconds} secondes');
   }
 
   @override

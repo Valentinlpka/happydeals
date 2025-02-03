@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/association.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/screens/profile.dart';
@@ -47,16 +48,49 @@ class SearchResults extends StatelessWidget {
       BuildContext context, String normalizedSearchTerm) async {
     List<Widget> results = [];
 
-    if (filter == "Tous" || filter == "Utilisateurs") {
-      results.addAll(await _getUserResults(context, normalizedSearchTerm));
-    }
+    if (filter == "Tous") {
+      // Utilisateurs avec en-tête
+      final userResults = await _getUserResults(context, normalizedSearchTerm);
+      if (userResults.isNotEmpty) {
+        results.add(_buildSectionHeader('Utilisateurs'));
+        results.addAll(userResults);
+      }
 
-    if (filter == "Tous" || filter == "Entreprises") {
-      results.addAll(await _getCompanyResults(normalizedSearchTerm));
-    }
+      // Entreprises avec en-tête
+      final companyResults = await _getCompanyResults(normalizedSearchTerm);
+      if (companyResults.isNotEmpty) {
+        results.add(_buildSectionHeader('Entreprises'));
+        results.addAll(companyResults);
+      }
 
-    if (filter == "Tous" || filter == "Posts") {
-      results.addAll(await _getPostResults(normalizedSearchTerm));
+      // Associations avec en-tête
+      final associationResults =
+          await _getAssociationResults(normalizedSearchTerm);
+      if (associationResults.isNotEmpty) {
+        results.add(_buildSectionHeader('Associations'));
+        results.addAll(associationResults);
+      }
+
+      // Posts avec en-tête
+      final postResults = await _getPostResults(normalizedSearchTerm);
+      if (postResults.isNotEmpty) {
+        results.add(_buildSectionHeader('Publications'));
+        results.addAll(postResults);
+      }
+    } else {
+      // Comportement existant pour les filtres individuels
+      if (filter == "Utilisateurs") {
+        results.addAll(await _getUserResults(context, normalizedSearchTerm));
+      }
+      if (filter == "Entreprises") {
+        results.addAll(await _getCompanyResults(normalizedSearchTerm));
+      }
+      if (filter == "Posts") {
+        results.addAll(await _getPostResults(normalizedSearchTerm));
+      }
+      if (filter == "Associations") {
+        results.addAll(await _getAssociationResults(normalizedSearchTerm));
+      }
     }
 
     return results;
@@ -98,6 +132,19 @@ class SearchResults extends StatelessWidget {
     }
 
     return postWidgets;
+  }
+
+  Future<List<Widget>> _getAssociationResults(
+      String normalizedSearchTerm) async {
+    QuerySnapshot associationSnapshot = await FirebaseFirestore.instance
+        .collection('associations')
+        .where('searchText', isGreaterThanOrEqualTo: normalizedSearchTerm)
+        .where('searchText', isLessThanOrEqualTo: '$normalizedSearchTerm\uf7ff')
+        .get();
+
+    return associationSnapshot.docs
+        .map((doc) => buildAssociationCard(doc))
+        .toList();
   }
 
   Widget buildUserWidget(BuildContext context, DocumentSnapshot document) {
@@ -156,6 +203,59 @@ class SearchResults extends StatelessWidget {
     );
   }
 
+  Widget buildAssociationCard(DocumentSnapshot document) {
+    Association association = Association.fromFirestore(document);
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: NetworkImage(association.logo),
+              radius: 25,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          association.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (association.isVerified)
+                        const Icon(
+                          Icons.verified,
+                          color: Colors.blue,
+                          size: 20,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    association.category,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String normalizeText(String text) {
     return text
         .toLowerCase()
@@ -166,5 +266,25 @@ class SearchResults extends StatelessWidget {
         .replaceAll(RegExp(r'[ùúûü]'), 'u')
         .replaceAll(RegExp(r'[ýÿ]'), 'y')
         .replaceAll(RegExp(r'[ñ]'), 'n');
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const Divider(),
+        ],
+      ),
+    );
   }
 }

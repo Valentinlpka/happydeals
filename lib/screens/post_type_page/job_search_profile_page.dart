@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:happy/widgets/pdf_viewer_page.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
@@ -77,6 +78,7 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('fr_FR');
     _loadProfileData();
   }
 
@@ -172,6 +174,40 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.only(bottom: 10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[700],
+              padding: const EdgeInsets.symmetric(
+                horizontal: 30,
+                vertical: 15,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(5),
+              ),
+              elevation: 0,
+            ),
+            onPressed: _saveData,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Enregistrer',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.check_circle_outline, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
       backgroundColor: Colors.grey[50],
       appBar: const CustomAppBarBack(
         title: 'Profil de recherche d\'emploi',
@@ -310,55 +346,6 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                       const SizedBox(height: 24),
                       _buildCompetencesList(),
                     ],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                  child: SafeArea(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[700],
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 30,
-                          vertical: 15,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: _saveData,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Enregistrer',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Icon(Icons.check_circle_outline, size: 20),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -895,6 +882,11 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                       }
                     });
                   },
+                  proxyDecorator: (child, index, animation) => Material(
+                    elevation: 0,
+                    child: child,
+                  ),
+                  buildDefaultDragHandles: false,
                   itemBuilder: (context, index) {
                     final exp = _tempExperiences[index];
                     return Card(
@@ -942,10 +934,26 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${_formatDate(exp.dateDebut)} - ${exp.enCours ? 'Aujourd\'hui' : _formatDate(exp.dateFin!)}',
+                              _formatDateRange(
+                                exp.dateDebut,
+                                exp.dateFin,
+                                exp.enCours,
+                              ),
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '(${_calculateDuration(
+                                exp.dateDebut,
+                                exp.dateFin,
+                                exp.enCours,
+                              )})',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -971,16 +979,18 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: Icon(Icons.edit_outlined,
-                                  color: Colors.blue[700]),
-                              onPressed: () =>
-                                  _showExperienceDialog(experience: exp),
+                            _buildItemActions(
+                              () => _showExperienceDialog(experience: exp),
+                              () => _deleteExperience(exp),
+                              null,
                             ),
-                            IconButton(
-                              icon: Icon(Icons.delete_outline,
-                                  color: Colors.red[400]),
-                              onPressed: () => _deleteExperience(exp),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: Icon(
+                                Icons.drag_handle,
+                                size: 18,
+                                color: Colors.grey[400],
+                              ),
                             ),
                           ],
                         ),
@@ -995,8 +1005,82 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.month}/${date.year}';
+  Widget _buildItemActions(
+      Function() onEdit, Function() onDelete, Function()? onReorder) {
+    return Wrap(
+      spacing: 4,
+      children: [
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(
+            minWidth: 32,
+            minHeight: 32,
+          ),
+          padding: EdgeInsets.zero,
+          iconSize: 18,
+          icon: Icon(Icons.edit_outlined, color: Colors.blue[700]),
+          onPressed: onEdit,
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(
+            minWidth: 32,
+            minHeight: 32,
+          ),
+          padding: EdgeInsets.zero,
+          iconSize: 18,
+          icon: const Icon(Icons.delete_outline, color: Colors.red),
+          onPressed: onDelete,
+        ),
+        if (onReorder != null)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(
+              minWidth: 32,
+              minHeight: 32,
+            ),
+            padding: EdgeInsets.zero,
+            iconSize: 18,
+            icon: Icon(Icons.drag_handle, color: Colors.grey[600]),
+            onPressed: onReorder,
+          ),
+      ],
+    );
+  }
+
+  String _formatDateRange(DateTime start, DateTime? end, bool isOngoing) {
+    final dateFormat = DateFormat('MMM yyyy', 'fr_FR');
+    final startStr = dateFormat.format(start);
+
+    if (isOngoing) {
+      return '$startStr - Aujourd\'hui';
+    }
+
+    if (end != null) {
+      final endStr = dateFormat.format(end);
+      return '$startStr - $endStr';
+    }
+
+    return startStr;
+  }
+
+  String _calculateDuration(DateTime start, DateTime? end, bool isOngoing) {
+    final now = DateTime.now();
+    final endDate = isOngoing ? now : (end ?? now);
+    final difference = endDate.difference(start);
+
+    final years = difference.inDays ~/ 365;
+    final months = (difference.inDays % 365) ~/ 30;
+
+    if (years > 0 && months > 0) {
+      return '$years an${years > 1 ? 's' : ''} $months mois';
+    } else if (years > 0) {
+      return '$years an${years > 1 ? 's' : ''}';
+    } else if (months > 0) {
+      return '$months mois';
+    } else {
+      return 'Moins d\'un mois';
+    }
   }
 
   Future<void> _showExperienceDialog({Experience? experience}) async {
@@ -1217,11 +1301,17 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
           initialDate: selectedDate ?? DateTime.now(),
           firstDate: DateTime(1900),
           lastDate: DateTime.now(),
+          locale: const Locale('fr', 'FR'),
           builder: (context, child) {
             return Theme(
               data: Theme.of(context).copyWith(
                 colorScheme: ColorScheme.light(
                   primary: Colors.blue[700]!,
+                ),
+                textButtonTheme: TextButtonThemeData(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue[700],
+                  ),
                 ),
               ),
               child: child!,
@@ -1252,7 +1342,7 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
             const SizedBox(height: 4),
             Text(
               selectedDate != null
-                  ? DateFormat('MM/yyyy').format(selectedDate)
+                  ? DateFormat('MMMM yyyy', 'fr_FR').format(selectedDate)
                   : 'Sélectionner',
               style: const TextStyle(
                 fontSize: 16,
@@ -1349,6 +1439,11 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                       }
                     });
                   },
+                  proxyDecorator: (child, index, animation) => Material(
+                    elevation: 0,
+                    child: child,
+                  ),
+                  buildDefaultDragHandles: false,
                   itemBuilder: (context, index) {
                     final formation = _tempFormations[index];
                     return Card(
@@ -1396,7 +1491,11 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              formation.domaine,
+                              _formatDateRange(
+                                formation.dateDebut,
+                                formation.dateFin,
+                                formation.enCours,
+                              ),
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 13,
@@ -1404,10 +1503,14 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${_formatDate(formation.dateDebut)} - ${formation.enCours ? 'En cours' : _formatDate(formation.dateFin!)}',
+                              '(${_calculateDuration(
+                                formation.dateDebut,
+                                formation.dateFin,
+                                formation.enCours,
+                              )})',
                               style: TextStyle(
                                 color: Colors.grey[600],
-                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
                           ],
@@ -1415,16 +1518,18 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: Icon(Icons.edit_outlined,
-                                  color: Colors.purple[700]),
-                              onPressed: () =>
-                                  _showFormationDialog(formation: formation),
+                            _buildItemActions(
+                              () => _showFormationDialog(formation: formation),
+                              () => _deleteFormation(formation),
+                              null,
                             ),
-                            IconButton(
-                              icon: Icon(Icons.delete_outline,
-                                  color: Colors.red[400]),
-                              onPressed: () => _deleteFormation(formation),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: Icon(
+                                Icons.drag_handle,
+                                size: 18,
+                                color: Colors.grey[400],
+                              ),
                             ),
                           ],
                         ),
@@ -1461,7 +1566,8 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          padding: const EdgeInsets.only(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
             top: 20,
             left: 20,
             right: 20,
@@ -1698,6 +1804,11 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                       }
                     });
                   },
+                  proxyDecorator: (child, index, animation) => Material(
+                    elevation: 0,
+                    child: child,
+                  ),
+                  buildDefaultDragHandles: false,
                   itemBuilder: (context, index) {
                     final competence = _tempCompetences[index];
                     return Card(
@@ -1754,16 +1865,19 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: Icon(Icons.edit_outlined,
-                                  color: Colors.blue[700]),
-                              onPressed: () =>
+                            _buildItemActions(
+                              () =>
                                   _showCompetenceDialog(competence: competence),
+                              () => _deleteCompetence(competence),
+                              null,
                             ),
-                            IconButton(
-                              icon: Icon(Icons.delete_outline,
-                                  color: Colors.red[400]),
-                              onPressed: () => _deleteCompetence(competence),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: Icon(
+                                Icons.drag_handle,
+                                size: 18,
+                                color: Colors.grey[400],
+                              ),
                             ),
                           ],
                         ),
@@ -1816,171 +1930,173 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
             left: 20,
             right: 20,
           ),
-          child: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        isEditing
-                            ? 'Modifier la compétence'
-                            : 'Ajouter une compétence',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isEditing
+                              ? 'Modifier la compétence'
+                              : 'Ajouter une compétence',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  _buildDialogTextField(
-                    controller: nomController,
-                    label: 'Nom de la compétence',
-                    icon: Icons.psychology_outlined,
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Niveau',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[200]!),
+                    const SizedBox(height: 20),
+                    _buildDialogTextField(
+                      controller: nomController,
+                      label: 'Nom de la compétence',
+                      icon: Icons.psychology_outlined,
                     ),
-                    child: Column(
-                      children: niveaux.map((niveau) {
-                        final isSelected = selectedNiveau == niveau;
-                        return InkWell(
-                          onTap: () =>
-                              setModalState(() => selectedNiveau = niveau),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: niveau != niveaux.last
-                                      ? Colors.grey[200]!
-                                      : Colors.transparent,
-                                ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Niveau',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[200]!),
+                      ),
+                      child: Column(
+                        children: niveaux.map((niveau) {
+                          final isSelected = selectedNiveau == niveau;
+                          return InkWell(
+                            onTap: () =>
+                                setModalState(() => selectedNiveau = niveau),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? Colors.blue[700]!
-                                          : Colors.grey[400]!,
-                                      width: 2,
-                                    ),
-                                    color: isSelected
-                                        ? Colors.blue[700]
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: niveau != niveaux.last
+                                        ? Colors.grey[200]!
                                         : Colors.transparent,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        niveau,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
-                                          color: isSelected
-                                              ? Colors.blue[700]
-                                              : Colors.black87,
-                                        ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? Colors.blue[700]!
+                                            : Colors.grey[400]!,
+                                        width: 2,
                                       ),
-                                      Text(
-                                        _getNiveauDescription(niveau),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
+                                      color: isSelected
+                                          ? Colors.blue[700]
+                                          : Colors.transparent,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          niveau,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: isSelected
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                            color: isSelected
+                                                ? Colors.blue[700]
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                        Text(
+                                          _getNiveauDescription(niveau),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[700],
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: () async {
-                        if (formKey.currentState?.validate() ?? false) {
-                          final newCompetence = Competence(
-                            id: competence?.id ?? const Uuid().v4(),
-                            nom: nomController.text,
-                            niveau: selectedNiveau,
-                            ordre: competence?.ordre ?? _tempCompetences.length,
                           );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue[700],
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () async {
+                          if (formKey.currentState?.validate() ?? false) {
+                            final newCompetence = Competence(
+                              id: competence?.id ?? const Uuid().v4(),
+                              nom: nomController.text,
+                              niveau: selectedNiveau,
+                              ordre:
+                                  competence?.ordre ?? _tempCompetences.length,
+                            );
 
-                          if (isEditing) {
-                            final index = _tempCompetences
-                                .indexWhere((c) => c.id == competence.id);
-                            setState(() {
-                              _tempCompetences[index] = newCompetence;
-                            });
-                          } else {
-                            setState(() {
-                              _tempCompetences.add(newCompetence);
-                            });
+                            if (isEditing) {
+                              final index = _tempCompetences
+                                  .indexWhere((c) => c.id == competence.id);
+                              setState(() {
+                                _tempCompetences[index] = newCompetence;
+                              });
+                            } else {
+                              setState(() {
+                                _tempCompetences.add(newCompetence);
+                              });
+                            }
+                            Navigator.pop(context);
                           }
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: Text(
-                        isEditing ? 'Modifier' : 'Ajouter',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                        },
+                        child: Text(
+                          isEditing ? 'Modifier' : 'Ajouter',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

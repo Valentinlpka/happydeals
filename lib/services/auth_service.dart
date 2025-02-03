@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users_provider.dart';
@@ -49,6 +51,12 @@ class AuthService {
       }
 
       await Provider.of<UserModel>(context, listen: false).loadUserData();
+
+      // Initialiser FCM après une connexion réussie
+      if (kIsWeb) {
+        await updateFCMToken();
+      }
+
       return 'Success';
     } on FirebaseAuthException catch (e) {
       return e.message;
@@ -88,6 +96,41 @@ class AuthService {
         (Route<dynamic> route) => false,
       );
     } catch (e) {}
+  }
+
+  Future<void> updateFCMToken() async {
+    if (!kIsWeb) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Demander d'abord la permission
+        NotificationSettings settings =
+            await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
+        if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+          String? token = await FirebaseMessaging.instance.getToken(
+            vapidKey:
+                'BJqxpGh0zaBedTU9JBdIQ8LrVUXetBpUBKT4wrrV_LXiI9vy0LwRa4_KCprNARbLEiV9gFnVipimUO5AN60XqSI',
+          );
+
+          if (token != null) {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .update({'fcmToken': token});
+
+            debugPrint('FCM Token mis à jour: $token');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur de mise à jour du token FCM: $e');
+    }
   }
 
   User? get currentUser => _auth.currentUser;

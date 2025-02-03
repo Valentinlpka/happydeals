@@ -125,115 +125,174 @@ class _LoginState extends State<Login> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15.0),
+            padding: const EdgeInsets.symmetric(horizontal: 25.0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 15.0),
-                  child: Image(
-                    image: AssetImage('assets/mon_logo.png'),
-                    height: 200,
-                  ),
-                ),
-                const Text(
-                  'Connexion',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 28,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.all(15),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    prefixIcon: const Icon(Icons.alternate_email),
-                    hintText: "E-mail",
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: !_passwordVisible,
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.all(15),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(_passwordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off),
-                      onPressed: () =>
-                          setState(() => _passwordVisible = !_passwordVisible),
+                const SizedBox(height: 50),
+                // Logo et titre
+                Center(
+                  child: Hero(
+                    tag: 'logo',
+                    child: Image.asset(
+                      'assets/mon_logo.png',
+                      height: 120,
                     ),
-                    hintText: "Mot de passe",
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 40),
+                // Textes d'introduction
+                const Text(
+                  'Bienvenue !',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E3799),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Connectez-vous pour découvrir les meilleures offres',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                // Champs de saisie
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: TextField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      hintText: "E-mail",
+                      prefixIcon:
+                          Icon(Icons.email_outlined, color: Colors.blue[700]),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.all(20),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: TextField(
+                    controller: _passwordController,
+                    obscureText: !_passwordVisible,
+                    decoration: InputDecoration(
+                      hintText: "Mot de passe",
+                      prefixIcon:
+                          Icon(Icons.lock_outline, color: Colors.blue[700]),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _passwordVisible
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () => setState(
+                            () => _passwordVisible = !_passwordVisible),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.all(20),
+                    ),
+                  ),
+                ),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
-                      // Ajoutez ici la logique pour le mot de passe oublié
+                      // Logique mot de passe oublié
                     },
-                    child: const Text('Mot de passe oublié ?'),
+                    child: Text(
+                      'Mot de passe oublié ?',
+                      style: TextStyle(color: Colors.blue[700]),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Bouton de connexion
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _signIn,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[700],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Connexion',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[700],
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                // Séparateur
+                Row(
+                  children: [
+                    Expanded(
+                        child: Divider(color: Colors.grey[300], thickness: 1)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
+                      child:
+                          Text('OU', style: TextStyle(color: Colors.grey[600])),
                     ),
-                    onPressed: _isLoading ? null : _signIn,
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Connexion',
-                            style: TextStyle(fontSize: 18)),
+                    Expanded(
+                        child: Divider(color: Colors.grey[300], thickness: 1)),
+                  ],
+                ),
+                const SizedBox(height: 30),
+                // Lien d'inscription
+                Center(
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const SignUpPage()),
+                    ),
+                    child: RichText(
+                      text: TextSpan(
+                        text: "Vous n'avez pas encore de compte ? ",
+                        style: TextStyle(color: Colors.grey[600]),
+                        children: [
+                          TextSpan(
+                            text: "Je m'inscris",
+                            style: TextStyle(
+                              color: Colors.blue[700],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Text('OU'),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Vous n'avez pas encore de compte ? "),
-                    GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SignUpPage(),
-                        ),
-                      ),
-                      child: Text(
-                        "Je m'inscris",
-                        style: TextStyle(
-                            color: Colors.blue[700],
-                            fontWeight: FontWeight.bold),
-                      ),
-                    )
-                  ],
-                )
               ],
             ),
           ),

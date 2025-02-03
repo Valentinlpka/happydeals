@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' as material show Card;
 import 'package:flutter/material.dart' hide Card;
 import 'package:happy/screens/shop/cart_models.dart';
+import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/promo_service.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:happy/widgets/unified_payment_button.dart';
+import 'package:provider/provider.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final Cart cart;
@@ -104,26 +104,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildOrderSummary() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          spacing: 10,
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Commande chez ${_cart.sellerName}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            _buildExpirationBadge(),
-          ],
-        ),
-        const SizedBox(height: 20),
-        ..._cart.items.map((item) => _buildOrderItem(item)),
-        const Divider(),
-        _buildTotalSection(),
-      ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Commande chez ${_cart.sellerName}',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              _buildExpirationBadge(),
+            ],
+          ),
+          const SizedBox(height: 24),
+          ..._cart.items.map((item) => _buildOrderItem(item)),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1),
+          ),
+          _buildTotalSection(),
+        ],
+      ),
     );
   }
 
@@ -135,23 +153,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final isNearExpiration = remainingMinutes < 30;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: isNearExpiration
             ? Colors.red.withOpacity(0.1)
-            : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+            : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isNearExpiration ? Colors.red : Colors.grey,
+          color: isNearExpiration ? Colors.red : Colors.grey.shade300,
           width: 1,
         ),
       ),
-      child: Text(
-        'Expire dans: ${remainingMinutes}min',
-        style: TextStyle(
-          color: isNearExpiration ? Colors.red : Colors.grey[800],
-          fontWeight: FontWeight.w500,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.timer_outlined,
+            size: 16,
+            color: isNearExpiration ? Colors.red : Colors.grey[700],
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '${remainingMinutes}min',
+            style: TextStyle(
+              color: isNearExpiration ? Colors.red : Colors.grey[800],
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -159,135 +189,207 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _buildOrderItem(CartItem item) {
     final hasDiscount = item.variant.discount?.isValid() ?? false;
 
-    return material.Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            if (item.variant.images.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  item.variant.images[0],
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
-                ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          if (item.variant.images.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                item.variant.images[0],
+                width: 70,
+                height: 70,
+                fit: BoxFit.cover,
               ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.product.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
+            ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.product.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.variant.attributes.entries
-                        .map((e) => '${e.key}: ${e.value}')
-                        .join(', '),
-                    style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.variant.attributes.entries
+                      .map((e) => '${e.key}: ${e.value}')
+                      .join(', '),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 13,
                   ),
-                  Text(
-                    'Quantité: ${item.quantity}',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  if (hasDiscount)
-                    Text(
-                      '${item.variant.price.toStringAsFixed(2)} €',
-                      style: const TextStyle(
-                        decoration: TextDecoration.lineThrough,
-                        color: Colors.grey,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Qté: ${item.quantity}',
+                        style: TextStyle(
+                          color: Colors.grey[800],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                ],
-              ),
+                    if (hasDiscount) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '${item.variant.price.toStringAsFixed(2)} €',
+                        style: TextStyle(
+                          decoration: TextDecoration.lineThrough,
+                          color: Colors.grey[500],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ),
-            Text(
-              '${(item.appliedPrice * item.quantity).toStringAsFixed(2)} €',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: hasDiscount ? Colors.red : null,
-              ),
+          ),
+          Text(
+            '${(item.appliedPrice * item.quantity).toStringAsFixed(2)} €',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: hasDiscount ? Colors.red[700] : Colors.black87,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTotalSection() {
-    return material.Card(
-      margin: const EdgeInsets.only(top: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Sous-total'),
-                Text('${_cart.total.toStringAsFixed(2)} €'),
-              ],
-            ),
-            if (_cart.discountAmount > 0) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Code promo (${_cart.appliedPromoCode})'),
-                  Text('-${_cart.discountAmount.toStringAsFixed(2)} €'),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Sous-total'),
+              Text('${_cart.total.toStringAsFixed(2)} €'),
             ],
-            const Divider(height: 24),
+          ),
+          if (_cart.discountAmount > 0) ...[
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Total à payer',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Text('Code promo (${_cart.appliedPromoCode})'),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: _removePromoCode,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.red[700],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 Text(
-                  '${_cart.finalTotal.toStringAsFixed(2)} €',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  '-${_cart.discountAmount.toStringAsFixed(2)} €',
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ],
-        ),
+          const Divider(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total à payer',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${_cart.finalTotal.toStringAsFixed(2)} €',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
+  Future<void> _removePromoCode() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await _firestore.collection('carts').doc(_cart.id).update({
+        'appliedPromoCode': null,
+        'discountAmount': 0,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code promo supprimé')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Erreur lors de la suppression du code promo')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Widget _buildBottomPaymentSection() {
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 8,
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            offset: const Offset(0, -4),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -297,60 +399,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const Text(
                   'Total à payer',
                   style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   '${_cart.finalTotal.toStringAsFixed(2)} €',
                   style: const TextStyle(
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    fontSize: 20,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            UnifiedPaymentButton(
-              type: 'order',
-              amount: (_cart.finalTotal * 100).round(),
-              metadata: {
-                'orderId': _orderId!,
-                'cartId': _cart.id,
-                'userId': _auth.currentUser?.uid,
-              },
-              orderData: {
-                'userId': _auth.currentUser?.uid,
-                'items': _cart.items
-                    .map((item) => {
-                          'productId': item.product.id,
-                          'variantId': item.variant.id,
-                          'name': item.product.name,
-                          'variantAttributes': item.variant.attributes,
-                          'quantity': item.quantity,
-                          'appliedPrice': item.appliedPrice,
-                          'originalPrice': item.variant.price,
-                          'image': item.variant.images.isNotEmpty
-                              ? item.variant.images[0]
-                              : '',
-                          'sellerId': _cart.sellerId,
-                          'entrepriseId': _cart.sellerId,
-                        })
-                    .toList(),
-                'sellerId': _cart.sellerId,
-                'entrepriseId': _cart.sellerId,
-                'subtotal': _cart.total,
-                'promoCode': _cart.appliedPromoCode,
-                'discountAmount': _cart.discountAmount,
-                'totalPrice': _cart.finalTotal,
-                'pickupAddress': _pickupAddress,
-              },
-              successUrl: kIsWeb
-                  ? '${Uri.base.origin}/#/payment-success'
-                  : 'happydeals://payment-success',
-              cancelUrl: kIsWeb
-                  ? '${Uri.base.origin}/#/payment-cancel'
-                  : 'happydeals://payment-cancel',
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: UnifiedPaymentButton(
+                type: 'order',
+                amount: (_cart.finalTotal * 100).round(),
+                metadata: {
+                  'orderId': _orderId!,
+                  'cartId': _cart.id,
+                  'userId': _auth.currentUser?.uid,
+                },
+                orderData: {
+                  'userId': _auth.currentUser?.uid,
+                  'items': _cart.items
+                      .map((item) => {
+                            'productId': item.product.id,
+                            'variantId': item.variant.id,
+                            'name': item.product.name,
+                            'variantAttributes': item.variant.attributes,
+                            'quantity': item.quantity,
+                            'appliedPrice': item.appliedPrice,
+                            'originalPrice': item.variant.price,
+                            'image': item.variant.images.isNotEmpty
+                                ? item.variant.images[0]
+                                : '',
+                            'sellerId': _cart.sellerId,
+                            'entrepriseId': _cart.sellerId,
+                          })
+                      .toList(),
+                  'sellerId': _cart.sellerId,
+                  'entrepriseId': _cart.sellerId,
+                  'subtotal': _cart.total,
+                  'promoCode': _cart.appliedPromoCode,
+                  'discountAmount': _cart.discountAmount,
+                  'totalPrice': _cart.finalTotal,
+                  'pickupAddress': _pickupAddress,
+                },
+                successUrl: '${Uri.base.origin}/#/payment-success',
+                cancelUrl: '${Uri.base.origin}/#/payment-cancel',
+              ),
             ),
           ],
         ),
@@ -388,50 +489,85 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildPromoCodeSection() {
-    return material.Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Code promo',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Code promo',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.5,
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _promoCodeController,
-                    decoration: const InputDecoration(
-                      hintText: 'Entrez votre code',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _promoCodeController,
+                  decoration: InputDecoration(
+                    hintText: 'Entrez votre code',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).primaryColor,
+                        width: 2,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: _applyPromoCode,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
                     ),
                   ),
-                  child: const Text('Appliquer'),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: _applyPromoCode,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Appliquer',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -450,29 +586,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final isValid = await _promoService.validatePromoCode(
-        code,
-        _cart.sellerId,
-        _auth.currentUser!.uid,
-      );
-
-      if (!isValid) {
-        throw Exception('Code promo invalide ou expiré');
-      }
-
-      final promoDetails = await _promoService.getPromoCodeDetails(code);
-      if (promoDetails == null) {
-        throw Exception('Erreur lors de la récupération du code promo');
-      }
-
-      final discountAmount = promoDetails['isPercentage']
-          ? _cart.total * (promoDetails['value'] / 100)
-          : promoDetails['value'].toDouble();
-
-      await _firestore.collection('carts').doc(_cart.id).update({
-        'appliedPromoCode': code,
-        'discountAmount': discountAmount,
-      });
+      await Provider.of<CartService>(context, listen: false)
+          .applyPromoCode(_cart.sellerId, code);
 
       _promoCodeController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -563,13 +678,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  // Les autres méthodes restent identiques
-  // _fetchPickupAddress, _buildPromoCodeSection, _applyPromoCode,
-  // _buildExpiredCart, _buildCheckoutContent, build
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: const CustomAppBarBack(
         title: 'Paiement',
       ),

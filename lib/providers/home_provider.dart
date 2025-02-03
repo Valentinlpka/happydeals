@@ -214,13 +214,11 @@ class HomeProvider extends ChangeNotifier {
       try {
         final post = _createPostFromDocument(postDoc);
         if (post != null) {
-          // ID unique basé sur le type et l'identifiant du post
           String uniqueId = post is SharedPost
               ? '${post.id}_${post.originalPostId}_${postDoc.id}_${post.timestamp}'
               : '${post.id}_${postDoc.id}_${post.timestamp}';
 
           if (!addedPostIds.contains(uniqueId)) {
-            // Ajout au Set pour éviter les doublons
             addedPostIds.add(uniqueId);
 
             final Map<String, dynamic> postData;
@@ -235,24 +233,26 @@ class HomeProvider extends ChangeNotifier {
                 'post': post,
                 ...contentData,
                 'sharedByUser': sharedByUserData,
-                'uniqueId': uniqueId, // Ajoutez l'ID unique aux données
+                'uniqueId': uniqueId,
               };
             } else {
-              final companyDoc = await _firestore
-                  .collection('companys')
+              // Vérifier d'abord si c'est une association
+              final entityDoc = await _firestore
+                  .collection(post.entityType == 'association'
+                      ? 'associations'
+                      : 'companys')
                   .doc(post.companyId)
                   .get();
 
-              if (!companyDoc.exists) continue;
+              if (!entityDoc.exists) continue;
 
               postData = {
                 'post': post,
-                'company': companyDoc.data(),
-                'uniqueId': uniqueId, // Ajoutez l'ID unique aux données
+                'company': entityDoc.data(),
+                'uniqueId': uniqueId,
               };
             }
 
-            // Ajouter l'élément au tableau final
             combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
           }
         }
@@ -415,13 +415,17 @@ class HomeProvider extends ChangeNotifier {
 // Traite un post original
   Future<Map<String, dynamic>?> _handleOriginalPost(
       SharedPost sharedPost, DocumentSnapshot originalPostDoc) async {
-    final companyDoc =
-        await _firestore.collection('companys').doc(sharedPost.companyId).get();
+    final entityDoc = await _firestore
+        .collection(sharedPost.entityType == 'association'
+            ? 'associations'
+            : 'companys')
+        .doc(sharedPost.companyId)
+        .get();
 
-    if (!companyDoc.exists) return null;
+    if (!entityDoc.exists) return null;
 
     return {
-      'company': companyDoc.data() as Map<String, dynamic>,
+      'company': entityDoc.data() as Map<String, dynamic>,
       'originalContent': originalPostDoc.data(),
       'isAd': false
     };

@@ -111,90 +111,6 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
   return { url: accountLink.url };
 });
 
-// Mettre à jour le plafond du pro
-exports.updateMerchantBalance = functions.firestore
-  .document("orders/{orderId}")
-  .onUpdate(async (change, context) => {
-    const newValue = change.after.data();
-    const previousValue = change.before.data();
-
-    if (
-      newValue.status === "completed" &&
-      previousValue.status !== "completed"
-    ) {
-      const sellerId = newValue.sellerId;
-      const totalAmount = parseFloat(newValue.totalPrice);
-
-      if (isNaN(totalAmount) || totalAmount <= 0) {
-        console.error(
-          `Montant total invalide pour la commande ${context.params.orderId}: ${totalAmount}`
-        );
-        return null;
-      }
-
-      const feePercentage = 7.5;
-      const feeAmount = (totalAmount * feePercentage) / 100;
-      const amountAfterFee = totalAmount - feeAmount;
-
-      console.log(`Traitement de la commande ${context.params.orderId}:`);
-      console.log(`  Total: ${totalAmount}`);
-      console.log(`  Frais: ${feeAmount}`);
-      console.log(`  Montant après frais: ${amountAfterFee}`);
-
-      try {
-        // Recherche de l'entreprise correspondante dans la collection "companys"
-        const companySnapshot = await admin
-          .firestore()
-          .collection("companys")
-          .doc(sellerId)
-          .get();
-
-        // Vérifier si le document existe
-        if (!companySnapshot.exists) {
-          console.error(
-            `Aucune entreprise trouvée pour le sellerId: ${sellerId}`
-          );
-          return null;
-        }
-
-        // Le sellerId est déjà l'ID du document
-        const companyId = sellerId;
-
-        // Mise à jour des soldes de l'entreprise
-        await admin
-          .firestore()
-          .collection("companys")
-          .doc(companyId)
-          .update({
-            totalGain: admin.firestore.FieldValue.increment(totalAmount),
-            totalFees: admin.firestore.FieldValue.increment(feeAmount),
-            availableBalance:
-              admin.firestore.FieldValue.increment(amountAfterFee),
-          });
-
-        // Enregistrement de la transaction
-        await admin.firestore().collection("transactions").add({
-          companyId: companyId,
-          orderId: context.params.orderId,
-          totalAmount: totalAmount,
-          feeAmount: feeAmount,
-          amountAfterFee: amountAfterFee,
-          type: "credit",
-          status: "completed",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        console.log(
-          `Solde mis à jour pour l'entreprise: ${companyId}, Montant total: ${totalAmount}, Montant après frais: ${amountAfterFee}`
-        );
-      } catch (error) {
-        console.error("Erreur lors de la mise à jour du solde:", error);
-        console.error("Détails de l'erreur:", JSON.stringify(error));
-      }
-    }
-    return null;
-  });
-
 // Demande d'un paiement de la part d'un pro
 exports.requestPayout = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -1745,19 +1661,35 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
     });
 
     if (isWeb) {
+      // Extraire l'ID existant de l'URL de succès
+      const urlParams = new URL(successUrl).searchParams;
+      let finalSuccessUrl = successUrl;
+
+      // Ajouter le session_id à l'URL existante
+      if (successUrl.includes("?")) {
+        finalSuccessUrl = `${successUrl}&session_id={CHECKOUT_SESSION_ID}`;
+      } else {
+        finalSuccessUrl = `${successUrl}?session_id={CHECKOUT_SESSION_ID}`;
+      }
+
       // Créer une session Checkout pour le web
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
-        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl,
+        success_url: finalSuccessUrl.replace("#/", ""), // Enlever le hash
+        cancel_url: cancelUrl.replace("#/", ""), // Enlever le hash
         line_items: [
           {
             price_data: {
               currency: "eur",
               unit_amount: amount,
               product_data: {
-                name: type === "order" ? "Commande Happy Deals" : "Paiement",
+                name:
+                  type === "order"
+                    ? "Commande Happy Deals"
+                    : type === "express_deal"
+                    ? "Panier anti-gaspi"
+                    : "Réservation de service",
               },
             },
             quantity: 1,
@@ -1768,6 +1700,31 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
           userId: context.auth.uid,
           ...processedMetadata,
         },
+      });
+
+      // Stocker les informations de paiement en attente selon le type
+      let collectionName;
+      switch (type) {
+        case "order":
+          collectionName = "pending_orders";
+          break;
+        case "express_deal":
+          collectionName = "pending_express_deal_payments";
+          break;
+        case "service":
+          collectionName = "pending_service_payments";
+          break;
+        default:
+          throw new Error("Type de paiement non supporté");
+      }
+
+      await admin.firestore().collection(collectionName).doc(session.id).set({
+        userId: context.auth.uid,
+        metadata: processedMetadata,
+        status: "pending",
+        type: type,
+        amount: amount,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return {
@@ -1788,7 +1745,7 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
 
       return {
         clientSecret: paymentIntent.client_secret,
-        sessionId: paymentIntent.id, // Ajoutez ceci
+        sessionId: paymentIntent.id,
       };
     }
   } catch (error) {
@@ -1904,10 +1861,9 @@ async function handleOrderPayment(session) {
     const pendingOrderData = pendingOrderDoc.data();
     console.log("PendingOrderData:", pendingOrderData);
 
-    // 1. Exécuter la transaction Firestore
+    // 1. Exécuter la transaction Firestore pour la gestion des stocks
     await admin.firestore().runTransaction(async (transaction) => {
       // LECTURES D'ABORD
-      // Lire tous les documents de produits nécessaires
       const productReads = await Promise.all(
         pendingOrderData.items.map(async (item) => {
           const productRef = admin
@@ -1922,16 +1878,26 @@ async function handleOrderPayment(session) {
         })
       );
 
-      // PUIS LES ÉCRITURES
       const orderRef = admin.firestore().collection("orders").doc(orderId);
 
-      // Mise à jour de la commande
+      // Créer la commande
       transaction.set(orderRef, {
-        ...pendingOrderData,
+        userId: userId,
+        items: pendingOrderData.items,
+        sellerId: pendingOrderData.sellerId,
+        entrepriseId: pendingOrderData.entrepriseId,
+        subtotal: pendingOrderData.subtotal,
+        promoCode: pendingOrderData.promoCode,
+        discountAmount: pendingOrderData.discountAmount,
+        totalPrice: pendingOrderData.totalPrice,
+        pickupAddress: pendingOrderData.pickupAddress,
         status: "paid",
         paymentId: session.payment_intent,
         paidAt: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt:
+          pendingOrderData.createdAt ||
+          admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // Mise à jour des stocks
@@ -1966,45 +1932,24 @@ async function handleOrderPayment(session) {
         transaction.update(ref, { variants: updatedVariants });
       }
 
-      // Suppression du panier
+      // Supprimer le panier si nécessaire
       if (cartId) {
         const cartRef = admin.firestore().collection("carts").doc(cartId);
         transaction.delete(cartRef);
       }
 
-      // Suppression de la commande en attente
+      // Supprimer la commande en attente
       transaction.delete(pendingOrderDoc.ref);
-
-      // Notifications
-      const notificationsRef = admin.firestore().collection("notifications");
-      if (pendingOrderData.sellerId) {
-        transaction.set(notificationsRef.doc(), {
-          userId,
-          type: "order_confirmed",
-          title: "Commande confirmée",
-          message: `Votre commande #${orderId} a été confirmée`,
-          orderId,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          read: false,
-        });
-
-        transaction.set(notificationsRef.doc(), {
-          userId: pendingOrderData.sellerId,
-          type: "new_order",
-          title: "Nouvelle commande",
-          message: `Nouvelle commande #${orderId} reçue`,
-          orderId,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          read: false,
-        });
-      }
     });
 
-    // 2. Après la transaction, gérer l'envoi des emails
+    // 2. Envoyer les notifications
+    await sendOrderNotifications(orderId, userId, pendingOrderData);
+
+    // 3. Envoyer les emails
     if (pendingOrderData.entrepriseId) {
       console.log("ProfessionalId found:", pendingOrderData.entrepriseId);
 
-      // Vérifier que professionalId existe
+      // Récupérer les informations de l'utilisateur et de l'entreprise
       const [userDoc, companyDoc] = await Promise.all([
         admin.firestore().collection("users").doc(userId).get(),
         admin
@@ -2013,9 +1958,6 @@ async function handleOrderPayment(session) {
           .doc(pendingOrderData.entrepriseId)
           .get(),
       ]);
-
-      console.log("User exists:", userDoc.exists);
-      console.log("Company exists:", companyDoc.exists);
 
       if (!userDoc.exists || !companyDoc.exists) {
         throw new Error("User or company not found");
@@ -2060,22 +2002,6 @@ async function handleOrderPayment(session) {
       }
     }
 
-    // Programmer la suppression
-    if (session.id) {
-      // Vérifier que session.id existe
-      setTimeout(async () => {
-        try {
-          await admin
-            .firestore()
-            .collection("pending_express_deal_payments")
-            .doc(session.id)
-            .delete();
-        } catch (error) {
-          console.error("Error deleting pending payment:", error);
-        }
-      }, 5 * 60 * 1000);
-    }
-
     console.log("Order successfully processed:", orderId);
     return { orderId };
   } catch (error) {
@@ -2088,6 +2014,38 @@ async function handleOrderPayment(session) {
     });
     throw error;
   }
+}
+
+// Fonction helper pour les notifications
+async function sendOrderNotifications(orderId, userId, orderData) {
+  const batch = admin.firestore().batch();
+  const notificationsRef = admin.firestore().collection("notifications");
+
+  // Notification pour le client
+  batch.set(notificationsRef.doc(), {
+    userId,
+    type: "order_confirmed",
+    title: "Commande confirmée",
+    message: `Votre commande #${orderId} a été confirmée`,
+    orderId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    read: false,
+  });
+
+  // Notification pour le vendeur
+  if (orderData.sellerId) {
+    batch.set(notificationsRef.doc(), {
+      userId: orderData.sellerId,
+      type: "new_order",
+      title: "Nouvelle commande",
+      message: `Nouvelle commande #${orderId} reçue`,
+      orderId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      read: false,
+    });
+  }
+
+  await batch.commit();
 }
 
 // Création commande deal express
@@ -2172,8 +2130,8 @@ async function handleServicePayment(paymentData) {
     throw new Error("No serviceId found in metadata");
   }
 
-  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
-  await bookingRef.set({
+  // Préparer les données de base de la réservation
+  const bookingData = {
     serviceId: serviceId,
     status: "confirmed",
     paymentId: paymentData.id,
@@ -2185,22 +2143,112 @@ async function handleServicePayment(paymentData) {
     duration: metadata.duration,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     adresse: metadata.adresse,
-  });
+  };
 
-  // Programmer la suppression pour plus tard
-  setTimeout(async () => {
+  // Ajouter les informations du code promo si présent
+  if (metadata.promoApplied) {
+    bookingData.promoCode = metadata.promoCode;
+    bookingData.originalPrice = parseFloat(metadata.originalPrice);
+    bookingData.discountAmount = parseFloat(metadata.discountAmount);
+    bookingData.finalPrice = parseFloat(metadata.finalPrice);
+
+    // Mettre à jour les statistiques du code promo
     try {
-      await admin
+      const promoRef = admin
         .firestore()
-        .collection("pending_service_payments")
-        .doc(paymentData.id)
-        .delete();
-    } catch (error) {
-      console.error("Error deleting pending payment:", error);
-    }
-  }, 5 * 60 * 1000); // Supprime après 5 minutes
+        .collection("promo_codes")
+        .where("code", "==", metadata.promoCode)
+        .where("companyId", "==", metadata.professionalId)
+        .limit(1);
 
-  return { bookingId: bookingRef.id };
+      const promoSnapshot = await promoRef.get();
+      if (!promoSnapshot.empty) {
+        const promoDoc = promoSnapshot.docs[0];
+        await promoDoc.ref.update({
+          currentUses: admin.firestore.FieldValue.increment(1),
+          usageHistory: admin.firestore.FieldValue.arrayUnion([
+            metadata.userId,
+          ]),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error("Error updating promo code:", error);
+      // Continue même si la mise à jour du code promo échoue
+    }
+  }
+
+  try {
+    // Créer la réservation
+    const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+    await bookingRef.set(bookingData);
+
+    // Récupérer les informations du client et du professionnel
+    const [userDoc, companyDoc] = await Promise.all([
+      admin.firestore().collection("users").doc(metadata.userId).get(),
+      admin
+        .firestore()
+        .collection("companys")
+        .doc(metadata.professionalId)
+        .get(),
+    ]);
+
+    if (!userDoc.exists || !companyDoc.exists) {
+      throw new Error("User or company not found");
+    }
+
+    const userData = userDoc.data();
+    const companyData = companyDoc.data();
+
+    // Envoyer les emails
+    try {
+      await Promise.all([
+        // Email au client
+        transporter.sendMail({
+          from: '"Up !" <happy.deals59@gmail.com>',
+          to: userData.email,
+          subject: "Confirmation de votre réservation",
+          html: generateServiceBookingCustomerEmail(
+            bookingData,
+            userData,
+            companyData
+          ),
+        }),
+        // Email au professionnel
+        transporter.sendMail({
+          from: '"Up !" <happy.deals59@gmail.com>',
+          to: companyData.email,
+          subject: "Nouvelle réservation reçue",
+          html: generateServiceBookingProfessionalEmail(
+            bookingData,
+            userData,
+            companyData
+          ),
+        }),
+      ]);
+    } catch (emailError) {
+      console.error("Error sending booking emails:", emailError);
+      // Continue même si l'envoi d'email échoue
+    }
+
+    // Programmer la suppression du paiement en attente
+    setTimeout(async () => {
+      try {
+        await admin
+          .firestore()
+          .collection("pending_service_payments")
+          .doc(paymentData.id)
+          .delete();
+      } catch (error) {
+        console.error("Error deleting pending payment:", error);
+      }
+    }, 5 * 60 * 1000);
+
+    return { bookingId: bookingRef.id };
+  } catch (error) {
+    console.error("Error processing service booking:", error);
+    throw error;
+  }
 }
 
 async function createPaymentNotification({
@@ -2655,3 +2703,407 @@ function generateDealProfessionalEmail(orderData, customer) {
 
   return getBaseEmailTemplate(content);
 }
+
+// Fonction helper pour générer un code promo unique
+async function generateUniquePromoCode() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let isUnique = false;
+  let code = "";
+
+  while (!isUnique) {
+    // Générer un nouveau code
+    code = "FID";
+    for (let i = 0; i < 5; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // Vérifier si le code existe déjà
+    const existingCodes = await admin
+      .firestore()
+      .collection("promo_codes")
+      .where("code", "==", code)
+      .get();
+
+    if (existingCodes.empty) {
+      isUnique = true;
+    }
+  }
+
+  return code;
+}
+
+// Templates d'emails
+function generateServiceBookingCustomerEmail(booking, user, company) {
+  const bookingDate = booking.bookingDateTime.toDate();
+  const formattedDate = new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(bookingDate);
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <img src="${EMAIL_LOGO_URL}" alt="Logo" style="max-width: 200px; margin: 20px 0;">
+      <h1>Confirmation de votre réservation</h1>
+      <p>Bonjour ${user.firstName},</p>
+      <p>Votre réservation a été confirmée avec succès !</p>
+      
+      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+        <h2>Détails de la réservation :</h2>
+        <p><strong>Service :</strong> ${booking.serviceName}</p>
+        <p><strong>Date et heure :</strong> ${formattedDate}</p>
+        <p><strong>Durée :</strong> ${booking.duration} minutes</p>
+        <p><strong>Adresse :</strong> ${booking.adresse}</p>
+        ${
+          booking.promoCode
+            ? `
+          <p><strong>Code promo appliqué :</strong> ${booking.promoCode}</p>
+          <p><strong>Prix original :</strong> ${booking.originalPrice.toFixed(
+            2
+          )}€</p>
+          <p><strong>Réduction :</strong> ${booking.discountAmount.toFixed(
+            2
+          )}€</p>
+        `
+            : ""
+        }
+        <p><strong>Prix final :</strong> ${(
+          booking.finalPrice || booking.amount
+        ).toFixed(2)}€</p>
+      </div>
+
+      <div style="background-color: #e9ecef; padding: 20px; border-radius: 5px;">
+        <h3>Établissement</h3>
+        <p><strong>${company.name}</strong></p>
+        <p>${company.adress.adresse}</p>
+        <p>${company.adress.code_postal} ${company.adress.ville}</p>
+      </div>
+
+      <p style="margin-top: 20px;">À bientôt sur Up !</p>
+    </div>
+  `;
+}
+
+function generateServiceBookingProfessionalEmail(booking, user, company) {
+  const bookingDate = booking.bookingDateTime.toDate();
+  const formattedDate = new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(bookingDate);
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <img src="${EMAIL_LOGO_URL}" alt="Logo" style="max-width: 200px; margin: 20px 0;">
+      <h1>Nouvelle réservation reçue</h1>
+      <p>Bonjour,</p>
+      <p>Vous avez reçu une nouvelle réservation !</p>
+      
+      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+        <h2>Détails de la réservation :</h2>
+        <p><strong>Client :</strong> ${user.firstName} ${user.lastName}</p>
+        <p><strong>Service :</strong> ${booking.serviceName}</p>
+        <p><strong>Date et heure :</strong> ${formattedDate}</p>
+        <p><strong>Durée :</strong> ${booking.duration} minutes</p>
+        ${
+          booking.promoCode
+            ? `
+          <p><strong>Code promo utilisé :</strong> ${booking.promoCode}</p>
+          <p><strong>Prix original :</strong> ${booking.originalPrice.toFixed(
+            2
+          )}€</p>
+          <p><strong>Réduction :</strong> ${booking.discountAmount.toFixed(
+            2
+          )}€</p>
+        `
+            : ""
+        }
+        <p><strong>Prix final :</strong> ${(
+          booking.finalPrice || booking.amount
+        ).toFixed(2)}€</p>
+      </div>
+
+      <p style="margin-top: 20px;">Vous pouvez gérer cette réservation depuis votre espace professionnel.</p>
+    </div>
+  `;
+}
+
+exports.onOrderStatusUpdate = functions.firestore
+  .document("orders/{orderId}")
+  .onUpdate(async (change, context) => {
+    const newValue = change.after.data();
+    const previousValue = change.before.data();
+
+    if (
+      newValue.status === "completed" &&
+      previousValue.status !== "completed"
+    ) {
+      const sellerId = newValue.sellerId;
+      const userId = newValue.userId;
+      const totalAmount = parseFloat(newValue.totalPrice);
+
+      if (isNaN(totalAmount) || totalAmount <= 0) {
+        console.error(
+          `Montant total invalide pour la commande ${context.params.orderId}: ${totalAmount}`
+        );
+        return null;
+      }
+
+      const feePercentage = 7.5;
+      const feeAmount = (totalAmount * feePercentage) / 100;
+      const amountAfterFee = totalAmount - feeAmount;
+
+      console.log(`Traitement de la commande ${context.params.orderId}:`);
+      console.log(`  Total: ${totalAmount}`);
+      console.log(`  Frais: ${feeAmount}`);
+      console.log(`  Montant après frais: ${amountAfterFee}`);
+
+      try {
+        // Recherche de l'entreprise correspondante dans la collection "companys"
+        const companySnapshot = await admin
+          .firestore()
+          .collection("companys")
+          .doc(sellerId)
+          .get();
+
+        // Vérifier si le document existe
+        if (!companySnapshot.exists) {
+          console.error(
+            `Aucune entreprise trouvée pour le sellerId: ${sellerId}`
+          );
+          return null;
+        }
+
+        // Le sellerId est déjà l'ID du document
+        const companyId = sellerId;
+
+        // Mise à jour des soldes de l'entreprise
+        await admin
+          .firestore()
+          .collection("companys")
+          .doc(companyId)
+          .update({
+            totalGain: admin.firestore.FieldValue.increment(totalAmount),
+            totalFees: admin.firestore.FieldValue.increment(feeAmount),
+            availableBalance:
+              admin.firestore.FieldValue.increment(amountAfterFee),
+          });
+
+        // Enregistrement de la transaction
+        await admin.firestore().collection("transactions").add({
+          companyId: companyId,
+          orderId: context.params.orderId,
+          totalAmount: totalAmount,
+          feeAmount: feeAmount,
+          amountAfterFee: amountAfterFee,
+          type: "credit",
+          status: "completed",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        console.log(
+          `Solde mis à jour pour l'entreprise: ${companyId}, Montant total: ${totalAmount}, Montant après frais: ${amountAfterFee}`
+        );
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour du solde:", error);
+        console.error("Détails de l'erreur:", JSON.stringify(error));
+      }
+
+      // Gestion de la carte de fidélité
+      try {
+        // 1. Vérifier si le vendeur a un programme de fidélité actif
+        const companyDoc = await admin
+          .firestore()
+          .collection("companys")
+          .doc(sellerId)
+          .get();
+        const loyaltyProgramId = companyDoc.data()?.loyaltyProgramId;
+
+        if (loyaltyProgramId) {
+          const loyaltyProgramDoc = await admin
+            .firestore()
+            .collection("LoyaltyPrograms")
+            .doc(loyaltyProgramId)
+            .get();
+          const loyaltyProgram = loyaltyProgramDoc.data();
+
+          if (loyaltyProgram && loyaltyProgram.status === "active") {
+            // 2. Rechercher une carte de fidélité existante ou en créer une nouvelle
+            const existingCardQuery = await admin
+              .firestore()
+              .collection("LoyaltyCards")
+              .where("customerId", "==", userId)
+              .where("companyId", "==", sellerId)
+              .where("status", "==", "active")
+              .get();
+
+            let loyaltyCard;
+            let isNewCard = false;
+
+            if (existingCardQuery.empty) {
+              // Créer une nouvelle carte
+              const newCardRef = admin
+                .firestore()
+                .collection("LoyaltyCards")
+                .doc();
+              loyaltyCard = {
+                id: newCardRef.id,
+                customerId: userId,
+                companyId: sellerId,
+                loyaltyProgramId: loyaltyProgramId,
+                currentValue: 0,
+                totalEarned: 0,
+                totalRedeemed: 0,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                status: "active",
+              };
+              isNewCard = true;
+            } else {
+              loyaltyCard = {
+                id: existingCardQuery.docs[0].id,
+                ...existingCardQuery.docs[0].data(),
+              };
+            }
+
+            // 3. Calculer les points/visites à ajouter selon le type de programme
+            let earnedValue = 0;
+            switch (loyaltyProgram.type) {
+              case "visits":
+                earnedValue = 1;
+                break;
+              case "points":
+                earnedValue = Math.floor(totalAmount);
+                break;
+              case "amount":
+                earnedValue = totalAmount;
+                break;
+            }
+
+            // 4. Mettre à jour la carte
+            const newCurrentValue = loyaltyCard.currentValue + earnedValue;
+            const batch = admin.firestore().batch();
+
+            // Mettre à jour ou créer la carte
+            const cardRef = admin
+              .firestore()
+              .collection("LoyaltyCards")
+              .doc(loyaltyCard.id);
+            if (isNewCard) {
+              batch.set(cardRef, {
+                ...loyaltyCard,
+                currentValue: newCurrentValue,
+                totalEarned: earnedValue,
+                lastTransaction: {
+                  date: admin.firestore.FieldValue.serverTimestamp(),
+                  amount: earnedValue,
+                  type: "earn",
+                },
+              });
+            } else {
+              batch.update(cardRef, {
+                currentValue: newCurrentValue,
+                totalEarned: admin.firestore.FieldValue.increment(earnedValue),
+                lastTransaction: {
+                  date: admin.firestore.FieldValue.serverTimestamp(),
+                  amount: earnedValue,
+                  type: "earn",
+                },
+              });
+            }
+
+            // Ajouter l'historique
+            const historyRef = admin
+              .firestore()
+              .collection("LoyaltyHistory")
+              .doc();
+            batch.set(historyRef, {
+              cardId: loyaltyCard.id,
+              customerId: userId,
+              companyId: sellerId,
+              amount: earnedValue,
+              type: "earn",
+              orderId: context.params.orderId,
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            // 5. Vérifier si un palier est atteint et créer un code promo si nécessaire
+            let targetReached = false;
+            let rewardValue = 0;
+            let isPercentage = false;
+
+            if (loyaltyProgram.type === "points" && loyaltyProgram.tiers) {
+              // Trouver le palier atteint
+              for (const [points, reward] of Object.entries(
+                loyaltyProgram.tiers
+              )) {
+                if (
+                  newCurrentValue >= parseInt(points) &&
+                  loyaltyCard.currentValue < parseInt(points)
+                ) {
+                  targetReached = true;
+                  rewardValue = reward.reward;
+                  isPercentage = reward.isPercentage;
+                  break;
+                }
+              }
+            } else if (newCurrentValue >= loyaltyProgram.targetValue) {
+              targetReached = true;
+              rewardValue = loyaltyProgram.rewardValue;
+              isPercentage = loyaltyProgram.isPercentage;
+            }
+
+            if (targetReached) {
+              // Créer le code promo
+              const promoCode = await generateUniquePromoCode();
+              const promoRef = admin
+                .firestore()
+                .collection("promo_codes")
+                .doc();
+
+              batch.set(promoRef, {
+                applicableTo: "all",
+                conditionValue: 0,
+                conditionType: "none",
+                conditionProductId: "",
+                description: "",
+                isPublic: false,
+                isActive: true,
+                currentUses: 0,
+                maxUses: 1,
+                code: promoCode,
+                customerId: userId,
+                usageHistory: [],
+                sellerId: sellerId,
+                companyId: sellerId,
+                discountValue: rewardValue,
+                isPercentage: isPercentage,
+                discountType: isPercentage ? "percentage" : "amount",
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                expiresAt: admin.firestore.Timestamp.fromDate(
+                  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 jours
+                ),
+                status: "active",
+                loyaltyCardId: loyaltyCard.id,
+              });
+
+              // Réinitialiser la carte ou la marquer comme terminée
+              if (loyaltyProgram.type !== "points") {
+                // Pour les cartes de visite et montant, on réinitialise
+                batch.update(cardRef, {
+                  status: "completed",
+                });
+              }
+            }
+
+            // Exécuter toutes les opérations
+            await batch.commit();
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Erreur lors du traitement de la carte de fidélité:",
+          error
+        );
+      }
+    }
+    return null;
+  });

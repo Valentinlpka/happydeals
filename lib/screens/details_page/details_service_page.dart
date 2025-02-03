@@ -241,7 +241,6 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     );
   }
 
-
   Widget _buildDatePicker() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -334,18 +333,27 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   }
 
   Widget _buildTimeSlots(ServiceModel service) {
+    print('Début _buildTimeSlots pour service: ${service.id}');
+
     return StreamBuilder<List<AvailabilityRuleModel>>(
       stream: _bookingService.getServiceAvailabilityRules(service.id),
       builder: (context, snapshot) {
+        print('StreamBuilder state: ${snapshot.connectionState}');
+        print('StreamBuilder hasData: ${snapshot.hasData}');
+        print('StreamBuilder error: ${snapshot.error}');
+
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.data!.isEmpty) {
+          print('Aucune règle de disponibilité trouvée');
           return const Text('Aucune disponibilité pour ce service');
         }
 
         final rule = snapshot.data!.first;
+        print(
+            'Règle trouvée: workDays=${rule.workDays}, startTime=${rule.startTime.hours}:${rule.startTime.minutes}');
 
         // Vérifier si le jour sélectionné est travaillé
         if (!rule.workDays.contains(_selectedDate.weekday)) {
@@ -358,14 +366,21 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
             _cachedDate != _selectedDate ||
             _cachedServiceId != service.id;
 
+        print('Reload nécessaire: $shouldReloadSlots');
+
         if (shouldReloadSlots) {
-          return FutureBuilder<List<DateTime>>(
+          print('Chargement des créneaux pour la date: $_selectedDate');
+          return FutureBuilder<Map<DateTime, int>>(
             future: _bookingService.getAvailableTimeSlots(
               service.id,
               _selectedDate,
               service.duration,
             ),
             builder: (context, snapshot) {
+              print('FutureBuilder state: ${snapshot.connectionState}');
+              print('FutureBuilder hasData: ${snapshot.hasData}');
+              print('FutureBuilder error: ${snapshot.error}');
+
               if (!snapshot.hasData) {
                 return const Center(
                   child: Column(
@@ -379,17 +394,17 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                 );
               }
 
-              // Mettre en cache les créneaux
-              _cachedTimeSlots = snapshot.data;
+              // Convertir la Map en List pour la compatibilité
+              _cachedTimeSlots = snapshot.data!.keys.toList();
               _cachedDate = _selectedDate;
               _cachedServiceId = service.id;
 
+              print('Créneaux chargés: ${_cachedTimeSlots!.length}');
               return _buildTimeSlotsGrid(_cachedTimeSlots!);
             },
           );
         }
 
-        // Utiliser les créneaux en cache
         return _buildTimeSlotsGrid(_cachedTimeSlots!);
       },
     );

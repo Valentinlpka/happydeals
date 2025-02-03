@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Company {
   final String id;
   final String name;
+  final String entityType;
   final String categorie;
   final String cover;
   final String description;
@@ -20,6 +21,7 @@ class Company {
   Company({
     required this.id,
     required this.name,
+    required this.entityType,
     required this.categorie,
     required this.cover,
     required this.description,
@@ -40,6 +42,7 @@ class Company {
     return Company(
       id: doc.id,
       name: data['name'] ?? '',
+      entityType: data['entityType'] ?? '',
       categorie: data['categorie'] ?? '',
       cover: data['cover'] ?? '',
       description: data['description'] ?? '',
@@ -61,6 +64,7 @@ class Company {
   Map<String, dynamic> toMap() {
     return {
       'name': name,
+      'entityType': entityType,
       'categorie': categorie,
       'cover': cover,
       'description': description,

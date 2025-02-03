@@ -4,19 +4,21 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget>? actions;
   final AlignmentGeometry align;
+  final Widget? child;
 
   const CustomAppBar({
     super.key,
     required this.title,
     this.actions,
     required this.align,
+    this.child,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
+        color: Theme.of(context).appBarTheme.backgroundColor ?? Colors.grey[50],
         border: Border(
           bottom: BorderSide(
             color: Colors.grey[300]!,
@@ -31,13 +33,14 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           backgroundColor: Colors.transparent,
           titleSpacing: 0,
           centerTitle: align == Alignment.center,
-          title: Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 20,
-            ),
-          ),
+          title: child ??
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                ),
+              ),
           actions: actions,
         ),
       ),

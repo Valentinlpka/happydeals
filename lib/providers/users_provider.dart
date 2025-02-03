@@ -29,6 +29,7 @@ class UserModel with ChangeNotifier {
   List<String> likedPosts = [];
   List<String> likedCompanies = [];
   List<String> followedUsers = [];
+  List<String> _followedAssociations = [];
   double _totalSavings = 0.0;
 
   double get totalSavings => roundAmount(_totalSavings);
@@ -49,6 +50,8 @@ class UserModel with ChangeNotifier {
   String get workingHours => _workingHours;
 
   String get uniqueCode => _uniqueCode;
+
+  List<String> get followedAssociations => _followedAssociations;
 
   double roundAmount(double amount) {
     return (amount * 100).round() / 100;
@@ -221,6 +224,8 @@ class UserModel with ChangeNotifier {
       followedUsers = List<String>.from(data['followedUsers'] ?? []);
       likedPosts = List<String>.from(data['likedPosts'] ?? []);
       likedCompanies = List<String>.from(data['likedCompanies'] ?? []);
+      _followedAssociations =
+          List<String>.from(data['followedAssociations'] ?? []);
 
       await loadDailyQuote();
       await calculateAndUpdateTotalSavings();
@@ -419,6 +424,7 @@ class UserModel with ChangeNotifier {
     likedPosts.clear();
     likedCompanies.clear();
     followedUsers.clear();
+    _followedAssociations.clear();
     notifyListeners();
   }
 
@@ -540,6 +546,73 @@ class UserModel with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       rethrow;
+    }
+  }
+
+  List<String> get followedEntities {
+    return [...likedCompanies, ..._followedAssociations];
+  }
+
+  Future<void> followAssociation(String associationId) async {
+    try {
+      if (userId.isEmpty) return;
+
+      // Mettre à jour Firestore
+      await _firestore.collection('users').doc(userId).update({
+        'followedAssociations': FieldValue.arrayUnion([associationId])
+      });
+
+      // Mettre à jour le compteur de followers de l'association
+      await _firestore.collection('associations').doc(associationId).update({
+        'followersCount': FieldValue.increment(1),
+        'followers': FieldValue.arrayUnion([userId])
+      });
+
+      // Mettre à jour l'état local
+      _followedAssociations.add(associationId);
+      notifyListeners();
+    } catch (e) {
+      print('Erreur lors du suivi de l\'association: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> unfollowAssociation(String associationId) async {
+    try {
+      if (userId.isEmpty) return;
+
+      // Mettre à jour Firestore
+      await _firestore.collection('users').doc(userId).update({
+        'followedAssociations': FieldValue.arrayRemove([associationId])
+      });
+
+      // Mettre à jour le compteur de followers de l'association
+      await _firestore.collection('associations').doc(associationId).update({
+        'followersCount': FieldValue.increment(-1),
+        'followers': FieldValue.arrayRemove([userId])
+      });
+
+      // Mettre à jour l'état local
+      _followedAssociations.remove(associationId);
+      notifyListeners();
+    } catch (e) {
+      print('Erreur lors du désabonnement de l\'association: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> isFollowingAssociation(String associationId) async {
+    try {
+      if (userId.isEmpty) return false;
+
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+
+      final followedAssociations =
+          List<String>.from(userDoc.data()?['followedAssociations'] ?? []);
+      return followedAssociations.contains(associationId);
+    } catch (e) {
+      print('Erreur lors de la vérification du suivi: $e');
+      return false;
     }
   }
 }

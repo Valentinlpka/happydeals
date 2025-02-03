@@ -63,7 +63,6 @@ class PromoCodeCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Logo de l'entreprise
                 CircleAvatar(
                   radius: 26,
                   backgroundImage: NetworkImage(companyLogo),
@@ -73,7 +72,6 @@ class PromoCodeCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Nom de l'entreprise
                     Text(
                       companyName,
                       style: const TextStyle(
@@ -82,7 +80,6 @@ class PromoCodeCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Tag Code Promo et Date
                     Row(
                       children: [
                         Container(
@@ -151,7 +148,6 @@ class PromoCodeCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Code et bouton de copie
                   Row(
                     children: [
                       Expanded(
@@ -201,8 +197,8 @@ class PromoCodeCard extends StatelessWidget {
                         ),
                         child: Text(
                           post.isPercentage
-                              ? '-${post.value.toStringAsFixed(0)}%'
-                              : '-${post.value.toStringAsFixed(2)}€',
+                              ? '-${post.discountValue.toStringAsFixed(0)}%'
+                              : '-${post.discountValue.toStringAsFixed(2)}€',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -213,8 +209,6 @@ class PromoCodeCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Description
                   Text(
                     post.description,
                     style: TextStyle(
@@ -223,27 +217,6 @@ class PromoCodeCard extends StatelessWidget {
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Date d'expiration
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Expire le ${_formatDateTime(post.expiresAt)}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),

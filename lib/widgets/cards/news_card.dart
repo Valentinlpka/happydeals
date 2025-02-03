@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/custom_image_viewer.dart';
+import 'package:happy/widgets/video_player_screen.dart';
 import 'package:intl/intl.dart';
 
 class NewsCard extends StatelessWidget {
@@ -32,6 +33,145 @@ class NewsCard extends StatelessWidget {
     } else {
       return 'le ${dateFormat.format(dateTime)} à ${timeFormat.format(dateTime)}';
     }
+  }
+
+  Widget _buildMediaGallery(BuildContext context) {
+    final List<String> allMedia = [...news.photos, ...news.videos];
+
+    if (allMedia.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            height: 200,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: allMedia.length,
+              itemBuilder: (context, index) {
+                final String mediaUrl = allMedia[index];
+                final bool isVideo = news.videos.contains(mediaUrl);
+
+                return GestureDetector(
+                  onTap: () {
+                    if (isVideo) {
+                      _showVideoPlayer(context, mediaUrl);
+                    } else {
+                      _showImageViewer(context, index, news.photos);
+                    }
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: index != allMedia.length - 1 ? 8 : 0,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: isVideo
+                          ? _buildVideoThumbnail(mediaUrl)
+                          : _buildImageThumbnail(mediaUrl),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVideoThumbnail(String videoUrl) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 200,
+          height: 200,
+          color: Colors.black,
+        ),
+        const Icon(
+          Icons.play_circle_fill,
+          color: Colors.white,
+          size: 48,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImageThumbnail(String imageUrl) {
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      width: 200,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          width: 200,
+          height: 200,
+          color: Colors.grey[100],
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          width: 200,
+          height: 200,
+          color: Colors.grey[100],
+          child: const Center(
+            child: Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 32,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showVideoPlayer(BuildContext context, String videoUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => VideoPlayerScreen(videoUrl: videoUrl),
+      ),
+    );
+  }
+
+  void _showImageViewer(BuildContext context, int index, List<String> images) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (BuildContext context, _, __) {
+          return CustomImageViewer(
+            imageUrl: images[index],
+            allImages: images,
+            currentIndex: index,
+          );
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = 0.0;
+          const end = 1.0;
+          var curve = Curves.easeInOut;
+          var fadeTween =
+              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          return FadeTransition(
+            opacity: animation.drive(fadeTween),
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -157,104 +297,7 @@ class NewsCard extends StatelessWidget {
                   ),
                 ),
 
-                // Galerie photos
-                if (news.photos.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      height: 200,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: news.photos.length,
-                        itemBuilder: (context, index) {
-                          return GestureDetector(
-                            onTap: () {
-                              // Ouvrir le viewer d'images avec animation
-                              Navigator.of(context).push(
-                                PageRouteBuilder(
-                                  opaque: false,
-                                  barrierColor: Colors.black,
-                                  pageBuilder: (BuildContext context, _, __) {
-                                    return CustomImageViewer(
-                                      imageUrl: news.photos[index],
-                                      allImages: news.photos,
-                                      currentIndex: index,
-                                    );
-                                  },
-                                  transitionsBuilder: (context, animation,
-                                      secondaryAnimation, child) {
-                                    const begin = 0.0;
-                                    const end = 1.0;
-                                    var curve = Curves.easeInOut;
-
-                                    var fadeTween =
-                                        Tween(begin: begin, end: end).chain(
-                                      CurveTween(curve: curve),
-                                    );
-
-                                    return FadeTransition(
-                                      opacity: animation.drive(fadeTween),
-                                      child: child,
-                                    );
-                                  },
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                right: index != news.photos.length - 1 ? 8 : 0,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  news.photos[index],
-                                  fit: BoxFit.cover,
-                                  width: 200,
-                                  loadingBuilder:
-                                      (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      width: 200,
-                                      height: 200,
-                                      color: Colors.grey[100],
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          value: loadingProgress
-                                                      .expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                      .cumulativeBytesLoaded /
-                                                  loadingProgress
-                                                      .expectedTotalBytes!
-                                              : null,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      width: 200,
-                                      height: 200,
-                                      color: Colors.grey[100],
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.error_outline,
-                                          color: Colors.red,
-                                          size: 32,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ]
+                _buildMediaGallery(context),
               ],
             ),
           ),

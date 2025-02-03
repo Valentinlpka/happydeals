@@ -4,13 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:happy/screens/payment_success.dart';
 import 'package:universal_html/html.dart' as html;
 
 class UnifiedPaymentButton extends StatefulWidget {
   final String type; // 'order', 'express_deal', or 'service'
   final int amount;
   final Map<String, dynamic> metadata;
-  final Map<String, dynamic>? orderData; // Nouveau paramètre
+  final Map<String, dynamic>? orderData;
   final String successUrl;
   final String cancelUrl;
   final VoidCallback? onSuccess;
@@ -40,28 +41,44 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
     setState(() => _isLoading = true);
 
     try {
-      // Stocker les données selon le type
+      String? pendingId;
+      String successUrlWithParams = widget.successUrl;
+
       switch (widget.type) {
         case 'order':
+          pendingId =
+              FirebaseFirestore.instance.collection('pending_orders').doc().id;
+          widget.metadata['orderId'] = pendingId;
+          successUrlWithParams = '${widget.successUrl}?orderId=$pendingId';
+
           await FirebaseFirestore.instance
               .collection('pending_orders')
-              .doc(widget.metadata['orderId'])
+              .doc(pendingId)
               .set({
-            ...widget.orderData!,
-            'items': widget.orderData!['items']
-                .map((item) => {
-                      ...item,
-                      'tva': item['tva'] ?? 20.0,
-                    })
-                .toList(),
-            'status': 'pending'
+            'userId': FirebaseAuth.instance.currentUser?.uid,
+            'items': widget.orderData!['items'],
+            'sellerId': widget.orderData!['sellerId'],
+            'entrepriseId': widget.orderData!['entrepriseId'],
+            'subtotal': widget.orderData!['subtotal'],
+            'promoCode': widget.orderData!['promoCode'],
+            'discountAmount': widget.orderData!['discountAmount'],
+            'totalPrice': widget.orderData!['totalPrice'],
+            'pickupAddress': widget.orderData!['pickupAddress'],
+            'status': 'pending',
+            'metadata': widget.metadata,
+            'createdAt': FieldValue.serverTimestamp(),
           });
           break;
 
         case 'express_deal':
+          pendingId = widget.metadata['reservationId'];
+          successUrlWithParams =
+              '${widget.successUrl}?reservationId=$pendingId';
           break;
 
         case 'service':
+          pendingId = widget.metadata['bookingId'];
+          successUrlWithParams = '${widget.successUrl}?bookingId=$pendingId';
           await FirebaseFirestore.instance
               .collection('pending_services')
               .doc(widget.metadata['serviceId'])
@@ -78,14 +95,13 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
           break;
       }
 
-      // Créer la session de paiement
       final result = await FirebaseFunctions.instance
           .httpsCallable('createUnifiedPayment')
           .call({
         'type': widget.type,
         'amount': widget.amount,
         'metadata': widget.metadata,
-        'successUrl': widget.successUrl,
+        'successUrl': successUrlWithParams,
         'cancelUrl': widget.cancelUrl,
         'isWeb': kIsWeb,
       });
@@ -94,97 +110,29 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
         final String checkoutUrl = result.data['url'];
         html.window.location.href = checkoutUrl;
       } else {
-        // Gestion mobile avec Stripe SDK
-        try {
-          // Initialiser la feuille de paiement
-          await Stripe.instance.initPaymentSheet(
-            paymentSheetParameters: SetupPaymentSheetParameters(
-              merchantDisplayName: 'Happy Deals',
-              paymentIntentClientSecret: result.data['clientSecret'],
-              style: ThemeMode.system,
+        await Stripe.instance.initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            merchantDisplayName: 'Happy Deals',
+            paymentIntentClientSecret: result.data['clientSecret'],
+          ),
+        );
+
+        await Stripe.instance.presentPaymentSheet();
+
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => UnifiedPaymentSuccessScreen(
+                sessionId: result.data['sessionId'],
+              ),
             ),
           );
-
-          // Afficher la feuille de paiement
-          await Stripe.instance.presentPaymentSheet();
-
-          // Si le paiement est réussi
-          if (widget.type == 'order') {
-            try {
-              // Créer d'abord la commande dans orders
-              await FirebaseFirestore.instance
-                  .collection('orders')
-                  .doc(widget.metadata['orderId'])
-                  .set({
-                'userId': FirebaseAuth.instance.currentUser?.uid,
-                'items': widget.orderData?['items'] ?? [],
-                'sellerId': widget.orderData?['sellerId'],
-                'entrepriseId': widget.orderData?['entrepriseId'],
-                'subtotal': widget.orderData?['subtotal'],
-                'promoCode': widget.orderData?['promoCode'],
-                'discountAmount': widget.orderData?['discountAmount'],
-                'totalPrice': widget.orderData?['totalPrice'],
-                'pickupAddress': widget.orderData?['pickupAddress'],
-                'status': 'paid',
-                'createdAt': FieldValue.serverTimestamp(),
-              });
-
-              // Créer l'entrée dans pending_orders
-              await FirebaseFirestore.instance
-                  .collection('pending_orders')
-                  .doc(result.data['sessionId'])
-                  .set({
-                'userId': FirebaseAuth.instance.currentUser?.uid,
-                'metadata': {
-                  'orderId': widget.metadata['orderId'],
-                  'cartId': widget.metadata['cartId'],
-                },
-                'status': 'pending',
-                'type': 'order',
-                'amount': widget.amount,
-                'createdAt': FieldValue.serverTimestamp(),
-              });
-
-              // Supprimer le panier
-              if (widget.metadata['cartId'] != null) {
-                await FirebaseFirestore.instance
-                    .collection('carts')
-                    .doc(widget.metadata['cartId'])
-                    .delete();
-              }
-
-              // Navigation vers la page de succès
-              if (mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/payment-success',
-                  (route) => false,
-                  arguments: {'sessionId': result.data['sessionId']},
-                );
-              }
-            } catch (e) {
-              print('Erreur lors de la création de la commande: $e');
-              widget.onError
-                  ?.call('Erreur lors de la finalisation de la commande');
-            }
-          }
-        } on StripeException catch (e) {
-          if (e.error.code == 'Canceled') {
-            widget.onError?.call('Paiement annulé');
-          } else {
-            widget.onError
-                ?.call(e.error.localizedMessage ?? 'Erreur de paiement');
-          }
         }
       }
     } catch (e) {
       if (mounted) {
-        String errorMessage = 'Une erreur est survenue';
-        if (e is FirebaseFunctionsException) {
-          errorMessage = e.message ?? errorMessage;
-        }
-        widget.onError?.call(errorMessage);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
+          SnackBar(content: Text('Erreur: $e')),
         );
       }
     } finally {

@@ -173,15 +173,12 @@ class ConversationListItem extends StatelessWidget {
     String? otherUserId;
 
     if (conversation.adId != null) {
-      // Pour les annonces
       otherUserId = conversation.sellerId;
     } else if (conversation.entrepriseId != null) {
-      // Pour les conversations business
       otherUserId = conversation.entrepriseId == userId
           ? conversation.particulierId
           : conversation.entrepriseId;
     } else {
-      // Pour les conversations entre particuliers
       otherUserId = conversation.particulierId == userId
           ? conversation.otherUserId
           : conversation.particulierId;
@@ -198,7 +195,28 @@ class ConversationListItem extends StatelessWidget {
     }
 
     try {
-      // Vérifier si l'autre utilisateur est une entreprise
+      // Vérifier si c'est une association
+      final associationDoc = await FirebaseFirestore.instance
+          .collection('associations')
+          .doc(otherUserId)
+          .get();
+
+      if (associationDoc.exists) {
+        final associationData = associationDoc.data() as Map<String, dynamic>;
+        return {
+          'userData': {
+            'firstName': associationData['name'],
+            'lastName': '',
+            'companyName': associationData['name'],
+            'logo': associationData['logo'],
+          },
+          'adData': null,
+          'isCompany': true,
+          'isAssociation': true,
+        };
+      }
+
+      // Vérifier si c'est une entreprise
       final companyDoc = await FirebaseFirestore.instance
           .collection('companys')
           .doc(otherUserId)

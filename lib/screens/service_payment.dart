@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
+import 'package:happy/services/booking_service.dart';
 import 'package:happy/widgets/unified_payment_button.dart';
 import 'package:intl/intl.dart';
 
@@ -19,15 +21,19 @@ class ServicePaymentPage extends StatefulWidget {
 }
 
 class _ServicePaymentPageState extends State<ServicePaymentPage> {
-  String? _bookingId; // Ajoutez cette ligne
-
-  final bool _isLoading = false;
+  String? _bookingId;
+  String? _promoCode;
+  double _finalPrice = 0;
+  bool _isLoading = false;
+  final TextEditingController _promoCodeController = TextEditingController();
+  final BookingService _bookingService = BookingService();
   Map<String, dynamic>? _address;
 
   @override
   void initState() {
     super.initState();
-    _generateOrderId(); // Ajoutez cette ligne
+    _finalPrice = widget.service.price;
+    _generateOrderId();
     _fetchCompanyAddress();
   }
 
@@ -50,6 +56,48 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
     setState(() {
       _bookingId = bookingRef.id;
     });
+  }
+
+  Future<void> _applyPromoCode() async {
+    final code = _promoCodeController.text.trim();
+    if (code.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final finalPrice = await _bookingService.applyPromoCode(
+        code,
+        widget.service.professionalId,
+        FirebaseAuth.instance.currentUser!.uid,
+        widget.service.id,
+        widget.service.price,
+      );
+
+      setState(() {
+        _promoCode = code;
+        _finalPrice = finalPrice;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code promo appliqué avec succès')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _removePromoCode() {
+    setState(() {
+      _promoCode = null;
+      _finalPrice = widget.service.price;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Code promo supprimé')),
+    );
   }
 
   @override
@@ -77,10 +125,10 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                   child: // Dans ServicePaymentPage
                       UnifiedPaymentButton(
                     type: 'service',
-                    amount: (widget.service.price * 100).round(),
+                    amount: (_finalPrice * 100).round(),
                     metadata: {
                       "bookingId": _bookingId!,
-                      'amount': (widget.service.price * 100).round().toString(),
+                      'amount': (_finalPrice * 100).round().toString(),
                       'serviceId': widget.service.id,
                       'duration': widget.service.duration,
                       'serviceName': widget.service.name,
@@ -88,12 +136,20 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                           .toUtc()
                           .toIso8601String(), // Conversion en UTC
                       'professionalId': widget.service.professionalId,
+                      if (_promoCode != null) ...<String, dynamic>{
+                        'promoCode': _promoCode,
+                        'originalPrice': widget.service.price,
+                        'discountAmount': (widget.service.price - _finalPrice),
+                        'finalPrice': _finalPrice,
+                        'promoApplied': true,
+                      },
                       'adresse':
                           '${_address!['adresse']}, ${_address!['code_postal']} ${_address!['ville']}',
                     },
                     successUrl: '${Uri.base.origin}/#/payment-success',
-                    cancelUrl: '${Uri.base.origin}/payment-cancel',
+                    cancelUrl: '${Uri.base.origin}/#/payment-cancel',
                   )),
+            _buildPromoCodeSection(),
           ],
         ),
       ),
@@ -141,8 +197,51 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
             ),
             const Divider(height: 32),
             _buildSummaryRow(
-              'Total',
+              'Prix',
               '${widget.service.price.toStringAsFixed(2)} €',
+            ),
+            if (_promoCode != null) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Code promo ($_promoCode)',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _removePromoCode,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.red[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '-${(widget.service.price - _finalPrice).toStringAsFixed(2)} €',
+                    style: TextStyle(
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
+            ],
+            _buildSummaryRow(
+              'Total à payer',
+              '${_finalPrice.toStringAsFixed(2)} €',
               isBold: true,
             ),
           ],
@@ -169,6 +268,39 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromoCodeSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Code promo'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _promoCodeController,
+                  decoration: const InputDecoration(
+                    hintText: 'Entrez votre code',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _applyPromoCode,
+                child: _isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Appliquer'),
+              ),
+            ],
           ),
         ],
       ),

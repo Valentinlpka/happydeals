@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:intl/intl.dart';
 
 class ApplicationDetailsPage extends StatelessWidget {
@@ -14,9 +15,16 @@ class ApplicationDetailsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Détails de la candidature'),
-        elevation: 0,
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          child: _buildMessageInput(),
+        ),
+      ),
+      appBar: const CustomAppBar(
+        align: Alignment.center,
+        title: 'Détails de la candidature',
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -228,7 +236,6 @@ class ApplicationDetailsPage extends StatelessWidget {
             },
           ),
           const SizedBox(height: 16),
-          _buildMessageInput(),
         ],
       ),
     );

@@ -3,11 +3,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/providers/users_provider.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/like_service.dart';
 import 'package:happy/widgets/product_card.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:universal_html/html.dart' as html;
+import 'package:url_launcher/url_launcher.dart';
 
 class ModernProductDetailPage extends StatefulWidget {
   final Product product;
@@ -78,12 +82,12 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
     return Scaffold(
       body: Stack(
         children: [
-          CustomScrollView(
-            slivers: [
-              _buildSliverAppBar(isFavorite),
-              SliverPadding(
-                padding: const EdgeInsets.only(bottom: 100),
-                sliver: SliverToBoxAdapter(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 80),
+            child: CustomScrollView(
+              slivers: [
+                _buildSliverAppBar(isFavorite),
+                SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -93,8 +97,6 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildVariantSelector(),
-                            const SizedBox(height: 10),
                             Text(
                               widget.product.name,
                               style: const TextStyle(
@@ -104,8 +106,10 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                             ),
                             if (selectedVariant != null)
                               _buildPriceSection(hasDiscount),
-                            const SizedBox(height: 16),
+                            _buildVariantSelector(),
+                            const SizedBox(height: 10),
                             _buildProductDetails(),
+                            const SizedBox(height: 16),
                             _buildSellerInfo(),
                             _buildSimilarProducts(),
                           ],
@@ -114,8 +118,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Align(
             alignment: Alignment.bottomCenter,
@@ -137,11 +141,13 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
         onPressed: () => Navigator.pop(context),
       ),
+      centerTitle: true,
       title: Text(
         widget.product.name,
         style: const TextStyle(
           color: Colors.black,
-          fontSize: 16,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
         ),
       ),
       actions: [
@@ -161,9 +167,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         ),
         IconButton(
           icon: const Icon(Icons.share_outlined, color: Colors.black),
-          onPressed: () {
-            // Gérer le partage
-          },
+          onPressed: _showShareBottomSheet,
         ),
       ],
     );
@@ -177,7 +181,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
       children: [
         CarouselSlider(
           options: CarouselOptions(
-            height: MediaQuery.of(context).size.width * 0.8,
+            height: MediaQuery.of(context).size.width * 0.6,
             viewportFraction: 1,
             onPageChanged: (index, reason) => setState(() => current = index),
           ),
@@ -191,7 +195,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                 frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                   return Container(
                     constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.width * 0.8,
+                      maxHeight: MediaQuery.of(context).size.width * 0.6,
                       minHeight: 200,
                     ),
                     child: child,
@@ -289,6 +293,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                     borderRadius: BorderRadius.circular(5),
                     side: BorderSide(
                       width: isSelected ? 0 : 1,
+                      color: isSelected ? Colors.white : Colors.black,
                     ),
                   ),
                   color: WidgetStatePropertyAll(
@@ -386,48 +391,59 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         if (!snapshot.hasData) return const SizedBox();
 
         final company = snapshot.data!;
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(vertical: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundImage: NetworkImage(company['logo'] ?? ''),
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    DetailsEntreprise(entrepriseId: widget.product.sellerId),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      company['name'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      company['description'] ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
+            );
+          },
+          child: Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundImage: NetworkImage(company['logo'] ?? ''),
                 ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
-            ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        company['name'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        company['description'] ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.grey),
+              ],
+            ),
           ),
         );
       },
@@ -634,6 +650,217 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         SnackBar(content: Text(e.toString())),
       );
     }
+  }
+
+  void _showShareBottomSheet() {
+    // Construire l'URL avec les métadonnées Open Graph
+    final String productUrl = Uri.encodeFull(
+        "https://happy-deals-3f03d.web.app/produits/${widget.product.id}"); // Remplacez par votre URL réelle
+    final String productImage = selectedVariant?.images.first ?? '';
+    final String description = widget.product.description.length > 100
+        ? '${widget.product.description.substring(0, 97)}...'
+        : widget.product.description;
+
+    // Texte de partage avec métadonnées pour les réseaux sociaux
+    final String shareText = """
+${widget.product.name}
+
+$description
+
+Découvrez ce produit sur notre boutique!
+$productUrl
+""";
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Partager avec',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildShareOption(
+                    icon:
+                        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Facebook_Logo_%282019%29.png/1200px-Facebook_Logo_%282019%29.png',
+                    label: 'Facebook',
+                    onTap: () {
+                      // URL avec paramètres Open Graph pour Facebook
+                      final fbUrl = Uri.encodeFull(
+                          "https://www.facebook.com/sharer/sharer.php?u=$productUrl");
+                      html.window.open(fbUrl, 'facebook-share');
+                      Navigator.pop(context);
+                    },
+                  ),
+                  _buildShareOption(
+                    icon:
+                        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Logo_of_Twitter.svg/512px-Logo_of_Twitter.svg.png',
+                    label: 'Twitter',
+                    onTap: () {
+                      final twitterUrl = Uri.encodeFull(
+                          "https://twitter.com/intent/tweet?text=${Uri.encodeFull(shareText)}");
+                      html.window.open(twitterUrl, 'twitter-share');
+                      Navigator.pop(context);
+                    },
+                  ),
+                  _buildShareOption(
+                    icon:
+                        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/767px-WhatsApp.svg.png',
+                    label: 'WhatsApp',
+                    onTap: () async {
+                      final whatsappUrl = "whatsapp://send?text=$shareText";
+                      if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
+                        await launchUrl(Uri.parse(whatsappUrl));
+                      }
+                      Navigator.pop(context);
+                    },
+                  ),
+                  _buildShareOption(
+                    icon:
+                        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Telegram_2019_Logo.svg/512px-Telegram_2019_Logo.svg.png',
+                    label: 'Telegram',
+                    onTap: () async {
+                      final telegramUrl =
+                          "https://t.me/share/url?url=$productUrl&text=${widget.product.name}";
+                      if (await canLaunchUrl(Uri.parse(telegramUrl))) {
+                        await launchUrl(Uri.parse(telegramUrl));
+                      }
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildShareOption(
+                    icon:
+                        'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/132px-Instagram_logo_2016.svg.png',
+                    label: 'Instagram',
+                    onTap: () async {
+                      // Instagram ne permet pas le partage direct via URL, on utilise le partage général
+                      await Share.share(shareText,
+                          subject: widget.product.name);
+                      Navigator.pop(context);
+                    },
+                  ),
+                  _buildShareOption(
+                    icon: 'https://www.svgrepo.com/show/13667/link.svg',
+                    label: 'Copier le lien',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // Utiliser l'API Clipboard du web
+                      html.window.navigator.clipboard
+                          ?.writeText(productUrl)
+                          .then((_) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Lien copié dans le presse-papiers'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      });
+                    },
+                  ),
+                  _buildShareOption(
+                    icon:
+                        'https://www.svgrepo.com/show/533241/message-dots.svg',
+                    label: 'SMS',
+                    onTap: () async {
+                      final smsUrl = "sms:?body=$shareText";
+                      if (await canLaunchUrl(Uri.parse(smsUrl))) {
+                        await launchUrl(Uri.parse(smsUrl));
+                      }
+                      Navigator.pop(context);
+                    },
+                  ),
+                  _buildShareOption(
+                    icon: 'https://www.svgrepo.com/show/533211/mail.svg',
+                    label: 'Email',
+                    onTap: () async {
+                      final emailUrl =
+                          "mailto:?subject=${widget.product.name}&body=$shareText";
+                      if (await canLaunchUrl(Uri.parse(emailUrl))) {
+                        await launchUrl(Uri.parse(emailUrl));
+                      }
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShareOption({
+    required String icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Image.network(
+              icon,
+              width: 36,
+              height: 36,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

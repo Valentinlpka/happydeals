@@ -26,6 +26,8 @@ class Post {
   final String? originalPostId; // ID du post original si c'est un partage
   final String? comment;
   List<String> viewedBy = [];
+  final String? associationId;
+  final String entityType; // 'company' ou 'association'
 
   Post({
     required this.id,
@@ -41,6 +43,8 @@ class Post {
     this.sharedAt,
     this.originalPostId,
     this.comment,
+    this.associationId,
+    this.entityType = 'company', // par défaut c'est une entreprise
   });
 
   factory Post.fromDocument(DocumentSnapshot doc) {
@@ -94,6 +98,8 @@ class Post {
           : null,
       originalPostId: map['originalPostId'],
       comment: map['comment'],
+      associationId: map['associationId'],
+      entityType: map['entityType'] ?? 'company',
     )..viewedBy = List<String>.from(map['viewedBy'] ?? []);
   }
 
@@ -113,6 +119,8 @@ class Post {
       'originalPostId': originalPostId,
       'comment': comment,
       'viewedBy': viewedBy,
+      'associationId': associationId,
+      'entityType': entityType,
     };
   }
 
@@ -215,6 +223,8 @@ Future<void> sharePost(String postId, String userId) async {
     sharedBy: userId,
     sharedAt: DateTime.now(),
     originalPostId: postId,
+    associationId: originalPost.associationId,
+    entityType: originalPost.entityType,
   );
 
   await FirebaseFirestore.instance

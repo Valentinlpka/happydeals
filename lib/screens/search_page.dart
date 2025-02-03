@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
+import 'package:happy/screens/post_type_page/associations_page.dart';
 import 'package:happy/screens/post_type_page/code_promo_page.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
@@ -103,6 +104,7 @@ class _SearchPageState extends State<SearchPage> {
                       _buildFilterChip("Utilisateurs"),
                       _buildFilterChip("Posts"),
                       _buildFilterChip("Entreprises"),
+                      _buildFilterChip("Associations"),
                     ],
                   ),
                 ),
@@ -321,6 +323,19 @@ class _SearchPageState extends State<SearchPage> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const CategoryImportScreen()),
+        ),
+      ),
+      DiscoverItem(
+        title: 'Associations',
+        icon: Icons.volunteer_activism,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF8E24AA), Color(0xFFAB47BC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AssociationsPage()),
         ),
       ),
     ];

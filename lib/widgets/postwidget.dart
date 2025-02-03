@@ -806,4 +806,32 @@ class _PostWidgetState extends State<PostWidget>
       ),
     );
   }
+
+  void _navigateToCompanyDetail(BuildContext context) {
+    try {
+      final post = widget.post;
+      final entityType = post.entityType;
+
+      if (entityType == 'association') {
+        Navigator.pushNamed(
+          context,
+          '/association-detail',
+          arguments: post.companyId,
+        );
+      } else {
+        Navigator.pushNamed(
+          context,
+          '/company-detail',
+          arguments: post.companyId,
+        );
+      }
+    } catch (e) {
+      print('Erreur de navigation: $e');
+      // Optionnel : afficher un message à l'utilisateur
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("Impossible d'accéder au détail pour le moment")),
+      );
+    }
+  }
 }

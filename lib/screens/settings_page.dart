@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users_provider.dart';
@@ -22,9 +23,14 @@ import 'package:happy/services/auth_service.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
-class ParametrePage extends StatelessWidget {
+class ParametrePage extends StatefulWidget {
   const ParametrePage({super.key});
 
+  @override
+  State<ParametrePage> createState() => _ParametrePageState();
+}
+
+class _ParametrePageState extends State<ParametrePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -222,6 +228,92 @@ class ParametrePage extends StatelessWidget {
     );
   }
 
+  Future<void> _createTestAssociation() async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      const associationId = 'Rke9hqHw5mDvBSBuSLyb'; // ID fixe
+
+      // Mettre à jour ou créer l'association avec l'ID spécifique
+      await firestore.collection('associations').doc(associationId).set({
+        'name': 'Les Restos du Cœur - Paris 15',
+        'description':
+            'Association d\'aide alimentaire et d\'insertion sociale, nous accueillons et accompagnons les personnes en difficulté.',
+        'logo': 'https://picsum.photos/200',
+        'cover': 'https://picsum.photos/800/400',
+        'email': 'paris15@restosducoeur.org',
+        'phone': '01 45 67 89 10',
+        'category': 'Aide alimentaire',
+        'address': {
+          'street': '15 rue de la Solidarité',
+          'postalCode': '75015',
+          'city': 'Paris',
+          'country': 'France',
+          'latitude': 48.837273,
+          'longitude': 2.287851,
+        },
+        'openingHours': {
+          'lundi': {'open': '09:00', 'close': '17:00'},
+          'mardi': {'open': '09:00', 'close': '17:00'},
+          'mercredi': {'open': '09:00', 'close': '17:00'},
+          'jeudi': {'open': '09:00', 'close': '17:00'},
+          'vendredi': {'open': '09:00', 'close': '16:00'},
+          'samedi': {'open': '10:00', 'close': '12:00'},
+          'dimanche': {'open': 'fermé', 'close': 'fermé'},
+        },
+        'followersCount': 0,
+        'followers': [],
+        'createdAt': FieldValue.serverTimestamp(),
+        'isVerified': true,
+        'website': 'https://www.restosducoeur.org',
+        'socialLinks': [
+          'https://facebook.com/restosducoeur',
+          'https://twitter.com/restosducoeur',
+        ],
+        'donationNeeds': [
+          'Produits alimentaires non périssables',
+          'Produits d\'hygiène',
+          'Vêtements chauds',
+          'Couvertures',
+        ],
+        // Ajout du champ searchText pour la recherche
+        'searchText': 'les restos du coeur paris 15 aide alimentaire',
+      });
+
+      // Suivre automatiquement l'association
+      if (currentUserId != null) {
+        await firestore.collection('users').doc(currentUserId).update({
+          'followedAssociations': FieldValue.arrayUnion([associationId])
+        });
+
+        // Mettre à jour le compteur de followers de l'association
+        await firestore.collection('associations').doc(associationId).update({
+          'followersCount': FieldValue.increment(1),
+          'followers': FieldValue.arrayUnion([currentUserId]),
+        });
+      }
+
+      // Afficher un message de succès
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Association créée et suivie avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildServiceGrid(BuildContext context) {
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
@@ -340,6 +432,11 @@ class ParametrePage extends StatelessWidget {
                   MaterialPageRoute(
                       builder: (context) => const MatchMarketIntroPage()));
             },
+          ),
+          _buildServiceCard(
+            icon: Icons.add_business,
+            title: 'Créer Association Test',
+            onTap: _createTestAssociation,
           ),
         ],
       ),

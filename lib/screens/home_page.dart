@@ -6,6 +6,7 @@ import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/home_provider.dart';
+import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
@@ -17,6 +18,7 @@ import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/service_list_page.dart';
+import 'package:happy/screens/test_notification_page.dart';
 import 'package:happy/widgets/bottom_sheet_profile.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/navigation_item.dart';
@@ -133,6 +135,16 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                 onRefresh: _handleRefresh,
                 child: _buildStreamBuilder(),
               ),
+            ),
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const TestNotificationPage()),
+                );
+              },
+              icon: const Icon(Icons.notification_add),
             ),
           ],
         ),
@@ -307,39 +319,69 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildHeader() {
-    return Consumer<UserModel>(
-      builder: (context, usersProvider, _) {
+    return Consumer2<UserModel, NotificationProvider>(
+      builder: (context, usersProvider, notificationProvider, _) {
         return Container(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () => showProfileBottomSheet(context),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.all(2), // Épaisseur du bord en dégradé
+              Stack(
+                children: [
+                  GestureDetector(
+                    onTap: () => showProfileBottomSheet(context),
                     child: Container(
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color:
-                            Colors.white, // Fond blanc entre le bord et l'image
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
-                      child: CircleAvatar(
-                        radius: 25,
-                        backgroundImage: NetworkImage(usersProvider.profileUrl),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          child: CircleAvatar(
+                            radius: 25,
+                            backgroundImage:
+                                NetworkImage(usersProvider.profileUrl),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  if (notificationProvider.hasUnreadNotifications)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                        child: Text(
+                          notificationProvider.notifications
+                              .where((n) => !n.isRead)
+                              .length
+                              .toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 12),
               Expanded(

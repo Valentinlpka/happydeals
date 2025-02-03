@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
@@ -39,41 +40,20 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        toolbarHeight: 100,
-        title: FutureBuilder<List<DocumentSnapshot>>(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: FutureBuilder<List<DocumentSnapshot>>(
           future: Future.wait([_bookingFuture, _serviceFuture]),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const SizedBox();
+            if (!snapshot.hasData)
+              return const CustomAppBar(title: '', align: Alignment.centerLeft);
+
             final bookingData =
                 snapshot.data![0].data() as Map<String, dynamic>;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Réservation #${widget.bookingId.substring(0, 8)}',
-                  style: const TextStyle(
-                    color: Colors.black87,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Créée le ${DateFormat('d MMMM yyyy à HH:mm', 'fr_FR').format(bookingData['createdAt'].toDate())}',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+            return CustomAppBar(
+              title: 'Réservation #${widget.bookingId.substring(0, 8)}',
+              align: Alignment.center,
             );
           },
         ),
@@ -122,47 +102,6 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       ),
       floatingActionButton: _buildNavigationFAB(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-    );
-  }
-
-  PreferredSize _buildAppBar(Map<String, dynamic> bookingData) {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(100),
-      child: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        flexibleSpace: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(
-                left: 56, top: 12), // 56 pour compenser le leading button
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Réservation #${widget.bookingId.substring(0, 8)}',
-                  style: const TextStyle(
-                    color: Colors.black87,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Créée le ${DateFormat('d MMMM yyyy à HH:mm', 'fr_FR').format(bookingData['createdAt'].toDate())}',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -263,7 +202,12 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  DateFormat('EEEE d MMMM yyyy').format(bookingDateTime),
+                  DateFormat('EEEE d MMMM yyyy', 'fr_FR')
+                      .format(bookingDateTime)
+                      .replaceFirst(
+                        bookingDateTime.day.toString(),
+                        '${bookingDateTime.day}',
+                      ),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
@@ -324,17 +268,54 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     return _buildSection(
       title: 'Paiement',
       icon: Icons.payment,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          const Text('Total payé'),
-          Text(
-            '${(bookingData['amount'] / 100).toStringAsFixed(2)}€',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2E7D32),
+          if (bookingData['promoCode'] != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Prix initial'),
+                Text(
+                  '${(bookingData['originalPrice']).toStringAsFixed(2)}€',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Code promo (${bookingData['promoCode']})',
+                  style: TextStyle(color: Colors.green[700]),
+                ),
+                Text(
+                  '-${(bookingData['discountAmount']).toStringAsFixed(2)}€',
+                  style: TextStyle(
+                    color: Colors.green[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Total payé'),
+              Text(
+                '${(bookingData['finalPrice'] ?? bookingData['amount'] / 100).toStringAsFixed(2)}€',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -462,6 +443,8 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         return Colors.orange;
       case 'cancelled':
         return Colors.red;
+      case 'completed':
+        return Colors.blue;
       default:
         return Colors.grey;
     }
@@ -475,6 +458,8 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         return 'En attente';
       case 'cancelled':
         return 'Annulé';
+      case 'completed':
+        return 'Terminée';
       default:
         return 'Inconnu';
     }

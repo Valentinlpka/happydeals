@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/followed_companies_page.dart';
 import 'package:happy/screens/liked_post_page.dart';
+import 'package:happy/screens/notifications_page.dart';
 import 'package:happy/screens/settings_page.dart';
 import 'package:happy/services/auth_service.dart';
 import 'package:provider/provider.dart';
@@ -135,9 +137,15 @@ void showProfileBottomSheet(BuildContext context) {
             context: context,
             icon: Icons.notifications_outlined,
             label: 'Notifications',
-            hasNotification: true,
+            hasNotification:
+                context.watch<NotificationProvider>().hasUnreadNotifications,
             onTap: () {
-              // Navigation vers les notifications
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const NotificationsPage()),
+              );
             },
           ),
 

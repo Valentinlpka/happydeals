@@ -1,13 +1,17 @@
-import 'package:app_links/app_links.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:happy/classes/product.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/home_provider.dart';
+import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/review_service.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/auth_page.dart';
@@ -18,7 +22,10 @@ import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/main_container.dart';
 import 'package:happy/screens/payment_cancel.dart';
 import 'package:happy/screens/payment_success.dart';
+import 'package:happy/screens/profile_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
+import 'package:happy/screens/shop/order_detail_page.dart';
+import 'package:happy/screens/shop/product_detail_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/widgets/url_strategy.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -35,35 +42,58 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   initializeUrlStrategy();
-
-  if (kIsWeb) {
-  } else {
-    Stripe.publishableKey =
-        'pk_test_51LTLueEdQ2kxvmjkFjbvo65zeyYFfgfwZJ4yX8msvLiOkHju26pIj77RZ1XaZOoCG6ULyzn95z1irjk18AsNmwZx00OlxLu8Yt';
-    await Stripe.instance.applySettings();
-
-    // Remplacer la gestion des deep links
-    final appLinks = AppLinks();
-
-    // Gérer les liens initiaux
-    final uri = await appLinks.getInitialLink();
-    if (uri != null) _handleDeepLink(uri);
-
-    // Écouter les liens entrants
-    appLinks.uriLinkStream.listen((uri) {
-      _handleDeepLink(uri);
-    });
-  }
+  setUrlStrategy(PathUrlStrategy());
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
   await initializeDateFormatting('fr_FR', null);
-
   timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
 
-  runApp(const MyApp());
+  if (kIsWeb) {
+    try {
+      // Attendre que l'utilisateur soit connecté
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
+        String? token = await FirebaseMessaging.instance.getToken(
+          vapidKey:
+              'BJqxpGh0zaBedTU9JBdIQ8LrVUXetBpUBKT4wrrV_LXiI9vy0LwRa4_KCprNARbLEiV9gFnVipimUO5AN60XqSI',
+        );
+
+        if (token != null) {
+          // Sauvegarder le token dans Firestore pour l'utilisateur
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'fcmToken': token});
+
+          debugPrint('FCM Token Web: $token');
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur d\'initialisation FCM: $e');
+    }
+  }
+
+  runApp(MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (_) => HomeProvider()),
+      ChangeNotifierProvider(create: (_) => UserModel()),
+      ChangeNotifierProvider(create: (_) => ConversationService()),
+      ChangeNotifierProvider(create: (_) => SavedAdsProvider()),
+      ChangeNotifierProvider(create: (_) => CartService()),
+      ChangeNotifierProvider(create: (_) => ReviewService()),
+      ChangeNotifierProvider(create: (_) => NotificationProvider()),
+    ],
+    child: const MyApp(),
+  ));
 }
 
 void _handleDeepLink(Uri uri) {
@@ -88,13 +118,44 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ConversationService()),
         ChangeNotifierProvider(create: (_) => SavedAdsProvider()),
         ChangeNotifierProvider(create: (_) => CartService()),
-        ChangeNotifierProvider(create: (_) => ReviewService())
+        ChangeNotifierProvider(create: (_) => ReviewService()),
       ],
       child: MaterialApp(
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: _buildTheme(context),
-        home: const AuthWrapper(),
+        home: Builder(
+          builder: (context) {
+            final currentUrl = html.window.location.href;
+            if (currentUrl.contains('/payment-success')) {
+              String? sessionId;
+              String? orderId;
+              String? reservationId;
+              String? bookingId;
+
+              try {
+                final uri = Uri.parse(currentUrl);
+                final params = uri.queryParameters;
+
+                sessionId = params['session_id'];
+                orderId = params['orderId'];
+                reservationId = params['reservationId'];
+                bookingId = params['bookingId'];
+              } catch (e) {
+                print('Error parsing URL parameters: $e');
+              }
+
+              return UnifiedPaymentSuccessScreen(
+                sessionId: sessionId,
+                orderId: orderId,
+                reservationId: reservationId,
+                bookingId: bookingId,
+              );
+            }
+
+            return const AuthWrapper();
+          },
+        ),
         initialRoute: '/',
         routes: {
           '/signup': (context) => const SignUpPage(),
@@ -103,15 +164,12 @@ class MyApp extends StatelessWidget {
           '/home': (context) => const MainContainer(),
           '/cart': (context) => const CartScreen(),
           '/payment-cancel': (context) => const PaymentCancel(),
-          '/payment-success': (context) => const UnifiedPaymentSuccessScreen(),
           '/entreprise/:entrepriseId': (context) => const DetailsEntreprise(),
           '/company/:entrepriseId': (context) => const DetailsEntreprise(),
         },
         onGenerateRoute: (settings) {
           if (settings.name?.startsWith('/entreprise/') ?? false) {
-            // On extrait directement l'ID depuis le settings.name
             final entrepriseId = settings.name!.split('/entreprise/')[1];
-
             return MaterialPageRoute(
               builder: (context) =>
                   DetailsEntreprise(entrepriseId: entrepriseId),
@@ -119,27 +177,102 @@ class MyApp extends StatelessWidget {
             );
           }
 
-          if (settings.name?.startsWith('/payment-success') ?? false) {
-            // Extraire le session_id de l'URL complète
-            String fullUrl = html.window.location.href;
-            String? sessionId;
-
-            try {
-              String hashPart = fullUrl.split('#')[1];
-              String queryPart = hashPart.split('?')[1];
-              Map<String, String> params = Uri.splitQueryString(queryPart);
-              sessionId = params['session_id'];
-            } catch (e) {}
-
+          if (settings.name?.startsWith('/produits/') ?? false) {
+            final productId = settings.name!.split('/produits/')[1];
             return MaterialPageRoute(
-              builder: (context) => UnifiedPaymentSuccessScreen(
-                sessionId: sessionId,
+              builder: (context) => FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('products')
+                    .doc(productId)
+                    .get(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || !snapshot.data!.exists) {
+                    return const Scaffold(
+                      body: Center(child: Text('Produit non trouvé')),
+                    );
+                  }
+                  final product = Product.fromFirestore(snapshot.data!);
+                  return ModernProductDetailPage(product: product);
+                },
               ),
               settings: settings,
             );
           }
-          return null;
+
+          if (settings.name?.startsWith('/payment-success') ?? false) {
+            // Extraire les paramètres sans utiliser le hash
+            String fullUrl = html.window.location.href;
+            String? sessionId;
+            String? orderId;
+            String? reservationId;
+            String? bookingId;
+
+            try {
+              final uri = Uri.parse(fullUrl);
+              final params = uri.queryParameters;
+
+              sessionId = params['session_id'];
+              orderId = params['orderId'];
+              reservationId = params['reservationId'];
+              bookingId = params['bookingId'];
+
+              print(
+                  'URL Params: sessionId=$sessionId, orderId=$orderId, reservationId=$reservationId, bookingId=$bookingId');
+            } catch (e) {
+              print('Error parsing URL parameters: $e');
+            }
+
+            return MaterialPageRoute(
+              builder: (context) => UnifiedPaymentSuccessScreen(
+                sessionId: sessionId,
+                orderId: orderId,
+                reservationId: reservationId,
+                bookingId: bookingId,
+              ),
+              settings: settings,
+            );
+          }
+
+          // Extraire l'ID de l'URL
+          final uri = Uri.parse(settings.name ?? '');
+          final pathSegments = uri.pathSegments;
+
+          // Gérer les différentes routes
+          if (pathSegments.length == 2) {
+            final id = pathSegments[1];
+            switch (pathSegments[0]) {
+              case 'orders':
+                return MaterialPageRoute(
+                  builder: (context) => OrderDetailPage(orderId: id),
+                  settings: settings,
+                );
+
+              case 'profile':
+                return MaterialPageRoute(
+                  builder: (context) => const ProfilePage(),
+                  settings: settings,
+                );
+            }
+          }
+
+          // Route par défaut si aucune correspondance n'est trouvée
+          return MaterialPageRoute(
+            builder: (context) => const MainContainer(),
+            settings: settings,
+          );
         },
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('fr', 'FR'),
+        ],
+        locale: const Locale('fr', 'FR'),
       ),
     );
   }
@@ -213,6 +346,13 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
+          // Vérifier si nous sommes sur la page de paiement
+          final currentUrl = html.window.location.href;
+          if (currentUrl.contains('/payment-success')) {
+            // Ne pas rediriger si nous sommes sur la page de paiement
+            return const SizedBox.shrink(); // Widget vide
+          }
+
           return FutureBuilder(
             future: _initializeProviders(context),
             builder: (context, snapshot) {
@@ -237,8 +377,6 @@ class AuthWrapper extends StatelessWidget {
 
   Future<void> _initializeProviders(BuildContext context) async {
     final userModel = Provider.of<UserModel>(context, listen: false);
-
     await userModel.loadUserData();
-    // Initialisez d'autres providers si nécessaire
   }
 }

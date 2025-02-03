@@ -8,134 +8,176 @@ class PromoCodeService {
     String companyId,
     String customerId,
   ) async {
-
     try {
-      final loyaltyPromoDoc = await _firestore
-          .collection('PromoCodes')
+      final promoDoc = await _firestore
+          .collection('promo_codes')
           .where('code', isEqualTo: code)
           .where('companyId', isEqualTo: companyId)
-          .where('customerId', isEqualTo: customerId)
-          .where('usedAt', isNull: true)
-          .where('expiresAt', isGreaterThan: Timestamp.now())
-          .get();
-
-      if (loyaltyPromoDoc.docs.isNotEmpty) {
-        return true;
-      }
-    } catch (e) {
-      // L'erreur contiendra le lien pour créer l'index
-    }
-
-
-    try {
-      final storePromoDoc = await _firestore
-          .collection('posts')
-          .where('type', isEqualTo: 'promo_code')
-          .where('code', isEqualTo: code)
-          .where('sellerId', isEqualTo: companyId)
-          .where('expiresAt', isGreaterThan: Timestamp.now())
           .where('isActive', isEqualTo: true)
+          .where('expiresAt', isGreaterThan: Timestamp.now())
           .get();
 
-      if (storePromoDoc.docs.isEmpty) return false;
-
-      final promoPost = storePromoDoc.docs.first;
-      final data = promoPost.data();
-
-      final maxUses = data['maxUses'];
-      final currentUses = data['currentUses'] ?? 0;
-
-      if (maxUses != null && currentUses >= maxUses) {
+      if (promoDoc.docs.isEmpty) {
+        print('Code promo non trouvé ou expiré');
         return false;
+      }
+
+      final data = promoDoc.docs.first.data();
+      print('Document trouvé: ${data.toString()}');
+
+      // Vérifier les limites d'utilisation
+      final maxUses = int.tryParse(data['maxUses'].toString()) ?? 0;
+      final currentUses = data['currentUses'] ?? 0;
+      if (maxUses > 0 && currentUses >= maxUses) {
+        print('Code promo a atteint le nombre maximum d\'utilisations');
+        throw Exception(
+            'Ce code promo a atteint son nombre maximum d\'utilisations');
+      }
+
+      // Vérifier l'historique d'utilisation
+      final usageHistory = List<String>.from(data['usageHistory'] ?? []);
+      if (usageHistory.contains(customerId)) {
+        print('L\'utilisateur a déjà utilisé ce code promo');
+        throw Exception('Vous avez déjà utilisé ce code promo');
       }
 
       return true;
     } catch (e) {
-      // L'erreur contiendra le lien pour créer l'index
+      print('Erreur lors de la validation du code promo: $e');
+      if (e is Exception) {
+        rethrow;
+      }
       return false;
     }
   }
 
   Future<Map<String, dynamic>?> getPromoCodeDetails(String code) async {
-    // D'abord, chercher dans les codes de fidélité
-    final loyaltyPromoDoc = await _firestore
-        .collection('PromoCodes')
+    final promoDoc = await _firestore
+        .collection('promo_codes')
         .where('code', isEqualTo: code)
         .get();
 
-    if (loyaltyPromoDoc.docs.isNotEmpty) {
-      return loyaltyPromoDoc.docs.first.data();
-    }
+    if (promoDoc.docs.isNotEmpty) {
+      final data = promoDoc.docs.first.data();
 
-    // Sinon, chercher dans les codes promo boutique
-    final storePromoDoc = await _firestore
-        .collection('posts')
-        .where('type', isEqualTo: 'promo_code')
-        .where('code', isEqualTo: code)
-        .get();
+      // Convertir discountValue en nombre
+      double discountValue;
+      try {
+        // Convertir en double quelle que soit la forme d'origine
+        discountValue = double.parse(data['discountValue'].toString());
+      } catch (e) {
+        print('Erreur lors de la conversion de discountValue: $e');
+        return null;
+      }
 
-    if (storePromoDoc.docs.isNotEmpty) {
-      final data = storePromoDoc.docs.first.data();
       return {
         'code': data['code'],
-        'value': data['value'],
-        'isPercentage': data['isPercentage'],
+        'value': discountValue,
+        'isPercentage': data['discountType'] == 'percentage',
         'companyId': data['companyId'],
-        'maxUses': data['maxUses'],
+        'maxUses': int.tryParse(data['maxUses'].toString()) ?? 0,
         'currentUses': data['currentUses'] ?? 0,
-        'isStoreWide': data['isStoreWide'] ?? true,
-        'applicableProductIds': data['applicableProductIds'] ?? [],
+        'conditionType': data['conditionType'],
+        'conditionValue': data['conditionValue'],
+        'conditionProductId': data['conditionProductId'],
+        'description': data['description'],
+        'expiresAt': data['expiresAt'],
+        'isActive': data['isActive'],
+        'usageHistory': data['usageHistory'] ?? [],
+        'isPublic': data['isPublic'] ?? false,
+        'timestamp': data['timestamp'],
+        'createdAt': data['createdAt'],
+        'updatedAt': data['updatedAt'],
+        'sellerId': data['sellerId'],
       };
     }
 
     return null;
   }
 
-  Future<void> usePromoCode(String code, String companyId) async {
-    // D'abord, essayer de mettre à jour un code de fidélité
-    final loyaltyPromoDoc = await _firestore
-        .collection('PromoCodes')
-        .where('code', isEqualTo: code)
-        .where('companyId', isEqualTo: companyId)
-        .get();
+  Future<void> usePromoCode(
+    String code,
+    String companyId,
+    String customerId,
+  ) async {
+    try {
+      final promoDoc = await _firestore
+          .collection('promo_codes')
+          .where('code', isEqualTo: code)
+          .where('companyId', isEqualTo: companyId)
+          .get();
 
-    if (loyaltyPromoDoc.docs.isNotEmpty) {
-      await loyaltyPromoDoc.docs.first.reference.update({
-        'usedAt': FieldValue.serverTimestamp(),
-      });
-      return;
-    }
+      if (promoDoc.docs.isNotEmpty) {
+        final updates = {
+          'currentUses': FieldValue.increment(1),
+          'usageHistory': FieldValue.arrayUnion([customerId]),
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
 
-    // Sinon, mettre à jour le compteur d'utilisation du code promo boutique
-    final storePromoDoc = await _firestore
-        .collection('posts')
-        .where('type', isEqualTo: 'promo_code')
-        .where('code', isEqualTo: code)
-        .where('sellerId', isEqualTo: companyId)
-        .get();
-
-    if (storePromoDoc.docs.isNotEmpty) {
-      await storePromoDoc.docs.first.reference.update({
-        'currentUses': FieldValue.increment(1),
-      });
+        await promoDoc.docs.first.reference.update(updates);
+      }
+    } catch (e) {
+      print('Erreur lors de l\'utilisation du code promo: $e');
+      throw Exception('Erreur lors de l\'application du code promo');
     }
   }
 
-  // Méthode helper pour vérifier si le code promo est applicable aux produits
   Future<bool> isPromoCodeApplicableToProducts(
     String code,
     String companyId,
     List<String> productIds,
+    Map<String, int> productQuantities,
   ) async {
     final details = await getPromoCodeDetails(code);
     if (details == null) return false;
 
-    // Si le code est store-wide, il s'applique à tous les produits
-    if (details['isStoreWide'] == true) return true;
+    print('Vérification des conditions du code promo:');
+    print('Type de condition: ${details['conditionType']}');
+    print('Produit requis: ${details['conditionProductId']}');
+    print('Quantité requise: ${details['conditionValue']}');
 
-    // Sinon, vérifier que tous les produits sont dans la liste des produits applicables
-    final applicableProductIds =
-        List<String>.from(details['applicableProductIds'] ?? []);
-    return productIds.every((id) => applicableProductIds.contains(id));
+    if (details['conditionType'] == 'quantity' &&
+        details['conditionProductId'] != null) {
+      final requiredProductId = details['conditionProductId'];
+      final requiredQuantity = details['conditionValue'] ?? 0;
+
+      print('Vérification du produit requis:');
+      print('- ID du produit requis: $requiredProductId');
+      print('- Quantité requise: $requiredQuantity');
+      print('- Produits dans le panier: $productIds');
+      print('- Quantités dans le panier: $productQuantities');
+
+      // Récupérer les informations du produit requis
+      final productDoc =
+          await _firestore.collection('products').doc(requiredProductId).get();
+
+      if (!productDoc.exists) {
+        throw Exception('Le produit requis pour ce code promo n\'existe plus');
+      }
+
+      final productData = productDoc.data()!;
+      final productName = productData['name'] ?? 'produit inconnu';
+
+      // Vérifier si le produit est dans le panier
+      if (!productIds.contains(requiredProductId)) {
+        print('Produit requis non trouvé dans le panier: $productName');
+        throw Exception(
+            'Ce code promo nécessite l\'achat de $requiredQuantity $productName(s)');
+      }
+
+      // Vérifier si la quantité requise est atteinte
+      final actualQuantity = productQuantities[requiredProductId] ?? 0;
+      print(
+          'Quantité trouvée dans le panier: $actualQuantity/$requiredQuantity');
+
+      if (actualQuantity < requiredQuantity) {
+        throw Exception(
+            'Ce code promo nécessite l\'achat de $requiredQuantity $productName(s). Vous en avez actuellement $actualQuantity dans votre panier.');
+      }
+
+      print('Conditions de quantité satisfaites pour le produit: $productName');
+    }
+
+    return true;
   }
 }
