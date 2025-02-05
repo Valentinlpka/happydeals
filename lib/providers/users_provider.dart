@@ -31,6 +31,7 @@ class UserModel with ChangeNotifier {
   List<String> followedUsers = [];
   List<String> _followedAssociations = [];
   double _totalSavings = 0.0;
+  List<String> sharedPosts = [];
 
   double get totalSavings => roundAmount(_totalSavings);
   String get firstName => _firstName;
@@ -224,6 +225,7 @@ class UserModel with ChangeNotifier {
       followedUsers = List<String>.from(data['followedUsers'] ?? []);
       likedPosts = List<String>.from(data['likedPosts'] ?? []);
       likedCompanies = List<String>.from(data['likedCompanies'] ?? []);
+      sharedPosts = List<String>.from(data['sharedPosts'] ?? []);
       _followedAssociations =
           List<String>.from(data['followedAssociations'] ?? []);
 
@@ -425,6 +427,7 @@ class UserModel with ChangeNotifier {
     likedCompanies.clear();
     followedUsers.clear();
     _followedAssociations.clear();
+    sharedPosts.clear();
     notifyListeners();
   }
 
@@ -494,30 +497,31 @@ class UserModel with ChangeNotifier {
 
   Future<void> sharePost(String postId, String userId,
       {String? comment}) async {
-    final postDoc = await _firestore.collection('posts').doc(postId).get();
-    if (!postDoc.exists) throw Exception('Post not found');
+    try {
+      final postDoc = await _firestore.collection('posts').doc(postId).get();
+      if (!postDoc.exists) throw Exception('Post not found');
 
-    final originalPost = Post.fromDocument(postDoc);
-    final sharedPost = SharedPost(
-      id: _firestore.collection('posts').doc().id,
-      companyId: originalPost.companyId,
-      timestamp: DateTime.now(),
-      sharedBy: userId,
-      sharedAt: DateTime.now(),
-      originalPostId: postId,
-      comment: comment, // Ajout du commentaire
-    );
+      final originalPost = Post.fromDocument(postDoc);
+      final sharedPost = SharedPost(
+        id: _firestore.collection('posts').doc().id,
+        companyId: originalPost.companyId,
+        timestamp: DateTime.now(),
+        sharedBy: userId,
+        sharedAt: DateTime.now(),
+        originalPostId: postId,
+        comment: comment,
+      );
 
-    await _firestore
-        .collection('posts')
-        .doc(sharedPost.id)
-        .set(sharedPost.toMap());
+      await _firestore
+          .collection('posts')
+          .doc(sharedPost.id)
+          .set(sharedPost.toMap());
 
-    await _firestore.collection('users').doc(userId).update({
-      'sharedPosts': FieldValue.arrayUnion([sharedPost.id])
-    });
-
-    notifyListeners();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error sharing post: $e');
+      rethrow;
+    }
   }
 
   Future<void> updateSharedPostComment(String postId, String newComment) async {
@@ -534,7 +538,22 @@ class UserModel with ChangeNotifier {
   Future<void> deleteSharedPost(String postId) async {
     try {
       await _firestore.runTransaction((transaction) async {
-        // Supprimer le post
+        // Récupérer le post partagé pour obtenir l'ID du post original
+        final sharedPostDoc =
+            await transaction.get(_firestore.collection('posts').doc(postId));
+
+        if (!sharedPostDoc.exists) throw Exception('Post not found');
+
+        final sharedPostData = sharedPostDoc.data() as Map<String, dynamic>;
+        final originalPostId = sharedPostData['originalPostId'] as String;
+
+        // Décrémenter le compteur de partages du post original
+        transaction.update(
+          _firestore.collection('posts').doc(originalPostId),
+          {'sharesCount': FieldValue.increment(-1)},
+        );
+
+        // Supprimer le post partagé
         transaction.delete(_firestore.collection('posts').doc(postId));
 
         // Supprimer la référence du post dans le document de l'utilisateur
@@ -545,6 +564,7 @@ class UserModel with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
+      debugPrint('Error deleting shared post: $e');
       rethrow;
     }
   }

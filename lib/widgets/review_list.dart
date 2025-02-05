@@ -7,18 +7,37 @@ import 'package:happy/screens/profile.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-class ReviewListWidget extends StatelessWidget {
+class ReviewListWidget extends StatefulWidget {
   final String companyId;
 
   const ReviewListWidget({super.key, required this.companyId});
 
   @override
+  State<ReviewListWidget> createState() => _ReviewListWidgetState();
+}
+
+class _ReviewListWidgetState extends State<ReviewListWidget>
+    with AutomaticKeepAliveClientMixin {
+  // Ajout de cette propriété pour garder l'état
+  @override
+  bool get wantKeepAlive => true;
+
+  // Cache pour les reviews
+  late Future<List<Review>> _reviewsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final reviewService = Provider.of<ReviewService>(context, listen: false);
+    _reviewsFuture = reviewService.getReviewsForCompany(widget.companyId);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final reviewService = Provider.of<ReviewService>(context);
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    super.build(context); // Nécessaire pour AutomaticKeepAliveClientMixin
 
     return FutureBuilder<List<Review>>(
-      future: reviewService.getReviewsForCompany(companyId),
+      future: _reviewsFuture, // Utilisation du cache
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -28,6 +47,7 @@ class ReviewListWidget extends StatelessWidget {
         }
 
         final reviews = snapshot.data ?? [];
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
         final hasUserReviewed = currentUserId != null &&
             reviews.any((review) => review.userId == currentUserId);
 
@@ -42,13 +62,56 @@ class ReviewListWidget extends StatelessWidget {
                 children: [
                   if (reviews.isNotEmpty) _buildAverageRating(reviews),
                   if (!hasUserReviewed && currentUserId != null)
-                    TextButton(
-                      onPressed: () => _showAddReviewDialog(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.blue,
-                        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text('Mettre un avis'),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.blue[800],
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Partagez votre expérience',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Pour laisser un avis, vous devez avoir effectué un achat chez ce professionnel',
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () =>
+                                      _showAddReviewDialog(context),
+                                  style: TextButton.styleFrom(
+                                    backgroundColor: Colors.blue[800],
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('Mettre un avis'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -263,7 +326,7 @@ class ReviewListWidget extends StatelessWidget {
     showModalBottomSheet(
       isScrollControlled: true,
       context: context,
-      builder: (context) => AddReviewDialog(companyId: companyId),
+      builder: (context) => AddReviewDialog(companyId: widget.companyId),
     );
   }
 }
@@ -365,23 +428,18 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
     final user = auth.currentUser;
 
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Vous devez être connecté pour laisser un avis')),
-      );
+      _showErrorDialog(
+          context, 'Vous devez être connecté pour laisser un avis');
       return;
     }
 
     if (_rating == 0 || _commentController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez remplir tous les champs')),
-      );
+      _showErrorDialog(context, 'Veuillez remplir tous les champs');
       return;
     }
 
     final userModel = Provider.of<UserModel>(context, listen: false);
-    await userModel
-        .loadUserData(); // Assurez-vous que les données utilisateur sont à jour
+    await userModel.loadUserData();
 
     final reviewService = Provider.of<ReviewService>(context, listen: false);
     try {
@@ -406,9 +464,45 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
       }
       Navigator.of(context).pop();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      _showErrorDialog(context, e.toString());
     }
+  }
+
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red[700], size: 28),
+              const SizedBox(width: 10),
+              const Text(
+                'Erreur',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            message,
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+          backgroundColor: Colors.white,
+          elevation: 24,
+        );
+      },
+    );
   }
 }

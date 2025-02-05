@@ -69,26 +69,6 @@ class _ContentBoxState extends State<ContentBox> {
             ),
             maxLines: 3,
           ),
-          const SizedBox(height: 16),
-          // Ici, vous pouvez ajouter une version miniature de votre carte de publication
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Contenu de ${widget.post.runtimeType.toString()}",
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  // Ajoutez ici plus de détails sur le post, comme le titre, une image miniature, etc.
-                ],
-              ),
-            ),
-          ),
           const SizedBox(height: 22),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -101,7 +81,6 @@ class _ContentBoxState extends State<ContentBox> {
               ElevatedButton(
                 onPressed: () {
                   widget.onConfirm(_commentController.text);
-                  Navigator.of(context).pop();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,

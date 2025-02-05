@@ -22,16 +22,26 @@ class _ProductListState extends State<ProductList>
   @override
   bool get wantKeepAlive => true;
 
+  // Ajout d'un Stream en cache
+  late final Stream<QuerySnapshot> _productsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _productsStream = FirebaseFirestore.instance
+        .collection('products')
+        .where('merchantId', isEqualTo: widget.sellerId)
+        .where('isActive', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('products')
-          .where('merchantId', isEqualTo: widget.sellerId)
-          .where('isActive', isEqualTo: true)
-          .snapshots(),
+      stream: _productsStream, // Utilisation du stream en cache
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

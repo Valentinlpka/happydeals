@@ -16,6 +16,7 @@ import 'package:happy/classes/referral_options_modal.dart';
 // Imports de vos providers et widgets
 import 'package:happy/providers/company_provider.dart';
 import 'package:happy/providers/review_service.dart';
+import 'package:happy/screens/main_container.dart';
 import 'package:happy/screens/shop/product_list.dart';
 import 'package:happy/widgets/company_message_bottom_sheet.dart';
 import 'package:happy/widgets/opening_hours_widget.dart';
@@ -50,16 +51,25 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   // Liste des onglets disponibles
   final List<String> _tabs = [
     'Boutique',
-    'Happy Deals',
-    'Évenement',
-    'Jeux concours',
-    'Deal Express',
-    "Offres d'emploi",
+    'Publications',
     'Parrainage',
-    'Toutes les publications',
     'Avis',
     'À Propos'
   ];
+
+  // Ajoutez cette liste pour les filtres
+  final List<String> _filterOptions = [
+    'Tous',
+    'Happy Deals',
+    'Événements',
+    'Jeux concours',
+    'Deal Express',
+    "Offres d'emploi",
+  ];
+
+  // Ajoutez ces variables d'état
+  String _selectedFilter = 'Tous';
+  final bool _showFilterMenu = false;
 
   // Cache pour les données company
   final Map<String, Map<String, dynamic>> _companyDataCache = {};
@@ -219,16 +229,16 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
     }
   }
 
-  String _getPostType(String tab) {
+  String _getPostType(String filter) {
     final typeMap = {
       'Happy Deals': 'happy_deal',
-      'Évenement': 'event',
+      'Événements': 'event',
       'Deal Express': 'express_deal',
       "Offres d'emploi": 'job_offer',
       'Parrainage': 'referral',
       'Jeux concours': 'contest',
     };
-    return typeMap[tab] ?? '';
+    return typeMap[filter] ?? '';
   }
 
   @override
@@ -321,8 +331,11 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                 },
                 body: TabBarView(
                   controller: _tabController,
+                  physics: const NeverScrollableScrollPhysics(),
                   children: _tabs.map((tab) {
-                    return _buildTabContent(tab, entreprise);
+                    return KeepAliveWrapper(
+                      child: _buildTabContent(tab, entreprise),
+                    );
                   }).toList(),
                 ),
               ),
@@ -738,54 +751,197 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   }
 
   Widget _buildFilteredPostList() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _postsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError || !snapshot.hasData) {
-          return Center(
-            child: Text('Erreur: ${snapshot.error ?? "Aucun post trouvé"}'),
-          );
-        }
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              const Text(
+                'Filtrer par :',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _showFilterBottomSheet(),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _selectedFilter,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _postsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return Center(
+                  child:
+                      Text('Erreur: ${snapshot.error ?? "Aucun post trouvé"}'),
+                );
+              }
 
-        final allPosts = snapshot.data!;
-        final filteredPosts = _currentTab == 'Toutes les publications'
-            ? allPosts
-            : allPosts
-                .where((postData) =>
-                    (postData['post'] as Post).type ==
-                    _getPostType(_currentTab))
-                .toList();
+              final allPosts = snapshot.data!;
+              final filteredPosts = _selectedFilter == 'Tous'
+                  ? allPosts
+                  : allPosts.where((postData) {
+                      final post = postData['post'] as Post;
+                      return post.type == _getPostType(_selectedFilter);
+                    }).toList();
 
-        return ListView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true,
-          padding: const EdgeInsets.all(10),
-          itemCount: filteredPosts.length,
-          itemBuilder: (context, index) {
-            final postData = filteredPosts[index];
-            final post = postData['post'] as Post;
-            final companyData = postData['company'] as Map<String, dynamic>;
+              if (filteredPosts.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'Aucune publication trouvée pour ce type',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                );
+              }
 
-            return PostWidget(
-              key: ValueKey(post.id),
-              post: post,
-              companyCover: companyData['cover'],
-              companyCategorie: companyData['categorie'] ?? '',
-              companyName: companyData['name'] ?? '',
-              companyLogo: companyData['logo'] ?? '',
-              companyData: companyData,
-              currentUserId: FirebaseAuth.instance.currentUser!.uid,
-              currentProfileUserId: FirebaseAuth.instance.currentUser!.uid,
-              onView: () {
-                // Logique d'affichage
-              },
-            );
-          },
-        );
-      },
+              return ListView.builder(
+                padding: const EdgeInsets.all(10),
+                itemCount: filteredPosts.length,
+                itemBuilder: (context, index) {
+                  final postData = filteredPosts[index];
+                  final post = postData['post'] as Post;
+                  final companyData =
+                      postData['company'] as Map<String, dynamic>;
+
+                  return PostWidget(
+                    key: ValueKey(post.id),
+                    post: post,
+                    companyCover: companyData['cover'],
+                    companyCategorie: companyData['categorie'] ?? '',
+                    companyName: companyData['name'] ?? '',
+                    companyLogo: companyData['logo'] ?? '',
+                    companyData: companyData,
+                    currentUserId: FirebaseAuth.instance.currentUser!.uid,
+                    currentProfileUserId:
+                        FirebaseAuth.instance.currentUser!.uid,
+                    onView: () {},
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Filtrer les publications',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _filterOptions.length,
+                  itemBuilder: (context, index) {
+                    final filter = _filterOptions[index];
+                    final isSelected = filter == _selectedFilter;
+
+                    return InkWell(
+                      onTap: () {
+                        setState(() => _selectedFilter = filter);
+                        this.setState(() {});
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
+                              color: isSelected
+                                  ? const Color(0xFF0B7FE9)
+                                  : Colors.grey,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              filter,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isSelected
+                                    ? const Color(0xFF0B7FE9)
+                                    : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

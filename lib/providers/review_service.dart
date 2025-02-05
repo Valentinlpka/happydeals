@@ -5,6 +5,38 @@ import 'package:happy/classes/review.dart';
 class ReviewService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  Future<bool> _hasUserPurchased(String userId, String companyId) async {
+    // Vérifier les commandes classiques
+    final ordersQuery = await _firestore
+        .collection('orders')
+        .where('userId', isEqualTo: userId)
+        .where('entrepriseId', isEqualTo: companyId)
+        .limit(1)
+        .get();
+
+    if (ordersQuery.docs.isNotEmpty) return true;
+
+    // Vérifier les services
+    final servicesQuery = await _firestore
+        .collection('bookings')
+        .where('userId', isEqualTo: userId)
+        .where('professionalId', isEqualTo: companyId)
+        .limit(1)
+        .get();
+
+    if (servicesQuery.docs.isNotEmpty) return true;
+
+    // Vérifier les deals express
+    final dealsQuery = await _firestore
+        .collection('reservations')
+        .where('userId', isEqualTo: userId)
+        .where('companyId', isEqualTo: companyId)
+        .limit(1)
+        .get();
+
+    return dealsQuery.docs.isNotEmpty;
+  }
+
   Future<void> addReview(Review review) async {
     // Vérifier si l'utilisateur a déjà donné un avis
     final existingReview = await _firestore
@@ -15,6 +47,14 @@ class ReviewService extends ChangeNotifier {
 
     if (existingReview.docs.isNotEmpty) {
       throw Exception('Vous avez déjà donné un avis pour cette entreprise');
+    }
+
+    // Vérifier si l'utilisateur a déjà commandé
+    final hasPurchased =
+        await _hasUserPurchased(review.userId, review.companyId);
+    if (!hasPurchased) {
+      throw Exception(
+          'Vous devez avoir effectué un achat pour laisser un avis');
     }
 
     await _firestore.collection('reviews').add(review.toMap());

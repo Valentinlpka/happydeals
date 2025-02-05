@@ -519,6 +519,7 @@ class _PostWidgetState extends State<PostWidget>
         final commentsCount = postData['commentsCount'] ?? 0;
         final likes = postData['likes'] ?? 0;
         final views = postData['views'] ?? 0;
+        final shares = postData['sharesCount'] ?? 0; // Compteur de partages
 
         return Consumer<UserModel>(
           builder: (context, users, _) {
@@ -570,13 +571,17 @@ class _PostWidgetState extends State<PostWidget>
                           onPressed: () => _navigateToComments(context),
                         ),
                         Text('$commentsCount'),
+                        const SizedBox(width: 20),
+                        if (!isCurrentUser) ...[
+                          IconButton(
+                            icon: const Icon(Icons.share_outlined),
+                            onPressed: () =>
+                                _showShareConfirmation(context, users),
+                          ),
+                          Text('$shares'),
+                        ],
                       ],
                     ),
-                    if (!isCurrentUser)
-                      IconButton(
-                        onPressed: () => _showShareConfirmation(context, users),
-                        icon: const Icon(Icons.share_outlined),
-                      ),
                   ],
                 ),
                 Divider(height: 20, color: Colors.grey[300]),
@@ -623,18 +628,57 @@ class _PostWidgetState extends State<PostWidget>
                 leading: const Icon(Icons.share_outlined),
                 title: const Text('Partager sur mon profil'),
                 onTap: () {
-                  Navigator.pop(context); // Ferme le bottom sheet
-                  // Ouvre le dialogue de partage sur le profil
+                  Navigator.pop(context);
+                  // Stockons le BuildContext actuel
+                  final scaffoldContext = context;
                   showDialog(
                     context: context,
                     builder: (BuildContext dialogContext) {
                       return ShareConfirmationDialog(
                         post: widget.post,
                         onConfirm: (String comment) async {
-                          await users.sharePost(widget.post.id, users.userId,
-                              comment: comment);
-                          Navigator.of(dialogContext).pop();
-                          _showSnackBar('Publication partagée avec succès!');
+                          try {
+                            // Fermer d'abord le dialogue
+                            Navigator.of(dialogContext).pop();
+
+                            await FirebaseFirestore.instance
+                                .collection('posts')
+                                .doc(widget.post.id)
+                                .update({
+                              'sharesCount': FieldValue.increment(1),
+                            });
+
+                            await users.sharePost(
+                              widget.post.id,
+                              users.userId,
+                              comment: comment,
+                            );
+
+                            // Utiliser le contexte stocké
+                            if (scaffoldContext.mounted) {
+                              ScaffoldMessenger.of(scaffoldContext)
+                                  .showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Publication partagée avec succès!'),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            // Utiliser le contexte stocké
+                            if (scaffoldContext.mounted) {
+                              ScaffoldMessenger.of(scaffoldContext)
+                                  .showSnackBar(
+                                SnackBar(
+                                  content: Text('Erreur lors du partage: $e'),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
                         },
                       );
                     },
@@ -748,6 +792,14 @@ class _PostWidgetState extends State<PostWidget>
                                     '${userData['firstName']} ${userData['lastName']}'),
                                 onTap: () async {
                                   try {
+                                    // Incrémenter le compteur de partages
+                                    await FirebaseFirestore.instance
+                                        .collection('posts')
+                                        .doc(widget.post.id)
+                                        .update({
+                                      'sharesCount': FieldValue.increment(1),
+                                    });
+
                                     await conversationService
                                         .sharePostInConversation(
                                       senderId: users.userId,

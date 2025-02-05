@@ -1,12 +1,14 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/like_service.dart';
+import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/product_card.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -27,7 +29,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   int quantity = 1;
   ProductVariant? selectedVariant;
   Map<String, String> selectedAttributes = {};
-  late Future<Map<String, dynamic>> companyFuture;
+  late Future<Company> companyFuture;
 
   @override
   void initState() {
@@ -39,12 +41,12 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
     }
   }
 
-  Future<Map<String, dynamic>> _loadCompanyData() async {
+  Future<Company> _loadCompanyData() async {
     final doc = await FirebaseFirestore.instance
         .collection('companys')
         .doc(widget.product.sellerId)
         .get();
-    return doc.data() ?? {};
+    return Company.fromDocument(doc);
   }
 
   void _updateSelectedVariant() {
@@ -385,68 +387,41 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   }
 
   Widget _buildSellerInfo() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: companyFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox();
-
-        final company = snapshot.data!;
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    DetailsEntreprise(entrepriseId: widget.product.sellerId),
-              ),
-            );
-          },
-          child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(vertical: 16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: NetworkImage(company['logo'] ?? ''),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        company['name'] ?? '',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        company['description'] ?? '',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right, color: Colors.grey),
-              ],
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Vendeur',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 16),
+          FutureBuilder<Company>(
+            future: companyFuture,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return CompanyInfoCard(
+                company: snapshot.data!,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailsEntreprise(
+                      entrepriseId: widget.product.sellerId,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
