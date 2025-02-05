@@ -4,6 +4,7 @@ import 'package:happy/classes/company.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:happy/widgets/company_info_card.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -141,8 +142,8 @@ class DetailsJeuxConcoursPage extends StatefulWidget {
 
   const DetailsJeuxConcoursPage({
     required this.contest,
-    super.key,
     required this.currentUserId,
+    super.key,
   });
 
   @override
@@ -152,11 +153,28 @@ class DetailsJeuxConcoursPage extends StatefulWidget {
 
 class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
   late Future<Company> companyFuture;
+  final ScrollController _scrollController = ScrollController();
+  bool _showTitle = false;
 
   @override
   void initState() {
     super.initState();
     companyFuture = _fetchCompanyDetails(widget.contest.companyId);
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.offset > 140 && !_showTitle) {
+      setState(() => _showTitle = true);
+    } else if (_scrollController.offset <= 140 && _showTitle) {
+      setState(() => _showTitle = false);
+    }
   }
 
   Future<Company> _fetchCompanyDetails(String companyId) async {
@@ -175,325 +193,463 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
   Widget build(BuildContext context) {
     final isLiked =
         context.watch<UserModel>().likedPosts.contains(widget.contest.id);
-
-    final bool isContestOver = widget.contest.winner != null ||
+    final isContestOver = widget.contest.winner != null ||
         DateTime.now().isAfter(widget.contest.endDate);
+    final theme = Theme.of(context);
 
     return Scaffold(
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-            border: Border(
-                top: BorderSide(
-          width: 0.4,
-          color: Colors.black26,
-        ))),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: ElevatedButton(
-            style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.all(
-                isContestOver ? Colors.grey : Colors.blue[800],
-              ),
-            ),
-            onPressed: isContestOver
-                ? null // Désactiver le bouton si le concours est terminé
-                : () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => ParticipationDialog(
-                        contest: widget.contest,
-                        userId: widget.currentUserId,
-                      ),
-                    );
-                  },
-            child: Text(
-              isContestOver ? 'Concours terminé' : 'Participer au jeu',
-            ),
-          ),
-        ),
-      ),
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
-          SliverAppBar(
-            pinned: true,
-            floating: true,
-            elevation: 11,
-            centerTitle: true,
-            titleSpacing: 50,
-            title: Container(
-              height: 30,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: const Color.fromARGB(115, 0, 0, 0),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Icon(
-                      Icons.emoji_events,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    Text(
-                      'Jeux concours',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            backgroundColor: Colors.blue,
-            shadowColor: Colors.grey,
-            leading: IconButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              icon: const Icon(
-                Icons.arrow_back_ios_new,
-                color: Colors.white,
-              ),
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  isLiked ? Icons.favorite : Icons.favorite_border,
-                  color: isLiked ? Colors.red : Colors.white,
-                ),
-                onPressed: () async {
-                  await Provider.of<UserModel>(context, listen: false)
-                      .handleLike(widget.contest);
-                  setState(() {});
-                },
-              ),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.share,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-            expandedHeight: 200,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Image.network(
-                widget.contest.giftPhoto,
-                fit: BoxFit.cover,
-                color: Colors.black.withOpacity(0.30),
-                colorBlendMode: BlendMode.darken,
-              ),
-            ),
-          ),
-          SliverList(
-            delegate: SliverChildListDelegate([
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      (widget.contest.title),
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today,
-                            color: Colors.blue[800], size: 20),
-                        const SizedBox(width: 10),
-                        Text(
-                          "${formatDate(widget.contest.startDate)} - ${formatDate(widget.contest.endDate)}",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Divider(color: Colors.grey[300]),
-            ]),
-          ),
-          SliverFillRemaining(
-            child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Cadeau(x) mis en jeu',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ...widget.contest.gifts.map((gift) => Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        height: 80,
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.5),
-                              spreadRadius: 0,
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            Image.network(
-                              gift.image,
-                              fit: BoxFit.cover,
-                              height: 80,
-                              width: 80,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                gift.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Description & Explication',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(widget.contest.description),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Organisateur',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  FutureBuilder<Company>(
-                    future: companyFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const CircularProgressIndicator();
-                      }
-                      if (snapshot.hasError || !snapshot.hasData) {
-                        return const Text(
-                            'Erreur de chargement des données de l\'entreprise');
-                      }
-
-                      Company company = snapshot.data!;
-
-                      return InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DetailsEntreprise(
-                                  entrepriseId: widget.contest.companyId),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.5),
-                                spreadRadius: 0,
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 25,
-                                backgroundImage: NetworkImage(company.logo),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      (company.name),
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '(12 avis)',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600]),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.message,
-                                    color: Colors.blue),
-                                onPressed: () {
-                                  // Implement messaging functionality
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Comment y participer ?',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(widget.contest.howToParticipate),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Condition de participation',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(widget.contest.conditions),
-                ],
-              ),
+          _buildAppBar(isLiked, _showTitle),
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                _buildTimelineIndicator(),
+                _buildGiftsList(),
+                _buildDescriptionSection(),
+                _buildOrganizer(),
+                _buildParticipationSection(),
+              ],
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: _buildBottomBar(isContestOver, theme),
+    );
+  }
+
+  Widget _buildAppBar(bool isLiked, bool showTitle) {
+    return SliverAppBar(
+      expandedHeight: 250,
+      pinned: true,
+      stretch: true,
+      backgroundColor: Colors.grey[50],
+      elevation: showTitle ? 2 : 0,
+      leading: IconButton(
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.arrow_back, color: Colors.black),
+        ),
+        onPressed: () => Navigator.pop(context),
+      ),
+      actions: [
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isLiked ? Icons.favorite : Icons.favorite_border,
+              color: isLiked ? Colors.red : Colors.black,
+            ),
+          ),
+          onPressed: () async {
+            await context.read<UserModel>().handleLike(widget.contest);
+            setState(() {});
+          },
+        ),
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.share, color: Colors.black),
+          ),
+          onPressed: () {/* Implement share */},
+        ),
+        const SizedBox(width: 8),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        title: showTitle
+            ? Text(
+                widget.contest.title,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            : null,
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              widget.contest.giftPhoto,
+              fit: BoxFit.cover,
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.7),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.contest.title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 16, color: Colors.blue[800]),
+              const SizedBox(width: 8),
+              Text(
+                "${formatDate(widget.contest.startDate)} - ${formatDate(widget.contest.endDate)}",
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineIndicator() {
+    final now = DateTime.now();
+    final total =
+        widget.contest.endDate.difference(widget.contest.startDate).inDays;
+    final elapsed = now.difference(widget.contest.startDate).inDays;
+    final progress = (elapsed / total).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[800]!),
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Temps restant: ${widget.contest.endDate.difference(now).inDays} jours',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGiftsList() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Cadeaux à gagner',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...widget.contest.gifts.map((gift) => Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    children: [
+                      Image.network(
+                        gift.image,
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.black.withOpacity(0.8),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                          child: Text(
+                            gift.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'À propos du concours',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInfoRow(
+                  Icons.people_outline,
+                  'Participants',
+                  '${widget.contest.participantsCount}/${widget.contest.maxParticipants}',
+                ),
+                const SizedBox(height: 12),
+                _buildInfoRow(
+                  Icons.emoji_events_outlined,
+                  'Gagnants',
+                  '1',
+                ),
+                const Divider(height: 24),
+                Text(
+                  widget.contest.description,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.blue[800]),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.blue[800],
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOrganizer() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Organisateur',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<Company>(
+            future: companyFuture,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return CompanyInfoCard(
+                company: snapshot.data!,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailsEntreprise(
+                        entrepriseId: widget.contest.companyId),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParticipationSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Comment participer',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.contest.howToParticipate,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Conditions de participation :',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.contest.conditions,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(bool isContestOver, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isContestOver ? Colors.grey : theme.primaryColor,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          onPressed: isContestOver
+              ? null
+              : () => showDialog(
+                    context: context,
+                    builder: (context) => ParticipationDialog(
+                      contest: widget.contest,
+                      userId: widget.currentUserId,
+                    ),
+                  ),
+          child: Text(
+            isContestOver ? 'Concours terminé' : 'Participer au jeu',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
     );
   }

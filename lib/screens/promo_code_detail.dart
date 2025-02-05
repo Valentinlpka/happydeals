@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/classes/promo_code_post.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:intl/intl.dart';
 
 class PromoCodeDetails extends StatefulWidget {
@@ -34,20 +35,16 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
 
   Future<void> _loadFullDetails() async {
     try {
-      // Toujours charger depuis promo_codes
       final promoDoc = await FirebaseFirestore.instance
           .collection('promo_codes')
-          .doc(widget.post.promoCodeId) // Utiliser l'ID directement
+          .doc(widget.post.promoCodeId)
           .get();
-
-      print(widget.post.promoCodeId);
 
       if (promoDoc.exists) {
         setState(() {
           fullPromoCode = PromoCodePost.fromDocument(promoDoc);
         });
 
-        // Si c'est une condition de type quantité, charger le produit associé
         if (fullPromoCode?.conditionType == 'quantity' &&
             fullPromoCode?.conditionProductId != null &&
             fullPromoCode!.conditionProductId!.isNotEmpty) {
@@ -64,7 +61,7 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
         }
       }
     } catch (e) {
-      print('Erreur lors du chargement des détails: $e');
+      debugPrint('Erreur lors du chargement des détails: $e');
     } finally {
       setState(() {
         isLoading = false;
@@ -81,15 +78,255 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 8),
-              Text('Code "$code" copié avec succès !'),
+              Text('Code "$code" copié !'),
             ],
           ),
           backgroundColor: Colors.green[700],
-          duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (fullPromoCode == null) {
+      return const Scaffold(
+        body: Center(child: Text('Code promo non trouvé')),
+      );
+    }
+
+    return Scaffold(
+      appBar: const CustomAppBar(
+        title: 'Code Promo',
+        align: Alignment.center,
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildPromoCodeCard(),
+                  const SizedBox(height: 24),
+                  _buildDescriptionSection(),
+                  const SizedBox(height: 24),
+                  _buildDetailsSection(),
+                  if (fullPromoCode?.conditionType != null)
+                    _buildConditionCard(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: SafeArea(
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundImage: NetworkImage(widget.companyLogo),
+              backgroundColor: Colors.white,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.companyName,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      fullPromoCode!.isPercentage
+                          ? '${fullPromoCode!.discountValue.toStringAsFixed(0)}% de réduction'
+                          : '${fullPromoCode!.discountValue.toStringAsFixed(2)}€ de réduction',
+                      style: TextStyle(
+                        color: Colors.blue[800],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromoCodeCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  fullPromoCode!.code,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: const Icon(Icons.copy),
+                  color: Colors.blue[700],
+                  onPressed: () =>
+                      _copyToClipboard(context, fullPromoCode!.code),
+                ),
+              ],
+            ),
+          ),
+          if (fullPromoCode!.maxUses != null) ...[
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              value: fullPromoCode!.currentUses.toDouble() /
+                  (int.parse(fullPromoCode!.maxUses!) * 1.0),
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[700]!),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Utilisé ${fullPromoCode!.currentUses} fois sur ${fullPromoCode!.maxUses}',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Description',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Text(
+            fullPromoCode!.description,
+            style: const TextStyle(fontSize: 16, height: 1.5),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Informations',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              if (fullPromoCode!.expiresAt != null)
+                _buildInfoRow(
+                  'Date d\'expiration',
+                  DateFormat('dd/MM/yyyy à HH:mm')
+                      .format(fullPromoCode!.expiresAt!),
+                  Icons.calendar_today,
+                ),
+              _buildInfoRow(
+                'Créé le',
+                DateFormat('dd/MM/yyyy à HH:mm')
+                    .format(fullPromoCode!.createdAt!),
+                Icons.access_time,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildConditionCard() {
@@ -237,192 +474,6 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
           ),
         ],
       ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Toujours utiliser les données complètes
-    if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (fullPromoCode == null) {
-      return const Scaffold(
-        body: Center(child: Text('Code promo non trouvé')),
-      );
-    }
-
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue[700]!, Colors.blue[900]!],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        radius: 45,
-                        backgroundColor: Colors.white,
-                        child: CircleAvatar(
-                          radius: 42,
-                          backgroundImage: NetworkImage(widget.companyLogo),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        widget.companyName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Code Promo Card avec les données complètes
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 32),
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey[300]!,
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 16,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  fullPromoCode!.code,
-                                  style: const TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                IconButton(
-                                  icon: const Icon(Icons.copy),
-                                  color: Colors.blue[700],
-                                  onPressed: () => _copyToClipboard(
-                                    context,
-                                    fullPromoCode!.code,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green[50],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              fullPromoCode!.isPercentage
-                                  ? '${fullPromoCode!.discountValue.toStringAsFixed(0)}% de réduction'
-                                  : '${fullPromoCode!.discountValue.toStringAsFixed(2)}€ de réduction',
-                              style: TextStyle(
-                                color: Colors.green[700],
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Description
-                  const Text(
-                    'Description',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    fullPromoCode!.description,
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Informations détaillées
-                  if (fullPromoCode!.expiresAt != null)
-                    _buildInfoRow(
-                      'Valable jusqu\'au',
-                      DateFormat('dd/MM/yyyy à HH:mm')
-                          .format(fullPromoCode!.expiresAt!),
-                      Icons.calendar_today,
-                    ),
-                  if (fullPromoCode!.maxUses != null)
-                    _buildInfoRow(
-                      'Utilisations',
-                      '${fullPromoCode!.currentUses}/${fullPromoCode!.maxUses}',
-                      Icons.people,
-                    ),
-                  _buildInfoRow(
-                    'Créé le',
-                    DateFormat('dd/MM/yyyy à HH:mm')
-                        .format(fullPromoCode!.createdAt!),
-                    Icons.access_time,
-                  ),
-                  if (fullPromoCode!.conditionType != null)
-                    _buildConditionCard(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

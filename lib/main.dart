@@ -18,7 +18,9 @@ import 'package:happy/screens/auth/auth_page.dart';
 import 'package:happy/screens/auth/complete_profile.dart';
 import 'package:happy/screens/auth/login_page.dart';
 import 'package:happy/screens/auth/register_page.dart';
+import 'package:happy/screens/booking_detail_page.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
 import 'package:happy/screens/main_container.dart';
 import 'package:happy/screens/payment_cancel.dart';
 import 'package:happy/screens/payment_success.dart';
@@ -96,16 +98,6 @@ void main() async {
   ));
 }
 
-void _handleDeepLink(Uri uri) {
-  if (uri.path == '/payment-success') {
-    final sessionId = uri.queryParameters['session_id'];
-    navigatorKey.currentState?.pushNamed(
-      '/payment-success',
-      arguments: {'sessionId': sessionId},
-    );
-  }
-}
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -168,42 +160,73 @@ class MyApp extends StatelessWidget {
           '/company/:entrepriseId': (context) => const DetailsEntreprise(),
         },
         onGenerateRoute: (settings) {
-          if (settings.name?.startsWith('/entreprise/') ?? false) {
-            final entrepriseId = settings.name!.split('/entreprise/')[1];
-            return MaterialPageRoute(
-              builder: (context) =>
-                  DetailsEntreprise(entrepriseId: entrepriseId),
-              settings: settings,
-            );
+          // Extraire l'ID de l'URL
+          final uri = Uri.parse(settings.name ?? '');
+          final pathSegments = uri.pathSegments;
+
+          // Gérer les différentes routes
+          if (pathSegments.length == 2) {
+            final id = pathSegments[1];
+            switch (pathSegments[0]) {
+              case 'orders':
+                return MaterialPageRoute(
+                  builder: (context) => OrderDetailPage(orderId: id),
+                  settings: settings,
+                );
+
+              case 'reservations':
+                return MaterialPageRoute(
+                  builder: (context) =>
+                      ReservationDetailsPage(reservationId: id),
+                  settings: settings,
+                );
+
+              case 'bookings':
+                return MaterialPageRoute(
+                  builder: (context) => BookingDetailPage(bookingId: id),
+                  settings: settings,
+                );
+
+              case 'profile':
+                return MaterialPageRoute(
+                  builder: (context) => const ProfilePage(),
+                  settings: settings,
+                );
+
+              case 'entreprise':
+              case 'company':
+                return MaterialPageRoute(
+                  builder: (context) => DetailsEntreprise(entrepriseId: id),
+                  settings: settings,
+                );
+
+              case 'produits':
+                return MaterialPageRoute(
+                  builder: (context) => FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('products')
+                        .doc(id)
+                        .get(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || !snapshot.data!.exists) {
+                        return const Scaffold(
+                          body: Center(child: Text('Produit non trouvé')),
+                        );
+                      }
+                      final product = Product.fromFirestore(snapshot.data!);
+                      return ModernProductDetailPage(product: product);
+                    },
+                  ),
+                  settings: settings,
+                );
+            }
           }
 
-          if (settings.name?.startsWith('/produits/') ?? false) {
-            final productId = settings.name!.split('/produits/')[1];
-            return MaterialPageRoute(
-              builder: (context) => FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('products')
-                    .doc(productId)
-                    .get(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || !snapshot.data!.exists) {
-                    return const Scaffold(
-                      body: Center(child: Text('Produit non trouvé')),
-                    );
-                  }
-                  final product = Product.fromFirestore(snapshot.data!);
-                  return ModernProductDetailPage(product: product);
-                },
-              ),
-              settings: settings,
-            );
-          }
-
+          // Gérer la route payment-success
           if (settings.name?.startsWith('/payment-success') ?? false) {
-            // Extraire les paramètres sans utiliser le hash
             String fullUrl = html.window.location.href;
             String? sessionId;
             String? orderId;
@@ -234,28 +257,6 @@ class MyApp extends StatelessWidget {
               ),
               settings: settings,
             );
-          }
-
-          // Extraire l'ID de l'URL
-          final uri = Uri.parse(settings.name ?? '');
-          final pathSegments = uri.pathSegments;
-
-          // Gérer les différentes routes
-          if (pathSegments.length == 2) {
-            final id = pathSegments[1];
-            switch (pathSegments[0]) {
-              case 'orders':
-                return MaterialPageRoute(
-                  builder: (context) => OrderDetailPage(orderId: id),
-                  settings: settings,
-                );
-
-              case 'profile':
-                return MaterialPageRoute(
-                  builder: (context) => const ProfilePage(),
-                  settings: settings,
-                );
-            }
           }
 
           // Route par défaut si aucune correspondance n'est trouvée

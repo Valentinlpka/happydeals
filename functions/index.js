@@ -497,6 +497,8 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError("not-found", "Commande non trouvée");
     }
 
+    const orderData = order.data();
+
     // Vérifier que le statut est valide
     const validStatuses = [
       "payée",
@@ -524,6 +526,86 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
       pickupCode: pickupCode,
     });
 
+    // Créer une notification en fonction du nouveau statut
+    const notificationRef = admin.firestore().collection("notifications").doc();
+    let notificationData = {
+      userId: orderData.userId,
+      targetId: orderId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      read: false,
+    };
+
+    let notificationTitle = "";
+    let notificationBody = "";
+
+    switch (newStatus) {
+      case "prête à être retirée":
+        notificationData = {
+          ...notificationData,
+          type: "order",
+          title: "Commande prête",
+          message: `Votre commande #${orderId} est prête à être retirée${
+            pickupCode ? `. Code de retrait : ${pickupCode}` : ""
+          }`,
+          targetId: orderId,
+        };
+        notificationTitle = "Commande prête";
+        notificationBody = notificationData.message;
+        break;
+      case "completed":
+        notificationData = {
+          ...notificationData,
+          type: "order",
+          title: "Commande terminée",
+          message: `Votre commande #${orderId} est maintenant terminée`,
+          targetId: orderId,
+        };
+        notificationTitle = "Commande terminée";
+        notificationBody = notificationData.message;
+        break;
+    }
+
+    // Envoyer la notification seulement pour ces statuts
+    if (["prête à être retirée", "completed"].includes(newStatus)) {
+      // 1. Sauvegarder dans Firestore
+      await notificationRef.set(notificationData);
+
+      // 2. Récupérer le token FCM de l'utilisateur
+      const userDoc = await admin
+        .firestore()
+        .collection("users")
+        .doc(orderData.userId)
+        .get();
+
+      const fcmToken = userDoc.data()?.fcmToken;
+
+      // 3. Envoyer la notification push si le token existe
+      if (fcmToken) {
+        const message = {
+          notification: {
+            title: notificationTitle,
+            body: notificationBody,
+          },
+          data: {
+            type: "order",
+            targetId: orderId,
+            click_action: "FLUTTER_NOTIFICATION_CLICK",
+          },
+          token: fcmToken,
+        };
+
+        try {
+          await admin.messaging().send(message);
+          console.log("Notification push envoyée avec succès");
+        } catch (error) {
+          console.error(
+            "Erreur lors de l'envoi de la notification push:",
+            error
+          );
+        }
+      }
+    }
+
     return { success: true, orderId, newStatus, pickupCode };
   } catch (error) {
     console.error(
@@ -537,7 +619,7 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
   }
 });
 
-// Confirmation de la réception d'une réservation Happy Deal
+// Confirmation de la réception d'un deal Express
 exports.confirmDealExpressPickup = functions.https.onCall(
   async (data, context) => {
     if (!context.auth) {
@@ -581,34 +663,10 @@ exports.confirmDealExpressPickup = functions.https.onCall(
 
       // Confirmation de la réception
       await reservationRef.update({
-        status: "termined",
+        status: "completed",
         completedAt: admin.firestore.FieldValue.serverTimestamp(),
         // Mettre à jour le stock du produit si nécessaire
       });
-
-      // Envoyer une notification au client
-      const userRef = admin
-        .firestore()
-        .collection("users")
-        .doc(reservationData.buyerId);
-      const userDoc = await userRef.get();
-
-      if (userDoc.exists) {
-        await admin
-          .firestore()
-          .collection("notifications")
-          .add({
-            userId: reservationData.buyerId,
-            type: "deal_express_completed",
-            title: "Réservation retirée",
-            message: "Votre réservation Deal Express a été retirée avec succès",
-            data: {
-              reservationId: reservationId,
-            },
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-      }
 
       return {
         success: true,
@@ -1942,65 +2000,24 @@ async function handleOrderPayment(session) {
       transaction.delete(pendingOrderDoc.ref);
     });
 
-    // 2. Envoyer les notifications
-    await sendOrderNotifications(orderId, userId, pendingOrderData);
-
-    // 3. Envoyer les emails
-    if (pendingOrderData.entrepriseId) {
-      console.log("ProfessionalId found:", pendingOrderData.entrepriseId);
-
-      // Récupérer les informations de l'utilisateur et de l'entreprise
-      const [userDoc, companyDoc] = await Promise.all([
-        admin.firestore().collection("users").doc(userId).get(),
-        admin
-          .firestore()
-          .collection("companys")
-          .doc(pendingOrderData.entrepriseId)
-          .get(),
-      ]);
-
-      if (!userDoc.exists || !companyDoc.exists) {
-        throw new Error("User or company not found");
-      }
-
-      const userData = userDoc.data();
-      const companyData = companyDoc.data();
-
-      console.log("Attempting to send emails to:", {
-        userEmail: userData.email,
-        companyEmail: companyData.email,
-      });
-
-      try {
-        await Promise.all([
-          transporter
-            .sendMail({
-              from: '"Up !" <happy.deals59@gmail.com>',
-              to: userData.email,
-              subject: "Confirmation de votre commande",
-              html: generateOrderCustomerEmail(
-                pendingOrderData,
-                userData,
-                orderId
-              ),
-            })
-            .then(() => console.log("Client email sent successfully")),
-
-          transporter
-            .sendMail({
-              from: '"Up !" <happy.deals59@gmail.com>',
-              to: companyData.email,
-              subject: "Nouvelle commande reçue",
-              html: generateOrderProfessionalEmail(pendingOrderData, userData),
-            })
-            .then(() => console.log("Company email sent successfully")),
-        ]);
-
-        console.log("Both emails sent successfully");
-      } catch (emailError) {
-        console.error("Error sending emails:", emailError);
-      }
-    }
+    // 2. Envoyer les notifications et emails
+    await sendOrderNotifications(orderId, {
+      ...pendingOrderData,
+      userId,
+      amount: pendingOrderData.totalPrice * 100, // Convertir en centimes pour la cohérence
+      userData: await admin
+        .firestore()
+        .collection("users")
+        .doc(userId)
+        .get()
+        .then((doc) => doc.data()),
+      companyData: await admin
+        .firestore()
+        .collection("companys")
+        .doc(pendingOrderData.entrepriseId)
+        .get()
+        .then((doc) => doc.data()),
+    });
 
     console.log("Order successfully processed:", orderId);
     return { orderId };
@@ -2017,35 +2034,101 @@ async function handleOrderPayment(session) {
 }
 
 // Fonction helper pour les notifications
-async function sendOrderNotifications(orderId, userId, orderData) {
+async function sendOrderNotifications(orderId, orderData) {
   const batch = admin.firestore().batch();
-  const notificationsRef = admin.firestore().collection("notifications");
 
-  // Notification pour le client
-  batch.set(notificationsRef.doc(), {
-    userId,
-    type: "order_confirmed",
-    title: "Commande confirmée",
-    message: `Votre commande #${orderId} a été confirmée`,
-    orderId,
+  // Notification pour le professionnel
+  const notificationProRef = admin
+    .firestore()
+    .collection("notifications_pro")
+    .doc();
+  batch.set(notificationProRef, {
+    userId: orderData.sellerId,
+    type: "order",
+    title: "🛍️ Nouvelle commande reçue",
+    message: `Un client vient de passer une commande d'un montant de ${(
+      orderData.amount / 100
+    ).toFixed(2)}€`,
+    targetId: orderId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    read: false,
+    isRead: false,
   });
 
-  // Notification pour le vendeur
-  if (orderData.sellerId) {
-    batch.set(notificationsRef.doc(), {
-      userId: orderData.sellerId,
-      type: "new_order",
-      title: "Nouvelle commande",
-      message: `Nouvelle commande #${orderId} reçue`,
-      orderId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      read: false,
-    });
-  }
+  // Notification pour le client
+  const notificationClientRef = admin
+    .firestore()
+    .collection("notifications")
+    .doc();
+  batch.set(notificationClientRef, {
+    userId: orderData.userId,
+    type: "order",
+    title: "🎉 Commande confirmée",
+    message: `Votre commande d'un montant de ${(orderData.amount / 100).toFixed(
+      2
+    )}€ a été confirmée`,
+    targetId: orderId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    isRead: false,
+  });
 
   await batch.commit();
+
+  // Envoyer les emails
+  try {
+    await Promise.all([
+      // Email au client
+      transporter.sendMail({
+        from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
+        to: orderData.userData.email,
+        subject: "🎉 Votre commande est confirmée",
+        html: generateOrderCustomerEmail(
+          orderData,
+          orderData.userData,
+          orderId
+        ),
+      }),
+      // Email au professionnel
+      transporter.sendMail({
+        from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
+        to: orderData.companyData.email,
+        subject: "🛍️ Nouvelle commande reçue",
+        html: generateOrderProfessionalEmail(
+          orderData,
+          orderData.userData,
+          orderId
+        ),
+      }),
+    ]);
+
+    console.log("Emails envoyés avec succès");
+  } catch (emailError) {
+    console.error("Erreur lors de l'envoi des emails:", emailError);
+  }
+
+  // Envoyer une notification push au client si le token FCM existe
+  if (orderData.userData.fcmToken) {
+    const message = {
+      notification: {
+        title: "🎉 Commande confirmée",
+        body: `Votre commande d'un montant de ${(
+          orderData.amount / 100
+        ).toFixed(2)}€ a été confirmée`,
+      },
+      data: {
+        type: "order",
+        targetId: orderId,
+        click_action: "FLUTTER_NOTIFICATION_CLICK",
+      },
+      token: orderData.userData.fcmToken,
+    };
+
+    try {
+      await admin.messaging().send(message);
+      console.log("Notification push envoyée avec succès");
+    } catch (error) {
+      console.error("Erreur lors de l'envoi de la notification push:", error);
+    }
+  }
 }
 
 // Création commande deal express
@@ -2058,64 +2141,169 @@ async function handleExpressDealPayment(paymentData) {
     throw new Error("No dealId found in metadata");
   }
 
-  const batch = admin.firestore().batch();
+  try {
+    const batch = admin.firestore().batch();
 
-  // Générer un code de validation de 6 caractères (lettres et chiffres)
-  const generateValidationCode = () => {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let code = "";
-    for (let i = 0; i < 6; i++) {
-      code += characters.charAt(Math.floor(Math.random() * characters.length));
+    // Générer un code de validation de 6 caractères (lettres et chiffres)
+    const generateValidationCode = () => {
+      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code = "";
+      for (let i = 0; i < 6; i++) {
+        code += characters.charAt(
+          Math.floor(Math.random() * characters.length)
+        );
+      }
+      return code;
+    };
+
+    const validationCode = generateValidationCode();
+
+    // Créer la réservation
+    const reservationRef = admin
+      .firestore()
+      .collection("reservations")
+      .doc(reservationId);
+    const reservationData = {
+      postId: dealId,
+      status: "confirmed",
+      paymentId: paymentData.id,
+      buyerId: metadata.userId,
+      quantity: 1,
+      pickupDate: admin.firestore.Timestamp.fromDate(
+        new Date(metadata.pickupDate)
+      ),
+      price: parseFloat(metadata.price || "0"),
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      companyId: metadata.companyId,
+      isValidated: false,
+      basketType: metadata.basketType,
+      companyName: metadata.companyName,
+      pickupAddress: metadata.pickupAddress,
+      validationCode: validationCode,
+    };
+
+    batch.set(reservationRef, reservationData);
+
+    // Mettre à jour le compteur de paniers
+    const dealRef = admin.firestore().collection("posts").doc(dealId);
+    batch.update(dealRef, {
+      basketCount: admin.firestore.FieldValue.increment(-1),
+    });
+
+    // Créer une notification pour le vendeur
+    const notificationProRef = admin
+      .firestore()
+      .collection("notifications_pro")
+      .doc();
+    batch.set(notificationProRef, {
+      userId: metadata.companyId,
+      type: "deal_express",
+      title: `🌱 Nouveau ${metadata.basketType} réservé`,
+      message: `Un client vient de réserver un ${metadata.basketType}`,
+      targetId: reservationId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+    });
+
+    // Créer une notification pour le client
+    const notificationClientRef = admin
+      .firestore()
+      .collection("notifications")
+      .doc();
+    batch.set(notificationClientRef, {
+      userId: metadata.userId,
+      type: "deal_express",
+      title: "🎉 Réservation confirmée",
+      message: `Votre réservation pour un ${metadata.basketType} a été confirmée`,
+      targetId: reservationId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+    });
+
+    await batch.commit();
+
+    // Récupérer les informations de l'utilisateur et de l'entreprise
+    const [userDoc, companyDoc] = await Promise.all([
+      admin.firestore().collection("users").doc(metadata.userId).get(),
+      admin.firestore().collection("companys").doc(metadata.companyId).get(),
+    ]);
+
+    if (!userDoc.exists || !companyDoc.exists) {
+      throw new Error("User or company not found");
     }
-    return code;
-  };
 
-  // Créer la réservation
-  const reservationRef = admin
-    .firestore()
-    .collection("reservations")
-    .doc(reservationId);
-  batch.set(reservationRef, {
-    postId: dealId,
-    status: "confirmed",
-    paymentId: paymentData.id,
-    buyerId: metadata.userId,
-    quantity: 1,
-    pickupDate: admin.firestore.Timestamp.fromDate(
-      new Date(metadata.pickupDate)
-    ),
-    price: parseFloat(metadata.price || "0"),
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    companyId: metadata.companyId,
-    isValidated: false,
-    basketType: metadata.basketType,
-    companyName: metadata.companyName,
-    pickupAddress: metadata.pickupAddress,
-    validationCode: generateValidationCode(),
-  });
+    const userData = userDoc.data();
+    const companyData = companyDoc.data();
 
-  // Mettre à jour le compteur de paniers
-  const dealRef = admin.firestore().collection("posts").doc(dealId);
-  batch.update(dealRef, {
-    basketCount: admin.firestore.FieldValue.increment(-1),
-  });
-
-  // Programmer la suppression pour plus tard
-  setTimeout(async () => {
+    // Envoyer les emails
     try {
-      await admin
-        .firestore()
-        .collection("pending_express_deal_payments")
-        .doc(paymentData.id)
-        .delete();
-    } catch (error) {
-      console.error("Error deleting pending payment:", error);
+      await Promise.all([
+        // Email au client
+        transporter.sendMail({
+          from: '"Up ! 🌱" <happy.deals59@gmail.com>',
+          to: userData.email,
+          subject: `🎉 Votre ${metadata.basketType}  est réservé !`,
+          html: generateDealCustomerEmail(
+            reservationData,
+            userData,
+            reservationId
+          ),
+        }),
+        // Email au professionnel
+        transporter.sendMail({
+          from: '"Up ! 🌱" <happy.deals59@gmail.com>',
+          to: companyData.email,
+          subject: `🌟 Nouveau ${metadata.basketType} réservé`,
+          html: generateDealProfessionalEmail(reservationData, userData),
+        }),
+      ]);
+
+      console.log("Emails envoyés avec succès");
+    } catch (emailError) {
+      console.error("Erreur lors de l'envoi des emails:", emailError);
     }
-  }, 5 * 60 * 1000); // Supprime après 5 minutes
 
-  await batch.commit();
+    // Envoyer une notification push au client si le token FCM existe
+    if (userData.fcmToken) {
+      const message = {
+        notification: {
+          title: "🎉 Réservation confirmée",
+          body: `Votre réservation pour un ${metadata.basketType} a été confirmée`,
+        },
+        data: {
+          type: "deal_express",
+          targetId: reservationId,
+          click_action: "FLUTTER_NOTIFICATION_CLICK",
+        },
+        token: userData.fcmToken,
+      };
 
-  return { reservationId: reservationRef.id };
+      try {
+        await admin.messaging().send(message);
+        console.log("Notification push envoyée avec succès");
+      } catch (error) {
+        console.error("Erreur lors de l'envoi de la notification push:", error);
+      }
+    }
+
+    // Programmer la suppression pour plus tard
+    setTimeout(async () => {
+      try {
+        await admin
+          .firestore()
+          .collection("pending_express_deal_payments")
+          .doc(paymentData.id)
+          .delete();
+      } catch (error) {
+        console.error("Error deleting pending payment:", error);
+      }
+    }, 5 * 60 * 1000); // Supprime après 5 minutes
+
+    return { reservationId: reservationRef.id };
+  } catch (error) {
+    console.error("Erreur lors du traitement du deal express:", error);
+    throw error;
+  }
 }
 
 // Création commande réservations
@@ -2183,6 +2371,36 @@ async function handleServicePayment(paymentData) {
     const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
     await bookingRef.set(bookingData);
 
+    // Créer une notification pour le professionnel
+    const notificationProRef = admin
+      .firestore()
+      .collection("notifications_pro")
+      .doc();
+    await notificationProRef.set({
+      userId: metadata.professionalId,
+      type: "booking",
+      title: "✨ Nouvelle réservation",
+      message: `Un client vient de réserver le service "${metadata.serviceName}"`,
+      targetId: bookingId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+    });
+
+    // Créer une notification pour le client
+    const notificationClientRef = admin
+      .firestore()
+      .collection("notifications")
+      .doc();
+    await notificationClientRef.set({
+      userId: metadata.userId,
+      type: "booking",
+      title: "🎉 Réservation confirmée",
+      message: `Votre réservation pour "${metadata.serviceName}" a été confirmée`,
+      targetId: bookingId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+    });
+
     // Récupérer les informations du client et du professionnel
     const [userDoc, companyDoc] = await Promise.all([
       admin.firestore().collection("users").doc(metadata.userId).get(),
@@ -2205,9 +2423,9 @@ async function handleServicePayment(paymentData) {
       await Promise.all([
         // Email au client
         transporter.sendMail({
-          from: '"Up !" <happy.deals59@gmail.com>',
+          from: '"Up ✨" <happy.deals59@gmail.com>',
           to: userData.email,
-          subject: "Confirmation de votre réservation",
+          subject: `✨ Votre réservation pour "${metadata.serviceName}" est confirmée`,
           html: generateServiceBookingCustomerEmail(
             bookingData,
             userData,
@@ -2216,9 +2434,9 @@ async function handleServicePayment(paymentData) {
         }),
         // Email au professionnel
         transporter.sendMail({
-          from: '"Up !" <happy.deals59@gmail.com>',
+          from: '"Up ! ✨" <happy.deals59@gmail.com>',
           to: companyData.email,
-          subject: "Nouvelle réservation reçue",
+          subject: `🎯 Nouvelle réservation pour "${metadata.serviceName}"`,
           html: generateServiceBookingProfessionalEmail(
             bookingData,
             userData,
@@ -2226,9 +2444,33 @@ async function handleServicePayment(paymentData) {
           ),
         }),
       ]);
+
+      console.log("Emails envoyés avec succès");
     } catch (emailError) {
-      console.error("Error sending booking emails:", emailError);
-      // Continue même si l'envoi d'email échoue
+      console.error("Erreur lors de l'envoi des emails:", emailError);
+    }
+
+    // Envoyer une notification push au client si le token FCM existe
+    if (userData.fcmToken) {
+      const message = {
+        notification: {
+          title: "✨ Réservation confirmée",
+          body: `Votre réservation pour "${metadata.serviceName}" a été confirmée`,
+        },
+        data: {
+          type: "booking",
+          targetId: bookingId,
+          click_action: "FLUTTER_NOTIFICATION_CLICK",
+        },
+        token: userData.fcmToken,
+      };
+
+      try {
+        await admin.messaging().send(message);
+        console.log("Notification push envoyée avec succès");
+      } catch (error) {
+        console.error("Erreur lors de l'envoi de la notification push:", error);
+      }
     }
 
     // Programmer la suppression du paiement en attente
@@ -2248,53 +2490,6 @@ async function handleServicePayment(paymentData) {
   } catch (error) {
     console.error("Error processing service booking:", error);
     throw error;
-  }
-}
-
-async function createPaymentNotification({
-  type,
-  paymentId,
-  metadata,
-  result,
-}) {
-  const notificationRef = admin.firestore().collection("notifications").doc();
-
-  const notificationData = {
-    type: `payment_${type}_success`,
-    userId: metadata.userId,
-    title: getNotificationTitle(type),
-    message: getNotificationMessage(type, result),
-    relatedId: result.orderId || result.reservationId || result.bookingId,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    read: false,
-  };
-
-  await notificationRef.set(notificationData);
-}
-
-function getNotificationTitle(type) {
-  switch (type) {
-    case "order":
-      return "Commande confirmée";
-    case "express_deal":
-      return "Réservation express confirmée";
-    case "service":
-      return "Réservation de service confirmée";
-    default:
-      return "Paiement confirmé";
-  }
-}
-
-function getNotificationMessage(type, result) {
-  switch (type) {
-    case "order":
-      return `Votre commande #${result.orderId} a été confirmée`;
-    case "express_deal":
-      return "Votre réservation express a été confirmée";
-    case "service":
-      return "Votre réservation de service a été confirmée";
-    default:
-      return "Votre paiement a été confirmé";
   }
 }
 
@@ -2518,38 +2713,39 @@ function generateOrderCustomerEmail(orderData, customer, orderId) {
   const itemsList = orderData.items
     .map(
       (item) => `
-    <li style="display: flex; justify-content: space-between; padding: 10px 0;">
-      <span>${item.name} x ${item.quantity} </span>
-      <span>${item.appliedPrice.toFixed(2)} €</span>
-    </li>
-  `
+      <li style="display: flex; justify-content: space-between; padding: 10px 0;">
+        <span>${item.name} x ${item.quantity}</span>
+        <span>${item.appliedPrice.toFixed(2)}€</span>
+      </li>
+    `
     )
     .join("");
 
   const content = `
-    <h1>🛍️ Commande confirmée !</h1>
+    <h1>🎉 Votre commande est confirmée !</h1>
     <p>Bonjour ${customer.firstName},</p>
-    <p>Merci pour votre commande ! Nous avons bien reçu votre paiement.</p>
+    <p>Votre commande a été confirmée avec succès. Merci de votre confiance !</p>
     
     <div class="details-card">
-      <h2>📦 Détails de votre commande</h2>
+      <h2>🛍️ Détails de votre commande</h2>
       <ul>
         ${itemsList}
       </ul>
-      <div style="border-top: 2px solid #eee; margin-top: 15px; padding-top: 15px;">
-        <div class="price">
-          Total : ${orderData.totalPrice.toFixed(2)} €
-        </div>
+      <div class="highlight">
+        <p>📍 Adresse de retrait :</p>
+        <p>${orderData.pickupAddress}</p>
+      </div>
+      <div class="price">
+        Total : ${orderData.totalPrice.toFixed(2)}€
       </div>
     </div>
 
     <div class="highlight">
-      <p>📬 Votre commande sera bientôt préparée.</p>
-      <p>Numéro de commande : #${orderId.substring(0, 8)}</p>
+      <p>⏰ N'oubliez pas : Vous pouvez retirer votre commande aux horaires d'ouverture du commerce.</p>
     </div>
 
-    <a href="https://valentinlpka.github.io/happydeals/#/commandes/${orderId}" class="button">
-      Suivre ma commande
+    <a href="https://up-anti-gaspi.web.app/orders/${orderId}" class="button">
+      Voir ma commande
     </a>
   `;
 
@@ -2557,20 +2753,20 @@ function generateOrderCustomerEmail(orderData, customer, orderId) {
 }
 
 // Template pour la commande classique (professionnel)
-function generateOrderProfessionalEmail(orderData, customer) {
+function generateOrderProfessionalEmail(orderData, customer, orderId) {
   const itemsList = orderData.items
     .map(
       (item) => `
-    <li style="display: flex; justify-content: space-between; padding: 10px 0;">
-      <span>${item.name} x${item.quantity}</span>
-      <span>${(item.price / 100).toFixed(2)}€</span>
-    </li>
-  `
+      <li style="display: flex; justify-content: space-between; padding: 10px 0;">
+        <span>${item.name} x ${item.quantity}</span>
+        <span>${item.appliedPrice.toFixed(2)}€</span>
+      </li>
+    `
     )
     .join("");
 
   const content = `
-    <h1>🎯 Nouvelle commande reçue !</h1>
+    <h1>🛍️ Nouvelle commande reçue !</h1>
     <p>Une nouvelle commande vient d'être passée sur votre boutique.</p>
     
     <div class="details-card">
@@ -2589,13 +2785,11 @@ function generateOrderProfessionalEmail(orderData, customer) {
         ${itemsList}
       </ul>
       <div class="price">
-        Total : ${(orderData.amount / 100).toFixed(2)}€
+        Total : ${orderData.totalPrice.toFixed(2)}€
       </div>
     </div>
 
-    <a href="https://votre-site.com/pro/commandes/${
-      orderData.id
-    }" class="button">
+    <a href="https://up-pro.vercel.app/dashboard/orders/${orderId}" class="button">
       Gérer la commande
     </a>
   `;
@@ -2604,26 +2798,35 @@ function generateOrderProfessionalEmail(orderData, customer) {
 }
 
 // Template pour le deal express (client)
-function generateDealCustomerEmail(orderData, customer) {
+function generateDealCustomerEmail(orderData, customer, id) {
+  // Convertir le timestamp Firestore en Date
+  const pickupDate =
+    orderData.pickupDate instanceof Date
+      ? orderData.pickupDate
+      : orderData.pickupDate.toDate();
+
   const content = `
-    <h1>🌱 Panier anti-gaspi réservé !</h1>
+    <h1>🌱 Votre ${orderData.basketType} réservé !</h1>
     <p>Bonjour ${customer.firstName},</p>
-    <p>Votre panier anti-gaspi a été réservé avec succès. Merci de contribuer à la lutte contre le gaspillage alimentaire !</p>
+    <p>Votre ${
+      orderData.basketType
+    } a été réservé avec succès. <br>Merci de contribuer à la lutte contre le gaspillage alimentaire !</p>
     
     <div class="details-card">
       <h2>🛒 Détails de votre panier</h2>
       <ul>
         <li><strong>Type de panier :</strong> ${orderData.basketType}</li>
-        <li><strong>À récupérer le :</strong> ${new Date(
-          orderData.pickupDate
-        ).toLocaleString("fr-FR", {
-          weekday: "long",
-
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}</li>
+        <li><strong>À récupérer le :</strong> ${pickupDate.toLocaleString(
+          "fr-FR",
+          {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }
+        )}</li>
         <li><strong>Adresse :</strong> ${orderData.pickupAddress}</li>
       </ul>
       <div class="highlight">
@@ -2642,7 +2845,7 @@ function generateDealCustomerEmail(orderData, customer) {
       <p>⏰ N'oubliez pas : Récupérez votre panier à l'heure indiquée.</p>
     </div>
 
-    <a href="https://votre-site.com/reservations/${
+    <a href="https://up-anti-gaspi.web.app/reservations/${
       orderData.id
     }" class="button">
       Voir ma réservation
@@ -2655,8 +2858,8 @@ function generateDealCustomerEmail(orderData, customer) {
 // Template pour le deal express (professionnel)
 function generateDealProfessionalEmail(orderData, customer) {
   const content = `
-    <h1>🌟 Nouveau panier anti-gaspi réservé !</h1>
-    <p>Un client vient de réserver un panier anti-gaspi.</p>
+    <h1>🌟 Nouveau ${orderData.basketType} réservé !</h1>
+    <p>Un client vient de réserver un ${orderData.basketType}.</p>
     
     <div class="details-card">
       <h2>👤 Informations client</h2>
@@ -2733,97 +2936,100 @@ async function generateUniquePromoCode() {
 }
 
 // Templates d'emails
-function generateServiceBookingCustomerEmail(booking, user, company) {
-  const bookingDate = booking.bookingDateTime.toDate();
-  const formattedDate = new Intl.DateTimeFormat("fr-FR", {
-    dateStyle: "full",
-    timeStyle: "short",
-  }).format(bookingDate);
+function generateServiceBookingCustomerEmail(bookingData, customer, bookingId) {
+  // Convertir le timestamp Firestore en Date
+  const bookingDate =
+    bookingData.bookingDateTime instanceof Date
+      ? bookingData.bookingDateTime
+      : bookingData.bookingDateTime.toDate();
 
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <img src="${EMAIL_LOGO_URL}" alt="Logo" style="max-width: 200px; margin: 20px 0;">
-      <h1>Confirmation de votre réservation</h1>
-      <p>Bonjour ${user.firstName},</p>
-      <p>Votre réservation a été confirmée avec succès !</p>
-      
-      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-        <h2>Détails de la réservation :</h2>
-        <p><strong>Service :</strong> ${booking.serviceName}</p>
-        <p><strong>Date et heure :</strong> ${formattedDate}</p>
-        <p><strong>Durée :</strong> ${booking.duration} minutes</p>
-        <p><strong>Adresse :</strong> ${booking.adresse}</p>
-        ${
-          booking.promoCode
-            ? `
-          <p><strong>Code promo appliqué :</strong> ${booking.promoCode}</p>
-          <p><strong>Prix original :</strong> ${booking.originalPrice.toFixed(
-            2
-          )}€</p>
-          <p><strong>Réduction :</strong> ${booking.discountAmount.toFixed(
-            2
-          )}€</p>
-        `
-            : ""
-        }
-        <p><strong>Prix final :</strong> ${(
-          booking.finalPrice || booking.amount
-        ).toFixed(2)}€</p>
+  const content = `
+    <h1>✨ Votre réservation est confirmée !</h1>
+    <p>Bonjour ${customer.firstName},</p>
+    <p>Votre réservation a été confirmée avec succès. Nous avons hâte de vous accueillir !</p>
+    
+    <div class="details-card">
+      <h2>📅 Détails de votre réservation</h2>
+      <ul>
+        <li><strong>Service :</strong> ${bookingData.serviceName}</li>
+        <li><strong>Date :</strong> ${bookingDate.toLocaleString("fr-FR", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}</li>
+        <li><strong>Durée :</strong> ${bookingData.duration} minutes</li>
+        <li><strong>Adresse :</strong> ${bookingData.adresse}</li>
+      </ul>
+      <div class="price">
+        ${bookingData.price.toFixed(2)}€
       </div>
-
-      <div style="background-color: #e9ecef; padding: 20px; border-radius: 5px;">
-        <h3>Établissement</h3>
-        <p><strong>${company.name}</strong></p>
-        <p>${company.adress.adresse}</p>
-        <p>${company.adress.code_postal} ${company.adress.ville}</p>
-      </div>
-
-      <p style="margin-top: 20px;">À bientôt sur Up !</p>
     </div>
+
+    <div class="highlight">
+      <p>⏰ N'oubliez pas : Merci d'arriver quelques minutes avant votre rendez-vous.</p>
+    </div>
+
+    <a href="https://up-anti-gaspi.web.app/bookings/${bookingId}" class="button">
+      Voir ma réservation
+    </a>
   `;
+
+  return getBaseEmailTemplate(content);
 }
 
-function generateServiceBookingProfessionalEmail(booking, user, company) {
-  const bookingDate = booking.bookingDateTime.toDate();
-  const formattedDate = new Intl.DateTimeFormat("fr-FR", {
-    dateStyle: "full",
-    timeStyle: "short",
-  }).format(bookingDate);
+function generateServiceBookingProfessionalEmail(
+  bookingData,
+  customer,
+  bookingId
+) {
+  // Convertir le timestamp Firestore en Date
+  const bookingDate =
+    bookingData.bookingDateTime instanceof Date
+      ? bookingData.bookingDateTime
+      : bookingData.bookingDateTime.toDate();
 
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <img src="${EMAIL_LOGO_URL}" alt="Logo" style="max-width: 200px; margin: 20px 0;">
-      <h1>Nouvelle réservation reçue</h1>
-      <p>Bonjour,</p>
-      <p>Vous avez reçu une nouvelle réservation !</p>
-      
-      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-        <h2>Détails de la réservation :</h2>
-        <p><strong>Client :</strong> ${user.firstName} ${user.lastName}</p>
-        <p><strong>Service :</strong> ${booking.serviceName}</p>
-        <p><strong>Date et heure :</strong> ${formattedDate}</p>
-        <p><strong>Durée :</strong> ${booking.duration} minutes</p>
-        ${
-          booking.promoCode
-            ? `
-          <p><strong>Code promo utilisé :</strong> ${booking.promoCode}</p>
-          <p><strong>Prix original :</strong> ${booking.originalPrice.toFixed(
-            2
-          )}€</p>
-          <p><strong>Réduction :</strong> ${booking.discountAmount.toFixed(
-            2
-          )}€</p>
-        `
-            : ""
-        }
-        <p><strong>Prix final :</strong> ${(
-          booking.finalPrice || booking.amount
-        ).toFixed(2)}€</p>
-      </div>
-
-      <p style="margin-top: 20px;">Vous pouvez gérer cette réservation depuis votre espace professionnel.</p>
+  const content = `
+    <h1>✨ Nouvelle réservation reçue !</h1>
+    <p>Un client vient de réserver un service.</p>
+    
+    <div class="details-card">
+      <h2>👤 Informations client</h2>
+      <ul>
+        <li><strong>Nom :</strong> ${customer.firstName} ${
+    customer.lastName
+  }</li>
+        <li><strong>Email :</strong> ${customer.email}</li>
+      </ul>
     </div>
+
+    <div class="details-card">
+      <h2>📝 Détails de la réservation</h2>
+      <ul>
+        <li><strong>Service :</strong> ${bookingData.serviceName}</li>
+        <li><strong>Date :</strong> ${bookingDate.toLocaleString("fr-FR", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}</li>
+        <li><strong>Durée :</strong> ${bookingData.duration} minutes</li>
+      </ul>
+      <div class="price">
+        ${bookingData.price.toFixed(2)}€
+      </div>
+    </div>
+
+    <a href="https://up-pro.vercel.app/dashboard/bookings/${bookingId}" class="button">
+      Gérer la réservation
+    </a>
   `;
+
+  return getBaseEmailTemplate(content);
 }
 
 exports.onOrderStatusUpdate = functions.firestore
@@ -2836,6 +3042,8 @@ exports.onOrderStatusUpdate = functions.firestore
       newValue.status === "completed" &&
       previousValue.status !== "completed"
     ) {
+      console.log("=== Début traitement commande completed ===");
+
       const sellerId = newValue.sellerId;
       const userId = newValue.userId;
       const totalAmount = parseFloat(newValue.totalPrice);
@@ -2847,24 +3055,22 @@ exports.onOrderStatusUpdate = functions.firestore
         return null;
       }
 
-      const feePercentage = 7.5;
-      const feeAmount = (totalAmount * feePercentage) / 100;
-      const amountAfterFee = totalAmount - feeAmount;
-
-      console.log(`Traitement de la commande ${context.params.orderId}:`);
-      console.log(`  Total: ${totalAmount}`);
-      console.log(`  Frais: ${feeAmount}`);
-      console.log(`  Montant après frais: ${amountAfterFee}`);
-
       try {
-        // Recherche de l'entreprise correspondante dans la collection "companys"
+        // Créer le batch au début
+        const batch = admin.firestore().batch();
+
+        // Calculs des frais
+        const feePercentage = 7.5;
+        const feeAmount = (totalAmount * feePercentage) / 100;
+        const amountAfterFee = totalAmount - feeAmount;
+
+        // Vérifier l'entreprise
         const companySnapshot = await admin
           .firestore()
           .collection("companys")
           .doc(sellerId)
           .get();
 
-        // Vérifier si le document existe
         if (!companySnapshot.exists) {
           console.error(
             `Aucune entreprise trouvée pour le sellerId: ${sellerId}`
@@ -2872,24 +3078,21 @@ exports.onOrderStatusUpdate = functions.firestore
           return null;
         }
 
-        // Le sellerId est déjà l'ID du document
-        const companyId = sellerId;
-
-        // Mise à jour des soldes de l'entreprise
-        await admin
-          .firestore()
-          .collection("companys")
-          .doc(companyId)
-          .update({
-            totalGain: admin.firestore.FieldValue.increment(totalAmount),
-            totalFees: admin.firestore.FieldValue.increment(feeAmount),
-            availableBalance:
-              admin.firestore.FieldValue.increment(amountAfterFee),
-          });
+        // Mise à jour des soldes
+        batch.update(admin.firestore().collection("companys").doc(sellerId), {
+          totalGain: admin.firestore.FieldValue.increment(totalAmount),
+          totalFees: admin.firestore.FieldValue.increment(feeAmount),
+          availableBalance:
+            admin.firestore.FieldValue.increment(amountAfterFee),
+        });
 
         // Enregistrement de la transaction
-        await admin.firestore().collection("transactions").add({
-          companyId: companyId,
+        const transactionRef = admin
+          .firestore()
+          .collection("transactions")
+          .doc();
+        batch.set(transactionRef, {
+          companyId: sellerId,
           orderId: context.params.orderId,
           totalAmount: totalAmount,
           feeAmount: feeAmount,
@@ -2899,211 +3102,538 @@ exports.onOrderStatusUpdate = functions.firestore
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
+        // Traiter la carte de fidélité AVANT le commit
+        console.log("Début traitement carte de fidélité");
+        await handleLoyaltyCard(
+          batch, // Passer le même batch
+          userId,
+          sellerId,
+          totalAmount,
+          context.params.orderId
+        );
+        console.log("Fin traitement carte de fidélité");
+
+        // Commit du batch APRÈS handleLoyaltyCard
+        console.log("Début commit batch");
+        await batch.commit();
+        console.log("Fin commit batch");
+
         console.log(
-          `Solde mis à jour pour l'entreprise: ${companyId}, Montant total: ${totalAmount}, Montant après frais: ${amountAfterFee}`
+          `Solde mis à jour pour l'entreprise: ${sellerId}, Montant total: ${totalAmount}`
         );
       } catch (error) {
-        console.error("Erreur lors de la mise à jour du solde:", error);
+        console.error("Erreur lors du traitement:", error);
         console.error("Détails de l'erreur:", JSON.stringify(error));
-      }
-
-      // Gestion de la carte de fidélité
-      try {
-        // 1. Vérifier si le vendeur a un programme de fidélité actif
-        const companyDoc = await admin
-          .firestore()
-          .collection("companys")
-          .doc(sellerId)
-          .get();
-        const loyaltyProgramId = companyDoc.data()?.loyaltyProgramId;
-
-        if (loyaltyProgramId) {
-          const loyaltyProgramDoc = await admin
-            .firestore()
-            .collection("LoyaltyPrograms")
-            .doc(loyaltyProgramId)
-            .get();
-          const loyaltyProgram = loyaltyProgramDoc.data();
-
-          if (loyaltyProgram && loyaltyProgram.status === "active") {
-            // 2. Rechercher une carte de fidélité existante ou en créer une nouvelle
-            const existingCardQuery = await admin
-              .firestore()
-              .collection("LoyaltyCards")
-              .where("customerId", "==", userId)
-              .where("companyId", "==", sellerId)
-              .where("status", "==", "active")
-              .get();
-
-            let loyaltyCard;
-            let isNewCard = false;
-
-            if (existingCardQuery.empty) {
-              // Créer une nouvelle carte
-              const newCardRef = admin
-                .firestore()
-                .collection("LoyaltyCards")
-                .doc();
-              loyaltyCard = {
-                id: newCardRef.id,
-                customerId: userId,
-                companyId: sellerId,
-                loyaltyProgramId: loyaltyProgramId,
-                currentValue: 0,
-                totalEarned: 0,
-                totalRedeemed: 0,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                status: "active",
-              };
-              isNewCard = true;
-            } else {
-              loyaltyCard = {
-                id: existingCardQuery.docs[0].id,
-                ...existingCardQuery.docs[0].data(),
-              };
-            }
-
-            // 3. Calculer les points/visites à ajouter selon le type de programme
-            let earnedValue = 0;
-            switch (loyaltyProgram.type) {
-              case "visits":
-                earnedValue = 1;
-                break;
-              case "points":
-                earnedValue = Math.floor(totalAmount);
-                break;
-              case "amount":
-                earnedValue = totalAmount;
-                break;
-            }
-
-            // 4. Mettre à jour la carte
-            const newCurrentValue = loyaltyCard.currentValue + earnedValue;
-            const batch = admin.firestore().batch();
-
-            // Mettre à jour ou créer la carte
-            const cardRef = admin
-              .firestore()
-              .collection("LoyaltyCards")
-              .doc(loyaltyCard.id);
-            if (isNewCard) {
-              batch.set(cardRef, {
-                ...loyaltyCard,
-                currentValue: newCurrentValue,
-                totalEarned: earnedValue,
-                lastTransaction: {
-                  date: admin.firestore.FieldValue.serverTimestamp(),
-                  amount: earnedValue,
-                  type: "earn",
-                },
-              });
-            } else {
-              batch.update(cardRef, {
-                currentValue: newCurrentValue,
-                totalEarned: admin.firestore.FieldValue.increment(earnedValue),
-                lastTransaction: {
-                  date: admin.firestore.FieldValue.serverTimestamp(),
-                  amount: earnedValue,
-                  type: "earn",
-                },
-              });
-            }
-
-            // Ajouter l'historique
-            const historyRef = admin
-              .firestore()
-              .collection("LoyaltyHistory")
-              .doc();
-            batch.set(historyRef, {
-              cardId: loyaltyCard.id,
-              customerId: userId,
-              companyId: sellerId,
-              amount: earnedValue,
-              type: "earn",
-              orderId: context.params.orderId,
-              timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            });
-
-            // 5. Vérifier si un palier est atteint et créer un code promo si nécessaire
-            let targetReached = false;
-            let rewardValue = 0;
-            let isPercentage = false;
-
-            if (loyaltyProgram.type === "points" && loyaltyProgram.tiers) {
-              // Trouver le palier atteint
-              for (const [points, reward] of Object.entries(
-                loyaltyProgram.tiers
-              )) {
-                if (
-                  newCurrentValue >= parseInt(points) &&
-                  loyaltyCard.currentValue < parseInt(points)
-                ) {
-                  targetReached = true;
-                  rewardValue = reward.reward;
-                  isPercentage = reward.isPercentage;
-                  break;
-                }
-              }
-            } else if (newCurrentValue >= loyaltyProgram.targetValue) {
-              targetReached = true;
-              rewardValue = loyaltyProgram.rewardValue;
-              isPercentage = loyaltyProgram.isPercentage;
-            }
-
-            if (targetReached) {
-              // Créer le code promo
-              const promoCode = await generateUniquePromoCode();
-              const promoRef = admin
-                .firestore()
-                .collection("promo_codes")
-                .doc();
-
-              batch.set(promoRef, {
-                applicableTo: "all",
-                conditionValue: 0,
-                conditionType: "none",
-                conditionProductId: "",
-                description: "",
-                isPublic: false,
-                isActive: true,
-                currentUses: 0,
-                maxUses: 1,
-                code: promoCode,
-                customerId: userId,
-                usageHistory: [],
-                sellerId: sellerId,
-                companyId: sellerId,
-                discountValue: rewardValue,
-                isPercentage: isPercentage,
-                discountType: isPercentage ? "percentage" : "amount",
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                expiresAt: admin.firestore.Timestamp.fromDate(
-                  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 jours
-                ),
-                status: "active",
-                loyaltyCardId: loyaltyCard.id,
-              });
-
-              // Réinitialiser la carte ou la marquer comme terminée
-              if (loyaltyProgram.type !== "points") {
-                // Pour les cartes de visite et montant, on réinitialise
-                batch.update(cardRef, {
-                  status: "completed",
-                });
-              }
-            }
-
-            // Exécuter toutes les opérations
-            await batch.commit();
-          }
-        }
-      } catch (error) {
-        console.error(
-          "Erreur lors du traitement de la carte de fidélité:",
-          error
-        );
+        throw error; // Propager l'erreur pour que Firebase la log
       }
     }
     return null;
   });
+
+exports.onReservationStatusUpdate = functions.firestore
+  .document("reservations/{reservationId}")
+  .onUpdate(async (change, context) => {
+    const newData = change.after.data();
+    const previousData = change.before.data();
+    const reservationId = context.params.reservationId;
+
+    if (newData.status === previousData.status) {
+      return null;
+    }
+
+    try {
+      const batch = admin.firestore().batch();
+
+      if (newData.status === "completed") {
+        const companyRef = admin
+          .firestore()
+          .collection("companys")
+          .doc(newData.companyId);
+        const companyDoc = await companyRef.get();
+
+        if (companyDoc.exists) {
+          const totalAmount = newData.price * newData.quantity;
+          const commission = totalAmount * 0.075;
+          const montantNet = totalAmount - commission;
+
+          batch.update(companyRef, {
+            availableBalance: admin.firestore.FieldValue.increment(montantNet),
+            totalEarnings: admin.firestore.FieldValue.increment(totalAmount),
+            totalCommissions: admin.firestore.FieldValue.increment(commission),
+          });
+
+          const transactionRef = admin
+            .firestore()
+            .collection("transactions")
+            .doc();
+          batch.set(transactionRef, {
+            companyId: newData.companyId,
+            reservationId: reservationId,
+            totalAmount: totalAmount,
+            feeAmount: commission,
+            amountAfterFee: montantNet,
+            dealExpressId: newData.postId,
+            type: "credit",
+            status: "completed",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          // Gestion de la carte de fidélité
+          await handleLoyaltyCard(
+            batch,
+            newData.buyerId,
+            newData.companyId,
+            totalAmount,
+            null,
+            reservationId
+          );
+        }
+      }
+
+      // Gestion des notifications
+      let notificationData;
+      if (["prête à être retirée", "completed"].includes(newData.status)) {
+        const notificationRef = admin
+          .firestore()
+          .collection("notifications")
+          .doc();
+        notificationData = {
+          userId: newData.buyerId,
+          targetId: reservationId,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          isRead: false,
+          type: "deal_express",
+        };
+
+        if (newData.status === "prête à être retirée") {
+          notificationData = {
+            ...notificationData,
+            title: "Panier prêt",
+            message: `Votre ${newData.basketType} est prêt à être retiré. Code de retrait : ${newData.validationCode}`,
+          };
+        } else if (newData.status === "completed") {
+          notificationData = {
+            ...notificationData,
+            title: "Commande terminée",
+            message: `Votre ${newData.basketType} a bien été récupéré`,
+          };
+        }
+
+        batch.set(notificationRef, notificationData);
+      }
+
+      // Commit du batch AVANT l'envoi de la notification push
+      await batch.commit();
+
+      // Envoi de la notification push APRÈS le commit du batch
+      if (["prête à être retirée", "completed"].includes(newData.status)) {
+        const userDoc = await admin
+          .firestore()
+          .collection("users")
+          .doc(newData.buyerId)
+          .get();
+
+        const fcmToken = userDoc.data()?.fcmToken;
+
+        if (fcmToken) {
+          const message = {
+            notification: {
+              title: notificationData.title,
+              body: notificationData.message,
+            },
+            data: {
+              type: "reservation",
+              targetId: reservationId,
+              click_action: "FLUTTER_NOTIFICATION_CLICK",
+            },
+            token: fcmToken,
+          };
+
+          try {
+            await admin.messaging().send(message);
+            console.log("Notification push envoyée avec succès");
+          } catch (error) {
+            console.error(
+              "Erreur lors de l'envoi de la notification push:",
+              error
+            );
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Erreur lors du traitement de la réservation:", error);
+      throw error; // Propager l'erreur pour que Firebase la log
+    }
+  });
+
+exports.onBookingStatusUpdate = functions.firestore
+  .document("bookings/{bookingId}")
+  .onUpdate(async (change, context) => {
+    const newData = change.after.data();
+    const previousData = change.before.data();
+    const bookingId = context.params.bookingId;
+
+    if (newData.status === previousData.status) {
+      return null;
+    }
+
+    try {
+      const batch = admin.firestore().batch();
+
+      if (newData.status === "completed") {
+        console.log("=== Début traitement booking completed ===");
+
+        const companyRef = admin
+          .firestore()
+          .collection("companys")
+          .doc(newData.professionalId);
+        const companyDoc = await companyRef.get();
+
+        if (companyDoc.exists) {
+          const totalAmount = newData.amount / 100;
+          const commission = totalAmount * 0.075;
+          const montantNet = totalAmount - commission;
+
+          batch.update(companyRef, {
+            availableBalance: admin.firestore.FieldValue.increment(montantNet),
+            totalEarnings: admin.firestore.FieldValue.increment(totalAmount),
+            totalCommissions: admin.firestore.FieldValue.increment(commission),
+          });
+
+          const transactionRef = admin
+            .firestore()
+            .collection("transactions")
+            .doc();
+          batch.set(transactionRef, {
+            companyId: newData.professionalId,
+            bookingId: bookingId,
+            totalAmount: totalAmount,
+            feeAmount: commission,
+            amountAfterFee: montantNet,
+            type: "credit",
+            status: "completed",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          // Gestion de la carte de fidélité AVANT les notifications
+          console.log("Début traitement carte de fidélité");
+          await handleLoyaltyCard(
+            batch,
+            newData.userId,
+            newData.professionalId,
+            totalAmount,
+            null,
+            null,
+            bookingId
+          );
+          console.log("Fin traitement carte de fidélité");
+        }
+      }
+
+      // Gestion des notifications
+      if (["completed", "cancelled"].includes(newData.status)) {
+        const notificationRef = admin
+          .firestore()
+          .collection("notifications")
+          .doc();
+        let notificationData = {
+          userId: newData.userId,
+          targetId: bookingId,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          isRead: false,
+          type: "booking",
+        };
+
+        if (newData.status === "completed") {
+          notificationData = {
+            ...notificationData,
+            title: "Service terminé",
+            message: `Votre rendez-vous pour ${newData.serviceName} est terminé`,
+          };
+        } else if (newData.status === "cancelled") {
+          notificationData = {
+            ...notificationData,
+            title: "Service annulé",
+            message: `Votre rendez-vous pour ${newData.serviceName} a été annulé`,
+          };
+        }
+
+        batch.set(notificationRef, notificationData);
+      }
+
+      // Commit du batch AVANT l'envoi de la notification push
+      console.log("Début commit batch");
+      await batch.commit();
+      console.log("Fin commit batch");
+
+      // Envoi de la notification push APRÈS le commit du batch
+      if (["completed", "cancelled"].includes(newData.status)) {
+        const userDoc = await admin
+          .firestore()
+          .collection("users")
+          .doc(newData.userId)
+          .get();
+
+        const fcmToken = userDoc.data()?.fcmToken;
+
+        if (fcmToken) {
+          const message = {
+            notification: {
+              title: notificationData.title,
+              body: notificationData.message,
+            },
+            data: {
+              type: "booking",
+              targetId: bookingId,
+              click_action: "FLUTTER_NOTIFICATION_CLICK",
+            },
+            token: fcmToken,
+          };
+
+          try {
+            await admin.messaging().send(message);
+            console.log("Notification push envoyée avec succès");
+          } catch (error) {
+            console.error(
+              "Erreur lors de l'envoi de la notification push:",
+              error
+            );
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Erreur lors du traitement de la réservation:", error);
+      throw error; // Propager l'erreur pour que Firebase la log
+    }
+  });
+
+async function handleLoyaltyCard(
+  batch,
+  userId,
+  companyId,
+  amount,
+  orderId = null,
+  reservationId = null,
+  bookingId = null
+) {
+  console.log("=== Début handleLoyaltyCard ===");
+  console.log("Paramètres reçus:", {
+    userId,
+    companyId,
+    amount,
+    orderId,
+    reservationId,
+    bookingId,
+  });
+
+  try {
+    // 1. Vérifier si le vendeur a un programme de fidélité actif
+    const companyDoc = await admin
+      .firestore()
+      .collection("companys")
+      .doc(companyId)
+      .get();
+
+    const loyaltyProgramId = companyDoc.data()?.loyaltyProgramId;
+
+    if (!loyaltyProgramId) {
+      console.log("Pas de programme de fidélité associé à l'entreprise");
+      return;
+    }
+
+    const loyaltyProgramDoc = await admin
+      .firestore()
+      .collection("LoyaltyPrograms")
+      .doc(loyaltyProgramId)
+      .get();
+
+    console.log("Programme de fidélité trouvé:", {
+      exists: loyaltyProgramDoc.exists,
+      status: loyaltyProgramDoc.exists ? loyaltyProgramDoc.data().status : null,
+    });
+
+    if (
+      !loyaltyProgramDoc.exists ||
+      loyaltyProgramDoc.data().status !== "active"
+    ) {
+      console.log("Programme de fidélité non actif, sortie de la fonction");
+      return;
+    }
+
+    const loyaltyProgram = loyaltyProgramDoc.data();
+    console.log("Type de programme:", loyaltyProgram.type);
+
+    // 2. Calculer les points/visites à ajouter selon le type de programme
+    let earnedValue = 0;
+    switch (loyaltyProgram.type) {
+      case "visits":
+        earnedValue = 1;
+        break;
+      case "points":
+        earnedValue = Math.floor(amount);
+        break;
+      case "amount":
+        earnedValue = amount;
+        break;
+    }
+
+    console.log("Valeur gagnée:", earnedValue);
+
+    let remainingValue = earnedValue;
+    console.log("Valeur initiale à traiter:", remainingValue);
+
+    while (remainingValue > 0) {
+      // Rechercher une carte active
+      const existingCardQuery = await admin
+        .firestore()
+        .collection("LoyaltyCards")
+        .where("customerId", "==", userId)
+        .where("companyId", "==", companyId)
+        .where("status", "==", "active")
+        .get();
+
+      let cardRef;
+      let currentValue = 0;
+
+      if (existingCardQuery.empty) {
+        cardRef = admin.firestore().collection("LoyaltyCards").doc();
+        batch.set(cardRef, {
+          customerId: userId,
+          companyId: companyId,
+          loyaltyProgramId: loyaltyProgramId,
+          currentValue: 0,
+          totalEarned: 0,
+          totalRedeemed: 0,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          status: "active",
+          lastTransaction: {
+            date: admin.firestore.FieldValue.serverTimestamp(),
+            amount: 0,
+            type: "create",
+          },
+        });
+        console.log("Nouvelle carte créée:", cardRef.id);
+      } else {
+        cardRef = existingCardQuery.docs[0].ref;
+        currentValue = existingCardQuery.docs[0].data().currentValue;
+        console.log(
+          "Carte existante trouvée:",
+          cardRef.id,
+          "avec valeur:",
+          currentValue
+        );
+      }
+
+      const targetValue =
+        loyaltyProgram.type === "points"
+          ? Math.min(...Object.keys(loyaltyProgram.tiers).map(Number))
+          : loyaltyProgram.targetValue;
+
+      const valueNeededForTarget = targetValue - currentValue;
+      const willReachTarget = remainingValue >= valueNeededForTarget;
+
+      if (willReachTarget) {
+        // Compléter cette carte jusqu'au seuil
+        console.log(
+          `Complétion d'une carte avec ${valueNeededForTarget} sur ${remainingValue} restants`
+        );
+
+        batch.update(cardRef, {
+          currentValue: targetValue,
+          totalEarned:
+            admin.firestore.FieldValue.increment(valueNeededForTarget),
+          status: "completed",
+          lastTransaction: {
+            date: admin.firestore.FieldValue.serverTimestamp(),
+            amount: valueNeededForTarget,
+            type: "earn",
+          },
+        });
+
+        // Créer le code promo
+        const promoCode = await generateUniquePromoCode();
+        const promoRef = admin.firestore().collection("promo_codes").doc();
+
+        let rewardValue = 0;
+        let isPercentage = false;
+
+        if (loyaltyProgram.type === "points" && loyaltyProgram.tiers) {
+          const reward = loyaltyProgram.tiers[targetValue];
+          rewardValue = reward.reward;
+          isPercentage = reward.isPercentage;
+        } else {
+          rewardValue = loyaltyProgram.rewardValue;
+          isPercentage = loyaltyProgram.isPercentage;
+        }
+
+        batch.set(promoRef, {
+          applicableTo: "all",
+          code: promoCode,
+          customerId: userId,
+          companyId: companyId,
+          discountValue: rewardValue,
+          isPercentage: isPercentage,
+          isActive: true,
+          usageHistory: [],
+          discountType: isPercentage ? "percentage" : "amount",
+          status: "active",
+          isPublic: false,
+          currentUses: 0,
+          maxUses: "1",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+          loyaltyCardId: cardRef.id,
+        });
+
+        // Mettre à jour la valeur restante
+        remainingValue -= valueNeededForTarget;
+        console.log("Valeur restante après complétion:", remainingValue);
+      } else {
+        // Ajouter le reste à la carte active
+        console.log(
+          `Ajout du solde restant (${remainingValue}) à la carte active`
+        );
+        batch.set(
+          cardRef,
+          {
+            currentValue: currentValue + remainingValue,
+            totalEarned: admin.firestore.FieldValue.increment(remainingValue),
+            lastTransaction: {
+              date: admin.firestore.FieldValue.serverTimestamp(),
+              amount: remainingValue,
+              type: "earn",
+            },
+          },
+          { merge: true }
+        );
+        remainingValue = 0;
+      }
+
+      // Ajouter l'historique pour cette transaction
+      const historyRef = admin.firestore().collection("LoyaltyHistory").doc();
+      const historyData = {
+        cardId: cardRef.id,
+        customerId: userId,
+        companyId: companyId,
+        amount: willReachTarget ? valueNeededForTarget : remainingValue,
+        type: willReachTarget ? "earn" : "earn",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      if (orderId) historyData.orderId = orderId;
+      if (reservationId) historyData.reservationId = reservationId;
+      if (bookingId) historyData.bookingId = bookingId;
+
+      batch.set(historyRef, historyData);
+    }
+  } catch (error) {
+    console.error("Erreur lors du traitement de la carte de fidélité:", error);
+    throw error;
+  }
+}

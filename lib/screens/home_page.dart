@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/combined_item.dart';
-import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/home_provider.dart';
@@ -18,9 +17,7 @@ import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/service_list_page.dart';
-import 'package:happy/screens/test_notification_page.dart';
 import 'package:happy/widgets/bottom_sheet_profile.dart';
-import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/navigation_item.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
@@ -135,16 +132,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                 onRefresh: _handleRefresh,
                 child: _buildStreamBuilder(),
               ),
-            ),
-            IconButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const TestNotificationPage()),
-                );
-              },
-              icon: const Icon(Icons.notification_add),
             ),
           ],
         ),
@@ -555,11 +542,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         );
       }
     } else {
-      // Gestion des autres types (companies)
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10.0),
-        child: CompanyCard(item.item as Company),
-      );
+      // Gestion des autres types
+      return const SizedBox.shrink();
     }
   }
 

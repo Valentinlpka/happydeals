@@ -165,6 +165,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
           .collection('LoyaltyCards')
           .where('customerId', isEqualTo: userId)
           .where('companyId', isEqualTo: widget.entrepriseId)
+          .where('status', isEqualTo: 'active')
           .get();
       if (doc.docs.isNotEmpty) {
         return LoyaltyCard.fromFirestore(doc.docs.first);

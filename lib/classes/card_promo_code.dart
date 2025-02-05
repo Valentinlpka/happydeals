@@ -192,7 +192,7 @@ class PromoCodeCard extends StatelessWidget {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green[50],
+                          color: Colors.blue[50],
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -202,7 +202,7 @@ class PromoCodeCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.green[700],
+                            color: Colors.blue[700],
                           ),
                         ),
                       ),

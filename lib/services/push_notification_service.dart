@@ -12,13 +12,14 @@ class PushNotificationService {
     if (!kIsWeb) return;
 
     try {
-      // Les permissions sont déjà demandées dans main.dart
-      // Écouter les messages en premier plan
+      // Pour les messages en premier plan, ne pas montrer de notification système
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        _handleMessage(message, context);
+        // Ne rien faire car la notification Firestore s'en chargera
+        // Ou juste mettre à jour les données sans notification
+        _handleMessage(message, context, showNotification: false);
       });
 
-      // Écouter les clics sur les notifications
+      // Pour les messages en arrière-plan, laisser la notification système
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         _handleNotificationClick(message, context);
       });
@@ -27,8 +28,10 @@ class PushNotificationService {
     }
   }
 
-  void _handleMessage(RemoteMessage message, BuildContext context) {
-    // Ajouter la notification à Firestore via le provider
+  void _handleMessage(RemoteMessage message, BuildContext context,
+      {bool showNotification = true}) {
+    if (!showNotification) return;
+
     final notificationProvider =
         Provider.of<NotificationProvider>(context, listen: false);
 
@@ -52,36 +55,33 @@ class PushNotificationService {
 
   NotificationType _getNotificationTypeFromData(Map<String, dynamic> data) {
     final typeStr = data['type'] ?? '';
-    return NotificationType.values.firstWhere(
-      (e) => e.toString().split('.').last == typeStr,
-      orElse: () => NotificationType.order,
-    );
+    switch (typeStr) {
+      case 'order':
+        return NotificationType.order;
+      case 'deal_express':
+        return NotificationType.deal_express;
+      case 'booking':
+        return NotificationType.booking;
+      default:
+        return NotificationType.order;
+    }
   }
 
   void _handleNotificationClick(RemoteMessage message, BuildContext context) {
     final type = _getNotificationTypeFromData(message.data);
     final targetId = message.data['targetId'];
 
+    if (targetId == null) return;
+
     switch (type) {
       case NotificationType.order:
-        if (targetId != null) {
-          Navigator.pushNamed(context, '/orders/$targetId');
-        }
+        Navigator.pushNamed(context, '/orders/$targetId');
         break;
-      case NotificationType.event:
-        if (targetId != null) {
-          Navigator.pushNamed(context, '/events/$targetId');
-        }
+      case NotificationType.deal_express:
+        Navigator.pushNamed(context, '/reservations/$targetId');
         break;
-      case NotificationType.newFollower:
-        if (targetId != null) {
-          Navigator.pushNamed(context, '/profile/$targetId');
-        }
-        break;
-      case NotificationType.newPost:
-        if (targetId != null) {
-          Navigator.pushNamed(context, '/posts/$targetId');
-        }
+      case NotificationType.booking:
+        Navigator.pushNamed(context, '/bookings/$targetId');
         break;
     }
   }

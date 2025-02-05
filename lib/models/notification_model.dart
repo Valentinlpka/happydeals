@@ -1,6 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum NotificationType { order, event, newFollower, newPost }
+enum NotificationType {
+  order,
+  deal_express,
+  booking,
+}
 
 class NotificationModel {
   final String id;
@@ -31,9 +35,7 @@ class NotificationModel {
       title: data['title'] ?? '',
       message: data['message'] ?? '',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
-      type: NotificationType.values.firstWhere(
-        (e) => e.toString() == 'NotificationType.${data['type']}',
-      ),
+      type: _stringToNotificationType(data['type'] ?? ''),
       userId: data['userId'] ?? '',
       targetId: data['targetId'],
       isRead: data['isRead'] ?? false,
@@ -51,5 +53,18 @@ class NotificationModel {
       'targetId': targetId,
       'isRead': isRead,
     };
+  }
+
+  static NotificationType _stringToNotificationType(String type) {
+    switch (type) {
+      case 'order':
+        return NotificationType.order;
+      case 'deal_express':
+        return NotificationType.deal_express;
+      case 'booking':
+        return NotificationType.booking;
+      default:
+        return NotificationType.order;
+    }
   }
 }

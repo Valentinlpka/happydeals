@@ -163,11 +163,9 @@ class NotificationTile extends StatelessWidget {
     switch (type) {
       case NotificationType.order:
         return Colors.orange;
-      case NotificationType.event:
-        return Colors.purple;
-      case NotificationType.newFollower:
+      case NotificationType.deal_express:
         return Colors.green;
-      case NotificationType.newPost:
+      case NotificationType.booking:
         return Colors.blue;
     }
   }
@@ -176,12 +174,10 @@ class NotificationTile extends StatelessWidget {
     switch (type) {
       case NotificationType.order:
         return Icons.shopping_bag_outlined;
-      case NotificationType.event:
+      case NotificationType.deal_express:
+        return Icons.eco_outlined;
+      case NotificationType.booking:
         return Icons.event_outlined;
-      case NotificationType.newFollower:
-        return Icons.person_add_outlined;
-      case NotificationType.newPost:
-        return Icons.article_outlined;
     }
   }
 
@@ -192,14 +188,11 @@ class NotificationTile extends StatelessWidget {
       case NotificationType.order:
         Navigator.pushNamed(context, '/orders/${notification.targetId}');
         break;
-      case NotificationType.event:
-        Navigator.pushNamed(context, '/events/${notification.targetId}');
+      case NotificationType.deal_express:
+        Navigator.pushNamed(context, '/reservations/${notification.targetId}');
         break;
-      case NotificationType.newFollower:
-        Navigator.pushNamed(context, '/profile/${notification.targetId}');
-        break;
-      case NotificationType.newPost:
-        Navigator.pushNamed(context, '/posts/${notification.targetId}');
+      case NotificationType.booking:
+        Navigator.pushNamed(context, '/bookings/${notification.targetId}');
         break;
     }
   }

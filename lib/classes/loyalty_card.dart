@@ -5,12 +5,12 @@ class LoyaltyCard {
   final String customerId;
   final String loyaltyProgramId;
   final String companyId;
-  int currentValue;
+  final double currentValue;
   final DateTime createdAt;
   final DateTime? lastUsed;
   final LastTransaction? lastTransaction;
-  final int totalEarned;
-  final int totalRedeemed;
+  final double totalEarned;
+  final double totalRedeemed;
   final String status;
 
   LoyaltyCard({
@@ -22,8 +22,8 @@ class LoyaltyCard {
     required this.createdAt,
     this.lastUsed,
     this.lastTransaction,
-    this.totalEarned = 0,
-    this.totalRedeemed = 0,
+    required this.totalEarned,
+    required this.totalRedeemed,
     this.status = 'active',
   });
 
@@ -35,7 +35,7 @@ class LoyaltyCard {
       customerId: data['customerId'],
       loyaltyProgramId: data['loyaltyProgramId'],
       companyId: data['companyId'],
-      currentValue: data['currentValue'],
+      currentValue: (data['currentValue'] ?? 0).toDouble(),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       lastUsed: data['lastUsed'] != null
           ? (data['lastUsed'] as Timestamp).toDate()
@@ -43,8 +43,8 @@ class LoyaltyCard {
       lastTransaction: data['lastTransaction'] != null
           ? LastTransaction.fromMap(data['lastTransaction'])
           : null,
-      totalEarned: data['totalEarned'] ?? 0,
-      totalRedeemed: data['totalRedeemed'] ?? 0,
+      totalEarned: (data['totalEarned'] ?? 0).toDouble(),
+      totalRedeemed: (data['totalRedeemed'] ?? 0).toDouble(),
       status: data['status'] ?? 'active',
     );
   }
@@ -69,12 +69,12 @@ class LoyaltyCard {
     String? customerId,
     String? loyaltyProgramId,
     String? companyId,
-    int? currentValue,
+    double? currentValue,
     DateTime? createdAt,
     DateTime? lastUsed,
     LastTransaction? lastTransaction,
-    int? totalEarned,
-    int? totalRedeemed,
+    double? totalEarned,
+    double? totalRedeemed,
     String? status,
   }) {
     return LoyaltyCard(

@@ -48,9 +48,6 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
             if (!snapshot.hasData)
               return const CustomAppBar(title: '', align: Alignment.centerLeft);
 
-            final bookingData =
-                snapshot.data![0].data() as Map<String, dynamic>;
-
             return CustomAppBar(
               title: 'Réservation #${widget.bookingId.substring(0, 8)}',
               align: Alignment.center,
