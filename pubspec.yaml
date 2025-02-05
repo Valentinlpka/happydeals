@@ -43,7 +43,7 @@ dependencies:
   firebase_auth: ^5.1.1
   intl: ^0.19.0
   image_picker: ^1.0.7
-  flutter_map: ^6.1.0
+  flutter_map: ^7.0.2
   latlong2: ^0.9.0
   timeago: ^3.6.1
   accordion: ^2.6.0
@@ -118,25 +118,6 @@ flutter:
     - assets/images/UP.png
     - assets/french_cities.json
     - assets/Roboto-Regular.ttf
-    - assets/json1.json
-    - assets/json2.json
-    - assets/json3.json
-    - assets/json4.json
-    - assets/json5.json
-    - assets/json6.json
-    - assets/json7.json
-    - assets/json8.json
-    - assets/json9.json
-    - assets/json10.json
-    - assets/json11.json
-    - assets/json12.json
-    - assets/json13.json
-    - assets/json14.json
-    - assets/json15.json
-    - assets/json16.json
-    - assets/json17.json
-    - assets/json18.json
-    - assets/json19.json
 
   #   - images/a_dot_ham.jpeg
 
