@@ -347,7 +347,7 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
     switch (status) {
       case 'Envoyé':
         return Colors.blue;
-      case 'Nouveau Message':
+      case 'En cours':
         return Colors.orange;
       case 'Accepté':
         return Colors.green;
