@@ -161,16 +161,39 @@ class LoyaltyCardsPage extends StatelessWidget {
   }
 
   Widget _buildHistoryTransactions(LoyaltyCard card) {
+    print('Recherche historique pour la carte: ${card.id}'); // Debug
+
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('LoyaltyHistory')
-          .where('cardId', isEqualTo: card.id)
           .orderBy('timestamp', descending: true)
+          .where('customerId', isEqualTo: userId)
+          .where('companyId', isEqualTo: card.companyId)
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          print('Erreur: ${snapshot.error}');
+          return const Text('Une erreur est survenue');
+        }
+
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          print('Pas de données ou données vides');
           return const SizedBox.shrink();
         }
+
+        // Filtrer les documents qui contiennent cette carte dans leurs détails
+        final relevantDocs = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final details = data['details'] as List?;
+          return details?.any((detail) => detail['cardId'] == card.id) ?? false;
+        }).toList();
+
+        if (relevantDocs.isEmpty) {
+          print('Aucune transaction trouvée pour la carte ${card.id}');
+          return const SizedBox.shrink();
+        }
+
+        print('Nombre de transactions trouvées: ${relevantDocs.length}');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,28 +203,36 @@ class LoyaltyCardsPage extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
-            ...snapshot.data!.docs.map((doc) {
+            ...relevantDocs.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
-              final amount = data['amount'];
-              final amountStr = amount is num ? amount.toString() : '0';
+              final details = (data['details'] as List).firstWhere(
+                (detail) => detail['cardId'] == card.id,
+                orElse: () => null,
+              );
+
+              if (details == null) return const SizedBox.shrink();
+
+              final amount = details['amount'] as num;
+              final detailType = details['type'] as String;
 
               return ListTile(
                 dense: true,
-                leading: Icon(
-                  data['type'] == 'earn' ? Icons.add_circle : Icons.redeem,
-                  color: data['type'] == 'earn' ? Colors.green : Colors.blue,
+                leading: const Icon(
+                  Icons.add_circle,
+                  color: Colors.green,
                 ),
                 title: Text(
-                  data['type'] == 'earn'
-                      ? 'Points gagnés'
-                      : 'Récompense utilisée',
+                  detailType == 'complete_card'
+                      ? 'Carte complétée'
+                      : 'Points gagnés',
                 ),
                 subtitle: Text(
-                    _formatDate((data['timestamp'] as Timestamp).toDate())),
+                  _formatDate((data['timestamp'] as Timestamp).toDate()),
+                ),
                 trailing: Text(
-                  '${data['type'] == 'earn' ? '+' : '-'}$amountStr',
-                  style: TextStyle(
-                    color: data['type'] == 'earn' ? Colors.green : Colors.blue,
+                  '+$amount',
+                  style: const TextStyle(
+                    color: Colors.green,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

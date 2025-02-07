@@ -3032,6 +3032,43 @@ function generateServiceBookingProfessionalEmail(
   return getBaseEmailTemplate(content);
 }
 
+// Fonction utilitaire pour gérer les points de fidélité
+async function handleLoyaltyPoints(batch, userId, amount, type, referenceId) {
+  try {
+    console.log(
+      `Traitement des points de fidélité pour l'utilisateur ${userId}`
+    );
+
+    // Arrondir le montant à l'entier le plus proche pour les points
+    const pointsToAdd = Math.round(amount);
+
+    // Référence au document de l'utilisateur
+    const userRef = admin.firestore().collection("users").doc(userId);
+
+    // Mettre à jour les points de l'utilisateur
+    batch.update(userRef, {
+      loyaltyPoints: admin.firestore.FieldValue.increment(pointsToAdd),
+    });
+
+    // Créer l'entrée dans l'historique
+    const historyRef = admin.firestore().collection("pointsHistory").doc();
+    batch.set(historyRef, {
+      userId: userId,
+      points: pointsToAdd,
+      amount: amount,
+      type: type, // 'order', 'reservation', ou 'booking'
+      referenceId: referenceId, // orderId, reservationId, ou bookingId
+      date: admin.firestore.FieldValue.serverTimestamp(),
+      status: "earned",
+    });
+
+    console.log(`${pointsToAdd} points ajoutés pour l'utilisateur ${userId}`);
+  } catch (error) {
+    console.error("Erreur lors du traitement des points de fidélité:", error);
+    throw error;
+  }
+}
+
 exports.onOrderStatusUpdate = functions.firestore
   .document("orders/{orderId}")
   .onUpdate(async (change, context) => {
@@ -3101,6 +3138,15 @@ exports.onOrderStatusUpdate = functions.firestore
           status: "completed",
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+
+        //Traiter les points de fidélité Up
+        await handleLoyaltyPoints(
+          batch,
+          userId,
+          totalAmount,
+          "order",
+          context.params.orderId
+        );
 
         // Traiter la carte de fidélité AVANT le commit
         console.log("Début traitement carte de fidélité");
@@ -3178,6 +3224,14 @@ exports.onReservationStatusUpdate = functions.firestore
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
+          //Traiter les points de fidélité Up
+          await handleLoyaltyPoints(
+            batch,
+            newData.buyerId,
+            totalAmount,
+            "reservation",
+            context.params.reservationId
+          );
           // Gestion de la carte de fidélité
           await handleLoyaltyCard(
             batch,
@@ -3317,6 +3371,14 @@ exports.onBookingStatusUpdate = functions.firestore
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
+          //Traiter les points de fidélité Up
+          await handleLoyaltyPoints(
+            batch,
+            newData.userId,
+            totalAmount,
+            "booking",
+            context.params.bookingId
+          );
           // Gestion de la carte de fidélité AVANT les notifications
           console.log("Début traitement carte de fidélité");
           await handleLoyaltyCard(
@@ -3477,63 +3539,77 @@ async function handleLoyaltyCard(
         earnedValue = Math.floor(amount);
         break;
       case "amount":
-        earnedValue = amount;
+        earnedValue = Math.round(amount); // Arrondir le montant
         break;
     }
 
-    console.log("Valeur gagnée:", earnedValue);
+    console.log("Valeur gagnée (arrondie):", earnedValue);
 
     let remainingValue = earnedValue;
     console.log("Valeur initiale à traiter:", remainingValue);
+    let currentCardValue = 0;
+    let currentCardRef = null;
+
+    // Rechercher une carte active une seule fois avant la boucle
+    const existingCardQuery = await admin
+      .firestore()
+      .collection("LoyaltyCards")
+      .where("customerId", "==", userId)
+      .where("companyId", "==", companyId)
+      .where("status", "==", "active")
+      .get();
+
+    if (existingCardQuery.empty) {
+      currentCardRef = admin.firestore().collection("LoyaltyCards").doc();
+      batch.set(currentCardRef, {
+        customerId: userId,
+        companyId: companyId,
+        loyaltyProgramId: loyaltyProgramId,
+        currentValue: 0,
+        totalEarned: 0,
+        totalRedeemed: 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: "active",
+        lastTransaction: {
+          date: admin.firestore.FieldValue.serverTimestamp(),
+          amount: 0,
+          type: "create",
+        },
+      });
+      console.log("Nouvelle carte créée:", currentCardRef.id);
+    } else {
+      currentCardRef = existingCardQuery.docs[0].ref;
+      currentCardValue = existingCardQuery.docs[0].data().currentValue;
+      console.log(
+        "Carte existante trouvée:",
+        currentCardRef.id,
+        "avec valeur:",
+        currentCardValue
+      );
+    }
+
+    // Créer un seul historique pour la transaction complète
+    const historyRef = admin.firestore().collection("LoyaltyHistory").doc();
+    const historyData = {
+      customerId: userId,
+      companyId: companyId,
+      amount: earnedValue,
+      type: "earn",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      details: [], // Pour stocker les détails de chaque carte impactée
+    };
+
+    if (orderId) historyData.orderId = orderId;
+    if (reservationId) historyData.reservationId = reservationId;
+    if (bookingId) historyData.bookingId = bookingId;
 
     while (remainingValue > 0) {
-      // Rechercher une carte active
-      const existingCardQuery = await admin
-        .firestore()
-        .collection("LoyaltyCards")
-        .where("customerId", "==", userId)
-        .where("companyId", "==", companyId)
-        .where("status", "==", "active")
-        .get();
-
-      let cardRef;
-      let currentValue = 0;
-
-      if (existingCardQuery.empty) {
-        cardRef = admin.firestore().collection("LoyaltyCards").doc();
-        batch.set(cardRef, {
-          customerId: userId,
-          companyId: companyId,
-          loyaltyProgramId: loyaltyProgramId,
-          currentValue: 0,
-          totalEarned: 0,
-          totalRedeemed: 0,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          status: "active",
-          lastTransaction: {
-            date: admin.firestore.FieldValue.serverTimestamp(),
-            amount: 0,
-            type: "create",
-          },
-        });
-        console.log("Nouvelle carte créée:", cardRef.id);
-      } else {
-        cardRef = existingCardQuery.docs[0].ref;
-        currentValue = existingCardQuery.docs[0].data().currentValue;
-        console.log(
-          "Carte existante trouvée:",
-          cardRef.id,
-          "avec valeur:",
-          currentValue
-        );
-      }
-
       const targetValue =
         loyaltyProgram.type === "points"
           ? Math.min(...Object.keys(loyaltyProgram.tiers).map(Number))
           : loyaltyProgram.targetValue;
 
-      const valueNeededForTarget = targetValue - currentValue;
+      const valueNeededForTarget = targetValue - currentCardValue;
       const willReachTarget = remainingValue >= valueNeededForTarget;
 
       if (willReachTarget) {
@@ -3542,7 +3618,7 @@ async function handleLoyaltyCard(
           `Complétion d'une carte avec ${valueNeededForTarget} sur ${remainingValue} restants`
         );
 
-        batch.update(cardRef, {
+        batch.update(currentCardRef, {
           currentValue: targetValue,
           totalEarned:
             admin.firestore.FieldValue.increment(valueNeededForTarget),
@@ -3588,21 +3664,50 @@ async function handleLoyaltyCard(
           expiresAt: admin.firestore.Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
-          loyaltyCardId: cardRef.id,
+          loyaltyCardId: currentCardRef.id,
         });
-
         // Mettre à jour la valeur restante
         remainingValue -= valueNeededForTarget;
         console.log("Valeur restante après complétion:", remainingValue);
+
+        // Créer une nouvelle carte si il reste de la valeur
+        if (remainingValue > 0) {
+          currentCardRef = admin.firestore().collection("LoyaltyCards").doc();
+          currentCardValue = 0;
+          batch.set(currentCardRef, {
+            customerId: userId,
+            companyId: companyId,
+            loyaltyProgramId: loyaltyProgramId,
+            currentValue: 0,
+            totalEarned: 0,
+            totalRedeemed: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            status: "active",
+            lastTransaction: {
+              date: admin.firestore.FieldValue.serverTimestamp(),
+              amount: 0,
+              type: "create",
+            },
+          });
+          console.log("Nouvelle carte créée pour le reste:", currentCardRef.id);
+        }
+
+        // Ajouter les détails à l'historique
+        historyData.details.push({
+          cardId: currentCardRef.id,
+          amount: valueNeededForTarget,
+          type: "complete_card",
+        });
       } else {
         // Ajouter le reste à la carte active
         console.log(
           `Ajout du solde restant (${remainingValue}) à la carte active`
         );
+        currentCardValue += remainingValue;
         batch.set(
-          cardRef,
+          currentCardRef,
           {
-            currentValue: currentValue + remainingValue,
+            currentValue: currentCardValue,
             totalEarned: admin.firestore.FieldValue.increment(remainingValue),
             lastTransaction: {
               date: admin.firestore.FieldValue.serverTimestamp(),
@@ -3613,25 +3718,18 @@ async function handleLoyaltyCard(
           { merge: true }
         );
         remainingValue = 0;
+
+        // Ajouter les détails à l'historique
+        historyData.details.push({
+          cardId: currentCardRef.id,
+          amount: remainingValue,
+          type: "partial_card",
+        });
       }
-
-      // Ajouter l'historique pour cette transaction
-      const historyRef = admin.firestore().collection("LoyaltyHistory").doc();
-      const historyData = {
-        cardId: cardRef.id,
-        customerId: userId,
-        companyId: companyId,
-        amount: willReachTarget ? valueNeededForTarget : remainingValue,
-        type: willReachTarget ? "earn" : "earn",
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      };
-
-      if (orderId) historyData.orderId = orderId;
-      if (reservationId) historyData.reservationId = reservationId;
-      if (bookingId) historyData.bookingId = bookingId;
-
-      batch.set(historyRef, historyData);
     }
+
+    // Ajouter l'historique une seule fois à la fin
+    batch.set(historyRef, historyData);
   } catch (error) {
     console.error("Erreur lors du traitement de la carte de fidélité:", error);
     throw error;

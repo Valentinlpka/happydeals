@@ -174,7 +174,7 @@ class SavingsPage extends StatelessWidget {
             'Codes Promo',
             formatter.format(data.promoCodeSavings),
             Icons.confirmation_number,
-            Colors.purple,
+            Colors.blue,
           ),
         ),
         const SizedBox(width: 12),
@@ -183,7 +183,7 @@ class SavingsPage extends StatelessWidget {
             'Deal Express',
             formatter.format(data.dealExpressSavings),
             Icons.flash_on,
-            Colors.green,
+            Colors.purple,
           ),
         ),
       ],
@@ -460,7 +460,7 @@ class SavingsPage extends StatelessWidget {
 
         final reservationsQuery = await FirebaseFirestore.instance
             .collection('reservations')
-            .where('userId', isEqualTo: userId)
+            .where('buyerId', isEqualTo: userId)
             .get();
 
         final transactions = <Transaction>[];
@@ -541,11 +541,11 @@ class SavingsPage extends StatelessWidget {
         // Traitement des Deal Express
         for (var doc in reservationsQuery.docs) {
           final data = doc.data();
-          final originalPrice = (data['originalPrice'] ?? 0.0) as num;
+          final originalPrice = (data['price'] * 2 ?? 0.0) as num;
 
           if (originalPrice <= 0) continue;
 
-          final date = data['createdAt'] as Timestamp;
+          final date = data['timestamp'] as Timestamp;
           if (date.toDate().month == DateTime.now().month) {
             monthSavings += originalPrice;
           }
@@ -557,7 +557,7 @@ class SavingsPage extends StatelessWidget {
             type: TransactionType.dealExpress,
             date: date,
             savings: originalPrice,
-            originalPrice: originalPrice * 2,
+            originalPrice: originalPrice,
             finalPrice: data['price'] ?? 0.0,
             itemName: data['basketType'] ?? 'Panier surprise',
           ));

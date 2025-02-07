@@ -65,138 +65,110 @@ class _BookingCard extends StatelessWidget {
       future: ServiceClientService().getServiceByIds(booking.serviceId),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Card(
+          return const SizedBox(
+            height: 200,
             child: Center(child: CircularProgressIndicator()),
           );
         }
 
         final service = snapshot.data!;
 
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.grey.withOpacity(0.2),
+              width: 1,
+            ),
           ),
-          child: InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      BookingDetailPage(bookingId: booking.id),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: Column(
-              children: [
-                // En-tête coloré selon le statut
-                Container(
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(booking.status).withOpacity(0.1),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        BookingDetailPage(bookingId: booking.id),
                   ),
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              service.name,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                service.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              DateFormat('EEEE d MMMM yyyy à HH:mm', 'fr_FR')
-                                  .format(booking.bookingDate),
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontSize: 14,
+                              const SizedBox(height: 4),
+                              Text(
+                                DateFormat('EEEE d MMMM yyyy à HH:mm', 'fr_FR')
+                                    .format(booking.bookingDate),
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 13,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        _buildStatusChip(booking.status),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      _StatusChip(status: booking.status),
-                    ],
-                  ),
-                ),
-                // Contenu
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      // Informations principales
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      child: Row(
                         children: [
-                          _InfoColumn(
+                          _buildInfoItem(
                             icon: Icons.timelapse,
                             label: 'Durée',
                             value: '${service.duration} min',
                           ),
                           Container(
+                            height: 24,
                             width: 1,
-                            height: 40,
+                            margin: const EdgeInsets.symmetric(horizontal: 12),
                             color: Colors.grey[300],
                           ),
-                          _InfoColumn(
+                          _buildInfoItem(
                             icon: Icons.euro,
                             label: 'Prix',
                             value:
                                 '${(booking.price / 100).toStringAsFixed(2)} €',
                           ),
+                          const Spacer(),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 20,
+                            color: Colors.grey[400],
+                          ),
                         ],
                       ),
-
-                      // Actions conditionnelles
-                      if (booking.status == 'confirmed') ...[
-                        const Divider(height: 32),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    _showCancellationDialog(context),
-                                icon: const Icon(Icons.close),
-                                label: const Text('Annuler'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: const BorderSide(color: Colors.red),
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () => _showRescheduleDialog(context),
-                                icon: const Icon(Icons.schedule),
-                                label: const Text('Reprogrammer'),
-                                style: ElevatedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -204,178 +176,99 @@ class _BookingCard extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'confirmed':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      case 'completed':
-        return Colors.blue;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  void _showCancellationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Annuler la réservation'),
-        content: const Text(
-          'Êtes-vous sûr de vouloir annuler cette réservation ? '
-          'Cette action est irréversible.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Non'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await BookingService().cancelBooking(booking.id);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Réservation annulée')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Erreur: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text('Oui, annuler'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showRescheduleDialog(BuildContext context) {
-    // Implémenter la logique de reprogrammation
-    // Peut-être naviguer vers une nouvelle page avec un sélecteur de date/heure
-  }
-}
-
-class _InfoColumn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoColumn({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
+  Widget _buildInfoItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
       children: [
-        Icon(icon, size: 24, color: Colors.blue[800]),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 12,
-          ),
+        Icon(
+          icon,
+          size: 18,
+          color: Colors.grey[700],
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
-}
 
-class _StatusChip extends StatelessWidget {
-  final String status;
-
-  const _StatusChip({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildStatusChip(String status) {
     Color backgroundColor;
-    String label;
+    Color textColor;
+    String text;
+    IconData icon;
 
     switch (status) {
       case 'confirmed':
-        backgroundColor = Colors.green;
-        label = 'Confirmé';
+        backgroundColor = Colors.green[50]!;
+        textColor = Colors.green[700]!;
+        text = 'Confirmé';
+        icon = Icons.check_circle_outline;
         break;
       case 'cancelled':
-        backgroundColor = Colors.red;
-        label = 'Annulé';
+        backgroundColor = Colors.red[50]!;
+        textColor = Colors.red[700]!;
+        text = 'Annulé';
+        icon = Icons.cancel_outlined;
         break;
       case 'completed':
-        backgroundColor = Colors.blue;
-        label = 'Terminé';
+        backgroundColor = Colors.blue[50]!;
+        textColor = Colors.blue[700]!;
+        text = 'Terminé';
+        icon = Icons.task_alt;
         break;
       default:
-        backgroundColor = Colors.grey;
-        label = 'En attente';
+        backgroundColor = Colors.grey[100]!;
+        textColor = Colors.grey[700]!;
+        text = 'En attente';
+        icon = Icons.schedule;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: backgroundColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: backgroundColor),
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: backgroundColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: textColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Colors.grey),
-        const SizedBox(width: 8),
-        Text(
-          '$label :',
-          style: TextStyle(
-            color: Colors.grey[600],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }

@@ -1,8 +1,11 @@
 // Composants de l'interface
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/reservation_screen.dart';
+import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
@@ -12,14 +15,10 @@ import '../../providers/users_provider.dart';
 
 class DetailsDealsExpress extends StatefulWidget {
   final ExpressDeal post;
-  final String companyName;
-  final String companyLogo;
 
   const DetailsDealsExpress({
     super.key,
     required this.post,
-    required this.companyName,
-    required this.companyLogo,
   });
 
   @override
@@ -30,6 +29,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
   DateTime? selectedPickupTime;
   final ScrollController _scrollController = ScrollController();
   bool _showTitle = false;
+  late Future<Company> companyFuture;
 
   @override
   void initState() {
@@ -37,6 +37,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
     selectedPickupTime =
         widget.post.pickupTimes.isNotEmpty ? widget.post.pickupTimes[0] : null;
     _scrollController.addListener(_onScroll);
+    companyFuture = _loadCompanyData();
   }
 
   @override
@@ -51,6 +52,14 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
     } else if (_scrollController.offset <= 140 && _showTitle) {
       setState(() => _showTitle = false);
     }
+  }
+
+  Future<Company> _loadCompanyData() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('companys')
+        .doc(widget.post.companyId)
+        .get();
+    return Company.fromDocument(doc);
   }
 
   String formatDateTime(DateTime dateTime) {
@@ -258,81 +267,25 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          InkWell(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    DetailsEntreprise(entrepriseId: widget.post.companyId),
-              ),
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundImage: NetworkImage(widget.companyLogo),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.companyName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.blue[700],
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Icon(
-                                Icons.star,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              '4,4',
-                              style: TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '(45 avis)',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+          FutureBuilder<Company>(
+            future: companyFuture,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return CompanyInfoCard(
+                company: snapshot.data!,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailsEntreprise(
+                      entrepriseId: widget.post.companyId,
                     ),
                   ),
-                  Icon(Icons.chevron_right, color: Colors.grey[400]),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ],
       ),

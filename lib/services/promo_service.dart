@@ -9,10 +9,11 @@ class PromoCodeService {
     String customerId,
   ) async {
     try {
-      final promoDoc = await _firestore
+      // Rechercher d'abord avec le companyId spécifique
+      var promoDoc = await _firestore
           .collection('promo_codes')
           .where('code', isEqualTo: code)
-          .where('companyId', isEqualTo: companyId)
+          .where('companyId', whereIn: [companyId, "UP"])
           .where('isActive', isEqualTo: true)
           .where('expiresAt', isGreaterThan: Timestamp.now())
           .get();
@@ -104,8 +105,7 @@ class PromoCodeService {
       final promoDoc = await _firestore
           .collection('promo_codes')
           .where('code', isEqualTo: code)
-          .where('companyId', isEqualTo: companyId)
-          .get();
+          .where('companyId', whereIn: [companyId, "UP"]).get();
 
       if (promoDoc.docs.isNotEmpty) {
         final updates = {

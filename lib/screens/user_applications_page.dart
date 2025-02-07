@@ -130,62 +130,158 @@ class UserApplicationsPage extends StatelessWidget {
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     var application = snapshot.data!.docs[index];
-                    return Card(
+                    return Container(
                       margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.2),
+                          width: 1,
+                        ),
                       ),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue[700],
-                          child: CircleAvatar(
-                            radius: 18,
-                            backgroundImage: NetworkImage(
-                              application['companyLogo'] ?? '',
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          application['jobTitle'] ?? 'Titre inconnu',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(application['companyName'] ?? ''),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Postuler le: ${_formatDate(application['appliedAt'])}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            _buildStatusChip(application['status']),
-                          ],
-                        ),
-                        trailing: application['hasUnreadMessages'] == true
-                            ? Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => _navigateToApplicationDetails(
+                              context, application),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            application['jobTitle'] ??
+                                                'Titre inconnu',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Postuler le: ${_formatDate(application['appliedAt'])}',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    _buildStatusChip(
+                                        application['status'],
+                                        application.data()
+                                            as Map<String, dynamic>),
+                                  ],
                                 ),
-                                child: const Text(
-                                  '!',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.blue.withOpacity(0.2),
+                                            width: 2,
+                                          ),
+                                          image: DecorationImage(
+                                            image: NetworkImage(
+                                              application['companyLogo'] ?? '',
+                                            ),
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              application['companyName'] ?? '',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            if ((application.data()
+                                                        as Map<String, dynamic>)
+                                                    .containsKey(
+                                                        'userUnreadMessages') &&
+                                                application[
+                                                        'userUnreadMessages'] ==
+                                                    true) ...[
+                                              const SizedBox(height: 4),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red[50],
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.mail_outline,
+                                                      size: 14,
+                                                      color: Colors.red[700],
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Nouveau message',
+                                                      style: TextStyle(
+                                                        color: Colors.red[700],
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.chevron_right,
+                                        size: 20,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              )
-                            : null,
-                        onTap: () => _navigateToApplicationDetails(
-                          context,
-                          application,
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     );
@@ -199,46 +295,74 @@ class UserApplicationsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusChip(String status) {
+  Widget _buildStatusChip(String status, Map<String, dynamic> application) {
     Color backgroundColor;
-    Color textColor = Colors.white;
+    Color textColor;
+    String text;
+    IconData icon;
 
     switch (status) {
       case 'Envoyé':
-        backgroundColor = Colors.blue;
-        break;
-      case 'Nouveau Message':
-        backgroundColor = Colors.orange;
+        backgroundColor = Colors.blue[50]!;
+        textColor = Colors.blue[700]!;
+        text = 'Envoyé';
+        icon = Icons.send_outlined;
         break;
       case 'Accepté':
-        backgroundColor = Colors.green;
+        backgroundColor = Colors.green[50]!;
+        textColor = Colors.green[700]!;
+        text = 'Accepté';
+        icon = Icons.check_circle_outline;
         break;
       case 'Refusé':
-        backgroundColor = Colors.red;
+        backgroundColor = Colors.red[50]!;
+        textColor = Colors.red[700]!;
+        text = 'Refusé';
+        icon = Icons.cancel_outlined;
         break;
       case 'Demande d\'infos':
-        backgroundColor = Colors.purple;
+        backgroundColor = Colors.purple[50]!;
+        textColor = Colors.purple[700]!;
+        text = 'Demande d\'infos';
+        icon = Icons.info_outline;
+        break;
+      case 'En cours':
+        backgroundColor = Colors.orange[50]!;
+        textColor = Colors.orange[700]!;
+        text = "En cours";
+        icon = Icons.delete_outline_outlined;
         break;
       default:
-        backgroundColor = Colors.grey;
+        backgroundColor = Colors.grey[100]!;
+        textColor = Colors.grey[700]!;
+        text = status;
+        icon = Icons.help_outline;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        status,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: textColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

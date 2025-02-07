@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/product_card.dart';
 
 class LikedProductsPage extends StatelessWidget {
@@ -18,11 +19,9 @@ class LikedProductsPage extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes coups de cœur'),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+      appBar: const CustomAppBar(
+        title: 'Mes coups de cœur',
+        align: Alignment.center,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance

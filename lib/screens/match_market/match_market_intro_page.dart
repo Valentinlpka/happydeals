@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/category_product.dart';
+import 'package:happy/screens/match_market/liked_products_page.dart';
 import 'package:happy/screens/match_market/match_market_swipe_page.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 
@@ -50,6 +51,66 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
       body: SafeArea(
         child: Column(
           children: [
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LikedProductsPage(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: Colors.grey.withOpacity(0.3),
+                        width: 1,
+                      ),
+                      color: Colors.white.withOpacity(0.1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.favorite_rounded,
+                          color:
+                              Theme.of(context).primaryColor.withOpacity(0.8),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Mes coups de cœur',
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).primaryColor.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             const Text(
               'Trouvez vos produits préférés',

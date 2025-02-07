@@ -17,6 +17,7 @@ import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/service_list_page.dart';
+import 'package:happy/screens/shop/products_page.dart';
 import 'package:happy/widgets/bottom_sheet_profile.dart';
 import 'package:happy/widgets/navigation_item.dart';
 import 'package:happy/widgets/postwidget.dart';
@@ -44,6 +45,11 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       page: const CompaniesPage(),
     ),
     NavigationItem(
+      title: 'Produit',
+      icon: Icons.shopping_bag_outlined, // Icône d'entreprise/business
+      page: const ProductsPage(),
+    ),
+    NavigationItem(
       title: 'Deal Express',
       icon: Icons.flash_on, // Icône éclair pour la rapidité/instantanéité
       page: const DealExpressPage(),
@@ -69,7 +75,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       page: const JeuxConcoursPage(),
     ),
     NavigationItem(
-      title: 'Offre de parrainage',
+      title: 'Parrainage',
       icon: Icons.people_outline, // Icône de personnes pour le parrainage
       page: const ParraiangePage(),
     ),
@@ -225,8 +231,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
-      'Offre de parrainage': const LinearGradient(
-        colors: [Color(0xFF4527A0), Color(0xFF7E57C2)],
+      'Parrainage': const LinearGradient(
+        colors: [Color(0xFF4CAF50), Color(0xFF8BC34A)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
@@ -237,6 +243,14 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       ),
       'Marketplace': const LinearGradient(
         colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Produit': const LinearGradient(
+        colors: [
+          Color.fromARGB(255, 234, 46, 159),
+          Color.fromARGB(255, 237, 23, 109)
+        ],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),

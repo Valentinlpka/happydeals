@@ -19,7 +19,7 @@ class ConcoursCard extends StatelessWidget {
   });
 
   String _formatDateTime(DateTime dateTime) {
-    return DateFormat('d MMM yyyy', 'fr_FR').format(dateTime);
+    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
   }
 
   String _getContestStatus() {
@@ -110,21 +110,11 @@ class ConcoursCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              status,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
+                          Text(
+                            _formatDateTime(contest.timestamp),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
                             ),
                           ),
                         ],

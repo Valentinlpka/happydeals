@@ -82,15 +82,28 @@ class ProductCards extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.purple,
+                            gradient: const LinearGradient(colors: [
+                              Color.fromARGB(255, 234, 46, 159),
+                              Color.fromARGB(255, 237, 23, 109)
+                            ]),
                             borderRadius: BorderRadius.circular(5),
                           ),
-                          child: const Text(
-                            'Produit',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.shopping_bag_outlined,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Produit',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 8),

@@ -46,75 +46,199 @@ class ReservationListDealExpress extends StatelessWidget {
 
   Widget _buildReservationCard(
       BuildContext context, String reservationId, Map<String, dynamic> data) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  ReservationDetailsPage(reservationId: reservationId),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    reservationId.substring(0, 6),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    ReservationDetailsPage(reservationId: reservationId),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Réservation #${reservationId.substring(0, 6)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat('dd/MM/yyyy HH:mm').format(
+                              (data['timestamp'] as Timestamp).toDate()),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    _buildStatusChip(data['status'] ?? ''),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  _buildStatusChip(data['isValidated'] ?? false),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Date: ${DateFormat('dd/MM/yyyy HH:mm').format((data['timestamp'] as Timestamp).toDate())}',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Entreprise: ${data['companyName'] ?? 'Non spécifié'}',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Prix: ${(data['price'] ?? 0.0).toStringAsFixed(2)}€',
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'À récupérer: ${DateFormat('dd/MM/yyyy HH:mm').format((data['pickupDate'] as Timestamp).toDate())}',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            ],
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.store_outlined,
+                            size: 18,
+                            color: Colors.grey[700],
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              data['companyName'] ?? 'Non spécifié',
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            size: 18,
+                            color: Colors.grey[700],
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'À récupérer le ${DateFormat('dd/MM/yyyy à HH:mm').format((data['pickupDate'] as Timestamp).toDate())}',
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.euro,
+                        size: 16,
+                        color: Colors.blue[700],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${(data['price'] ?? 0.0).toStringAsFixed(2)}€',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatusChip(bool isValidated) {
+  Widget _buildStatusChip(String status) {
+    Color backgroundColor;
+    Color textColor;
+    String text;
+    IconData icon;
+
+    switch (status) {
+      case 'confirmed':
+        text = "Confirmé";
+        backgroundColor = Colors.green[50]!;
+        textColor = Colors.green[700]!;
+        icon = Icons.check_circle_outline;
+        break;
+      case 'completed':
+        text = "Terminé";
+        backgroundColor = Colors.grey[100]!;
+        textColor = Colors.grey[700]!;
+        icon = Icons.task_alt;
+        break;
+      default:
+        text = "En attente";
+        backgroundColor = Colors.orange[50]!;
+        textColor = Colors.orange[700]!;
+        icon = Icons.hourglass_empty;
+    }
+
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(5),
-        color: isValidated ? Colors.green : Colors.orange,
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 7),
-        child: Text(
-          isValidated ? 'Validé' : 'En attente',
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: textColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

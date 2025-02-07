@@ -18,6 +18,10 @@ class DealsExpressCard extends StatelessWidget {
     required this.currentUserId,
   });
 
+  String _formatDateTimeStamp(DateTime dateTime) {
+    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
+  }
+
   String _formatDateTime(DateTime dateTime) {
     final DateTime now = DateTime.now();
     final DateFormat timeFormat = DateFormat('HH:mm');
@@ -137,9 +141,9 @@ class DealsExpressCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Valenciennes',
-                            style: TextStyle(
-                              color: Colors.grey[600],
+                            _formatDateTimeStamp(post.timestamp),
+                            style: const TextStyle(
+                              color: Colors.grey,
                               fontSize: 13,
                             ),
                           ),
@@ -177,8 +181,6 @@ class DealsExpressCard extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (context) => DetailsDealsExpress(
                               post: post,
-                              companyLogo: companyLogo,
-                              companyName: companyName,
                             ),
                           ),
                         );

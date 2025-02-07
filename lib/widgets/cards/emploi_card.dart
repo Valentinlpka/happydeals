@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/details_page/details_emploi_page.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:intl/intl.dart';
 
 class JobOfferCard extends StatelessWidget {
   final JobOffer post;
@@ -18,6 +18,10 @@ class JobOfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String formatDateTime(DateTime dateTime) {
+      return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
+    }
+
     return Column(
       children: [
         // En-tête avec logo et informations
@@ -96,9 +100,9 @@ class JobOfferCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            timeago.format(post.timestamp, locale: 'fr'),
-                            style: TextStyle(
-                              color: Colors.grey[600],
+                            formatDateTime(post.timestamp),
+                            style: const TextStyle(
+                              color: Colors.grey,
                               fontSize: 13,
                             ),
                           ),

@@ -103,118 +103,193 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
   }
 
   Widget _buildReferralCard(UserReferral referral) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    ReferralDetailPage(referralId: referral.id),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Entreprise: ${referral.companyName}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Parrainage #${referral.id.substring(0, 6)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat('dd/MM/yyyy à HH:mm')
+                                .format(referral.timestamp),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        referral.type == 'sponsorship'
-                            ? 'Filleul: ${referral.refereeName}'
-                            : 'Parrain: ${referral.sponsorName}',
-                        style: TextStyle(color: Colors.grey[600]),
+                    ),
+                    _buildStatusChip(referral.status),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.store_outlined,
+                            size: 18,
+                            color: Colors.grey[700],
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              referral.companyName,
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            size: 18,
+                            color: Colors.grey[700],
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              referral.type == 'sponsorship'
+                                  ? 'Filleul: ${referral.refereeName}'
+                                  : 'Parrain: ${referral.sponsorName}',
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 20,
+                            color: Colors.grey[400],
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(referral.status),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _getStatusText(referral.status),
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  DateFormat('dd/MM/yyyy HH:mm').format(referral.timestamp),
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          ReferralDetailPage(referralId: referral.id),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[800],
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Voir en détail'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Envoyé':
-        return Colors.blue;
-      case 'En cours':
-        return Colors.orange;
-      case 'Refusé':
-        return Colors.red;
-      case 'Validé':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
+  Widget _buildStatusChip(String status) {
+    Color backgroundColor;
+    Color textColor;
+    String text;
+    IconData icon;
 
-  String _getStatusText(String status) {
     switch (status) {
-      case 'Envoyé':
-        return 'Envoyé';
-      case 'En cours':
-        return 'En cours';
-      case 'Refusé':
-        return 'Refusé';
       case 'Validé':
-        return 'Validé';
+        backgroundColor = Colors.green[50]!;
+        textColor = Colors.green[700]!;
+        text = 'Validé';
+        icon = Icons.check_circle_outline;
+        break;
+      case 'Refusé':
+        backgroundColor = Colors.red[50]!;
+        textColor = Colors.red[700]!;
+        text = 'Refusé';
+        icon = Icons.cancel_outlined;
+        break;
+      case 'En cours':
+        backgroundColor = Colors.orange[50]!;
+        textColor = Colors.orange[700]!;
+        text = 'En cours';
+        icon = Icons.hourglass_empty;
+        break;
+      case 'Envoyé':
+        backgroundColor = Colors.blue[50]!;
+        textColor = Colors.blue[700]!;
+        text = 'Envoyé';
+        icon = Icons.send_outlined;
+        break;
       default:
-        return 'Inconnu';
+        backgroundColor = Colors.grey[100]!;
+        textColor = Colors.grey[700]!;
+        text = status;
+        icon = Icons.info_outline;
     }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: textColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -95,70 +95,129 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
   }
 
   Widget _buildOrderCard(Orders order) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OrderDetailPage(orderId: order.id),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Commande #${order.id.substring(0, 8)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  _buildStatusChip(order.status),
-                ],
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrderDetailPage(orderId: order.id),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Passée le ${DateFormat('dd/MM/yyyy à HH:mm').format(order.createdAt)}',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${order.items.length} article${order.items.length > 1 ? 's' : ''}',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (order.subtotal != order.totalPrice) ...[
-                    Text(
-                      'Sous-total: ${order.subtotal.toStringAsFixed(2)}€',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        decoration: TextDecoration.lineThrough,
-                      ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Commande #${order.id.substring(0, 8)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat('dd/MM/yyyy à HH:mm')
+                              .format(order.createdAt),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
+                    _buildStatusChip(order.status),
                   ],
-                  Text(
-                    'Total: ${order.totalPrice.toStringAsFixed(2)}€',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 18,
+                            color: Colors.grey[700],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${order.items.length} article${order.items.length > 1 ? 's' : ''}',
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          if (order.subtotal != order.totalPrice) ...[
+                            Text(
+                              '${order.subtotal.toStringAsFixed(2)}€',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                decoration: TextDecoration.lineThrough,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Text(
+                            '${order.totalPrice.toStringAsFixed(2)}€',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (order.status == 'en préparation') ...[
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: 0.5,
+                      backgroundColor: Colors.grey[200],
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
+                      minHeight: 4,
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              if (order.status == 'en préparation')
-                const LinearProgressIndicator(value: 0.5),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -166,44 +225,67 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
   }
 
   Widget _buildStatusChip(String status) {
-    Color color;
+    Color backgroundColor;
+    Color textColor;
     String text;
+    IconData icon;
+
     switch (status) {
       case 'paid':
         text = "Payée";
-        color = Colors.blue;
+        backgroundColor = Colors.blue[50]!;
+        textColor = Colors.blue[700]!;
+        icon = Icons.payment;
         break;
       case 'en préparation':
         text = "En préparation";
-        color = Colors.orange;
+        backgroundColor = Colors.orange[50]!;
+        textColor = Colors.orange[700]!;
+        icon = Icons.hourglass_empty;
         break;
       case 'prête à être retirée':
-        text = "Prête à être retirée";
-        color = Colors.green;
+        text = "Prête";
+        backgroundColor = Colors.green[50]!;
+        textColor = Colors.green[700]!;
+        icon = Icons.check_circle_outline;
         break;
       case 'completed':
         text = "Terminée";
-        color = Colors.grey;
+        backgroundColor = Colors.grey[100]!;
+        textColor = Colors.grey[700]!;
+        icon = Icons.task_alt;
         break;
       default:
         text = status;
-        color = Colors.grey;
+        backgroundColor = Colors.grey[100]!;
+        textColor = Colors.grey[700]!;
+        icon = Icons.info_outline;
     }
 
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(5),
-        color: color,
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 18.0,
-          vertical: 7,
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: textColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

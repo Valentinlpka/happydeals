@@ -23,42 +23,44 @@ class ParticipationDialog extends StatefulWidget {
 }
 
 class _ParticipationDialogState extends State<ParticipationDialog> {
-  int _currentStep = 0;
   bool _acceptedConditions = false;
+  bool _isLoading = false;
 
   Future<void> _participate() async {
+    if (!_acceptedConditions) return;
+
+    setState(() => _isLoading = true);
+
     try {
-      print("Début de participation");
+      // Vérifier si l'utilisateur a déjà participé
+      final participantSnapshot = await FirebaseFirestore.instance
+          .collection('posts')
+          .doc(widget.contest.id)
+          .collection('participants')
+          .where('userId', isEqualTo: widget.userId)
+          .get();
+
+      if (participantSnapshot.docs.isNotEmpty) {
+        // On ferme d'abord le dialog même en cas d'erreur "déjà participé"
+        Navigator.of(context).pop(false);
+        throw 'Vous avez déjà participé à ce concours';
+      }
+
       final participant = Participant(
         userId: widget.userId,
         participationDate: DateTime.now(),
       );
-      print("Participant créé: ${participant.toMap()}");
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
-        print("Début transaction");
         final contestRef = FirebaseFirestore.instance
             .collection('posts')
             .doc(widget.contest.id);
-        print("Contest ID: ${widget.contest.id}");
 
         final contestDoc = await transaction.get(contestRef);
-        print("Doc exists: ${contestDoc.exists}");
-        print("Doc data: ${contestDoc.data()}");
-
         if (!contestDoc.exists) throw 'Concours introuvable';
 
         final currentParticipants =
             contestDoc.data()?['participantsCount'] ?? 0;
-        if (currentParticipants >=
-            (widget.contest.maxParticipants > 0
-                ? widget.contest.maxParticipants
-                : 100)) {
-          throw 'Le concours est complet';
-        }
-        print("Participants actuels: $currentParticipants");
-        print("Max participants: ${contestDoc['maxParticipants']}");
-
         if (currentParticipants >= widget.contest.maxParticipants) {
           throw 'Le concours est complet';
         }
@@ -67,17 +69,34 @@ class _ParticipationDialogState extends State<ParticipationDialog> {
           contestRef.collection('participants').doc(),
           participant.toMap(),
         );
-        print("Participant ajouté");
 
         transaction.update(contestRef, {
           'participantsCount': FieldValue.increment(1),
         });
-        print("Compteur mis à jour");
       });
-    } catch (e, stackTrace) {
-      print("Erreur: $e");
-      print("Stack trace: $stackTrace");
-      rethrow;
+
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    } finally {
+      setState(() => _isLoading = false);
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Participation enregistrée avec succès !'),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 
@@ -86,48 +105,44 @@ class _ParticipationDialogState extends State<ParticipationDialog> {
     return Dialog(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
-        child: Stepper(
-          currentStep: _currentStep,
-          onStepContinue: () {
-            if (_currentStep < 2) {
-              setState(() => _currentStep++);
-            } else {
-              _participate();
-            }
-          },
-          onStepCancel: () {
-            if (_currentStep > 0) {
-              setState(() => _currentStep--);
-            } else {
-              Navigator.of(context).pop();
-            }
-          },
-          steps: [
-            Step(
-              title: const Text('Règlement'),
-              content: Column(
-                children: [
-                  Text(widget.contest.conditions),
-                  CheckboxListTile(
-                    value: _acceptedConditions,
-                    onChanged: (value) {
-                      setState(() => _acceptedConditions = value!);
-                    },
-                    title: const Text("J'accepte le règlement"),
-                  ),
-                ],
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Règlement du concours',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-              isActive: _currentStep >= 0,
             ),
-            Step(
-              title: const Text('Confirmation'),
-              content: const Text('Confirmez-vous votre participation ?'),
-              isActive: _currentStep >= 1,
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Text(widget.contest.conditions),
+              ),
             ),
-            Step(
-              title: const Text('Terminé'),
-              content: const Text('Votre participation est enregistrée !'),
-              isActive: _currentStep >= 2,
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              value: _acceptedConditions,
+              onChanged: (value) {
+                setState(() => _acceptedConditions = value!);
+              },
+              title: const Text("J'accepte le règlement"),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed:
+                  _acceptedConditions && !_isLoading ? _participate : null,
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(color: Colors.white),
+                    )
+                  : const Text('Participer'),
             ),
           ],
         ),

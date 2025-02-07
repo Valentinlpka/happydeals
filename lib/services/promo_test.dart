@@ -16,7 +16,7 @@ class PromoCodeService {
       final promoDoc = await _firestore
           .collection('promo_codes')
           .where('code', isEqualTo: code)
-          .where('companyId', isEqualTo: companyId)
+          .where('companyId', whereIn: [companyId, "UP"])
           .where('isActive', isEqualTo: true)
           .where('expiresAt', isGreaterThan: Timestamp.now())
           .get();

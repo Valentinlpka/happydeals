@@ -5,11 +5,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final AlignmentGeometry align;
   final Widget? child;
+  final PreferredSizeWidget? bottom;
 
   const CustomAppBar({
     super.key,
     required this.title,
     this.actions,
+    this.bottom,
     required this.align,
     this.child,
   });
@@ -42,11 +44,16 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
           actions: actions,
+          bottom: bottom,
         ),
       ),
     );
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize {
+    // Calculer la hauteur totale en prenant en compte le TabBar
+    final bottomHeight = bottom?.preferredSize.height ?? 0.0;
+    return Size.fromHeight(kToolbarHeight + bottomHeight);
+  }
 }

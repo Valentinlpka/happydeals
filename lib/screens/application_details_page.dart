@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:intl/intl.dart';
 
-class ApplicationDetailsPage extends StatelessWidget {
+class ApplicationDetailsPage extends StatefulWidget {
   final DocumentSnapshot application;
 
   const ApplicationDetailsPage({
@@ -13,56 +13,78 @@ class ApplicationDetailsPage extends StatelessWidget {
   });
 
   @override
+  _ApplicationDetailsPageState createState() => _ApplicationDetailsPageState();
+}
+
+class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _messageController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if ((widget.application.data() as Map<String, dynamic>)
+        .containsKey('userUnreadMessages')) {
+      FirebaseFirestore.instance
+          .collection('applications')
+          .doc(widget.application.id)
+          .update({'userUnreadMessages': false});
+    }
+
     return Scaffold(
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.only(bottom: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-          child: _buildMessageInput(),
-        ),
-      ),
+      backgroundColor: Colors.grey[100],
+      resizeToAvoidBottomInset: true,
       appBar: const CustomAppBar(
         align: Alignment.center,
-        title: 'Détails de la candidature',
+        title: 'Candidature',
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildApplicationHeader(),
-            _buildStatusSection(),
-            _buildMessagesSection(),
-          ],
-        ),
+      body: Column(
+        children: [
+          _buildApplicationHeader(),
+          Expanded(
+            child: _buildMessagesSection(),
+          ),
+          _buildMessageInput(),
+        ],
       ),
     );
   }
 
   Widget _buildApplicationHeader() {
+    final status = widget.application['status'];
+    final statusColor = _getStatusColor(status);
+
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-          ),
-        ],
-      ),
+      color: Colors.white,
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                backgroundColor: Colors.blue[700],
-                radius: 30,
-                child: CircleAvatar(
-                  radius: 28,
-                  backgroundImage:
-                      NetworkImage(application['companyLogo'] ?? ''),
+              Hero(
+                tag: 'company_logo_${widget.application.id}',
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    image: DecorationImage(
+                      image:
+                          NetworkImage(widget.application['companyLogo'] ?? ''),
+                      fit: BoxFit.cover,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -71,18 +93,20 @@ class ApplicationDetailsPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      application['jobTitle'] ?? 'Titre inconnu',
+                      widget.application['jobTitle'] ?? 'Titre inconnu',
                       style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      application['companyName'] ?? '',
-                      style: const TextStyle(
+                      widget.application['companyName'] ?? '',
+                      style: TextStyle(
                         fontSize: 16,
-                        color: Colors.grey,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -90,67 +114,50 @@ class ApplicationDetailsPage extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Candidature envoyée le ${_formatDate(application['appliedAt'])}',
-            style: const TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Statut de la candidature',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildStatusTimeline(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusTimeline() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 6,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: _getStatusColor(application['status']),
-              borderRadius: BorderRadius.circular(20),
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              application['status'],
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.calendar_today, size: 18, color: Colors.grey[800]),
+                const SizedBox(width: 12),
+                Text(
+                  'Postuler le ${_formatDate(widget.application['appliedAt'])}',
+                  style: TextStyle(
+                    color: Colors.grey[800],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_getStatusIcon(status), size: 18, color: statusColor),
+                const SizedBox(width: 12),
+                Text(
+                  status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -160,7 +167,8 @@ class ApplicationDetailsPage extends StatelessWidget {
 
   Widget _buildMessagesSection() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -175,7 +183,7 @@ class ApplicationDetailsPage extends StatelessWidget {
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('applications')
-                .doc(application.id)
+                .doc(widget.application.id)
                 .collection('messages')
                 .orderBy('timestamp', descending: false)
                 .snapshots(),
@@ -186,56 +194,35 @@ class ApplicationDetailsPage extends StatelessWidget {
 
               final messages = snapshot.data!.docs;
 
-              if (messages.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.message_outlined,
-                          size: 48, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Aucun message pour le moment',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
+              // Scroll to bottom after messages are loaded
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_scrollController.hasClients) {
+                  _scrollController
+                      .jumpTo(_scrollController.position.maxScrollExtent);
+                }
+              });
 
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message =
-                      messages[index].data() as Map<String, dynamic>;
-                  final isUserMessage = message['senderId'] ==
-                      FirebaseAuth.instance.currentUser?.uid;
+              return SizedBox(
+                height: MediaQuery.of(context).size.height * 0.5,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message =
+                        messages[index].data() as Map<String, dynamic>;
+                    final isUserMessage = message['senderId'] ==
+                        FirebaseAuth.instance.currentUser?.uid;
 
-                  // Marquer le message comme lu si ce n'est pas un message de l'utilisateur
-                  if (!isUserMessage && message['read'] == false) {
-                    FirebaseFirestore.instance
-                        .collection('applications')
-                        .doc(application.id)
-                        .collection('messages')
-                        .doc(messages[index].id)
-                        .update({'read': true});
-                  }
-
-                  return _buildMessageBubble(
-                    message: message['content'],
-                    timestamp: message['timestamp'],
-                    isUser: isUserMessage,
-                  );
-                },
+                    return _buildMessageBubble(
+                      message: message['content'],
+                      timestamp: message['timestamp'],
+                      isUser: isUserMessage,
+                    );
+                  },
+                ),
               );
             },
           ),
-          const SizedBox(height: 16),
         ],
       ),
     );
@@ -280,72 +267,79 @@ class ApplicationDetailsPage extends StatelessWidget {
   }
 
   Widget _buildMessageInput() {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        final messageController = TextEditingController();
-
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 1,
-                blurRadius: 5,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: messageController,
-                  decoration: const InputDecoration(
-                    hintText: 'Écrivez votre message...',
-                    border: InputBorder.none,
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        12 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _messageController,
+                decoration: InputDecoration(
+                  hintText: 'Votre message...',
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  fillColor: Colors.grey[50],
+                  filled: true,
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(100),
+                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.send),
-                color: Colors.blue[700],
-                onPressed: () async {
-                  if (messageController.text.trim().isEmpty) return;
-
-                  final userId = FirebaseAuth.instance.currentUser?.uid;
-                  if (userId == null) return;
-
-                  // Créer un nouveau document dans la sous-collection messages
-                  await FirebaseFirestore.instance
-                      .collection('applications')
-                      .doc(application.id)
-                      .collection('messages')
-                      .add({
-                    'content': messageController.text.trim(),
-                    'timestamp': Timestamp.now(),
-                    'senderId': userId,
-                    'read': false,
-                  });
-
-                  // Mettre à jour le document principal
-                  await FirebaseFirestore.instance
-                      .collection('applications')
-                      .doc(application.id)
-                      .update({
-                    'lastUpdate': Timestamp.now(),
-                    'hasUnreadMessages': true,
-                    'status': 'Nouveau Message',
-                  });
-
-                  messageController.clear();
-                },
-              ),
-            ],
+            ),
           ),
-        );
-      },
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.blue[600],
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_forward),
+              color: Colors.white,
+              onPressed: () async {
+                if (_messageController.text.trim().isEmpty) return;
+
+                final userId = FirebaseAuth.instance.currentUser?.uid;
+                if (userId == null) return;
+
+                await FirebaseFirestore.instance
+                    .collection('applications')
+                    .doc(widget.application.id)
+                    .collection('messages')
+                    .add({
+                  'content': _messageController.text.trim(),
+                  'timestamp': Timestamp.now(),
+                  'senderId': userId,
+                  'read': false,
+                });
+
+                await FirebaseFirestore.instance
+                    .collection('applications')
+                    .doc(widget.application.id)
+                    .update({
+                  'lastUpdate': Timestamp.now(),
+                  'lastMessageSenderId': userId,
+                  'companyUnreadMessages': true,
+                });
+
+                _messageController.clear();
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -372,5 +366,29 @@ class ApplicationDetailsPage extends StatelessWidget {
 
   String _formatDateTime(Timestamp timestamp) {
     return DateFormat('dd/MM/yyyy HH:mm').format(timestamp.toDate());
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'Envoyé':
+        return Icons.send_outlined;
+      case 'Accepté':
+        return Icons.check_circle_outline;
+      case 'Refusé':
+        return Icons.cancel_outlined;
+      case 'En cours':
+        return Icons.hourglass_empty;
+      case 'Demande d\'infos':
+        return Icons.info_outline;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _messageController.dispose();
+    super.dispose();
   }
 }

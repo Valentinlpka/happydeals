@@ -20,7 +20,7 @@ class NewsCard extends StatelessWidget {
   String _formatDateTime(DateTime dateTime) {
     final DateTime now = DateTime.now();
     final DateFormat timeFormat = DateFormat('HH:mm');
-    final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+    final DateFormat dateFormat = DateFormat('d MMMM yyyy', 'fr_FR');
 
     if (dateTime.year == now.year &&
         dateTime.month == now.month &&
@@ -31,7 +31,7 @@ class NewsCard extends StatelessWidget {
         dateTime.day == now.day + 1) {
       return 'demain à ${timeFormat.format(dateTime)}';
     } else {
-      return 'le ${dateFormat.format(dateTime)} à ${timeFormat.format(dateTime)}';
+      return dateFormat.format(dateTime);
     }
   }
 

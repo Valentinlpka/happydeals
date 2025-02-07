@@ -93,12 +93,22 @@ class PromoCodeCard extends StatelessWidget {
                             ),
                             borderRadius: BorderRadius.circular(5),
                           ),
-                          child: const Text(
-                            'Code Promo',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.confirmation_number,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Code Promo',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 8),
