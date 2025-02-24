@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:happy/classes/company.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/classes/promo_code_post.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
+import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:intl/intl.dart';
 
@@ -113,72 +116,29 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildHeader(),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0, bottom: 10),
+                    child: Text(
+                      'Code Promo',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    ),
+                  ),
                   _buildPromoCodeCard(),
+                  const SizedBox(height: 24),
+                  _buildCompanySection(),
                   const SizedBox(height: 24),
                   _buildDescriptionSection(),
                   const SizedBox(height: 24),
                   _buildDetailsSection(),
                   if (fullPromoCode?.conditionType != null)
-                    _buildConditionCard(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: SafeArea(
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: NetworkImage(widget.companyLogo),
-              backgroundColor: Colors.white,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.companyName,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      fullPromoCode!.isPercentage
-                          ? '${fullPromoCode!.discountValue.toStringAsFixed(0)}% de réduction'
-                          : '${fullPromoCode!.discountValue.toStringAsFixed(2)}€ de réduction',
-                      style: TextStyle(
-                        color: Colors.blue[800],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+                    const SizedBox(height: 24),
+                  _buildConditionCard(),
                 ],
               ),
             ),
@@ -203,6 +163,8 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
         ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -250,38 +212,49 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
     );
   }
 
-  Widget _buildDescriptionSection() {
+  Widget _buildCompanySection() {
     return Column(
+      spacing: 12,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Description',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          'Entreprise',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
+        FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('companys')
+              .doc(widget.post.companyId)
+              .get(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const Center(child: Text('Entreprise non trouvée'));
+            }
+
+            final company = Company.fromDocument(snapshot.data!);
+            return CompanyInfoCard(
+              company: company,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DetailsEntreprise(
+                    entrepriseId: widget.post.companyId,
+                  ),
+                ),
               ),
-            ],
-          ),
-          child: Text(
-            fullPromoCode!.description,
-            style: const TextStyle(fontSize: 16, height: 1.5),
-          ),
+            );
+          },
         ),
       ],
     );
   }
+
+  Widget _buildDescriptionSection() =>
+      _buildSection('Description', widget.post.description);
 
   Widget _buildDetailsSection() {
     return Column(
@@ -332,28 +305,33 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
   Widget _buildConditionCard() {
     if (fullPromoCode?.conditionType == null) return const SizedBox.shrink();
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Condition d\'utilisation',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (fullPromoCode?.conditionType == 'amount')
-              _buildAmountCondition()
-            else if (fullPromoCode?.conditionType == 'quantity')
-              _buildQuantityCondition(),
-          ],
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 12,
+      children: [
+        const Text(
+          'Condition d\'utilisation',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (fullPromoCode?.conditionType == 'amount')
+                  _buildAmountCondition()
+                else if (fullPromoCode?.conditionType == 'quantity')
+                  _buildQuantityCondition(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -440,36 +418,34 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
             ),
           ),
           const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: conditionProduct!.variants.isNotEmpty &&
-                      conditionProduct!.variants[0].images.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Image.network(
-                        conditionProduct!.variants[0].images[0],
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : Container(
+          ListTile(
+            leading: conditionProduct!.variants.isNotEmpty &&
+                    conditionProduct!.variants[0].images.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.network(
+                      conditionProduct!.variants[0].images[0],
                       width: 48,
                       height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Icon(Icons.image_not_supported),
+                      fit: BoxFit.cover,
                     ),
-              title: Text(
-                conditionProduct!.name,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              subtitle: Text(
-                'Prix: ${conditionProduct!.basePrice.toStringAsFixed(2)}€',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
+                  )
+                : Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.image_not_supported),
+                  ),
+            title: Text(
+              conditionProduct!.name,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              'Prix: ${conditionProduct!.basePrice.toStringAsFixed(2)}€',
+              style: TextStyle(color: Colors.grey[600]),
             ),
           ),
         ],
@@ -500,6 +476,48 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSection(String title, String content) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              content,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[800],
+                height: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

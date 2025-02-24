@@ -40,7 +40,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
 
   final List<NavigationItem> _navigationItems = [
     NavigationItem(
-      title: 'Entreprises',
+      title: 'Annuaire',
       icon: Icons.business_center, // Icône d'entreprise/business
       page: const CompaniesPage(),
     ),
@@ -201,7 +201,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   Widget _buildNavigationButtons() {
     // Map des dégradés pour chaque type
     final Map<String, LinearGradient> gradients = {
-      'Entreprises': const LinearGradient(
+      'Annuaire': const LinearGradient(
         colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,

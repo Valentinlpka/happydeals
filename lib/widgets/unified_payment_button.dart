@@ -74,6 +74,17 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
           pendingId = widget.metadata['reservationId'];
           successUrlWithParams =
               '${widget.successUrl}?reservationId=$pendingId';
+          await FirebaseFirestore.instance
+              .collection('pending_express_deals')
+              .doc(pendingId)
+              .set({
+            'userId': FirebaseAuth.instance.currentUser?.uid,
+            'dealId': widget.metadata['dealId'],
+            'status': 'pending',
+            'amount': widget.amount / 100,
+            'metadata': widget.metadata,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
           break;
 
         case 'service':
@@ -81,7 +92,7 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
           successUrlWithParams = '${widget.successUrl}?bookingId=$pendingId';
           await FirebaseFirestore.instance
               .collection('pending_services')
-              .doc(widget.metadata['serviceId'])
+              .doc(pendingId)
               .set({
             'userId': FirebaseAuth.instance.currentUser?.uid,
             'serviceId': widget.metadata['serviceId'],

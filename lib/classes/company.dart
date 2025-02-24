@@ -10,7 +10,9 @@ class Company {
   final String email;
   final int like;
   final String logo;
+  final List<Map<String, dynamic>> gallery;
   final String phone;
+  final String type;
   final String sellerId;
   final Address adress;
   final Map<String, dynamic> openingHours;
@@ -24,11 +26,13 @@ class Company {
     required this.entityType,
     required this.categorie,
     required this.cover,
+    required this.gallery,
     required this.description,
     required this.email,
     required this.like,
     required this.logo,
     required this.phone,
+    required this.type,
     required this.sellerId,
     required this.adress,
     DateTime? createdAt,
@@ -45,11 +49,13 @@ class Company {
       entityType: data['entityType'] ?? '',
       categorie: data['categorie'] ?? '',
       cover: data['cover'] ?? '',
+      gallery: List<Map<String, dynamic>>.from(data['gallery'] ?? []),
       description: data['description'] ?? '',
       email: data['email'] ?? '',
       like: data['like'] ?? 0,
       logo: data['logo'] ?? '',
       phone: data['phone'] ?? '',
+      type: data['type'] ?? '',
       sellerId: data['sellerId'] ?? '',
       adress: Address.fromMap(data['adress'] ?? {}),
       openingHours: Map<String, dynamic>.from(data['openingHours'] ?? {}),
@@ -71,7 +77,9 @@ class Company {
       'email': email,
       'like': like,
       'logo': logo,
+      'gallery': gallery,
       'phone': phone,
+      'type': type,
       'sellerId': sellerId,
       'adress': adress.toMap(),
       'openingHours': openingHours,

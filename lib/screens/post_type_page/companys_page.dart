@@ -35,9 +35,9 @@ class CustomMarker {
   });
 }
 
-class _CompaniesPageState extends State<CompaniesPage> {
-  // Déplacez la classe CustomMarker ici, avant son utilisation
-
+class _CompaniesPageState extends State<CompaniesPage>
+    with TickerProviderStateMixin {
+  late TabController _tabController;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _searchQuery = '';
   String _selectedCategory = 'Toutes';
@@ -58,10 +58,16 @@ class _CompaniesPageState extends State<CompaniesPage> {
   String _selectedAddress = '';
   double _selectedRadius = 5.0; // en km
   final List<double> _radiusOptions = [5, 10, 15, 20];
+  String _sortBy = 'name'; // Nouvelle variable pour le tri
+  bool _sortAscending = true; // Nouvelle variable pour l'ordre de tri
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      _updateMarkers(); // Mettre à jour les marqueurs quand on change d'onglet
+    });
     _loadFilters();
     _getCurrentLocation();
 
@@ -77,27 +83,44 @@ class _CompaniesPageState extends State<CompaniesPage> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _loadFilters() async {
-    final companiesSnapshot = await _firestore.collection('companys').get();
-    final categories = companiesSnapshot.docs
-        .map((doc) => doc['categorie'] as String)
-        .toSet()
-        .toList();
-    final cities = companiesSnapshot.docs
-        .map((doc) => doc['adress']['ville'] as String)
-        .where((city) => city.isNotEmpty)
-        .toSet()
-        .toList();
+    try {
+      final companiesSnapshot = await _firestore.collection('companys').get();
+      final Set<String> categories = {};
+      final Set<String> cities = {};
 
-    setState(() {
-      _categories = ['Toutes', ...categories];
-      _cities = ['Toutes', ...cities];
-    });
+      for (var doc in companiesSnapshot.docs) {
+        final data = doc.data();
+        if (data.containsKey('categorie')) {
+          categories.add(data['categorie'] as String);
+        }
+        if (data.containsKey('adress') &&
+            (data['adress'] as Map<String, dynamic>).containsKey('ville')) {
+          final ville = data['adress']['ville'] as String;
+          if (ville.isNotEmpty) {
+            cities.add(ville);
+          }
+        }
+      }
+
+      setState(() {
+        _categories = ['Toutes', ...categories];
+        _cities = ['Toutes', ...cities];
+      });
+    } catch (e) {
+      print('Erreur lors du chargement des filtres: $e');
+      // Définir des valeurs par défaut en cas d'erreur
+      setState(() {
+        _categories = ['Toutes'];
+        _cities = ['Toutes'];
+      });
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -128,18 +151,36 @@ class _CompaniesPageState extends State<CompaniesPage> {
   void _updateMarkers() async {
     if (_currentPosition == null) return;
 
-    final companies = await _firestore.collection('companys').get();
+    // Récupérer le type actuel (company/association) selon l'onglet sélectionné
+    final currentType = _tabController.index == 0 ? 'company' : 'association';
+
+    final companies = await _firestore
+        .collection('companys')
+        .where('type', isEqualTo: currentType) // Filtrer par type
+        .get();
+
     Map<String, List<Company>> locationGroups = {};
 
     for (var doc in companies.docs) {
       try {
         final company = Company.fromDocument(doc);
-        final locationKey =
-            '${company.adress.latitude},${company.adress.longitude}';
-        locationGroups.putIfAbsent(locationKey, () => []).add(company);
+        // Appliquer les filtres de catégorie et ville
+        if ((_selectedCategory == 'Toutes' ||
+                company.categorie == _selectedCategory) &&
+            (_selectedCity == 'Toutes' ||
+                company.adress.ville == _selectedCity)) {
+          final locationKey =
+              '${company.adress.latitude},${company.adress.longitude}';
+          locationGroups.putIfAbsent(locationKey, () => []).add(company);
+        }
       } catch (e) {
         debugPrint('Erreur lors du groupement: $e');
       }
+    }
+
+    // Trier les groupes selon les critères de tri actuels
+    for (var companies in locationGroups.values) {
+      _sortOrganizations(companies);
     }
 
     Set<CustomMarker> markers = {};
@@ -217,6 +258,13 @@ class _CompaniesPageState extends State<CompaniesPage> {
 
   void _showCompaniesBottomSheet(List<Company> companies) {
     setState(() => _isBottomSheetOpen = true);
+
+    // Déterminer le type d'organisation selon l'onglet actuel
+    final isAssociation = _tabController.index == 1;
+    final title = isAssociation
+        ? 'Associations à cette adresse (${companies.length})'
+        : 'Entreprises à cette adresse (${companies.length})';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -255,7 +303,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Entreprises à cette adresse (${companies.length})',
+                      title,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -295,8 +343,18 @@ class _CompaniesPageState extends State<CompaniesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Entreprises',
+        title: 'Annuaire',
         align: Alignment.center,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Entreprises'),
+            Tab(text: 'Associations'),
+          ],
+          indicatorColor: const Color(0xFF0B7FE9),
+          labelColor: const Color(0xFF0B7FE9),
+          unselectedLabelColor: Colors.grey,
+        ),
         actions: [
           IconButton(
             icon: Icon(_showMap ? Icons.list : Icons.map),
@@ -313,23 +371,11 @@ class _CompaniesPageState extends State<CompaniesPage> {
             ),
         ],
       ),
-      body: Stack(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          AbsorbPointer(
-            absorbing: _isBottomSheetOpen,
-            child: _showMap ? _buildMap() : _buildCompaniesList(),
-          ),
-          if (_showMap)
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Material(
-                elevation: 4,
-                borderRadius: BorderRadius.circular(8),
-                child: _buildMapControls(),
-              ),
-            ),
+          _buildOrganizationsList(type: 'company'),
+          _buildOrganizationsList(type: 'association'),
         ],
       ),
     );
@@ -478,15 +524,18 @@ class _CompaniesPageState extends State<CompaniesPage> {
     );
   }
 
-  Widget _buildCompaniesList() {
+  Widget _buildOrganizationsList({required String type}) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('companys').snapshots(),
+      stream: _firestore
+          .collection('companys')
+          .where('type', isEqualTo: type)
+          .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final companies = snapshot.data!.docs
+        var organizations = snapshot.data!.docs
             .map((doc) {
               try {
                 return Company.fromDocument(doc);
@@ -496,27 +545,57 @@ class _CompaniesPageState extends State<CompaniesPage> {
               }
             })
             .whereType<Company>()
-            .where((company) =>
+            .where((org) =>
                 (_selectedCategory == 'Toutes' ||
-                    company.categorie == _selectedCategory) &&
+                    org.categorie == _selectedCategory) &&
                 (_selectedCity == 'Toutes' ||
-                    company.adress.ville == _selectedCity) &&
-                company.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+                    org.adress.ville == _selectedCity))
             .toList();
 
-        if (companies.isEmpty) {
-          return const Center(child: Text('Aucune entreprise trouvée'));
+        // Appliquer le tri
+        organizations = _sortOrganizations(organizations);
+
+        if (organizations.isEmpty) {
+          return Center(
+            child: Text(type == 'company'
+                ? 'Aucune entreprise trouvée'
+                : 'Aucune association trouvée'),
+          );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(5.0),
-          itemCount: companies.length,
-          itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: CompanyCard(companies[index]),
-            );
-          },
+        return Column(
+          children: [
+            // N'afficher le bouton de tri que si on n'est pas en mode carte
+            if (!_showMap)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _showSortMenu,
+                      icon: const Icon(Icons.sort),
+                      label: Text(
+                          'Trier par ${_sortBy == 'name' ? 'nom' : _sortBy == 'city' ? 'ville' : 'catégorie'}'),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: _showMap
+                  ? _buildMap()
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      itemCount: organizations.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: CompanyCard(organizations[index]),
+                        );
+                      },
+                    ),
+            ),
+          ],
         );
       },
     );
@@ -1008,6 +1087,84 @@ class _CompaniesPageState extends State<CompaniesPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Méthode pour trier les organisations
+  List<Company> _sortOrganizations(List<Company> organizations) {
+    switch (_sortBy) {
+      case 'name':
+        organizations.sort((a, b) => _sortAscending
+            ? a.name.compareTo(b.name)
+            : b.name.compareTo(a.name));
+        break;
+      case 'city':
+        organizations.sort((a, b) => _sortAscending
+            ? a.adress.ville.compareTo(b.adress.ville)
+            : b.adress.ville.compareTo(a.adress.ville));
+        break;
+      case 'category':
+        organizations.sort((a, b) => _sortAscending
+            ? a.categorie.compareTo(b.categorie)
+            : b.categorie.compareTo(a.categorie));
+        break;
+    }
+    return organizations;
+  }
+
+  // Méthode pour afficher le menu de tri
+  void _showSortMenu() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: const Text('Trier par'),
+            trailing: IconButton(
+              icon: Icon(
+                  _sortAscending ? Icons.arrow_upward : Icons.arrow_downward),
+              onPressed: () {
+                setState(() => _sortAscending = !_sortAscending);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+          ListTile(
+            title: const Text('Nom'),
+            leading: Radio<String>(
+              value: 'name',
+              groupValue: _sortBy,
+              onChanged: (value) {
+                setState(() => _sortBy = value!);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+          ListTile(
+            title: const Text('Ville'),
+            leading: Radio<String>(
+              value: 'city',
+              groupValue: _sortBy,
+              onChanged: (value) {
+                setState(() => _sortBy = value!);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+          ListTile(
+            title: const Text('Catégorie'),
+            leading: Radio<String>(
+              value: 'category',
+              groupValue: _sortBy,
+              onChanged: (value) {
+                setState(() => _sortBy = value!);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

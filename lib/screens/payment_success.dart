@@ -100,172 +100,112 @@ class _UnifiedPaymentSuccessScreenState
   Future<void> _verifyPayment() async {
     try {
       print('Début de _verifyPayment');
-      print('PaymentDetails initial: $_paymentDetails');
 
       if (_auth.currentUser == null) {
         throw Exception('Utilisateur non authentifié');
       }
 
-      // Si nous avons déjà les détails du paiement (via les paramètres du widget)
-      if (_paymentDetails != null) {
-        print('Utilisation des détails existants: $_paymentDetails');
+      // Récupérer les paramètres de l'URL si on est sur le web
+      if (kIsWeb && _paymentDetails == null) {
+        final uri = Uri.parse(html.window.location.href);
+        final params = uri.queryParameters;
 
+        if (params['orderId'] != null) {
+          _paymentDetails = {
+            'type': 'order',
+            'metadata': {'orderId': params['orderId']},
+          };
+        } else if (params['reservationId'] != null) {
+          _paymentDetails = {
+            'type': 'express_deal',
+            'metadata': {'reservationId': params['reservationId']},
+          };
+        } else if (params['bookingId'] != null) {
+          _paymentDetails = {
+            'type': 'service',
+            'metadata': {'bookingId': params['bookingId']},
+          };
+        }
+      }
+
+      // Vérifier et traiter selon le type de paiement
+      if (_paymentDetails != null) {
         switch (_paymentDetails!['type']) {
           case 'order':
-            final orderId = _paymentDetails!['metadata']['orderId'];
-            print('Attente de la création de la commande: $orderId');
-            await _waitForOrder(orderId);
-            if (mounted) {
-              print('Redirection vers OrderDetailPage');
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OrderDetailPage(orderId: orderId),
-                ),
-              );
-            }
+            await _handleOrderSuccess(_paymentDetails!['metadata']['orderId']);
             break;
           case 'express_deal':
-            await _handleExpressDealSuccess();
+            await _handleExpressDealSuccess(
+                _paymentDetails!['metadata']['reservationId']);
             break;
           case 'service':
-            await _handleServiceSuccess();
+            await _handleServiceSuccess(
+                _paymentDetails!['metadata']['bookingId']);
             break;
           default:
             throw Exception('Type de paiement inconnu');
         }
-        return; // Sortir de la fonction si nous avons déjà traité les détails
+        return;
       }
 
-      final sessionId = _getSessionId();
-      if (sessionId == null) {
-        throw Exception('Session de paiement non trouvée');
-      }
-
-      // Vérifier le type de paiement
-      final paymentDetails = await _getPaymentDetails(sessionId);
-      if (paymentDetails == null) {
-        throw Exception('Détails du paiement non trouvés');
-      }
-
-      setState(() {
-        _paymentType = paymentDetails['type'];
-        _paymentDetails = paymentDetails;
-        _statusMessage = 'Finalisation de votre commande...';
-      });
-
-      // Rediriger selon le type
-      switch (_paymentType) {
-        case 'order':
-          final orderId = _paymentDetails!['metadata']['orderId'];
-          // Attendre que la commande soit créée
-          await _waitForOrder(orderId);
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => OrderDetailPage(orderId: orderId),
-              ),
-            );
-          }
-          break;
-        case 'express_deal':
-          await _handleExpressDealSuccess();
-          break;
-        case 'service':
-          await _handleServiceSuccess();
-          break;
-        default:
-          throw Exception('Type de paiement inconnu');
-      }
-
-      _showSuccessMessage();
+      throw Exception('Détails du paiement non trouvés');
     } catch (e) {
       _handleError('Une erreur est survenue: $e');
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
-  Future<Map<String, dynamic>?> _getPaymentDetails(String sessionId) async {
-    try {
-      print('Recherche des détails pour la session: $sessionId');
-
-      // Vérifier d'abord dans pending_orders
-      final orderDoc = await _firestore
-          .collection('pending_orders') // Changé de 'pending_order_payments'
-          .doc(sessionId)
-          .get();
-
-      if (orderDoc.exists) {
-        final data = orderDoc.data()!;
-        print('Détails de commande trouvés: $data');
-        return {
-          ...data,
-          'type': 'order',
-        };
-      }
-
-      // Si pas trouvé, vérifier les autres collections...
-      final typeMap = {
-        'pending_express_deal_payments': 'express_deal',
-        'pending_service_payments': 'service'
-      };
-
-      for (String collection in typeMap.keys) {
-        final doc =
-            await _firestore.collection(collection).doc(sessionId).get();
-        if (doc.exists) {
-          return {...doc.data()!, 'type': typeMap[collection]};
-        }
-      }
-
-      print('Aucun détail trouvé pour la session: $sessionId');
-      return null;
-    } catch (e) {
-      print('Error getting payment details: $e');
-      return null;
-    }
-  }
-
-  Future<void> _handleExpressDealSuccess() async {
-    if (_paymentDetails == null) return;
-    final reservationId = _paymentDetails!['metadata']['reservationId'];
-
-    // Mettre à jour le compteur de paniers
-    await _firestore
-        .collection('posts')
-        .doc(_paymentDetails!['metadata']['postId'])
-        .update({
-      'basketCount': FieldValue.increment(-1),
-    });
-
-    // Rediriger vers les détails de la réservation
+  Future<void> _handleOrderSuccess(String orderId) async {
+    await _waitForOrder(orderId);
     if (mounted) {
-      Navigator.push(
-        context,
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (context) => ReservationDetailsPage(
-            reservationId: reservationId,
-          ),
+          builder: (context) => OrderDetailPage(orderId: orderId),
         ),
+        (route) => false,
       );
     }
   }
 
-  Future<void> _handleServiceSuccess() async {
-    if (_paymentDetails == null) return;
-    final bookingId = _paymentDetails!['metadata']['bookingId'];
-
-    // Rediriger vers les détails de la réservation
+  Future<void> _handleExpressDealSuccess(String reservationId) async {
+    await _waitForDocument('reservations', reservationId);
     if (mounted) {
-      Navigator.push(
-        context,
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) =>
+              ReservationDetailsPage(reservationId: reservationId),
+        ),
+        (route) => false,
+      );
+    }
+  }
+
+  Future<void> _handleServiceSuccess(String bookingId) async {
+    await _waitForDocument('booking', bookingId);
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => BookingDetailPage(bookingId: bookingId),
         ),
+        (route) => false,
       );
     }
+  }
+
+  // Méthode générique pour attendre la création d'un document
+  Future<void> _waitForDocument(String collection, String documentId) async {
+    const maxAttempts = 10;
+    const delaySeconds = 2;
+    int attempts = 0;
+
+    while (attempts < maxAttempts) {
+      final doc = await _firestore.collection(collection).doc(documentId).get();
+      if (doc.exists) return;
+      await Future.delayed(const Duration(seconds: delaySeconds));
+      attempts++;
+    }
+
+    throw Exception(
+        'Document non créé après ${maxAttempts * delaySeconds} secondes');
   }
 
   void _handleError(String message) {
@@ -407,15 +347,19 @@ class _UnifiedPaymentSuccessScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Confirmation'),
-        automaticallyImplyLeading: !_isLoading,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: _isLoading ? _buildLoadingIndicator() : _buildSuccessContent(),
+    return WillPopScope(
+      onWillPop: () async => false,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Confirmation'),
+          automaticallyImplyLeading: !_isLoading,
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child:
+                _isLoading ? _buildLoadingIndicator() : _buildSuccessContent(),
+          ),
         ),
       ),
     );

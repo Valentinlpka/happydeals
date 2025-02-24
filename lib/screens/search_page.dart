@@ -9,7 +9,6 @@ import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
-import 'package:happy/screens/update_category.dart';
 import 'package:happy/widgets/search_result.dart';
 
 class SearchPage extends StatefulWidget {
@@ -313,19 +312,6 @@ class _SearchPageState extends State<SearchPage> {
         ),
       ),
       DiscoverItem(
-        title: 'Importer catégories',
-        icon: Icons.confirmation_number,
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const CategoryImportScreen()),
-        ),
-      ),
-      DiscoverItem(
         title: 'Associations',
         icon: Icons.volunteer_activism,
         gradient: const LinearGradient(
@@ -384,25 +370,6 @@ class _SearchPageState extends State<SearchPage> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDiscoverItem(String title, IconData icon, VoidCallback onTap) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 24, color: Colors.grey[600]),
-            const SizedBox(height: 4),
-            Text(title,
-                style: TextStyle(fontSize: 12, color: Colors.grey[800])),
-          ],
         ),
       ),
     );

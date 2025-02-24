@@ -20,6 +20,7 @@ import 'package:happy/screens/main_container.dart';
 import 'package:happy/screens/shop/product_list.dart';
 import 'package:happy/widgets/company_message_bottom_sheet.dart';
 import 'package:happy/widgets/opening_hours_widget.dart';
+import 'package:happy/widgets/photo_viewer_modal.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/review_list.dart';
 import 'package:provider/provider.dart';
@@ -46,16 +47,28 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   late Future<List<Map<String, dynamic>>> _postsFuture;
 
   // État de l'onglet courant
-  String _currentTab = 'Boutique';
+  final String _currentTab = 'Boutique';
 
-  // Liste des onglets disponibles
-  final List<String> _tabs = [
+  // Définir les onglets selon le type
+  final List<String> _companyTabs = [
     'Boutique',
     'Publications',
+    'Galerie',
     'Parrainage',
     'Avis',
     'À Propos'
   ];
+
+  final List<String> _associationTabs = [
+    'Actualités',
+    'Événements',
+    'Galerie',
+    'Dons',
+    'Bénévolat',
+    'À Propos'
+  ];
+
+  late List<String> _tabs;
 
   // Ajoutez cette liste pour les filtres
   final List<String> _filterOptions = [
@@ -80,24 +93,29 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   @override
   void initState() {
     super.initState();
-    _initializeData();
-    // Initialiser le TabController
-    _tabController = TabController(length: _tabs.length, vsync: this);
-    // Écouter les changements de tab
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        setState(() {
-          _currentTab = _tabs[_tabController.index];
-        });
-      }
-    });
-  }
-
-  void _initializeData() {
+    // Initialiser les Futures immédiatement
     _entrepriseFuture = _fetchEntrepriseData();
     _postsFuture = _fetchAllPosts();
     _loyaltyProgramFuture = _fetchLoyaltyProgram();
     _loyaltyCardFuture = _fetchLoyaltyCard();
+
+    // Puis initialiser les tabs
+    _initializeData();
+  }
+
+  void _initializeData() async {
+    // Récupérer d'abord le type d'organisation
+    final doc = await FirebaseFirestore.instance
+        .collection('companys')
+        .doc(widget.entrepriseId)
+        .get();
+
+    final isAssociation = doc.data()?['type'] == 'association';
+
+    setState(() {
+      _tabs = isAssociation ? _associationTabs : _companyTabs;
+      _tabController = TabController(length: _tabs.length, vsync: this);
+    });
   }
 
   @override
@@ -619,24 +637,48 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   // ... code précédent ...
 
   Widget _buildTabContent(String tab, Company entreprise) {
-    switch (tab) {
-      case 'Avis':
-        return ReviewListWidget(companyId: entreprise.id);
-      case 'À Propos':
-        return _buildAboutTab(entreprise);
-      case 'Boutique':
-        return ProductList(sellerId: entreprise.sellerId);
-      case 'Parrainage':
-        return SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildReferralSection(entreprise),
-              _buildReferralPosts(),
-            ],
-          ),
-        );
-      default:
-        return _buildFilteredPostList();
+    final isAssociation = entreprise.type == 'association';
+
+    if (isAssociation) {
+      switch (tab) {
+        case 'Actualités':
+          return _buildFilteredPostList();
+        case 'Événements':
+          return _buildEventsTab();
+        case 'Dons':
+          return _buildDonationsTab();
+        case 'Bénévolat':
+          return _buildVolunteeringTab();
+        case 'À Propos':
+          return _buildAboutTab(entreprise);
+        case 'Galerie':
+          return _buildGalleryTab(entreprise);
+        default:
+          return const SizedBox.shrink();
+      }
+    } else {
+      // Logique existante pour les entreprises
+      switch (tab) {
+        case 'Avis':
+          return ReviewListWidget(companyId: entreprise.id);
+        case 'À Propos':
+          return _buildAboutTab(entreprise);
+        case 'Boutique':
+          return ProductList(sellerId: entreprise.sellerId);
+        case 'Parrainage':
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildReferralSection(entreprise),
+                _buildReferralPosts(),
+              ],
+            ),
+          );
+        case 'Galerie':
+          return _buildGalleryTab(entreprise);
+        default:
+          return _buildFilteredPostList();
+      }
     }
   }
 
@@ -750,50 +792,52 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
     );
   }
 
-  Widget _buildFilteredPostList() {
+  Widget _buildFilteredPostList({String? type}) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              const Text(
-                'Filtrer par :',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+        if (type ==
+            null) // N'afficher les filtres que si type n'est pas spécifié
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                const Text(
+                  'Filtrer par :',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _showFilterBottomSheet(),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _selectedFilter,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: Colors.black87,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _showFilterBottomSheet(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _selectedFilter,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Colors.black87,
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                      ],
+                          const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         Expanded(
           child: FutureBuilder<List<Map<String, dynamic>>>(
             future: _postsFuture,
@@ -809,12 +853,18 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
               }
 
               final allPosts = snapshot.data!;
-              final filteredPosts = _selectedFilter == 'Tous'
+              final filteredPosts = type != null
                   ? allPosts
-                  : allPosts.where((postData) {
-                      final post = postData['post'] as Post;
-                      return post.type == _getPostType(_selectedFilter);
-                    }).toList();
+                      .where(
+                          (postData) => (postData['post'] as Post).type == type)
+                      .toList()
+                  : _selectedFilter == 'Tous'
+                      ? allPosts
+                      : allPosts
+                          .where((postData) =>
+                              (postData['post'] as Post).type ==
+                              _getPostType(_selectedFilter))
+                          .toList();
 
               if (filteredPosts.isEmpty) {
                 return const Center(
@@ -1117,6 +1167,112 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
           ),
         );
       },
+    );
+  }
+
+  // Nouveaux widgets pour les associations
+  Widget _buildEventsTab() {
+    return _buildFilteredPostList(type: 'event');
+  }
+
+  Widget _buildDonationsTab() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              // Logique pour faire un don
+            },
+            child: const Text('Faire un don'),
+          ),
+          // Historique des dons, objectifs, etc.
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVolunteeringTab() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              // Logique pour devenir bénévole
+            },
+            child: const Text('Devenir bénévole'),
+          ),
+          // Liste des missions de bénévolat, etc.
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGalleryTab(Company entreprise) {
+    final List<Map<String, dynamic>> gallery =
+        List<Map<String, dynamic>>.from(entreprise.gallery ?? []);
+
+    if (gallery.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.photo_library_outlined,
+                size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Aucune photo dans la galerie',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
+      ),
+      itemCount: gallery.length,
+      itemBuilder: (context, index) {
+        final photo = gallery[index];
+        return GestureDetector(
+          onTap: () => _showPhotoViewer(context, gallery, index),
+          child: Hero(
+            tag: photo['id'],
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                image: DecorationImage(
+                  image: NetworkImage(photo['url']),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPhotoViewer(BuildContext context,
+      List<Map<String, dynamic>> gallery, int initialIndex) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black,
+      builder: (context) => PhotoViewerModal(
+        gallery: gallery,
+        initialIndex: initialIndex,
+      ),
     );
   }
 }

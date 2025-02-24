@@ -21,6 +21,338 @@ console.log("Email configuration:", {
 
 admin.initializeApp();
 
+exports.createStripeCheckoutSession = functions.firestore
+  .document("users/{userId}/checkout_sessions/{docId}")
+  .onCreate(async (snap, context) => {
+    try {
+      const { price, success_url, cancel_url } = snap.data();
+
+      // Récupérer ou créer le client Stripe
+      const userDoc = await admin
+        .firestore()
+        .collection("users")
+        .doc(context.params.userId)
+        .get();
+      const user = userDoc.data();
+      let customerId = user.stripeCustomerId;
+
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: { firebaseUID: context.params.userId },
+        });
+        customerId = customer.id;
+        await userDoc.ref.update({ stripeCustomerId: customerId });
+      }
+
+      // Créer la session Stripe
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: price,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        success_url: success_url,
+        cancel_url: cancel_url,
+      });
+
+      // Mettre à jour le document avec l'ID de session
+      await snap.ref.update({
+        sessionId: session.id,
+        created: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return session;
+    } catch (error) {
+      console.error("Error:", error);
+      throw error;
+    }
+  });
+
+exports.createPortalSession = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  try {
+    console.log("Début createPortalSession pour:", context.auth.uid);
+    const userDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(context.auth.uid)
+      .get();
+    const userData = userDoc.data();
+    console.log("Données utilisateur:", userData);
+
+    if (!userData?.stripeCustomerId) {
+      console.log("Pas de stripeCustomerId trouvé");
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Aucun client Stripe associé."
+      );
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: userData.stripeCustomerId,
+      return_url: "https://up-pro.vercel.app/dashboard", // URL fixe
+    });
+
+    console.log("Session portail créée:", session.url);
+    return { url: session.url };
+  } catch (error) {
+    console.error("Erreur création portal session:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+// Gestion des abonnements Stripe
+exports.createCheckoutSession = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "L'utilisateur doit être authentifié."
+      );
+    }
+
+    try {
+      const { priceId } = data;
+      const userId = context.auth.uid;
+
+      // Récupérer ou créer le client Stripe
+      const userDoc = await admin
+        .firestore()
+        .collection("users")
+        .doc(userId)
+        .get();
+      const userData = userDoc.data();
+      let customerId = userData.stripeCustomerId;
+
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: userData.email,
+          metadata: { firebaseUID: userId },
+          name: userData.firstName + " " + userData.lastName,
+        });
+        customerId = customer.id;
+        await userDoc.ref.update({ stripeCustomerId: customer.id });
+      }
+
+      // Créer la session de paiement
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        success_url: `http://up-pro.vercel.app/plans/success`,
+        cancel_url: `http://up-pro.vercel.app//plans`,
+        metadata: {
+          firebaseUID: userId,
+        },
+      });
+
+      return { sessionId: session.id };
+    } catch (error) {
+      console.error("Erreur création session:", error);
+      throw new functions.https.HttpsError("internal", error.message);
+    }
+  }
+);
+
+// Webhook Stripe pour gérer les événements d'abonnement
+exports.stripeWebhook = functions.https.onRequest(async (request, response) => {
+  const sig = request.headers["stripe-signature"];
+  const webhookSecret = functions.config().stripe.webhook_secret;
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(request.rawBody, sig, webhookSecret);
+  } catch (err) {
+    console.error("Webhook Error:", err.message);
+    return response.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed":
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
+      case "invoice.paid":
+        await handleInvoicePaid(event.data.object);
+        break;
+      case "invoice.payment_failed":
+        await handleInvoicePaymentFailed(event.data.object);
+        break;
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(event.data.object);
+        break;
+      case "customer.subscription.updated":
+        await handleSubscriptionUpdated(event.data.object);
+        break;
+    }
+
+    response.json({ received: true });
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    response.status(500).send("Webhook processing failed");
+  }
+});
+
+// Fonctions de gestion des événements Stripe
+async function handleCheckoutSessionCompleted(session) {
+  const { firebaseUID } = session.metadata;
+  const subscription = await stripe.subscriptions.retrieve(
+    session.subscription
+  );
+
+  await admin
+    .firestore()
+    .collection("users")
+    .doc(firebaseUID)
+    .update({
+      stripeCustomerId: session.customer,
+      subscriptionId: subscription.id,
+      subscriptionStatus: subscription.status,
+      priceId: subscription.items.data[0].price.id,
+      subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
+        subscription.current_period_end * 1000
+      ),
+    });
+}
+
+async function handleInvoicePaid(invoice) {
+  if (invoice.subscription) {
+    const subscription = await stripe.subscriptions.retrieve(
+      invoice.subscription
+    );
+    const customer = await stripe.customers.retrieve(invoice.customer);
+
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(customer.metadata.firebaseUID)
+      .update({
+        subscriptionStatus: subscription.status,
+        subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
+          subscription.current_period_end * 1000
+        ),
+      });
+  }
+}
+
+async function handleInvoicePaymentFailed(invoice) {
+  if (invoice.subscription) {
+    const customer = await stripe.customers.retrieve(invoice.customer);
+
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(customer.metadata.firebaseUID)
+      .update({
+        subscriptionStatus: "past_due",
+      });
+  }
+}
+
+async function handleSubscriptionDeleted(subscription) {
+  const customer = await stripe.customers.retrieve(subscription.customer);
+
+  await admin
+    .firestore()
+    .collection("users")
+    .doc(customer.metadata.firebaseUID)
+    .update({
+      subscriptionId: admin.firestore.FieldValue.delete(),
+      subscriptionStatus: "canceled",
+      priceId: admin.firestore.FieldValue.delete(),
+      subscriptionPeriodEnd: admin.firestore.FieldValue.delete(),
+    });
+}
+
+async function handleSubscriptionUpdated(subscription) {
+  try {
+    const customer = await stripe.customers.retrieve(subscription.customer);
+    const firebaseUID = customer.metadata.firebaseUID;
+
+    if (!firebaseUID) {
+      console.error("No Firebase UID found for customer:", customer.id);
+      return;
+    }
+
+    // Vérifier si le renouvellement automatique est activé
+    const subscriptionRenewal = subscription.cancel_at_period_end === false;
+
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(firebaseUID)
+      .update({
+        subscriptionId: subscription.id,
+        subscriptionStatus: subscription.status,
+        priceId: subscription.items.data[0].price.id,
+        subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
+          subscription.current_period_end * 1000
+        ),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        // Ajout du statut de renouvellement automatique
+        subscriptionRenewal: subscriptionRenewal,
+        // Ajout de la date de fin si le renouvellement est désactivé
+        cancelAt: subscription.cancel_at
+          ? admin.firestore.Timestamp.fromMillis(subscription.cancel_at * 1000)
+          : null,
+        subscriptionPlan: {
+          interval: subscription.items.data[0].price.recurring.interval,
+          amount: subscription.items.data[0].price.unit_amount / 100,
+          currency: subscription.items.data[0].price.currency,
+        },
+      });
+
+    console.log(`Updated subscription for user ${firebaseUID}`, {
+      subscriptionRenewal,
+      cancelAt: subscription.cancel_at || "Not cancelled",
+    });
+  } catch (error) {
+    console.error("Error handling subscription update:", error);
+    throw error;
+  }
+}
+
+// Annuler Abonnement Stripe pour les Pro.
+exports.cancelSubscription = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié."
+    );
+  }
+
+  try {
+    const { subscriptionId } = data;
+
+    // Annuler l'abonnement immédiatement
+    await stripe.subscriptions.cancel(subscriptionId, {
+      prorate: true,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error canceling subscription:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
 // Création d'un compte Connect
 exports.createConnectAccount = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -3588,7 +3920,7 @@ async function handleLoyaltyCard(
       );
     }
 
-    // Créer un seul historique pour la transaction complète
+    // Créer l'historique
     const historyRef = admin.firestore().collection("LoyaltyHistory").doc();
     const historyData = {
       customerId: userId,
@@ -3596,12 +3928,12 @@ async function handleLoyaltyCard(
       amount: earnedValue,
       type: "earn",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      details: [], // Pour stocker les détails de chaque carte impactée
+      details: [],
+      // Ajouter la référence appropriée
+      ...(orderId && { orderId }),
+      ...(reservationId && { reservationId }),
+      ...(bookingId && { bookingId }),
     };
-
-    if (orderId) historyData.orderId = orderId;
-    if (reservationId) historyData.reservationId = reservationId;
-    if (bookingId) historyData.bookingId = bookingId;
 
     while (remainingValue > 0) {
       const targetValue =
@@ -3610,13 +3942,12 @@ async function handleLoyaltyCard(
           : loyaltyProgram.targetValue;
 
       const valueNeededForTarget = targetValue - currentCardValue;
-      const willReachTarget = remainingValue >= valueNeededForTarget;
+      const valueToAdd = Math.min(remainingValue, valueNeededForTarget);
+      const willReachTarget = valueToAdd >= valueNeededForTarget;
 
       if (willReachTarget) {
-        // Compléter cette carte jusqu'au seuil
-        console.log(
-          `Complétion d'une carte avec ${valueNeededForTarget} sur ${remainingValue} restants`
-        );
+        // Compléter la carte
+        console.log(`Complétion d'une carte avec ${valueNeededForTarget}`);
 
         batch.update(currentCardRef, {
           currentValue: targetValue,
@@ -3628,6 +3959,14 @@ async function handleLoyaltyCard(
             amount: valueNeededForTarget,
             type: "earn",
           },
+        });
+
+        // Ajouter à l'historique
+        historyData.details.push({
+          cardId: currentCardRef.id,
+          amount: valueNeededForTarget,
+          type: "complete_card",
+          finalValue: targetValue,
         });
 
         // Créer le code promo
@@ -3668,9 +4007,8 @@ async function handleLoyaltyCard(
         });
         // Mettre à jour la valeur restante
         remainingValue -= valueNeededForTarget;
-        console.log("Valeur restante après complétion:", remainingValue);
 
-        // Créer une nouvelle carte si il reste de la valeur
+        // Créer une nouvelle carte si nécessaire
         if (remainingValue > 0) {
           currentCardRef = admin.firestore().collection("LoyaltyCards").doc();
           currentCardValue = 0;
@@ -3689,46 +4027,35 @@ async function handleLoyaltyCard(
               type: "create",
             },
           });
-          console.log("Nouvelle carte créée pour le reste:", currentCardRef.id);
         }
-
-        // Ajouter les détails à l'historique
-        historyData.details.push({
-          cardId: currentCardRef.id,
-          amount: valueNeededForTarget,
-          type: "complete_card",
-        });
       } else {
-        // Ajouter le reste à la carte active
-        console.log(
-          `Ajout du solde restant (${remainingValue}) à la carte active`
-        );
-        currentCardValue += remainingValue;
-        batch.set(
-          currentCardRef,
-          {
-            currentValue: currentCardValue,
-            totalEarned: admin.firestore.FieldValue.increment(remainingValue),
-            lastTransaction: {
-              date: admin.firestore.FieldValue.serverTimestamp(),
-              amount: remainingValue,
-              type: "earn",
-            },
-          },
-          { merge: true }
-        );
-        remainingValue = 0;
+        // Ajouter le montant partiel
+        console.log(`Ajout partiel de ${valueToAdd} à la carte`);
 
-        // Ajouter les détails à l'historique
+        const newValue = currentCardValue + valueToAdd;
+        batch.update(currentCardRef, {
+          currentValue: newValue,
+          totalEarned: admin.firestore.FieldValue.increment(valueToAdd),
+          lastTransaction: {
+            date: admin.firestore.FieldValue.serverTimestamp(),
+            amount: valueToAdd,
+            type: "earn",
+          },
+        });
+
+        // Ajouter à l'historique
         historyData.details.push({
           cardId: currentCardRef.id,
-          amount: remainingValue,
+          amount: valueToAdd,
           type: "partial_card",
+          finalValue: newValue,
         });
+
+        remainingValue = 0;
       }
     }
 
-    // Ajouter l'historique une seule fois à la fin
+    // Ajouter l'historique complet
     batch.set(historyRef, historyData);
   } catch (error) {
     console.error("Erreur lors du traitement de la carte de fidélité:", error);

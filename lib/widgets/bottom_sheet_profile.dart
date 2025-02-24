@@ -122,7 +122,7 @@ void showProfileBottomSheet(BuildContext context) {
           _buildMenuOption(
             context: context,
             icon: Icons.business,
-            label: 'Entreprises suivies',
+            label: 'Entreprises & Associations suivies',
             onTap: () {
               // Navigation vers les posts likés
               Navigator.push(

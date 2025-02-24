@@ -140,6 +140,8 @@ extension CompanyExtension on Company {
     Address? adress,
     Map<String, String>? openingHours,
     String? entityType,
+    String? type,
+    List<Map<String, dynamic>>? gallery,
   }) {
     return Company(
       id: id ?? this.id,
@@ -150,9 +152,11 @@ extension CompanyExtension on Company {
       email: email ?? this.email,
       like: like ?? this.like,
       logo: logo ?? this.logo,
+      gallery: gallery ?? this.gallery,
       phone: phone ?? this.phone,
       sellerId: sellerId ?? this.sellerId,
       entityType: entityType ?? this.entityType,
+      type: type ?? this.type,
       adress: adress ?? this.adress,
       openingHours: openingHours ?? this.openingHours,
     );
