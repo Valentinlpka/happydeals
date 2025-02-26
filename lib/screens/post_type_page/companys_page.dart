@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
-import 'package:http/http.dart' as http;
+import 'package:happy/widgets/location_filter.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
 
@@ -41,9 +41,7 @@ class _CompaniesPageState extends State<CompaniesPage>
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _searchQuery = '';
   String _selectedCategory = 'Toutes';
-  String _selectedCity = 'Toutes';
   List<String> _categories = ['Toutes'];
-  List<String> _cities = ['Toutes'];
   bool _showMap = false;
   Position? _currentPosition;
   Company? _selectedCompany;
@@ -56,22 +54,21 @@ class _CompaniesPageState extends State<CompaniesPage>
   static const String mapboxAccessToken =
       'pk.eyJ1IjoiaGFwcHlkZWFscyIsImEiOiJjbHo3ZHA5NDYwN2hyMnFzNTdiMWd2Zm92In0.1nmT5Fumjq16InZ3dmG9zQ';
   String _selectedAddress = '';
-  double _selectedRadius = 5.0; // en km
-  final List<double> _radiusOptions = [5, 10, 15, 20];
-  String _sortBy = 'name'; // Nouvelle variable pour le tri
-  bool _sortAscending = true; // Nouvelle variable pour l'ordre de tri
+  double _selectedRadius = 5.0;
+  double? _selectedLat;
+  double? _selectedLng;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      _updateMarkers(); // Mettre à jour les marqueurs quand on change d'onglet
+      _updateMarkers();
+      _loadCategories(); // Charger les catégories quand on change d'onglet
     });
-    _loadFilters();
+    _loadCategories();
     _getCurrentLocation();
 
-    // Ajoutez ces listeners pour une meilleure gestion du focus
     _searchFocusNode.addListener(() {
       if (!_searchFocusNode.hasFocus) {
         setState(() {
@@ -89,36 +86,26 @@ class _CompaniesPageState extends State<CompaniesPage>
     super.dispose();
   }
 
-  Future<void> _loadFilters() async {
+  Future<void> _loadCategories() async {
     try {
       final companiesSnapshot = await _firestore.collection('companys').get();
       final Set<String> categories = {};
-      final Set<String> cities = {};
 
       for (var doc in companiesSnapshot.docs) {
         final data = doc.data();
         if (data.containsKey('categorie')) {
           categories.add(data['categorie'] as String);
         }
-        if (data.containsKey('adress') &&
-            (data['adress'] as Map<String, dynamic>).containsKey('ville')) {
-          final ville = data['adress']['ville'] as String;
-          if (ville.isNotEmpty) {
-            cities.add(ville);
-          }
-        }
       }
 
       setState(() {
         _categories = ['Toutes', ...categories];
-        _cities = ['Toutes', ...cities];
       });
     } catch (e) {
-      print('Erreur lors du chargement des filtres: $e');
+      print('Erreur lors du chargement des catégories: $e');
       // Définir des valeurs par défaut en cas d'erreur
       setState(() {
         _categories = ['Toutes'];
-        _cities = ['Toutes'];
       });
     }
   }
@@ -149,41 +136,38 @@ class _CompaniesPageState extends State<CompaniesPage>
   }
 
   void _updateMarkers() async {
-    if (_currentPosition == null) return;
+    if (!_showMap) return;
 
-    // Récupérer le type actuel (company/association) selon l'onglet sélectionné
-    final currentType = _tabController.index == 0 ? 'company' : 'association';
-
-    final companies = await _firestore
+    final type = _tabController.index == 0 ? 'company' : 'association';
+    final snapshot = await _firestore
         .collection('companys')
-        .where('type', isEqualTo: currentType) // Filtrer par type
+        .where('type', isEqualTo: type)
         .get();
 
-    Map<String, List<Company>> locationGroups = {};
+    final companies = snapshot.docs
+        .map((doc) {
+          try {
+            return Company.fromDocument(doc);
+          } catch (e) {
+            print('Erreur lors de la conversion du document ${doc.id}: $e');
+            return null;
+          }
+        })
+        .whereType<Company>()
+        .where((company) =>
+            _selectedCategory == 'Toutes' ||
+            company.categorie == _selectedCategory)
+        .toList();
 
-    for (var doc in companies.docs) {
-      try {
-        final company = Company.fromDocument(doc);
-        // Appliquer les filtres de catégorie et ville
-        if ((_selectedCategory == 'Toutes' ||
-                company.categorie == _selectedCategory) &&
-            (_selectedCity == 'Toutes' ||
-                company.adress.ville == _selectedCity)) {
-          final locationKey =
-              '${company.adress.latitude},${company.adress.longitude}';
-          locationGroups.putIfAbsent(locationKey, () => []).add(company);
-        }
-      } catch (e) {
-        debugPrint('Erreur lors du groupement: $e');
-      }
+    // Grouper les entreprises par localisation
+    final Map<String, List<Company>> locationGroups = {};
+    for (var company in companies) {
+      final locationKey =
+          '${company.adress.latitude},${company.adress.longitude}';
+      locationGroups.putIfAbsent(locationKey, () => []).add(company);
     }
 
-    // Trier les groupes selon les critères de tri actuels
-    for (var companies in locationGroups.values) {
-      _sortOrganizations(companies);
-    }
-
-    Set<CustomMarker> markers = {};
+    final Set<CustomMarker> markers = {};
 
     for (var entry in locationGroups.entries) {
       final companies = entry.value;
@@ -364,11 +348,14 @@ class _CompaniesPageState extends State<CompaniesPage>
               });
             },
           ),
-          if (!_showMap)
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: _showFilterBottomSheet,
-            ),
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterBottomSheet,
+          ),
+          IconButton(
+            icon: const Icon(Icons.location_on),
+            onPressed: _showLocationFilterBottomSheet,
+          ),
         ],
       ),
       body: TabBarView(
@@ -378,60 +365,6 @@ class _CompaniesPageState extends State<CompaniesPage>
           _buildOrganizationsList(type: 'association'),
         ],
       ),
-    );
-  }
-
-  Widget _buildFilterDropdown(
-    String label,
-    String value,
-    List<String> items,
-    void Function(String?) onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              focusColor: Colors.transparent,
-              isExpanded: true,
-              value: value,
-              onChanged: onChanged,
-              items: items.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              icon: const Icon(Icons.arrow_drop_down),
-              style: const TextStyle(color: Colors.black87, fontSize: 16),
-              dropdownColor: Colors.white,
-              // Ajoutez cette propriété pour personnaliser l'apparence de l'élément sélectionné
-              selectedItemBuilder: (BuildContext context) {
-                return items.map<Widget>((String item) {
-                  return Container(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      item,
-                      style: const TextStyle(
-                        color: Colors.black87,
-                        fontSize: 16,
-                      ),
-                    ),
-                  );
-                }).toList();
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -462,57 +395,53 @@ class _CompaniesPageState extends State<CompaniesPage>
                       ),
                       TextButton(
                         onPressed: () {
-                          setModalState(() {
+                          setState(() {
                             _selectedCategory = 'Toutes';
-                            _selectedCity = 'Toutes';
                           });
+                          Navigator.pop(context);
                         },
                         child: const Text('Réinitialiser'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildFilterDropdown(
-                    'Catégorie',
-                    _selectedCategory,
-                    _categories,
-                    (String? newValue) {
-                      if (newValue != null) {
-                        setModalState(() {
-                          _selectedCategory = newValue;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildFilterDropdown(
-                    'Ville',
-                    _selectedCity,
-                    _cities,
-                    (String? newValue) {
-                      if (newValue != null) {
-                        setModalState(() {
-                          _selectedCity = newValue;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4B88DA),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                  const Text(
+                    'Catégories',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
-                    onPressed: () {
-                      setState(() {});
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      'Appliquer les filtres',
-                      style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _categories.map((category) {
+                          final isSelected = _selectedCategory == category;
+                          return FilterChip(
+                            selected: isSelected,
+                            label: Text(category),
+                            labelStyle: TextStyle(
+                              color:
+                                  isSelected ? Colors.white : Colors.grey[800],
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                            backgroundColor: Colors.grey[200],
+                            selectedColor: const Color(0xFF4B88DA),
+                            onSelected: (bool selected) {
+                              setState(() {
+                                _selectedCategory = category;
+                              });
+                              Navigator.pop(context);
+                            },
+                            showCheckmark: false,
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                 ],
@@ -535,7 +464,7 @@ class _CompaniesPageState extends State<CompaniesPage>
           return const Center(child: CircularProgressIndicator());
         }
 
-        var organizations = snapshot.data!.docs
+        final organizations = snapshot.data!.docs
             .map((doc) {
               try {
                 return Company.fromDocument(doc);
@@ -545,15 +474,22 @@ class _CompaniesPageState extends State<CompaniesPage>
               }
             })
             .whereType<Company>()
-            .where((org) =>
-                (_selectedCategory == 'Toutes' ||
-                    org.categorie == _selectedCategory) &&
-                (_selectedCity == 'Toutes' ||
-                    org.adress.ville == _selectedCity))
-            .toList();
+            .where((org) {
+              bool matchesCategory = _selectedCategory == 'Toutes' ||
+                  org.categorie == _selectedCategory;
 
-        // Appliquer le tri
-        organizations = _sortOrganizations(organizations);
+              // Filtre de localisation
+              if (_selectedLat != null && _selectedLng != null) {
+                final distance = calculateDistance(
+                  latlong.LatLng(_selectedLat!, _selectedLng!),
+                  latlong.LatLng(org.adress.latitude, org.adress.longitude),
+                );
+                return matchesCategory && distance <= _selectedRadius;
+              }
+
+              return matchesCategory;
+            })
+            .toList();
 
         if (organizations.isEmpty) {
           return Center(
@@ -565,18 +501,21 @@ class _CompaniesPageState extends State<CompaniesPage>
 
         return Column(
           children: [
-            // N'afficher le bouton de tri que si on n'est pas en mode carte
-            if (!_showMap)
+            if (!_showMap && _selectedAddress.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton.icon(
-                      onPressed: _showSortMenu,
-                      icon: const Icon(Icons.sort),
-                      label: Text(
-                          'Trier par ${_sortBy == 'name' ? 'nom' : _sortBy == 'city' ? 'ville' : 'catégorie'}'),
+                    Expanded(
+                      child: Text(
+                        'Près de $_selectedAddress',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4B88DA),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -606,12 +545,16 @@ class _CompaniesPageState extends State<CompaniesPage>
       return const Center(child: CircularProgressIndicator());
     }
 
+    final center = _selectedLat != null && _selectedLng != null
+        ? latlong.LatLng(_selectedLat!, _selectedLng!)
+        : latlong.LatLng(
+            _currentPosition!.latitude, _currentPosition!.longitude);
+
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
-        initialCenter: latlong.LatLng(
-            _currentPosition!.latitude, _currentPosition!.longitude),
-        initialZoom: 13,
+        initialCenter: center,
+        initialZoom: _calculateZoomLevel(_selectedRadius),
         onTap: (_, point) => setState(() => _selectedCompany = null),
         interactionOptions: InteractionOptions(
           flags:
@@ -626,6 +569,21 @@ class _CompaniesPageState extends State<CompaniesPage>
             'accessToken': mapboxAccessToken,
           },
         ),
+        // Ajouter le cercle de rayon si une localisation est sélectionnée
+        if (_selectedLat != null && _selectedLng != null)
+          CircleLayer(
+            circles: [
+              CircleMarker(
+                point: center,
+                radius: 50000.0, // Rayon en mètres
+                color:
+                    const Color(0x304B88DA), // Couleur bleue semi-transparente
+                borderColor: const Color(0xFF4B88DA),
+                borderStrokeWidth: 2,
+                useRadiusInMeter: true,
+              ),
+            ],
+          ),
         MarkerLayer(
           markers: _markers
               .map((marker) => Marker(
@@ -643,328 +601,49 @@ class _CompaniesPageState extends State<CompaniesPage>
     );
   }
 
-  Widget _buildMapControls() {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: _showSearchBottomSheet,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.search, color: Colors.black54),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _selectedAddress.isEmpty
-                          ? 'Rechercher une adresse'
-                          : _selectedAddress,
-                      style: const TextStyle(color: Colors.black54),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(8),
-          child: IconButton(
-            icon: const Icon(Icons.my_location),
-            onPressed: _goToCurrentLocation,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(8),
-          child: IconButton(
-            icon: const Icon(Icons.radar),
-            onPressed: _showRadiusBottomSheet,
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showSearchBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => DraggableScrollableSheet(
-          initialChildSize: 0.9,
-          minChildSize: 0.5,
-          maxChildSize: 0.9,
-          builder: (context, scrollController) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          autofocus: true,
-                          decoration: const InputDecoration(
-                            hintText: 'Rechercher une adresse...',
-                            prefixIcon: Icon(Icons.search),
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) async {
-                            if (value.length > 2) {
-                              final predictions =
-                                  await _getPlacePredictions(value);
-                              setModalState(() {
-                                _predictions = predictions;
-                              });
-                            } else {
-                              setModalState(() {
-                                _predictions = [];
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.my_location),
-                        onPressed: () {
-                          _goToCurrentLocation();
-                          Navigator.pop(context);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _predictions.isEmpty
-                      ? const Center(
-                          child: Text(
-                              'Commencez à taper pour rechercher une adresse'),
-                        )
-                      : ListView.builder(
-                          controller: scrollController,
-                          padding: EdgeInsets.zero,
-                          itemCount: _predictions.length,
-                          itemBuilder: (context, index) {
-                            final prediction = _predictions[index];
-                            return ListTile(
-                              leading: const Icon(Icons.location_on_outlined),
-                              title: Text(prediction['description']),
-                              onTap: () {
-                                _searchController.text =
-                                    prediction['description'];
-                                _searchLocation(prediction['place_id'], true);
-                                Navigator.pop(context);
-                              },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ).whenComplete(() {
-      setState(() {
-        _predictions = [];
-        _searchController.clear();
-      });
-    });
-  }
-
-  Future<void> _goToCurrentLocation() async {
-    if (_currentPosition != null) {
-      _mapController.move(
-        latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-        18,
-      );
-
-      try {
-        final url = Uri.parse(
-            'https://api.mapbox.com/geocoding/v5/mapbox.places/${_currentPosition!.longitude},${_currentPosition!.latitude}.json'
-            '?access_token=$mapboxAccessToken'
-            '&country=fr');
-
-        final response = await http.get(url);
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['features'].isNotEmpty) {
-            setState(() {
-              _selectedAddress = data['features'][0]['place_name'];
-            });
-          }
-        }
-      } catch (e) {
-        debugPrint('Erreur lors de la récupération de l\'adresse: $e');
-      }
-    }
-  }
-
-  Future<List<dynamic>> _getPlacePredictions(String input) async {
-    if (input.isEmpty) return [];
-
-    try {
-      final url = Uri.parse(
-          'https://api.mapbox.com/geocoding/v5/mapbox.places/$input.json'
-          '?access_token=$mapboxAccessToken'
-          '&country=fr'
-          '&types=address');
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['features']
-            .map((feature) => {
-                  'place_id': feature['id'],
-                  'description': feature['place_name'],
-                })
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Erreur lors de l\'autocomplétion: $e');
-    }
-    return [];
-  }
-
-  Future<void> _searchLocation(String query, bool isPlaceId) async {
-    try {
-      final url = Uri.parse(
-          'https://api.mapbox.com/geocoding/v5/mapbox.places/$query.json'
-          '?access_token=$mapboxAccessToken'
-          '&country=fr');
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['features'].isNotEmpty) {
-          final feature = data['features'][0];
-          final coordinates = feature['center'];
-
-          setState(() {
-            _selectedAddress = feature['place_name'];
-            _mapController.move(
-              latlong.LatLng(coordinates[1], coordinates[0]),
-              18,
-            );
-            _searchFocusNode.unfocus();
-            _predictions = [];
-          });
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Adresse non trouvée'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  void _showRadiusBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Rayon de recherche',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...List.generate(
-              _radiusOptions.length,
-              (index) => ListTile(
-                title: Text('${_radiusOptions[index]} km'),
-                trailing: _selectedRadius == _radiusOptions[index]
-                    ? const Icon(Icons.check, color: Colors.blue)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _selectedRadius = _radiusOptions[index];
-                  });
-                  _updateMarkersWithRadius();
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  double _calculateZoomLevel(double radiusInKm) {
+    // Formule approximative pour calculer le niveau de zoom en fonction du rayon
+    return 14 - (log(radiusInKm) / log(2));
   }
 
   double calculateDistance(latlong.LatLng point1, latlong.LatLng point2) {
     const Distance distance = Distance();
-    return distance.as(
-      LengthUnit.Kilometer,
-      point1,
-      point2,
-    );
+    return distance(point1, point2) / 1000; // Convertir en kilomètres
   }
 
   void _updateMarkersWithRadius() async {
-    if (_currentPosition == null) return;
+    if (_selectedLat == null &&
+        _selectedLng == null &&
+        _currentPosition == null) return;
 
     final companies = await _firestore.collection('companys').get();
     Map<String, List<Company>> locationGroups = {};
-    List<Company> companiesInRadius = []; // Liste pour le bottom sheet
+    List<Company> filteredCompanies = [];
 
     final center = latlong.LatLng(
-      _selectedAddress.isEmpty
-          ? _currentPosition!.latitude
-          : _mapController.camera.center.latitude,
-      _selectedAddress.isEmpty
-          ? _currentPosition!.longitude
-          : _mapController.camera.center.longitude,
+      _selectedLat ?? _currentPosition!.latitude,
+      _selectedLng ?? _currentPosition!.longitude,
     );
 
     // Ajuster le zoom en fonction du rayon
-    double zoom = 14 - (_selectedRadius / 5); // Formule approximative
-    _mapController.move(center, zoom);
+    _mapController.move(center, _calculateZoomLevel(_selectedRadius));
 
     for (var doc in companies.docs) {
       try {
         final company = Company.fromDocument(doc);
+
+        // Vérifier si l'entreprise correspond au type sélectionné (company/association)
+        if (company.type !=
+            (_tabController.index == 0 ? 'company' : 'association')) {
+          continue;
+        }
+
+        // Vérifier si l'entreprise correspond à la catégorie sélectionnée
+        if (_selectedCategory != 'Toutes' &&
+            company.categorie != _selectedCategory) {
+          continue;
+        }
+
         final companyLatLng = latlong.LatLng(
           company.adress.latitude,
           company.adress.longitude,
@@ -976,53 +655,82 @@ class _CompaniesPageState extends State<CompaniesPage>
           final locationKey =
               '${company.adress.latitude},${company.adress.longitude}';
           locationGroups.putIfAbsent(locationKey, () => []).add(company);
-          companiesInRadius
-              .add(company); // Ajouter à la liste pour le bottom sheet
+          filteredCompanies.add(company);
         }
       } catch (e) {
         debugPrint('Erreur lors du groupement: $e');
       }
     }
 
-    // Créer les marqueurs comme avant
-    Set<CustomMarker> markers = {};
-    for (var entry in locationGroups.entries) {
-      final companies = entry.value;
-      final firstCompany = companies.first;
-      final position = latlong.LatLng(
-        firstCompany.adress.latitude,
-        firstCompany.adress.longitude,
-      );
-
-      if (companies.length == 1) {
-        markers.add(
-          CustomMarker(
-            id: firstCompany.id,
-            position: position,
-            icon: _buildSingleMarkerIcon(firstCompany.logo),
-            onTap: () => _showCompaniesBottomSheet([firstCompany]),
-            company: firstCompany,
-          ),
-        );
-      } else {
-        markers.add(
-          CustomMarker(
-            id: 'group_${entry.key}',
-            position: position,
-            icon: _buildGroupMarkerIcon(companies.length),
-            onTap: () => _showCompaniesBottomSheet(companies),
-          ),
-        );
-      }
-    }
-
+    // Mettre à jour les marqueurs
     setState(() {
-      _markers = markers;
+      _markers = locationGroups.entries.map((entry) {
+        final companies = entry.value;
+        final firstCompany = companies.first;
+        final position = latlong.LatLng(
+          firstCompany.adress.latitude,
+          firstCompany.adress.longitude,
+        );
+
+        return CustomMarker(
+          position: position,
+          id: entry.key,
+          company: companies.length == 1 ? firstCompany : null,
+          icon: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF4B88DA), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Center(
+              child: companies.length == 1
+                  ? ClipOval(
+                      child: Image.network(
+                        firstCompany.logo,
+                        width: 35,
+                        height: 35,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                          Icons.business,
+                          color: Color(0xFF4B88DA),
+                          size: 20,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      '${companies.length}',
+                      style: const TextStyle(
+                        color: Color(0xFF4B88DA),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ),
+          onTap: () {
+            if (companies.length == 1) {
+              setState(() => _selectedCompany = firstCompany);
+              _showCompanyDetails(firstCompany);
+            } else {
+              _showCompaniesAtLocation(companies);
+            }
+          },
+        );
+      }).toSet();
     });
 
-    // Afficher le bottom sheet avec les entreprises trouvées
-    if (companiesInRadius.isNotEmpty) {
-      _showCompaniesInRadiusBottomSheet(companiesInRadius, _selectedRadius);
+    // Toujours afficher la liste des entreprises filtrées quand une localisation est sélectionnée
+    if (filteredCompanies.isNotEmpty) {
+      _showCompaniesInRadiusBottomSheet(filteredCompanies, _selectedRadius);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1091,80 +799,119 @@ class _CompaniesPageState extends State<CompaniesPage>
     );
   }
 
-  // Méthode pour trier les organisations
-  List<Company> _sortOrganizations(List<Company> organizations) {
-    switch (_sortBy) {
-      case 'name':
-        organizations.sort((a, b) => _sortAscending
-            ? a.name.compareTo(b.name)
-            : b.name.compareTo(a.name));
-        break;
-      case 'city':
-        organizations.sort((a, b) => _sortAscending
-            ? a.adress.ville.compareTo(b.adress.ville)
-            : b.adress.ville.compareTo(a.adress.ville));
-        break;
-      case 'category':
-        organizations.sort((a, b) => _sortAscending
-            ? a.categorie.compareTo(b.categorie)
-            : b.categorie.compareTo(a.categorie));
-        break;
-    }
-    return organizations;
+  void _showLocationFilterBottomSheet() async {
+    await LocationFilterBottomSheet.show(
+      context: context,
+      onLocationSelected: (lat, lng, radius, address) {
+        setState(() {
+          _selectedLat = lat;
+          _selectedLng = lng;
+          _selectedRadius = radius;
+          _selectedAddress = address;
+        });
+
+        // Mettre à jour les marqueurs et la carte
+        _updateMarkersWithRadius();
+      },
+      currentLat: _selectedLat,
+      currentLng: _selectedLng,
+      currentRadius: _selectedRadius,
+      currentAddress: _selectedAddress,
+    );
   }
 
-  // Méthode pour afficher le menu de tri
-  void _showSortMenu() {
+  void _showCompanyDetails(Company company) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: const Text('Trier par'),
-            trailing: IconButton(
-              icon: Icon(
-                  _sortAscending ? Icons.arrow_upward : Icons.arrow_downward),
-              onPressed: () {
-                setState(() => _sortAscending = !_sortAscending);
-                Navigator.pop(context);
-              },
-            ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          ListTile(
-            title: const Text('Nom'),
-            leading: Radio<String>(
-              value: 'name',
-              groupValue: _sortBy,
-              onChanged: (value) {
-                setState(() => _sortBy = value!);
-                Navigator.pop(context);
-              },
-            ),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: CompanyCard(company),
+                  ),
+                ),
+              ),
+            ],
           ),
-          ListTile(
-            title: const Text('Ville'),
-            leading: Radio<String>(
-              value: 'city',
-              groupValue: _sortBy,
-              onChanged: (value) {
-                setState(() => _sortBy = value!);
-                Navigator.pop(context);
-              },
-            ),
+        ),
+      ),
+    );
+  }
+
+  void _showCompaniesAtLocation(List<Company> companies) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          ListTile(
-            title: const Text('Catégorie'),
-            leading: Radio<String>(
-              value: 'category',
-              groupValue: _sortBy,
-              onChanged: (value) {
-                setState(() => _sortBy = value!);
-                Navigator.pop(context);
-              },
-            ),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '${companies.length} entreprises à cette adresse',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: companies.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: CompanyCard(companies[index]),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

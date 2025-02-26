@@ -123,7 +123,7 @@ exports.createCheckoutSession = functions.https.onCall(
     }
 
     try {
-      const { priceId } = data;
+      const { priceId, planName } = data; // Ajout de planName
       const userId = context.auth.uid;
 
       // Récupérer ou créer le client Stripe
@@ -160,6 +160,7 @@ exports.createCheckoutSession = functions.https.onCall(
         cancel_url: `http://up-pro.vercel.app//plans`,
         metadata: {
           firebaseUID: userId,
+          planName: planName, // Ajouter le nom du plan aux métadonnées
         },
       });
 
@@ -212,7 +213,7 @@ exports.stripeWebhook = functions.https.onRequest(async (request, response) => {
 
 // Fonctions de gestion des événements Stripe
 async function handleCheckoutSessionCompleted(session) {
-  const { firebaseUID } = session.metadata;
+  const { firebaseUID, planName } = session.metadata;
   const subscription = await stripe.subscriptions.retrieve(
     session.subscription
   );
@@ -226,6 +227,7 @@ async function handleCheckoutSessionCompleted(session) {
       subscriptionId: subscription.id,
       subscriptionStatus: subscription.status,
       priceId: subscription.items.data[0].price.id,
+      planName: planName, // Sauvegarder le nom du plan
       subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
         subscription.current_period_end * 1000
       ),
@@ -239,6 +241,9 @@ async function handleInvoicePaid(invoice) {
     );
     const customer = await stripe.customers.retrieve(invoice.customer);
 
+    // Récupérer le planName depuis les métadonnées de la subscription
+    const planName = subscription.metadata.planName;
+
     await admin
       .firestore()
       .collection("users")
@@ -248,6 +253,7 @@ async function handleInvoicePaid(invoice) {
         subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
           subscription.current_period_end * 1000
         ),
+        planName: planName, // Ajouter le planName
       });
   }
 }
@@ -276,6 +282,7 @@ async function handleSubscriptionDeleted(subscription) {
     .update({
       subscriptionId: admin.firestore.FieldValue.delete(),
       subscriptionStatus: "canceled",
+      planName: admin.firestore.FieldValue.delete(),
       priceId: admin.firestore.FieldValue.delete(),
       subscriptionPeriodEnd: admin.firestore.FieldValue.delete(),
     });
@@ -286,12 +293,14 @@ async function handleSubscriptionUpdated(subscription) {
     const customer = await stripe.customers.retrieve(subscription.customer);
     const firebaseUID = customer.metadata.firebaseUID;
 
+    // Récupérer le planName depuis les métadonnées
+    const planName = subscription.metadata.planName;
+
     if (!firebaseUID) {
       console.error("No Firebase UID found for customer:", customer.id);
       return;
     }
 
-    // Vérifier si le renouvellement automatique est activé
     const subscriptionRenewal = subscription.cancel_at_period_end === false;
 
     await admin
@@ -302,6 +311,7 @@ async function handleSubscriptionUpdated(subscription) {
         subscriptionId: subscription.id,
         subscriptionStatus: subscription.status,
         priceId: subscription.items.data[0].price.id,
+        planName: planName, // Ajouter le planName
         subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
           subscription.current_period_end * 1000
         ),
@@ -4062,3 +4072,42 @@ async function handleLoyaltyCard(
     throw error;
   }
 }
+
+exports.sendTrainingRequest = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Utilisateur non authentifié"
+    );
+  }
+
+  const { firstName, lastName, companyName, phone, email, address, userId } =
+    data;
+
+  // Configuration de l'email
+  const mailOptions = {
+    from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
+    to: "happy.deals59@gmail.com", // Email où recevoir les demandes
+    subject: "Nouvelle demande de formation Up!",
+    html: `
+          <h2>Nouvelle demande de formation</h2>
+          <p><strong>Client :</strong> ${firstName} ${lastName}</p>
+          <p><strong>Entreprise/Association :</strong> ${companyName}</p>
+          <p><strong>Téléphone :</strong> ${phone}</p>
+          <p><strong>Email :</strong> ${email}</p>
+          <p><strong>Adresse :</strong> ${address}</p>
+          <p><strong>ID Utilisateur :</strong> ${userId}</p>
+      `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return { success: true };
+  } catch (error) {
+    console.error("Erreur lors de l'envoi de l'email:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Erreur lors de l'envoi de l'email"
+    );
+  }
+});

@@ -21,129 +21,225 @@ class AdCard extends StatelessWidget {
       builder: (context, savedAdsProvider, _) {
         final isSaved = savedAdsProvider.isAdSaved(ad.id);
 
-        return InkWell(
-          onTap: onTap,
-          child: Card(
-            elevation: 1,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(10)),
-                      child: AspectRatio(
-                        aspectRatio: 4 / 3,
-                        child: ad.photos.isNotEmpty
-                            ? Image.network(ad.photos[0], fit: BoxFit.cover)
-                            : Container(color: Colors.grey),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black.withOpacity(0.3),
-                      ),
-                    ),
-                    if (ad.status == 'sold')
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          color: Colors.green,
-                          child: const Text(
-                            'VENDU',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: GestureDetector(
-                        onTap: () {
-                          onSaveTap();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                isSaved
-                                    ? 'Annonce retirée des favoris'
-                                    : 'Annonce ajoutée aux favoris',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                              backgroundColor: Colors.blue[600],
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              margin: const EdgeInsets.all(16),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_border,
-                            color: isSaved ? Colors.blue[600] : Colors.black,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(10.0),
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SizedBox(
+                  height: 380, // Hauteur fixe pour la carte
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        ad.title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      // Section Image - Hauteur fixe
+                      SizedBox(
+                        height: 180, // Hauteur fixe pour l'image
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: ad.photos.isNotEmpty
+                                  ? Image.network(
+                                      ad.photos[0],
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Container(
+                                      color: Colors.grey[200],
+                                      child: Icon(
+                                        Icons.image_not_supported,
+                                        size: 40,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ),
+                            ),
+                            // Badge Type d'échange
+                            Positioned(
+                              top: 12,
+                              left: 12,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[700],
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  ad.additionalData['exchangeType'] ??
+                                      'Échange',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Bouton Sauvegarder
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: IconButton(
+                                onPressed: onSaveTap,
+                                icon: Icon(
+                                  isSaved
+                                      ? Icons.bookmark
+                                      : Icons.bookmark_border,
+                                  color:
+                                      isSaved ? Colors.blue[700] : Colors.white,
+                                ),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.black26,
+                                  padding: const EdgeInsets.all(8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${ad.price.toStringAsFixed(2)} €',
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        ad.additionalData['location'] ?? '',
-                        style:
-                            const TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        ad.formattedDate,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.grey),
+                      // Section Informations - Reste de l'espace disponible
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ad.title,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 8),
+                              // Catégorie et Localisation
+                              Row(
+                                children: [
+                                  Icon(Icons.category_outlined,
+                                      size: 16, color: Colors.grey[600]),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      ad.additionalData['category'] ??
+                                          'Non catégorisé',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 14,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Icon(Icons.location_on_outlined,
+                                      size: 16, color: Colors.grey[600]),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      ad.additionalData['location'] ??
+                                          'Non spécifié',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 14,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Informations spécifiques selon le type
+                              if (ad.additionalData['exchangeType'] ==
+                                  'Article') ...[
+                                _buildInfoRow(
+                                  'État',
+                                  ad.additionalData['condition'] ??
+                                      'Non spécifié',
+                                ),
+                                if (ad.additionalData['brand']?.isNotEmpty ??
+                                    false)
+                                  _buildInfoRow(
+                                    'Marque',
+                                    ad.additionalData['brand'],
+                                  ),
+                              ] else if (ad.additionalData['exchangeType'] ==
+                                  'Temps et Compétences') ...[
+                                _buildInfoRow(
+                                  'Disponibilité',
+                                  ad.additionalData['availability'] ??
+                                      'Non spécifié',
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              // Souhaits d'échange
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.swap_horiz,
+                                        size: 16, color: Colors.blue[700]),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        ad.additionalData['wishInReturn'] ??
+                                            'Ouvert aux propositions',
+                                        style: TextStyle(
+                                          color: Colors.blue[700],
+                                          fontSize: 14,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

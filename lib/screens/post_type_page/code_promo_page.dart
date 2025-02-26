@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/card_promo_code.dart';
+import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/location_filter.dart';
 
 import '../../classes/promo_code_post.dart';
 
@@ -17,6 +19,10 @@ class _CodePromoPageState extends State<CodePromoPage> {
   String _searchQuery = '';
   String _selectedCompany = 'Toutes';
   List<String> _companies = ['Toutes'];
+  double? _selectedLat;
+  double? _selectedLng;
+  double _selectedRadius = 5.0;
+  String _selectedAddress = '';
 
   @override
   void initState() {
@@ -36,6 +42,24 @@ class _CodePromoPageState extends State<CodePromoPage> {
     });
   }
 
+  void _showLocationFilterBottomSheet() async {
+    await LocationFilterBottomSheet.show(
+      context: context,
+      onLocationSelected: (lat, lng, radius, address) {
+        setState(() {
+          _selectedLat = lat;
+          _selectedLng = lng;
+          _selectedRadius = radius;
+          _selectedAddress = address;
+        });
+      },
+      currentLat: _selectedLat,
+      currentLng: _selectedLng,
+      currentRadius: _selectedRadius,
+      currentAddress: _selectedAddress,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -43,6 +67,13 @@ class _CodePromoPageState extends State<CodePromoPage> {
         title: 'Code Promo',
         align: Alignment.center,
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.location_on,
+              color: _selectedLat != null ? const Color(0xFF4B88DA) : null,
+            ),
+            onPressed: _showLocationFilterBottomSheet,
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterBottomSheet,
@@ -228,12 +259,10 @@ class _CodePromoPageState extends State<CodePromoPage> {
               final postDoc = snapshot.data!.docs[index];
               final promoCodePost = PromoCodePost.fromDocument(postDoc);
 
-              // Ne montrer que les codes promo actifs et non expirés
               if (!promoCodePost.isUsable) {
                 return const SizedBox.shrink();
               }
 
-              // Fetch company data
               return FutureBuilder<DocumentSnapshot>(
                 future: _firestore
                     .collection('companys')
@@ -246,13 +275,20 @@ class _CodePromoPageState extends State<CodePromoPage> {
 
                   final companyData =
                       companySnapshot.data!.data() as Map<String, dynamic>;
+                  final companyName = companyData['name'] as String;
+                  final companyLogo = companyData['logo'] as String;
+                  final companyAddress =
+                      companyData['adress'] as Map<String, dynamic>;
+                  final companyLat = companyAddress['latitude'] as double;
+                  final companyLng = companyAddress['longitude'] as double;
 
-                  // Apply filters
+                  // Filtrer par entreprise
                   if (_selectedCompany != 'Toutes' &&
-                      companyData['name'] != _selectedCompany) {
+                      companyName != _selectedCompany) {
                     return const SizedBox.shrink();
                   }
 
+                  // Filtrer par recherche
                   if (_searchQuery.isNotEmpty &&
                       !promoCodePost.code
                           .toLowerCase()
@@ -263,14 +299,26 @@ class _CodePromoPageState extends State<CodePromoPage> {
                     return const SizedBox.shrink();
                   }
 
+                  // Filtrer par localisation
+                  if (_selectedLat != null &&
+                      _selectedLng != null &&
+                      !LocationUtils.isWithinRadius(
+                        _selectedLat!,
+                        _selectedLng!,
+                        companyLat,
+                        companyLng,
+                        _selectedRadius,
+                      )) {
+                    return const SizedBox.shrink();
+                  }
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: PromoCodeCard(
                       post: promoCodePost,
-                      companyName: companyData['name'] ?? '',
-                      companyLogo: companyData['logo'] ?? '',
-                      currentUserId:
-                          '', // Vous pouvez passer l'ID de l'utilisateur courant ici si nécessaire
+                      companyName: companyName,
+                      companyLogo: companyLogo,
+                      currentUserId: '',
                     ),
                   );
                 },

@@ -7,9 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/share_post.dart';
-import 'package:happy/screens/marketplace/article_form.dart';
 import 'package:happy/screens/marketplace/exchange_form.dart';
-import 'package:happy/screens/marketplace/vehicle_form.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
@@ -24,81 +22,78 @@ class AdCreationScreen extends StatefulWidget {
 }
 
 class _AdCreationScreenState extends State<AdCreationScreen> {
-  // Déclaration des GlobalKey pour chaque formulaire
-  final GlobalKey<ArticleFormState> _articleFormKey =
-      GlobalKey<ArticleFormState>();
-  final GlobalKey<VehicleFormState> _vehicleFormKey =
-      GlobalKey<VehicleFormState>();
-
   final GlobalKey<ExchangeFormState> _exchangeFormKey =
       GlobalKey<ExchangeFormState>();
-
   late Widget _form;
 
   @override
   void initState() {
     super.initState();
-    _form = _getForm();
-  }
-
-  Widget _getForm() {
-    switch (widget.adType) {
-      case 'article':
-        return ArticleForm(key: _articleFormKey, existingAd: widget.existingAd);
-      case 'vehicle':
-        return VehicleForm(key: _vehicleFormKey, existingAd: widget.existingAd);
-      case 'exchange':
-        return ExchangeForm(
-            key: _exchangeFormKey, existingAd: widget.existingAd);
-      default:
-        return Container();
-    }
+    _form = ExchangeForm(key: _exchangeFormKey, existingAd: widget.existingAd);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Créer une annonce - ${_getAdTypeTitle(widget.adType)}'),
+        backgroundColor: Colors.grey[50],
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.existingAd != null
+              ? 'Modifier l\'annonce'
+              : 'Créer une annonce',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              _form,
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _submitForm,
-                child: const Text('Publier l\'annonce'),
+      body: _form,
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: ElevatedButton(
+            onPressed: _submitForm,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[700],
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
+            ),
+            child: Text(
+              widget.existingAd != null
+                  ? 'Mettre à jour'
+                  : 'Publier l\'annonce',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  String _getAdTypeTitle(String adType) {
-    switch (adType) {
-      case 'article':
-        return 'Article à vendre';
-      case 'vehicle':
-        return 'Véhicule à vendre';
-      case 'property':
-        return 'Bien immobilier';
-      case 'exchange':
-        return 'Troc et Échange';
-      default:
-        return 'Inconnu';
-    }
-  }
-
   Future<List<String>> _uploadPhotos(List<dynamic> photos) async {
     List<String> photoUrls = [];
     for (var photo in photos) {
       if (photo is String) {
-        // C'est déjà une URL, on la garde telle quelle
         photoUrls.add(photo);
       } else {
         String fileName = const Uuid().v4();
@@ -111,7 +106,7 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
         } else if (photo is Uint8List) {
           uploadTask = storageRef.putData(photo);
         } else {
-          continue; // Skip if the photo is not in a recognized format
+          continue;
         }
 
         await uploadTask.whenComplete(() => null);
@@ -123,21 +118,12 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
   }
 
   void _submitForm() async {
-    Map<String, dynamic> formData = {};
-    bool isValid = false;
+    Map<String, dynamic> formData =
+        _exchangeFormKey.currentState?.getFormData() ?? {};
 
-    if (_form is ArticleForm) {
-      formData = (_articleFormKey.currentState)?.getFormData() ?? {};
-      isValid = formData.isNotEmpty;
-    } else if (_form is VehicleForm) {
-      formData = (_vehicleFormKey.currentState)?.getFormData() ?? {};
-      isValid = formData.isNotEmpty;
-    } else if (_form is ExchangeForm) {
-      formData = (_exchangeFormKey.currentState)?.getFormData() ?? {};
-      isValid = formData.isNotEmpty;
-    }
-
-    if (isValid && formData.containsKey('photos')) {
+    if (formData.isNotEmpty &&
+        formData.containsKey('photos') &&
+        formData.containsKey('title')) {
       try {
         User? currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser == null) {
@@ -148,20 +134,18 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
         formData['photos'] = photoUrls;
 
         formData.addAll({
-          'adType': widget.adType,
+          'adType': 'exchange',
           'userId': currentUser.uid,
-          'status': 'new',
+          'status': 'active',
+          'createdAt': FieldValue.serverTimestamp(),
         });
 
         if (widget.existingAd != null) {
-          // Mise à jour d'une annonce existante
           await FirebaseFirestore.instance
               .collection('ads')
               .doc(widget.existingAd!.id)
               .update(formData);
         } else {
-          // Création d'une nouvelle annonce
-          formData['createdAt'] = FieldValue.serverTimestamp();
           DocumentReference newAdRef =
               await FirebaseFirestore.instance.collection('ads').add(formData);
 
@@ -175,33 +159,43 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
             comment: "a publié une annonce",
           );
 
-          // Ajouter le post partagé à Firestore
           await FirebaseFirestore.instance
               .collection('posts')
               .doc(sharedPost.id)
               .set(sharedPost.toMap());
 
-          // Mettre à jour l'annonce avec l'ID du post partagé
           await newAdRef.update({'sharedPostId': sharedPost.id});
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(widget.existingAd != null
-                  ? 'Annonce mise à jour avec succès!'
-                  : 'Annonce publiée avec succès!')),
-        );
-
-        Navigator.of(context).pop();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.existingAd != null
+                    ? 'Annonce mise à jour avec succès!'
+                    : 'Annonce publiée avec succès!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la publication: $e')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur lors de la publication: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Veuillez remplir tous les champs requis')),
+          content: Text('Veuillez remplir tous les champs requis'),
+          backgroundColor: Colors.orange,
+        ),
       );
     }
   }

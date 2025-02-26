@@ -519,11 +519,12 @@ class _PostWidgetState extends State<PostWidget>
         final commentsCount = postData['commentsCount'] ?? 0;
         final likes = postData['likes'] ?? 0;
         final views = postData['views'] ?? 0;
-        final shares = postData['sharesCount'] ?? 0; // Compteur de partages
+        final shares = postData['sharesCount'] ?? 0;
+        final likedBy = List<String>.from(postData['likedBy'] ?? []);
 
         return Consumer<UserModel>(
-          builder: (context, users, _) {
-            final isLiked = users.likedPosts.contains(widget.post.id);
+          builder: (context, userModel, _) {
+            final isLiked = likedBy.contains(widget.currentUserId);
             final isCurrentUser = widget.post is SharedPost &&
                 (widget.post as SharedPost).sharedBy == widget.currentUserId;
 
@@ -555,8 +556,9 @@ class _PostWidgetState extends State<PostWidget>
                           ),
                           onPressed: () async {
                             try {
-                              await widget.post
-                                  .toggleLike(widget.currentUserId);
+                              await Provider.of<UserModel>(context,
+                                      listen: false)
+                                  .handleLike(widget.post);
                             } catch (e) {
                               if (kDebugMode) {
                                 print('Erreur lors du like: $e');
@@ -576,7 +578,7 @@ class _PostWidgetState extends State<PostWidget>
                           IconButton(
                             icon: const Icon(Icons.share_outlined),
                             onPressed: () =>
-                                _showShareConfirmation(context, users),
+                                _showShareConfirmation(context, userModel),
                           ),
                           Text('$shares'),
                         ],

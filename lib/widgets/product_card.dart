@@ -16,8 +16,7 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mainVariant =
-        product.variants.isNotEmpty ? product.variants[0] : null;
+    final mainVariant = product.variants.firstOrNull;
     if (mainVariant == null) return const SizedBox();
 
     final activeDiscount = mainVariant.discount?.isValid() ?? false
@@ -32,156 +31,186 @@ class ProductCard extends StatelessWidget {
         : mainVariant.price;
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ModernProductDetailPage(product: product),
-          ),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ModernProductDetailPage(product: product),
+        ),
+      ),
       child: Container(
         width: width,
-        margin: const EdgeInsets.only(right: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 1,
-                    child: mainVariant.images.isNotEmpty
-                        ? Image.network(
-                            mainVariant.images[0],
-                            fit: BoxFit.cover,
-                          )
-                        : Container(
-                            color: Colors.grey[100],
-                            child: const Center(
-                              child: Icon(Icons.image_outlined,
-                                  size: 40, color: Colors.grey),
-                            ),
-                          ),
-                  ),
-                  if (hasDiscount)
-                    Positioned(
-                      top: 12,
-                      left: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '-${((1 - finalPrice / mainVariant.price) * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: _buildLikeButton(),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Text(
-                        product.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                      if (hasDiscount && product.variants.length > 1)
-                        Text(
-                          'à partir de ${finalPrice.toStringAsFixed(2)} €',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.red,
-                          ),
-                        )
-                      else if (hasDiscount)
-                        Text(
-                          '${finalPrice.toStringAsFixed(2)} €',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.red,
-                          ),
-                        )
-                      else if (product.variants.length > 1)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'À partir de',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${mainVariant.price.toStringAsFixed(2)} €',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Text(
-                          '${mainVariant.price.toStringAsFixed(2)} €',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      _buildCompanyInfo(context),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildImageSection(mainVariant, hasDiscount, finalPrice),
+            _buildInfoSection(mainVariant, hasDiscount, finalPrice),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCompanyInfo(BuildContext context) {
+  Widget _buildImageSection(
+    ProductVariant variant,
+    bool hasDiscount,
+    double finalPrice,
+  ) {
+    return Stack(
+      children: [
+        // Image principale
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: variant.images.isNotEmpty
+                ? Hero(
+                    tag: 'product_${product.id}',
+                    child: Image.network(
+                      variant.images[0],
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Container(
+                    color: Colors.grey[100],
+                    child: const Icon(
+                      Icons.image_outlined,
+                      size: 40,
+                      color: Colors.grey,
+                    ),
+                  ),
+          ),
+        ),
+        // Badge de réduction
+        if (hasDiscount)
+          Positioned(
+            top: 8,
+            left: 8,
+            child: _buildDiscountBadge(variant.price, finalPrice),
+          ),
+        // Bouton favori
+        Positioned(
+          top: 8,
+          right: 8,
+          child: _buildLikeButton(),
+        ),
+        // Badge options multiples
+        if (product.variants.length > 1)
+          Positioned(
+            bottom: 8,
+            left: 8,
+            child: _buildOptionsBadge(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildInfoSection(
+    ProductVariant variant,
+    bool hasDiscount,
+    double finalPrice,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        spacing: 5,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPriceRow(variant.price, finalPrice, hasDiscount),
+          const SizedBox(height: 4),
+          Text(
+            product.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.2,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 4),
+          _buildCompanyInfo(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscountBadge(double originalPrice, double finalPrice) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '-${((1 - finalPrice / originalPrice) * 100).toStringAsFixed(0)}%',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionsBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Text(
+        'Plusieurs options',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriceRow(
+      double originalPrice, double finalPrice, bool hasDiscount) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text(
+          '${finalPrice.toStringAsFixed(2)} €',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: hasDiscount ? Colors.red : Colors.black,
+          ),
+        ),
+        if (hasDiscount) ...[
+          const SizedBox(width: 4),
+          Text(
+            '${originalPrice.toStringAsFixed(2)} €',
+            style: TextStyle(
+              fontSize: 11,
+              decoration: TextDecoration.lineThrough,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCompanyInfo() {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('companys')
@@ -196,42 +225,29 @@ class ProductCard extends StatelessWidget {
           children: [
             if (company['logo'] != null)
               Container(
-                width: 20,
-                height: 20,
+                width: 16,
+                height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
+                  border: Border.all(color: Colors.grey[200]!),
                   image: DecorationImage(
                     image: NetworkImage(company['logo']),
                     fit: BoxFit.cover,
                   ),
                 ),
               ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Vendu par',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  Text(
-                    company['name'] ?? '',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              child: Text(
+                company['name'] ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              size: 16,
-              color: Colors.grey[400],
             ),
           ],
         );
@@ -245,18 +261,29 @@ class ProductCard extends StatelessWidget {
       builder: (context, snapshot) {
         final isLiked = snapshot.data ?? false;
 
-        return GestureDetector(
-          onTap: () => LikeService.toggleLike(product.id, context),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isLiked ? Icons.favorite : Icons.favorite_border,
-              size: 20,
-              color: isLiked ? Colors.red : Colors.grey[800],
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => LikeService.toggleLike(product.id, context),
+            borderRadius: BorderRadius.circular(50),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                isLiked ? Icons.favorite : Icons.favorite_border,
+                size: 18,
+                color: isLiked ? Colors.red : Colors.grey[800],
+              ),
             ),
           ),
         );

@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
+import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/cards/deals_express_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/location_filter.dart';
 
 class DealExpressPage extends StatefulWidget {
   const DealExpressPage({super.key});
@@ -18,6 +20,10 @@ class _DealExpressPageState extends State<DealExpressPage> {
   String _searchQuery = '';
   String _selectedCategory = 'Toutes';
   List<String> _categories = ['Toutes'];
+  double? _selectedLat;
+  double? _selectedLng;
+  double _selectedRadius = 5.0;
+  String _selectedAddress = '';
 
   @override
   void initState() {
@@ -37,6 +43,24 @@ class _DealExpressPageState extends State<DealExpressPage> {
     });
   }
 
+  void _showLocationFilterBottomSheet() async {
+    await LocationFilterBottomSheet.show(
+      context: context,
+      onLocationSelected: (lat, lng, radius, address) {
+        setState(() {
+          _selectedLat = lat;
+          _selectedLng = lng;
+          _selectedRadius = radius;
+          _selectedAddress = address;
+        });
+      },
+      currentLat: _selectedLat,
+      currentLng: _selectedLng,
+      currentRadius: _selectedRadius,
+      currentAddress: _selectedAddress,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,6 +68,13 @@ class _DealExpressPageState extends State<DealExpressPage> {
         title: 'Deal Express',
         align: Alignment.center,
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.location_on,
+              color: _selectedLat != null ? const Color(0xFF4B88DA) : null,
+            ),
+            onPressed: _showLocationFilterBottomSheet,
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterBottomSheet,
@@ -265,17 +296,35 @@ class _DealExpressPageState extends State<DealExpressPage> {
                   final companyName = companyData['name'] as String;
                   final companyCategorie = companyData['categorie'] as String;
                   final companyLogo = companyData['logo'] as String;
+                  final companyAddress =
+                      companyData['adress'] as Map<String, dynamic>;
+                  final companyLat = companyAddress['latitude'] as double;
+                  final companyLng = companyAddress['longitude'] as double;
 
-                  // Appliquer les filtres
+                  // Filtrer par catégorie
                   if (_selectedCategory != 'Toutes' &&
                       companyCategorie != _selectedCategory) {
                     return const SizedBox.shrink();
                   }
 
+                  // Filtrer par recherche
                   if (_searchQuery.isNotEmpty &&
                       !deal.title
                           .toLowerCase()
                           .contains(_searchQuery.toLowerCase())) {
+                    return const SizedBox.shrink();
+                  }
+
+                  // Filtrer par localisation
+                  if (_selectedLat != null &&
+                      _selectedLng != null &&
+                      !LocationUtils.isWithinRadius(
+                        _selectedLat!,
+                        _selectedLng!,
+                        companyLat,
+                        companyLng,
+                        _selectedRadius,
+                      )) {
                     return const SizedBox.shrink();
                   }
 
