@@ -180,7 +180,7 @@ class _UnifiedPaymentSuccessScreenState
   }
 
   Future<void> _handleServiceSuccess(String bookingId) async {
-    await _waitForDocument('booking', bookingId);
+    await _waitForDocument('bookings', bookingId);
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(

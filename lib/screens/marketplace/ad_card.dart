@@ -1,19 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
+import 'package:happy/classes/geo_point.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:provider/provider.dart';
 
 class AdCard extends StatelessWidget {
   final Ad ad;
   final VoidCallback onTap;
-  final VoidCallback onSaveTap;
+  final VoidCallback? onSaveTap;
+  final GeoPoint? userLocation;
 
   const AdCard({
     super.key,
     required this.ad,
     required this.onTap,
-    required this.onSaveTap,
+    this.onSaveTap,
+    this.userLocation,
   });
+
+  String _formatDistance(double distance) {
+    if (distance < 1) {
+      return '< 1 km';
+    } else if (distance < 10) {
+      return '${distance.toStringAsFixed(1)} km';
+    } else {
+      return '${distance.round()} km';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,23 +149,11 @@ class AdCard extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Icon(Icons.location_on_outlined,
-                                      size: 16, color: Colors.grey[600]),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      ad.additionalData['location'] ??
-                                          'Non spécifié',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
                                 ],
                               ),
+                              const SizedBox(height: 8),
+                              // Localisation
+                              _buildLocationInfo(),
                               const SizedBox(height: 8),
                               // Informations spécifiques selon le type
                               if (ad.additionalData['exchangeType'] ==
@@ -240,6 +241,34 @@ class AdCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLocationInfo() {
+    String locationText = ad.additionalData['cityName'] ?? 'Non spécifié';
+
+    if (userLocation != null && ad.additionalData['coordinates'] != null) {
+      final coordinates = ad.additionalData['coordinates'] as List<dynamic>;
+      final adLocation = GeoPoint(coordinates[1], coordinates[0]);
+      final distance = userLocation!.distanceTo(adLocation);
+      locationText += ' • ${_formatDistance(distance)}';
+    }
+
+    return Row(
+      children: [
+        Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            locationText,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:happy/classes/order.dart';
 import 'package:happy/screens/facture_page.dart';
 import 'package:happy/services/order_service.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:pdf/pdf.dart';
@@ -280,42 +282,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
-  Widget _buildOrderStatus(Orders order) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Statut de la commande',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                _getStatusIcon(order.status),
-                color: _getStatusColor(order.status),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _getStatusText(order.status),
-                style: TextStyle(
-                  color: _getStatusColor(order.status),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          if (order.status == 'en préparation') ...[
-            const SizedBox(height: 8),
-            const LinearProgressIndicator(value: 0.5),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildPickupInfo(Orders order) {
     return _buildSection(
       title: 'Informations de retrait',
@@ -505,43 +471,52 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  double _calculateTotalHT(List<OrderItem> items) {
-    return items.fold(
-      0,
-      (sum, item) =>
-          sum + (item.appliedPrice / (1 + (item.tva / 100))) * item.quantity,
-    );
-  }
-
-  double _calculateTotalVAT(List<OrderItem> items) {
-    return items.fold(
-      0,
-      (sum, item) {
-        double prixHT = item.appliedPrice / (1 + (item.tva / 100));
-        return sum + ((item.appliedPrice - prixHT) * item.quantity);
-      },
-    );
-  }
-
   Future<void> _generateInvoice(Orders order) async {
     final pdf = pw.Document();
 
-    // Charger le logo
-    final ByteData logoData = await rootBundle.load('assets/mon_logo.png');
-    final Uint8List logoBytes = logoData.buffer.asUint8List();
+    // Récupérer les informations de l'entreprise
+    final entrepriseDoc = await FirebaseFirestore.instance
+        .collection('companys')
+        .doc(order.entrepriseId)
+        .get();
+
+    if (!entrepriseDoc.exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Impossible de générer la facture : entreprise non trouvée')),
+      );
+      return;
+    }
+
+    final entrepriseData = entrepriseDoc.data()!;
 
     // Charger la police
     final fontData = await rootBundle.load("assets/Roboto-Regular.ttf");
     final ttf = pw.Font.ttf(fontData);
 
-    // Informations de la société
+    // Télécharger le logo de l'entreprise
+    Uint8List? logoBytes;
+    try {
+      if (entrepriseData['logo'] != null && entrepriseData['logo'].isNotEmpty) {
+        final response = await http.get(Uri.parse(entrepriseData['logo']));
+        if (response.statusCode == 200) {
+          logoBytes = response.bodyBytes;
+        }
+      }
+    } catch (e) {
+      print('Erreur lors du chargement du logo: $e');
+    }
+
+    // Informations de l'entreprise
     final companyInfo = {
-      'name': 'Votre Société',
-      'address': '123 Rue Principale, 75000 Paris',
-      'phone': '+33 1 23 45 67 89',
-      'email': 'contact@votresociete.com',
-      'website': 'www.votresociete.com',
-      'siret': '123 456 789 00012',
+      'name': entrepriseData['name'] ?? '',
+      'address':
+          '${entrepriseData['adresse'] ?? ''}, ${entrepriseData['code_postal'] ?? ''} ${entrepriseData['ville'] ?? ''}, ${entrepriseData['pays'] ?? ''}',
+      'phone': entrepriseData['phone'] ?? '',
+      'email': entrepriseData['email'] ?? '',
+      'website': entrepriseData['website'] ?? '',
+      'siret': entrepriseData['siret'] ?? '',
     };
 
     // Style de texte
@@ -556,48 +531,124 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // En-tête
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Image(pw.MemoryImage(logoBytes), width: 100),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+          return pw.Container(
+            padding: const pw.EdgeInsets.all(40),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // En-tête moderne
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    // Logo et infos entreprise
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        if (logoBytes != null)
+                          pw.Container(
+                            height: 60,
+                            child: pw.Image(pw.MemoryImage(logoBytes)),
+                          ),
+                        pw.SizedBox(height: 10),
+                        pw.Text(companyInfo['name']!,
+                            style: textStyle(
+                                size: 16, weight: pw.FontWeight.bold)),
+                        pw.Text('Tél: ${companyInfo['phone']}',
+                            style:
+                                textStyle(size: 9, color: PdfColors.grey700)),
+                        pw.Text('Email: ${companyInfo['email']}',
+                            style:
+                                textStyle(size: 9, color: PdfColors.grey700)),
+                        pw.Text('SIRET: ${companyInfo['siret']}',
+                            style:
+                                textStyle(size: 9, color: PdfColors.grey700)),
+                      ],
+                    ),
+                    // Numéro de facture et date
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(15),
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.blue50,
+                        borderRadius:
+                            pw.BorderRadius.all(pw.Radius.circular(10)),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text('FACTURE',
+                              style: textStyle(
+                                  size: 24,
+                                  weight: pw.FontWeight.bold,
+                                  color: PdfColors.blue800)),
+                          pw.SizedBox(height: 5),
+                          pw.Text('N° ${order.id.substring(0, 8)}',
+                              style: textStyle(size: 12)),
+                          pw.Text(
+                              'Date: ${DateFormat('dd/MM/yyyy').format(order.createdAt)}',
+                              style: textStyle(size: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 40),
+
+                // Adresse de retrait
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(5)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('FACTURE',
-                          style:
-                              textStyle(size: 24, weight: pw.FontWeight.bold)),
-                      pw.Text('N° ${order.id.substring(0, 8)}',
-                          style: textStyle()),
-                      pw.Text(
-                          'Date: ${DateFormat('dd/MM/yyyy').format(order.createdAt)}',
-                          style: textStyle()),
+                      pw.Text('Adresse de retrait',
+                          style: textStyle(weight: pw.FontWeight.bold)),
+                      pw.SizedBox(height: 5),
+                      pw.Text(order.pickupAddress, style: textStyle()),
                     ],
                   ),
-                ],
-              ),
-              pw.SizedBox(height: 20),
+                ),
+                pw.SizedBox(height: 20),
 
-              // Infos société
-              _buildCompanyInfoSection(companyInfo, textStyle),
-              pw.SizedBox(height: 20),
+                // Tableau des articles avec nouveau design
+                _buildModernItemsTable(order, textStyle),
+                pw.SizedBox(height: 20),
 
-              // Adresse de retrait
-              pw.Text('Adresse de retrait:',
-                  style: textStyle(weight: pw.FontWeight.bold)),
-              pw.Text(order.pickupAddress, style: textStyle()),
-              pw.SizedBox(height: 20),
+                // Totaux avec nouveau design
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.end,
+                  children: [
+                    pw.Container(
+                      width: 200,
+                      child: _buildModernTotalsSection(order, textStyle),
+                    ),
+                  ],
+                ),
 
-              // Tableau des articles
-              _buildItemsTable(order, textStyle),
-              pw.SizedBox(height: 20),
-
-              // Totaux
-              _buildTotalsSection(order, textStyle),
-            ],
+                // Pied de page
+                pw.Expanded(child: pw.SizedBox()),
+                pw.Container(
+                  padding: const pw.EdgeInsets.only(top: 20),
+                  decoration: const pw.BoxDecoration(
+                    border:
+                        pw.Border(top: pw.BorderSide(color: PdfColors.grey300)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.center,
+                    children: [
+                      pw.Text(
+                        'Merci de votre confiance !',
+                        style: textStyle(color: PdfColors.grey700),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -616,35 +667,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
-  pw.Widget _buildCompanyInfoSection(
-    Map<String, String> companyInfo,
-    pw.TextStyle Function({
-      double size,
-      pw.FontWeight weight,
-      PdfColor color,
-    }) textStyle,
-  ) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(10),
-      decoration: const pw.BoxDecoration(
-        color: PdfColors.grey200,
-        borderRadius: pw.BorderRadius.all(pw.Radius.circular(5)),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: companyInfo.entries.map((entry) {
-          return pw.Text(
-            '${entry.key == 'name' ? '' : '${entry.key}: '}${entry.value}',
-            style: entry.key == 'name'
-                ? textStyle(weight: pw.FontWeight.bold)
-                : textStyle(),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  pw.Widget _buildItemsTable(
+  pw.Widget _buildModernItemsTable(
     Orders order,
     pw.TextStyle Function({
       double size,
@@ -653,41 +676,59 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }) textStyle,
   ) {
     return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
+      border: const pw.TableBorder(
+        horizontalInside: pw.BorderSide(color: PdfColors.grey300),
+        bottom: pw.BorderSide(color: PdfColors.grey300),
+      ),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(3),
+        1: const pw.FlexColumnWidth(2),
+        2: const pw.FlexColumnWidth(1),
+        3: const pw.FlexColumnWidth(1.5),
+        4: const pw.FlexColumnWidth(1),
+        5: const pw.FlexColumnWidth(1.5),
+      },
       children: [
         pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          decoration: const pw.BoxDecoration(color: PdfColors.blue50),
           children: [
-            _buildTableCell('Article', textStyle(weight: pw.FontWeight.bold)),
-            _buildTableCell('Variante', textStyle(weight: pw.FontWeight.bold)),
-            _buildTableCell('Quantité', textStyle(weight: pw.FontWeight.bold)),
-            _buildTableCell(
-                'Prix unitaire HT', textStyle(weight: pw.FontWeight.bold)),
-            _buildTableCell('TVA', textStyle(weight: pw.FontWeight.bold)),
-            _buildTableCell(
-                'Prix unitaire TTC', textStyle(weight: pw.FontWeight.bold)),
-            _buildTableCell('Total TTC', textStyle(weight: pw.FontWeight.bold)),
+            _buildTableHeader('Article', textStyle),
+            _buildTableHeader('Variante', textStyle),
+            _buildTableHeader('Qté', textStyle),
+            _buildTableHeader('Prix unitaire', textStyle),
+            _buildTableHeader('TVA', textStyle),
+            _buildTableHeader('Total TTC', textStyle),
           ],
         ),
         ...order.items.map((item) {
-          final priceHT = item.appliedPrice / (1 + (item.tva / 100));
+          final priceHT = item.originalPrice / (1 + (item.tva / 100));
+          final priceTTC = item.originalPrice;
+          final reduction = item.originalPrice - item.appliedPrice;
+
           return pw.TableRow(
             children: [
-              _buildTableCell(item.name, textStyle()),
+              _buildTableCell(item.name, textStyle),
               _buildTableCell(
                 item.variantAttributes.entries
                     .map((e) => '${e.key}: ${e.value}')
                     .join('\n'),
-                textStyle(),
+                textStyle,
               ),
-              _buildTableCell(item.quantity.toString(), textStyle()),
-              _buildTableCell('${priceHT.toStringAsFixed(2)}€', textStyle()),
-              _buildTableCell('${item.tva}%', textStyle()),
+              _buildTableCell(item.quantity.toString(), textStyle),
               _buildTableCell(
-                  '${item.appliedPrice.toStringAsFixed(2)}€', textStyle()),
+                reduction > 0
+                    ? '${priceHT.toStringAsFixed(2)}€\n-${(reduction / (1 + (item.tva / 100))).toStringAsFixed(2)}€'
+                    : '${priceHT.toStringAsFixed(2)}€',
+                textStyle,
+                reduction > 0 ? PdfColors.green : null,
+              ),
+              _buildTableCell('${item.tva}%', textStyle),
               _buildTableCell(
-                '${(item.appliedPrice * item.quantity).toStringAsFixed(2)}€',
-                textStyle(),
+                reduction > 0
+                    ? '${(priceTTC * item.quantity).toStringAsFixed(2)}€\n-${(reduction * item.quantity).toStringAsFixed(2)}€'
+                    : '${(priceTTC * item.quantity).toStringAsFixed(2)}€',
+                textStyle,
+                reduction > 0 ? PdfColors.green : null,
               ),
             ],
           );
@@ -696,14 +737,41 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
-  pw.Widget _buildTableCell(String text, pw.TextStyle style) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(5),
-      child: pw.Text(text, style: style),
+  pw.Widget _buildTableHeader(
+      String text,
+      pw.TextStyle Function({
+        double size,
+        pw.FontWeight weight,
+        PdfColor color,
+      }) textStyle) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: textStyle(weight: pw.FontWeight.bold, color: PdfColors.blue800),
+      ),
     );
   }
 
-  pw.Widget _buildTotalsSection(
+  pw.Widget _buildTableCell(
+    String text,
+    pw.TextStyle Function({
+      double size,
+      pw.FontWeight weight,
+      PdfColor color,
+    }) textStyle, [
+    PdfColor? color,
+  ]) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: textStyle(color: color ?? PdfColors.black),
+      ),
+    );
+  }
+
+  pw.Widget _buildModernTotalsSection(
     Orders order,
     pw.TextStyle Function({
       double size,
@@ -714,30 +782,99 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     final totalHT = _calculateTotalHT(order.items);
     final totalTVA = _calculateTotalVAT(order.items);
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.end,
-      children: [
-        pw.Text('Total HT: ${totalHT.toStringAsFixed(2)}€', style: textStyle()),
-        if (order.totalDiscount > 0)
-          pw.Text(
-            'Réductions: -${order.totalDiscount.toStringAsFixed(2)}€',
-            style: textStyle(color: PdfColors.green),
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(15),
+      decoration: const pw.BoxDecoration(
+        color: PdfColors.grey100,
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(10)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          _buildTotalRow(
+              'Total HT:', '${totalHT.toStringAsFixed(2)}€', textStyle),
+          if (order.totalDiscount > 0)
+            _buildTotalRow(
+              'Réductions:',
+              '-${order.totalDiscount.toStringAsFixed(2)}€',
+              textStyle,
+              PdfColors.green,
+            ),
+          if (order.discountAmount != null)
+            _buildTotalRow(
+              'Code promo:',
+              '-${order.discountAmount!.toStringAsFixed(2)}€',
+              textStyle,
+              PdfColors.green,
+            ),
+          _buildTotalRow('TVA:', '${totalTVA.toStringAsFixed(2)}€', textStyle),
+          pw.Container(
+            margin: const pw.EdgeInsets.symmetric(vertical: 8),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300)),
+            ),
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 8),
+              child: _buildTotalRow(
+                'Total TTC:',
+                '${order.totalPrice.toStringAsFixed(2)}€',
+                textStyle,
+                PdfColors.blue800,
+                true,
+              ),
+            ),
           ),
-        if (order.discountAmount != null)
-          pw.Text(
-            'Code promo: -${order.discountAmount!.toStringAsFixed(2)}€',
-            style: textStyle(color: PdfColors.green),
-          ),
-        pw.Text(
-          'Total TVA: ${totalTVA.toStringAsFixed(2)}€',
-          style: textStyle(),
-        ),
-        pw.Divider(color: PdfColors.black),
-        pw.Text(
-          'Total TTC: ${order.totalPrice.toStringAsFixed(2)}€',
-          style: textStyle(weight: pw.FontWeight.bold, size: 12),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildTotalRow(
+    String label,
+    String value,
+    pw.TextStyle Function({
+      double size,
+      pw.FontWeight weight,
+      PdfColor color,
+    }) textStyle, [
+    PdfColor? color,
+    bool isBold = false,
+  ]) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label,
+              style: textStyle(
+                  weight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+          pw.Text(value,
+              style: textStyle(
+                  weight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                  color: color ?? PdfColors.black)),
+        ],
+      ),
+    );
+  }
+
+  double _calculateTotalHT(List<OrderItem> items) {
+    return items.fold(
+      0,
+      (sum, item) {
+        double priceHT = item.originalPrice / (1 + (item.tva / 100));
+        return sum + (priceHT * item.quantity);
+      },
+    );
+  }
+
+  double _calculateTotalVAT(List<OrderItem> items) {
+    return items.fold(
+      0,
+      (sum, item) {
+        double priceHT = item.originalPrice / (1 + (item.tva / 100));
+        double priceTTC = item.originalPrice;
+        return sum + ((priceTTC - priceHT) * item.quantity);
+      },
     );
   }
 

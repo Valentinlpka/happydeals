@@ -58,7 +58,7 @@ class CustomBottomNavBar extends StatelessWidget {
                 _buildNavItem(
                   icon: Icons.store_outlined,
                   activeIcon: Icons.store,
-                  label: 'Marketplace',
+                  label: 'Troc & Échanges',
                   index: 2,
                 ),
                 _buildMessageItem(

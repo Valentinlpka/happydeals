@@ -33,7 +33,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   late String currentUserId;
   final ScrollController _scrollController = ScrollController();
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   @override
   bool get wantKeepAlive => true; // Garde la page en vie
@@ -413,7 +413,9 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildContentList(List<CombinedItem> items) {
-    if (_isLoading && items.isEmpty) {
+    final homeProvider = Provider.of<HomeProvider>(context);
+
+    if (homeProvider.isLoading && items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     } else if (items.isEmpty) {
       return const Center(child: Text('Aucun élément trouvé'));
@@ -428,14 +430,45 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         itemCount: items.length + 1,
         itemBuilder: (context, index) {
           if (index == items.length) {
-            if (_isLoading) {
+            if (homeProvider.isLoading) {
               return const Padding(
                 padding: EdgeInsets.all(8.0),
                 child: Center(child: CircularProgressIndicator()),
               );
-            } else {
-              return const SizedBox.shrink();
+            } else if (!homeProvider.hasMoreData) {
+              return Container(
+                padding: const EdgeInsets.all(16.0),
+                child: Center(
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.check_circle_outline,
+                        size: 40,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Vous avez tout vu !',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Revenez plus tard pour voir plus de contenu',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
             }
+            return const SizedBox.shrink();
           }
           return RepaintBoundary(
             child: _buildItem(items[index]),
@@ -458,32 +491,20 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _loadMoreData() async {
-    if (_isLoading) return;
+    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+    final userProvider = Provider.of<UserModel>(context, listen: false);
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (homeProvider.isLoading || !homeProvider.hasMoreData) return;
 
-    try {
-      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-      final userProvider = Provider.of<UserModel>(context, listen: false);
+    final lastItem = homeProvider.currentFeedItems.isNotEmpty
+        ? homeProvider.currentFeedItems.last
+        : null;
 
-      final lastItem = homeProvider.currentFeedItems.isNotEmpty
-          ? homeProvider.currentFeedItems.last
-          : null;
-
-      await homeProvider.loadMoreUnifiedFeed(
-        userProvider.likedCompanies,
-        userProvider.followedUsers,
-        lastItem,
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    await homeProvider.loadMoreUnifiedFeed(
+      userProvider.likedCompanies,
+      userProvider.followedUsers,
+      lastItem,
+    );
   }
 
   Widget _buildItem(CombinedItem item) {

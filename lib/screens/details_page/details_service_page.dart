@@ -1,7 +1,6 @@
 // lib/pages/services/service_detail_page.dart
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/classes/availibility_rule.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/screens/service_payment.dart';
 import 'package:happy/services/service_service.dart';
@@ -24,11 +23,21 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   DateTime _selectedDate = DateTime.now();
   final ValueNotifier<DateTime?> _selectedTimeNotifier =
       ValueNotifier<DateTime?>(null);
+  String? _businessId;
 
-  // Ajouter ces variables pour le cache
-  List<DateTime>? _cachedTimeSlots;
-  DateTime? _cachedDate;
-  String? _cachedServiceId;
+  @override
+  void initState() {
+    super.initState();
+    _loadBusinessId();
+  }
+
+  Future<void> _loadBusinessId() async {
+    final service =
+        await _serviceService.getServiceById(widget.serviceId).first;
+    setState(() {
+      _businessId = service.professionalId;
+    });
+  }
 
   @override
   void dispose() {
@@ -36,7 +45,6 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     super.dispose();
   }
 
-  // Modifier le getter et setter pour _selectedTime
   DateTime? get _selectedTime => _selectedTimeNotifier.value;
   set _selectedTime(DateTime? value) {
     _selectedTimeNotifier.value = value;
@@ -333,104 +341,118 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   }
 
   Widget _buildTimeSlots(ServiceModel service) {
-    print('Début _buildTimeSlots pour service: ${service.id}');
+    if (_businessId == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return StreamBuilder<List<AvailabilityRuleModel>>(
-      stream: _bookingService.getServiceAvailabilityRules(service.id),
+    return FutureBuilder<Map<DateTime, int>>(
+      future: _bookingService.getAvailableTimeSlots(
+        _businessId!,
+        service.id,
+        _selectedDate,
+        service.duration,
+      ),
       builder: (context, snapshot) {
-        print('StreamBuilder state: ${snapshot.connectionState}');
-        print('StreamBuilder hasData: ${snapshot.hasData}');
-        print('StreamBuilder error: ${snapshot.error}');
-
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.data!.isEmpty) {
-          print('Aucune règle de disponibilité trouvée');
-          return const Text('Aucune disponibilité pour ce service');
-        }
-
-        final rule = snapshot.data!.first;
-        print(
-            'Règle trouvée: workDays=${rule.workDays}, startTime=${rule.startTime.hours}:${rule.startTime.minutes}');
-
-        // Vérifier si le jour sélectionné est travaillé
-        if (!rule.workDays.contains(_selectedDate.weekday)) {
-          _cachedTimeSlots = null;
-          return const Text('Ce jour n\'est pas travaillé');
-        }
-
-        // Vérifier si on doit recharger les créneaux
-        bool shouldReloadSlots = _cachedTimeSlots == null ||
-            _cachedDate != _selectedDate ||
-            _cachedServiceId != service.id;
-
-        print('Reload nécessaire: $shouldReloadSlots');
-
-        if (shouldReloadSlots) {
-          print('Chargement des créneaux pour la date: $_selectedDate');
-          return FutureBuilder<Map<DateTime, int>>(
-            future: _bookingService.getAvailableTimeSlots(
-              service.id,
-              _selectedDate,
-              service.duration,
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 8),
+                Text('Chargement des créneaux...'),
+              ],
             ),
-            builder: (context, snapshot) {
-              print('FutureBuilder state: ${snapshot.connectionState}');
-              print('FutureBuilder hasData: ${snapshot.hasData}');
-              print('FutureBuilder error: ${snapshot.error}');
-
-              if (!snapshot.hasData) {
-                return const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 8),
-                      Text('Chargement des créneaux...'),
-                    ],
-                  ),
-                );
-              }
-
-              // Convertir la Map en List pour la compatibilité
-              _cachedTimeSlots = snapshot.data!.keys.toList();
-              _cachedDate = _selectedDate;
-              _cachedServiceId = service.id;
-
-              print('Créneaux chargés: ${_cachedTimeSlots!.length}');
-              return _buildTimeSlotsGrid(_cachedTimeSlots!);
-            },
           );
         }
 
-        return _buildTimeSlotsGrid(_cachedTimeSlots!);
-      },
-    );
-  }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.event_busy, size: 48, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'Aucun créneau disponible pour cette date',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
-  Widget _buildTimeSlotsGrid(List<DateTime> timeSlots) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: timeSlots.map((time) {
-        return ValueListenableBuilder<DateTime?>(
-          valueListenable: _selectedTimeNotifier,
-          builder: (context, selectedTime, _) {
-            final isSelected = selectedTime?.isAtSameMomentAs(time) ?? false;
-            return FilterChip(
-              label: Text(DateFormat('HH:mm').format(time)),
-              selected: isSelected,
-              onSelected: (selected) {
-                _selectedTime = selected ? time : null;
-              },
-              backgroundColor: Colors.white,
-              disabledColor: Colors.grey[300],
-            );
-          },
+        final slots = snapshot.data!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Créneaux disponibles (${slots.length})',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: slots.entries.map((entry) {
+                final time = entry.key;
+                final availableCount = entry.value;
+                return ValueListenableBuilder<DateTime?>(
+                  valueListenable: _selectedTimeNotifier,
+                  builder: (context, selectedTime, _) {
+                    final isSelected =
+                        selectedTime?.isAtSameMomentAs(time) ?? false;
+                    return FilterChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(DateFormat('HH:mm').format(time)),
+                          if (availableCount > 1) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[100],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '$availableCount places',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue[900],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        _selectedTime = selected ? time : null;
+                      },
+                      backgroundColor: Colors.white,
+                      selectedColor: Colors.blue[100],
+                      checkmarkColor: Colors.blue[700],
+                      showCheckmark: false,
+                    );
+                  },
+                );
+              }).toList(),
+            ),
+          ],
         );
-      }).toList(),
+      },
     );
   }
 }

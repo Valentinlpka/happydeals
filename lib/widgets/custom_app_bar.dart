@@ -31,6 +31,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       child: SafeArea(
         bottom: false,
         child: AppBar(
+          automaticallyImplyLeading: true,
           elevation: 0,
           backgroundColor: Colors.transparent,
           titleSpacing: 0,

@@ -6,7 +6,6 @@ import 'package:happy/classes/ad.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_creation_page.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
-import 'package:happy/screens/marketplace/ad_type_selection_page.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 
 class MyAdsPage extends StatelessWidget {
@@ -23,6 +22,7 @@ class MyAdsPage extends StatelessWidget {
     }
 
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: const CustomAppBarBack(title: 'Mes annonces'),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -42,17 +42,38 @@ class MyAdsPage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.add_circle_outline,
-                      size: 64, color: Colors.grey),
+                  Icon(Icons.swap_horiz_outlined,
+                      size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Vous n\'avez pas encore d\'annonces',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  Text(
+                    'Vous n\'avez pas encore d\'annonces d\'échange',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () => _navigateToAdCreation(context),
-                    child: const Text('Créer une annonce'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[900],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Créer une annonce',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -62,7 +83,7 @@ class MyAdsPage extends StatelessWidget {
           return GridView.builder(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.72,
+              childAspectRatio: 0.55,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
             ),
@@ -94,8 +115,8 @@ class MyAdsPage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToAdCreation(context),
-        tooltip: 'Créer une annonce',
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.grey[900],
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -103,11 +124,9 @@ class MyAdsPage extends StatelessWidget {
   void _navigateToAdCreation(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const AdTypeSelectionScreen()),
+      MaterialPageRoute(builder: (context) => const AdCreationScreen()),
     );
   }
-
-  // ... Le reste du code reste inchangé ...
 
   void _showAdOptions(BuildContext context, Ad ad) {
     showModalBottomSheet(
@@ -118,7 +137,7 @@ class MyAdsPage extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.visibility),
+                leading: const Icon(Icons.visibility_outlined),
                 title: const Text('Voir l\'annonce'),
                 onTap: () {
                   Navigator.pop(context);
@@ -130,21 +149,20 @@ class MyAdsPage extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.edit),
+                leading: const Icon(Icons.edit_outlined),
                 title: const Text('Modifier l\'annonce'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          AdCreationScreen(adType: ad.adType, existingAd: ad),
+                      builder: (context) => AdCreationScreen(existingAd: ad),
                     ),
                   );
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete),
+                leading: const Icon(Icons.delete_outline),
                 title: const Text('Supprimer l\'annonce'),
                 onTap: () {
                   Navigator.pop(context);

@@ -59,8 +59,15 @@ class ProductCards extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 26,
-                  backgroundImage: NetworkImage(companyLogo),
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: const Color(0xFF3476B2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundImage: NetworkImage(companyLogo),
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Column(

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/availibility_rule.dart';
 import 'package:happy/classes/booking.dart';
 import 'package:happy/services/promo_test.dart';
+import 'package:intl/intl.dart';
 
 class BookingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -159,59 +160,167 @@ class BookingService {
   }
 
   Future<Map<DateTime, int>> getAvailableTimeSlots(
-      String serviceId, DateTime date, int duration) async {
+    String businessId,
+    String serviceId,
+    DateTime date,
+    int serviceDuration,
+  ) async {
     try {
       print(
-          'Début getAvailableTimeSlots pour serviceId: $serviceId, date: $date');
+          'Génération des créneaux pour le service $serviceId de cette societe $businessId à la date $date');
 
-      // Récupérer la règle de disponibilité du service
-      final rulesQuery = await _firestore
-          .collection('availabilityRules')
-          .where('serviceId', isEqualTo: serviceId)
-          .where('isActive', isEqualTo: true)
+      // 1. Récupérer le planning de l'entreprise
+      final scheduleDoc = await _firestore
+          .collection('businessSchedules')
+          .where('businessId', isEqualTo: businessId)
           .get();
 
-      if (rulesQuery.docs.isEmpty) return {};
-
-      // Récupérer tous les employés qui peuvent faire ce service
-      final employeesQuery = await _firestore
-          .collection('employees')
-          .where('services', arrayContains: serviceId)
-          .where('isActive', isEqualTo: true)
-          .get();
-
-      final totalEmployees = employeesQuery.docs.length;
-      if (totalEmployees == 0) return {};
-
-      // Générer tous les créneaux possibles
-      final rule = AvailabilityRuleModel.fromMap(rulesQuery.docs.first.data());
-      final possibleSlots = generateTimeSlotsForDay(rule, date, duration);
-
-      Map<DateTime, int> availableSlotsCount = {};
-
-      // Pour chaque créneau possible
-      for (var slot in possibleSlots) {
-        // Compter combien de réservations existent déjà pour ce créneau
-        final existingBookings = await _firestore
-            .collection('bookings')
-            .where('serviceId', isEqualTo: serviceId)
-            .where('bookingDateTime', isEqualTo: Timestamp.fromDate(slot))
-            .where('status', whereIn: ['confirmed', 'pending']).get();
-
-        final bookedCount = existingBookings.docs.length;
-        final availableCount = totalEmployees - bookedCount;
-
-        // Si il reste des places disponibles, ajouter le créneau
-        if (availableCount > 0) {
-          availableSlotsCount[slot] = availableCount;
-        }
+      if (scheduleDoc.docs.isEmpty) {
+        print('Aucun planning trouvé pour l\'entreprise');
+        return {};
       }
 
-      print('Créneaux disponibles: $availableSlotsCount');
-      return availableSlotsCount;
+      final schedule = scheduleDoc.docs.first.data();
+      final weekDay = date.weekday == 7 ? 0 : date.weekday;
+
+      // 2. Vérifier si le jour est travaillé
+      if (!schedule['workDays'].contains(weekDay)) {
+        print('Jour non travaillé');
+        return {};
+      }
+
+      // 3. Vérifier les exceptions
+      if (_isExceptionDay(date, schedule['exceptions'] ?? [])) {
+        print('Jour d\'exception');
+        return {};
+      }
+
+      // 4. Générer les créneaux disponibles
+      final openTime = _parseTimeString(schedule['openTime']);
+      final closeTime = _parseTimeString(schedule['closeTime']);
+      final simultaneousSlots = schedule['simultaneousSlots'] as int;
+
+      Map<DateTime, int> availableSlots = {};
+      DateTime currentSlot = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        openTime.hour,
+        openTime.minute,
+      );
+
+      final endTime = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        closeTime.hour,
+        closeTime.minute,
+      );
+      // 5. Vérifier chaque créneau
+      while (currentSlot
+          .add(Duration(minutes: serviceDuration))
+          .isBefore(endTime)) {
+        // Ignorer les créneaux passés pour aujourd'hui
+        if (date.day == DateTime.now().day &&
+            currentSlot.isBefore(DateTime.now())) {
+          currentSlot = currentSlot.add(Duration(minutes: serviceDuration));
+          continue;
+        }
+
+        // Vérifier si le créneau n'est pas pendant une pause
+        if (!_isInBreakTime(
+            currentSlot, schedule['breaks'] ?? [], serviceDuration)) {
+          final bookings = await _getExistingBookings(businessId, currentSlot);
+          final availableCount = simultaneousSlots - bookings;
+
+          if (availableCount > 0) {
+            availableSlots[currentSlot] = availableCount;
+          }
+        }
+
+        currentSlot = currentSlot.add(Duration(minutes: serviceDuration));
+      }
+
+      print('Créneaux générés: ${availableSlots.length}');
+      return availableSlots;
     } catch (e) {
-      print('Erreur: $e');
+      print('Erreur lors de la génération des créneaux: $e');
       return {};
+    }
+  }
+
+  bool _isExceptionDay(DateTime date, List<dynamic> exceptions) {
+    return exceptions.any((exception) {
+      final exceptionDate = (exception['date'] as Timestamp).toDate();
+      return exceptionDate.year == date.year &&
+          exceptionDate.month == date.month &&
+          exceptionDate.day == date.day;
+    });
+  }
+
+  DateTime _parseTimeString(String timeString) {
+    final parts = timeString.split(':');
+    return DateTime(
+      2000,
+      1,
+      1,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
+  }
+
+  bool _isInBreakTime(DateTime slot, List<dynamic> breaks, int duration) {
+    final slotTime = DateTime(2000, 1, 1, slot.hour, slot.minute);
+    final slotEnd = slotTime.add(Duration(minutes: duration));
+
+    return breaks.any((breakTime) {
+      final breakStart = _parseTimeString(breakTime['start']);
+      final breakEnd = _parseTimeString(breakTime['end']);
+
+      return (slotTime.isAtSameMomentAs(breakStart) ||
+              slotTime.isAfter(breakStart) && slotTime.isBefore(breakEnd)) ||
+          (slotEnd.isAfter(breakStart) && slotEnd.isBefore(breakEnd)) ||
+          (slotTime.isBefore(breakStart) && slotEnd.isAfter(breakEnd));
+    });
+  }
+
+  Future<int> _getExistingBookings(String businessId, DateTime slot) async {
+    try {
+      // 1. D'abord, récupérer tous les services de l'entreprise
+      final servicesQuery = await _firestore
+          .collection('services')
+          .where('professionalId', isEqualTo: businessId)
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      final serviceIds = servicesQuery.docs.map((doc) => doc.id).toList();
+
+      // Si aucun service n'est trouvé, retourner 0
+      if (serviceIds.isEmpty) {
+        print('Aucun service actif trouvé pour l\'entreprise $businessId');
+        return 0;
+      }
+
+      // 2. Vérifier les réservations pour tous les services de l'entreprise
+      final bookings = await _firestore
+          .collection('bookings')
+          .where('serviceId', whereIn: serviceIds)
+          .where('bookingDateTime', isEqualTo: Timestamp.fromDate(slot))
+          .get();
+      print(
+          'Réservations trouvées pour le créneau ${DateFormat('HH:mm').format(slot)}: ${bookings.docs.length}');
+
+      // Logs détaillés pour le debugging
+      print('Services trouvés: ${serviceIds.length}');
+      print('IDs des services: $serviceIds');
+
+      return bookings.docs.length;
+    } catch (e) {
+      print('Erreur lors de la vérification des réservations existantes: $e');
+      if (e is AssertionError) {
+        print('Détails de l\'erreur d\'assertion: ${e.message}');
+      }
+      return 0;
     }
   }
 

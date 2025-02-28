@@ -12,7 +12,8 @@ class AdTypeSelectionScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios_new,
+              color: Colors.black87, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -25,46 +26,23 @@ class AdTypeSelectionScreen extends StatelessWidget {
               children: [
                 const SizedBox(height: 20),
                 Text(
-                  'Que souhaitez-vous',
+                  'Proposer un échange',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                 ),
+                const SizedBox(height: 12),
                 Text(
-                  "vendre aujourd'hui ?",
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
+                  'Échangez vos objets avec la communauté',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    height: 1.5,
+                  ),
                 ),
                 const SizedBox(height: 32),
-                _buildAdTypeCard(
-                  context,
-                  'Article à vendre',
-                  'Parfait pour vendre vos objets, vêtements, électronique...',
-                  Icons.shopping_bag_outlined,
-                  const Color(0xFF4B88DA),
-                  () => _navigateToAdCreation(context, 'article'),
-                ),
-                const SizedBox(height: 16),
-                _buildAdTypeCard(
-                  context,
-                  'Véhicule',
-                  'Vendez votre voiture, moto, vélo ou tout autre véhicule',
-                  Icons.directions_car_outlined,
-                  const Color(0xFF50C878),
-                  () => _navigateToAdCreation(context, 'vehicle'),
-                ),
-                const SizedBox(height: 16),
-                _buildAdTypeCard(
-                  context,
-                  'Troc et Échange',
-                  "Échangez vos biens contre d'autres articles qui vous intéressent",
-                  Icons.swap_horiz_outlined,
-                  const Color(0xFFFFA500),
-                  () => _navigateToAdCreation(context, 'exchange'),
-                ),
+                _buildExchangeCard(context),
               ],
             ),
           ),
@@ -73,13 +51,12 @@ class AdTypeSelectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAdTypeCard(BuildContext context, String title,
-      String description, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildExchangeCard(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -89,52 +66,61 @@ class AdTypeSelectionScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: onTap,
+          onTap: () => _navigateToAdCreation(context),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Row(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    icon,
-                    size: 24,
-                    color: color,
+                    Icons.swap_horiz_outlined,
+                    size: 32,
+                    color: Colors.grey[900],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 20),
+                const Text(
+                  'Créer une annonce d\'échange',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey[400],
+                const SizedBox(height: 8),
+                Text(
+                  'Proposez vos objets à échanger et découvrez ce que les autres membres peuvent vous offrir en retour.',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.grey[600],
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Text(
+                      'Commencer',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[900],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: 20,
+                      color: Colors.grey[900],
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -144,10 +130,10 @@ class AdTypeSelectionScreen extends StatelessWidget {
     );
   }
 
-  void _navigateToAdCreation(BuildContext context, String adType) {
+  void _navigateToAdCreation(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => AdCreationScreen(adType: adType),
+        builder: (context) => const AdCreationScreen(),
       ),
     );
   }

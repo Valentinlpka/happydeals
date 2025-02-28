@@ -28,6 +28,7 @@ class _AdDetailPageState extends State<AdDetailPage> {
       appBar: AppBar(
         backgroundColor: Colors.grey[50],
         elevation: 0,
+        title: Text(widget.ad.title),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: () => Navigator.pop(context),

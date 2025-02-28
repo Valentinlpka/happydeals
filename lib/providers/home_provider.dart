@@ -27,6 +27,7 @@ class HomeProvider extends ChangeNotifier {
   static const int _pageSize = 10;
   DocumentSnapshot? _lastDocument;
   bool _hasMoreData = true;
+  bool get hasMoreData => _hasMoreData;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -101,6 +102,8 @@ class HomeProvider extends ChangeNotifier {
     if (!_hasMoreData || _isLoading) return [];
 
     _isLoading = true;
+    notifyListeners();
+
     try {
       if (lastItem?.type == 'post') {
         final lastPostData = lastItem?.item as Map<String, dynamic>;
@@ -144,11 +147,16 @@ class HomeProvider extends ChangeNotifier {
 
         if (allNewItems.isEmpty) {
           _hasMoreData = false;
+          notifyListeners();
           return [];
         }
 
         // Ne retourner que le nombre demandé d'éléments les plus récents
         final newItems = allNewItems.take(limit).toList();
+
+        if (newItems.length < limit) {
+          _hasMoreData = false;
+        }
 
         _currentFeedItems.addAll(newItems);
         _feedController.add(_currentFeedItems);
@@ -161,6 +169,7 @@ class HomeProvider extends ChangeNotifier {
       return [];
     } finally {
       _isLoading = false;
+      notifyListeners();
     }
   }
 

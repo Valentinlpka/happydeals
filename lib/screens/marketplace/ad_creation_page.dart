@@ -12,10 +12,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 class AdCreationScreen extends StatefulWidget {
-  final String adType;
   final Ad? existingAd;
 
-  const AdCreationScreen({super.key, required this.adType, this.existingAd});
+  const AdCreationScreen({super.key, this.existingAd});
 
   @override
   _AdCreationScreenState createState() => _AdCreationScreenState();
@@ -35,11 +34,16 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: Colors.black87,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -49,19 +53,21 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
         ),
         centerTitle: true,
       ),
       body: _form,
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
+              offset: const Offset(0, -5),
             ),
           ],
         ),
@@ -69,19 +75,22 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
           child: ElevatedButton(
             onPressed: _submitForm,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[700],
+              backgroundColor: Colors.grey[900],
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              elevation: 0,
             ),
             child: Text(
               widget.existingAd != null
-                  ? 'Mettre à jour'
+                  ? 'Mettre à jour l\'annonce'
                   : 'Publier l\'annonce',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
               ),
             ),
           ),
