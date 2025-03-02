@@ -82,6 +82,7 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
             'dealId': widget.metadata['dealId'],
             'status': 'pending',
             'amount': widget.amount / 100,
+            'tva': widget.metadata['tva'],
             'metadata': widget.metadata,
             'createdAt': FieldValue.serverTimestamp(),
           });
@@ -100,8 +101,20 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
             'bookingDateTime': widget.metadata['bookingDateTime'],
             'professionalId': widget.metadata['professionalId'],
             'amount': widget.amount / 100,
+            'tva': widget.metadata['tva'],
+            'priceTTC': widget.metadata['priceTTC'],
+            'priceHT': widget.metadata['priceHT'],
             'status': 'pending',
             'createdAt': FieldValue.serverTimestamp(),
+            'hasPromotion': widget.metadata['hasPromotion'] ?? false,
+            'promotionDetails': widget.metadata['promotionDetails'],
+            'originalPrice': widget.metadata['originalPrice'],
+            'finalPrice': widget.metadata['finalPrice'],
+            'discount': widget.metadata['discount'],
+            if (widget.metadata['promoCode'] != null) ...<String, dynamic>{
+              'promoCode': widget.metadata['promoCode'],
+              'promoDiscount': widget.metadata['promoDiscount'],
+            },
           });
           break;
       }

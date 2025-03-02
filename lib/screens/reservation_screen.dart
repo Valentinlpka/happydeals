@@ -61,7 +61,6 @@ class _ReservationScreenState extends State<ReservationScreen> {
           }
         });
       }
-    } catch (e) {
     } finally {
       setState(() => isLoading = false);
     }
@@ -107,6 +106,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
             metadata: {
               'reservationId': _reservationId,
               'price': widget.deal.price,
+              'tva': widget.deal.tva,
               'basketType': widget.deal.basketType,
               'quantity': '1',
               'postId': widget.deal.id,

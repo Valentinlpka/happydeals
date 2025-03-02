@@ -56,6 +56,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               align: Alignment.center,
               actions: [
                 IconButton(
+                  icon: const Icon(Icons.home),
+                  onPressed: () => Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/home', (route) => false),
+                  tooltip: 'Retour à l\'accueil',
+                ),
+                IconButton(
                   icon: const Icon(Icons.download, color: Colors.black),
                   onPressed: () => _generateInvoice(order),
                 ),

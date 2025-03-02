@@ -1,5 +1,6 @@
 // lib/pages/services/service_detail_page.dart
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/screens/service_payment.dart';
@@ -70,6 +71,45 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildImageCarousel(service),
+                    if (service.hasActivePromotion)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red[100]!),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Offre Spéciale !',
+                              style: TextStyle(
+                                color: Colors.red[700],
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Économisez ${service.discount!['value']}${service.discount!['type'] == 'percentage' ? '%' : '€'} sur ce service',
+                              style: TextStyle(
+                                color: Colors.red[700],
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Valable jusqu\'au ${DateFormat('dd/MM/yyyy').format((service.discount!['endDate'] as Timestamp).toDate())}',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     _buildServiceInfo(service),
                     _buildAvailabilitySection(service),
                   ],
@@ -133,13 +173,39 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       children: [
                         const Text('Total',
                             style: TextStyle(color: Colors.grey)),
-                        Text(
-                          '${service.price.toStringAsFixed(2)} €',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                        if (service.hasActivePromotion) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${service.finalPrice.toStringAsFixed(2)} €',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  '${service.price.toStringAsFixed(2)} €',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                        ] else
+                          Text(
+                            '${service.price.toStringAsFixed(2)} €',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -231,12 +297,73 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
               const SizedBox(width: 16),
               const Icon(Icons.euro, size: 20, color: Colors.grey),
               const SizedBox(width: 8),
-              Text(
-                '${service.price.toStringAsFixed(2)} €',
-                style: const TextStyle(color: Colors.grey),
-              ),
+              if (service.hasActivePromotion) ...[
+                Text(
+                  '${service.price.toStringAsFixed(2)} €',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${service.finalPrice.toStringAsFixed(2)} €',
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '-${service.discount!['value']}${service.discount!['type'] == 'percentage' ? '%' : '€'}',
+                    style: TextStyle(
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ] else
+                Text(
+                  '${service.price.toStringAsFixed(2)} €',
+                  style: const TextStyle(color: Colors.grey),
+                ),
             ],
           ),
+          if (service.hasActivePromotion) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.access_time, size: 16, color: Colors.red[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Promotion valable jusqu\'au ${DateFormat('dd/MM/yyyy').format((service.discount!['endDate'] as Timestamp).toDate())}',
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Text(
             'Description',

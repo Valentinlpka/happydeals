@@ -217,6 +217,9 @@ class CartScreen extends StatelessWidget {
                                   fontSize: 12,
                                 ),
                               ),
+                              Text(
+                                'TVA: ${item.tva.toStringAsFixed(2)} %',
+                              ),
                               if (hasDiscount)
                                 Text(
                                   '${item.variant.price.toStringAsFixed(2)} €',

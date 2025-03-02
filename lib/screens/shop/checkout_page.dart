@@ -432,6 +432,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             'name': item.product.name,
                             'variantAttributes': item.variant.attributes,
                             'quantity': item.quantity,
+                            'tva': item.tva,
                             'appliedPrice': item.appliedPrice,
                             'originalPrice': item.variant.price,
                             'image': item.variant.images.isNotEmpty

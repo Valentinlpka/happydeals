@@ -353,6 +353,15 @@ class _UnifiedPaymentSuccessScreenState
         appBar: AppBar(
           title: const Text('Confirmation'),
           automaticallyImplyLeading: !_isLoading,
+          actions: [
+            if (!_isLoading)
+              IconButton(
+                icon: const Icon(Icons.home),
+                onPressed: () =>
+                    Navigator.of(context).pushReplacementNamed('/home'),
+                tooltip: 'Retour à l\'accueil',
+              ),
+          ],
         ),
         body: SafeArea(
           child: Padding(

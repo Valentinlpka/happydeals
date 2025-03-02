@@ -32,7 +32,7 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
   @override
   void initState() {
     super.initState();
-    _finalPrice = widget.service.price;
+    _finalPrice = widget.service.finalPrice;
     _generateOrderId();
     _fetchCompanyAddress();
   }
@@ -131,6 +131,10 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                       'amount': (_finalPrice * 100).round().toString(),
                       'serviceId': widget.service.id,
                       'duration': widget.service.duration,
+                      "priceTTC": widget.service.price,
+                      "tva": widget.service.tva,
+                      "priceHT": widget.service.price /
+                          (1 + (widget.service.tva / 100)),
                       'serviceName': widget.service.name,
                       'bookingDateTime': widget.bookingDateTime
                           .toUtc()
@@ -197,9 +201,26 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
             ),
             const Divider(height: 32),
             _buildSummaryRow(
-              'Prix',
+              'Prix initial',
               '${widget.service.price.toStringAsFixed(2)} €',
             ),
+            if (widget.service.hasActivePromotion)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Promotion (${widget.service.discount!['value']}${widget.service.discount!['type'] == 'percentage' ? '%' : '€'})',
+                    style: TextStyle(color: Colors.red[700]),
+                  ),
+                  Text(
+                    '-${(widget.service.price - widget.service.finalPrice).toStringAsFixed(2)} €',
+                    style: TextStyle(
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             if (_promoCode != null) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -229,7 +250,7 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                     ],
                   ),
                   Text(
-                    '-${(widget.service.price - _finalPrice).toStringAsFixed(2)} €',
+                    '-${(widget.service.finalPrice - _finalPrice).toStringAsFixed(2)} €',
                     style: TextStyle(
                       color: Colors.red[700],
                       fontWeight: FontWeight.w500,

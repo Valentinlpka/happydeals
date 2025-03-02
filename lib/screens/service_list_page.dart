@@ -790,6 +790,29 @@ class _ServiceListPageState extends State<ServiceListPage> {
                             ),
                           ),
                   ),
+                  if (service.hasActivePromotion)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red[700],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '-${service.discount!['value']}${service.discount!['type'] == 'percentage' ? '%' : '€'}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   Positioned(
                     bottom: 8,
                     right: 8,
@@ -831,13 +854,36 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${service.price.toStringAsFixed(2)}€',
-                    style: TextStyle(
-                      color: Colors.blue[700],
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
+                  Row(
+                    children: [
+                      if (service.hasActivePromotion) ...[
+                        Text(
+                          '${service.price.toStringAsFixed(2)}€',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${service.finalPrice.toStringAsFixed(2)}€',
+                          style: TextStyle(
+                            color: Colors.red[700],
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ] else
+                        Text(
+                          '${service.price.toStringAsFixed(2)}€',
+                          style: TextStyle(
+                            color: Colors.blue[700],
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

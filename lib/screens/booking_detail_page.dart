@@ -51,6 +51,14 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
             return CustomAppBar(
               title: 'Réservation #${widget.bookingId.substring(0, 8)}',
               align: Alignment.center,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.home),
+                  onPressed: () => Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/home', (route) => false),
+                  tooltip: 'Retour à l\'accueil',
+                ),
+              ],
             );
           },
         ),

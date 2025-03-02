@@ -5,6 +5,7 @@ class ServiceModel {
   final String name;
   final String description;
   final double price;
+  final double tva;
   final int duration;
   final String professionalId;
   final List<String> images;
@@ -13,12 +14,14 @@ class ServiceModel {
   final String stripePriceId;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final Map<String, dynamic>? discount;
 
   ServiceModel({
     required this.id,
     required this.name,
     required this.description,
     required this.price,
+    required this.tva,
     required this.duration,
     required this.professionalId,
     required this.images,
@@ -27,7 +30,31 @@ class ServiceModel {
     required this.stripePriceId,
     required this.createdAt,
     required this.updatedAt,
+    this.discount,
   });
+
+  bool get hasActivePromotion {
+    if (discount == null) return false;
+
+    final startDate = (discount!['startDate'] as Timestamp).toDate();
+    final endDate = (discount!['endDate'] as Timestamp).toDate();
+    final isActive = discount!['isActive'] as bool;
+
+    return isActive &&
+        DateTime.now().isAfter(startDate) &&
+        DateTime.now().isBefore(endDate);
+  }
+
+  double get finalPrice {
+    if (hasActivePromotion) {
+      if (discount!['type'] == 'percentage') {
+        return price * (1 - (discount!['value'] as num) / 100);
+      } else if (discount!['type'] == 'fixed') {
+        return price - (discount!['value'] as num);
+      }
+    }
+    return price;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -36,6 +63,7 @@ class ServiceModel {
       'description': description,
       'price': price,
       'duration': duration,
+      'tva': tva,
       'professionalId': professionalId,
       'images': images,
       'isActive': isActive,
@@ -43,6 +71,7 @@ class ServiceModel {
       'stripePriceId': stripePriceId,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'discount': discount,
     };
   }
 
@@ -50,6 +79,7 @@ class ServiceModel {
     return ServiceModel(
       id: map['id'] ?? '',
       name: map['name'] ?? '',
+      tva: map['tva'] ?? 0,
       description: map['description'] ?? '',
       price: (map['price'] ?? 0).toDouble(),
       duration: map['duration'] ?? 30,
@@ -60,6 +90,7 @@ class ServiceModel {
       stripePriceId: map['stripePriceId'] ?? '',
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      discount: map['discount'] as Map<String, dynamic>?,
     );
   }
 

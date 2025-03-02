@@ -1965,83 +1965,6 @@ function combineDateTime(date, time) {
   );
 }
 
-// Fonction utilitaire pour vérifier la disponibilité
-async function checkAvailability(serviceId, bookingDateTime) {
-  try {
-    const date = new Date(bookingDateTime);
-
-    // Récupérer la règle de disponibilité
-    const rulesSnapshot = await admin
-      .firestore()
-      .collection("availabilityRules")
-      .where("serviceId", "==", serviceId)
-      .where("isActive", "==", true)
-      .get();
-
-    if (rulesSnapshot.empty) {
-      return false;
-    }
-
-    const rule = rulesSnapshot.docs[0].data();
-
-    // Vérifier si c'est un jour travaillé
-    if (!rule.workDays.includes(date.getDay() || 7)) {
-      return false;
-    }
-
-    // Vérifier les dates exceptionnelles
-    const isExceptionalDate = rule.exceptionalClosedDates.some(
-      (closedDate) => closedDate.toDate().toDateString() === date.toDateString()
-    );
-    if (isExceptionalDate) {
-      return false;
-    }
-
-    // Vérifier l'heure
-    const hour = date.getHours();
-    const minutes = date.getMinutes();
-
-    if (
-      hour < rule.startTime.hours ||
-      (hour === rule.startTime.hours && minutes < rule.startTime.minutes) ||
-      hour > rule.endTime.hours ||
-      (hour === rule.endTime.hours && minutes > rule.endTime.minutes)
-    ) {
-      return false;
-    }
-
-    // Vérifier les pauses
-    const isInBreak = rule.breakTimes.some((breakTime) => {
-      const breakStart = breakTime.start;
-      const breakEnd = breakTime.end;
-
-      return (
-        (hour > breakStart.hours ||
-          (hour === breakStart.hours && minutes >= breakStart.minutes)) &&
-        (hour < breakEnd.hours ||
-          (hour === breakEnd.hours && minutes <= breakEnd.minutes))
-      );
-    });
-    if (isInBreak) {
-      return false;
-    }
-
-    // Vérifier s'il n'y a pas déjà une réservation
-    const bookingsSnapshot = await admin
-      .firestore()
-      .collection("bookings")
-      .where("serviceId", "==", serviceId)
-      .where("bookingDateTime", "==", admin.firestore.Timestamp.fromDate(date))
-      .where("status", "in", ["confirmed", "pending"])
-      .get();
-
-    return bookingsSnapshot.empty;
-  } catch (error) {
-    console.error("Error checking availability:", error);
-    return false;
-  }
-}
-
 // Fonction permettant de créer un lien de paiement pour tous les types
 exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -2054,10 +1977,50 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
   try {
     const { type, amount, metadata, successUrl, cancelUrl, isWeb } = data;
 
+    // Récupérer les informations du client
+    const customerSnapshot = await admin
+      .firestore()
+      .collection("users")
+      .doc(context.auth.uid)
+      .get();
+
+    if (!customerSnapshot.exists) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Utilisateur non trouvé."
+      );
+    }
+
+    const customerData = customerSnapshot.data();
+
+    // Récupérer ou créer le client Stripe
+    let stripeCustomerId = customerData.stripeCustomerId;
+    if (!stripeCustomerId) {
+      // Créer un nouveau client Stripe
+      const stripeCustomer = await stripe.customers.create({
+        email: customerData.email,
+        name: `${customerData.firstName} ${customerData.lastName}`,
+        metadata: {
+          firebaseUID: context.auth.uid,
+        },
+      });
+
+      stripeCustomerId = stripeCustomer.id;
+
+      // Mettre à jour l'utilisateur avec son ID Stripe
+      await admin.firestore().collection("users").doc(context.auth.uid).update({
+        stripeCustomerId: stripeCustomerId,
+      });
+    }
+
     // Préparer les metadata
-    let processedMetadata = {};
-    Object.keys(metadata).forEach((key) => {
-      processedMetadata[key] = String(metadata[key] || "");
+    let processedMetadata = {
+      customerEmail: customerData.email,
+      customerName: `${customerData.firstName} ${customerData.lastName}`,
+      ...metadata,
+    };
+    Object.keys(processedMetadata).forEach((key) => {
+      processedMetadata[key] = String(processedMetadata[key] || "");
     });
 
     if (isWeb) {
@@ -2074,10 +2037,11 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
 
       // Créer une session Checkout pour le web
       const session = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
         payment_method_types: ["card"],
         mode: "payment",
-        success_url: finalSuccessUrl.replace("#/", ""), // Enlever le hash
-        cancel_url: cancelUrl.replace("#/", ""), // Enlever le hash
+        success_url: finalSuccessUrl.replace("#/", ""),
+        cancel_url: cancelUrl.replace("#/", ""),
         line_items: [
           {
             price_data: {
@@ -2086,7 +2050,7 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
               product_data: {
                 name:
                   type === "order"
-                    ? "Commande Happy Deals"
+                    ? "Commande Up !"
                     : type === "express_deal"
                     ? "Panier anti-gaspi"
                     : "Réservation de service",
@@ -2517,6 +2481,7 @@ async function handleExpressDealPayment(paymentData) {
       price: parseFloat(metadata.price || "0"),
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       companyId: metadata.companyId,
+      tva: parseFloat(metadata.tva || "0"),
       isValidated: false,
       basketType: metadata.basketType,
       companyName: metadata.companyName,
@@ -2670,6 +2635,9 @@ async function handleServicePayment(paymentData) {
     bookingDateTime: timestamp,
     amount: parseFloat(metadata.amount || "0"),
     serviceName: metadata.serviceName,
+    tva: parseFloat(metadata.tva || "0"),
+    priceTTC: parseFloat(metadata.priceTTC || "0"),
+    priceHT: parseFloat(metadata.priceHT || "0"),
     duration: metadata.duration,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     adresse: metadata.adresse,
@@ -2956,98 +2924,6 @@ function getBaseEmailTemplate(content) {
       </body>
     </html>
   `;
-}
-
-// Template pour la confirmation de service (client)
-function generateServiceCustomerEmail(orderData, customer) {
-  const content = `
-    <h1>🎉 Réservation confirmée !</h1>
-    <p>Bonjour ${customer.firstName},</p>
-    <p>Super ! Votre réservation a été confirmée avec succès.</p>
-    
-    <div class="details-card">
-      <h2>📅 Détails de votre réservation</h2>
-      <ul>
-        <li><strong>Service :</strong> ${orderData.serviceName}</li>
-        <li><strong>Date :</strong> ${new Date(
-          orderData.bookingDateTime
-        ).toLocaleString("fr-FR", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}</li>
-        <li><strong>Durée :</strong> ${orderData.duration} minutes</li>
-        <li><strong>Adresse :</strong> ${orderData.adresse}</li>
-      </ul>
-      <div class="price">
-        ${(orderData.amount / 100).toFixed(2)}€
-      </div>
-    </div>
-
-    <div class="highlight">
-      <p>🎯 Prochaine étape : Rendez-vous à l'adresse indiquée à l'heure de votre réservation.</p>
-    </div>
-
-    <a href="https://votre-site.com/reservations/${
-      orderData.id
-    }" class="button">
-      Voir ma réservation
-    </a>
-
-    <p>Des questions ? Nous sommes là pour vous aider !</p>
-  `;
-
-  return getBaseEmailTemplate(content);
-}
-
-// Template pour la notification au professionnel
-function generateServiceProfessionalEmail(orderData, customer) {
-  const content = `
-    <h1>💫 Nouvelle réservation !</h1>
-    <p>Une nouvelle réservation vient d'être confirmée.</p>
-    
-    <div class="details-card">
-      <h2>👤 Informations client</h2>
-      <ul>
-        <li><strong>Nom :</strong> ${customer.firstName} ${
-    customer.lastName
-  }</li>
-        <li><strong>Email :</strong> ${customer.email}</li>
-      </ul>
-    </div>
-
-    <div class="details-card">
-      <h2>📝 Détails de la réservation</h2>
-      <ul>
-        <li><strong>Service :</strong> ${orderData.serviceName}</li>
-        <li><strong>Date :</strong> ${new Date(
-          orderData.bookingDateTime
-        ).toLocaleString("fr-FR", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}</li>
-        <li><strong>Durée :</strong> ${orderData.duration} minutes</li>
-      </ul>
-      <div class="price">
-        ${(orderData.amount / 100).toFixed(2)}€
-      </div>
-    </div>
-
-    <a href="https://votre-site.com/pro/reservations/${
-      orderData.id
-    }" class="button">
-      Gérer la réservation
-    </a>
-  `;
-
-  return getBaseEmailTemplate(content);
 }
 
 // Template pour la commande classique (client)

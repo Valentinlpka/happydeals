@@ -10,6 +10,7 @@ class ExpressDeal extends Post {
   final String content;
   final int basketCount;
   final String basketType;
+  final double tva;
   final int price;
   int availableBaskets;
   final String stripeAccountId;
@@ -19,6 +20,7 @@ class ExpressDeal extends Post {
     required super.timestamp,
     required this.title,
     required this.basketType,
+    required this.tva,
     required this.searchText,
     required this.pickupTimes,
     required this.content,
@@ -48,6 +50,7 @@ class ExpressDeal extends Post {
               .toList() ??
           [],
       content: data['content'],
+      tva: data['tva'],
       companyId: data['companyId'],
       basketCount: data['basketCount'],
       basketType: data['basketType'],
@@ -71,6 +74,7 @@ class ExpressDeal extends Post {
     map.addAll({
       'title': title,
       'searchText': searchText,
+      'tva': tva,
       'pickupTimes':
           pickupTimes.map((time) => Timestamp.fromDate(time)).toList(),
       'content': content,
@@ -105,6 +109,7 @@ class ExpressDeal extends Post {
                 'reservationTime': FieldValue.serverTimestamp(),
                 'stripeAccountId': stripeAccountId,
                 'validationCode': validationCode,
+                'tva': tva,
                 'isValidated': false,
                 'selectedPickupTime': Timestamp.fromDate(selectedPickupTime),
               });

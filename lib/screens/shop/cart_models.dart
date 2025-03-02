@@ -40,6 +40,7 @@ class CartItem {
       'attributes': variant.attributes,
       'quantity': quantity,
       'appliedPrice': appliedPrice,
+      'tva': product.tva,
       'sellerId': product.sellerId,
       'entrepriseId': product.sellerId,
       'description': product.description,
