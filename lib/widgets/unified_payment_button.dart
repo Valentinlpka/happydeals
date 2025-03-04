@@ -16,6 +16,7 @@ class UnifiedPaymentButton extends StatefulWidget {
   final String cancelUrl;
   final VoidCallback? onSuccess;
   final Function(String)? onError;
+  final Future<bool> Function()? onBeforePayment;
 
   const UnifiedPaymentButton({
     super.key,
@@ -27,6 +28,7 @@ class UnifiedPaymentButton extends StatefulWidget {
     required this.cancelUrl,
     this.onSuccess,
     this.onError,
+    this.onBeforePayment,
   });
 
   @override
@@ -41,6 +43,14 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
     setState(() => _isLoading = true);
 
     try {
+      if (widget.onBeforePayment != null) {
+        final canProceed = await widget.onBeforePayment!();
+        if (!canProceed) {
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
       String? pendingId;
       String successUrlWithParams = widget.successUrl;
 

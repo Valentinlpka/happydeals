@@ -16,6 +16,7 @@ import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/promo_code_post.dart';
 import 'package:happy/classes/referral.dart';
+import 'package:happy/classes/service_post.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
@@ -32,6 +33,7 @@ import 'package:happy/widgets/cards/happy_deals_card.dart';
 import 'package:happy/widgets/cards/news_card.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:happy/widgets/cards/product_cards.dart';
+import 'package:happy/widgets/cards/service_cards.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -444,7 +446,6 @@ class _PostWidgetState extends State<PostWidget>
           companyCover: widget.companyCover,
           companyCategorie: widget.companyCategorie,
           companyLogo: widget.companyLogo,
-          currentUserId: widget.currentUserId,
         );
       case ExpressDeal:
         return DealsExpressCard(
@@ -486,6 +487,15 @@ class _PostWidgetState extends State<PostWidget>
           companyLogo: widget.companyLogo,
           companyName: widget.companyName,
         );
+
+      case ServicePost:
+        print('Creating ServiceCard for post: ${post.id}');
+        return ServiceCards(
+          post: post as ServicePost,
+          companyName: widget.companyName,
+          companyLogo: widget.companyLogo,
+        );
+
       default:
         return Card(
           child: Padding(

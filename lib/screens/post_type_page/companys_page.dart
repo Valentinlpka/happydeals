@@ -4,13 +4,16 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/company.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
+import 'package:provider/provider.dart';
 
 class CompaniesPage extends StatefulWidget {
   const CompaniesPage({super.key});
@@ -46,7 +49,7 @@ class _CompaniesPageState extends State<CompaniesPage>
   Position? _currentPosition;
   Company? _selectedCompany;
   Set<CustomMarker> _markers = {};
-  final MapController _mapController = MapController();
+  MapController? _mapController;
   bool _isBottomSheetOpen = false;
   List<dynamic> _predictions = [];
   final FocusNode _searchFocusNode = FocusNode();
@@ -54,20 +57,21 @@ class _CompaniesPageState extends State<CompaniesPage>
   static const String mapboxAccessToken =
       'pk.eyJ1IjoiaGFwcHlkZWFscyIsImEiOiJjbHo3ZHA5NDYwN2hyMnFzNTdiMWd2Zm92In0.1nmT5Fumjq16InZ3dmG9zQ';
   String _selectedAddress = '';
-  double _selectedRadius = 5.0;
+  double _selectedRadius = 20.0;
   double? _selectedLat;
   double? _selectedLng;
 
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       _updateMarkers();
-      _loadCategories(); // Charger les catégories quand on change d'onglet
+      _loadCategories();
     });
     _loadCategories();
-    _getCurrentLocation();
+    _initializeLocation();
 
     _searchFocusNode.addListener(() {
       if (!_searchFocusNode.hasFocus) {
@@ -83,6 +87,7 @@ class _CompaniesPageState extends State<CompaniesPage>
     _tabController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _mapController = null;
     super.dispose();
   }
 
@@ -107,6 +112,23 @@ class _CompaniesPageState extends State<CompaniesPage>
       setState(() {
         _categories = ['Toutes'];
       });
+    }
+  }
+
+  Future<void> _initializeLocation() async {
+    final userModel = Provider.of<UserModel>(context, listen: false);
+
+    // Si l'utilisateur a une localisation enregistrée, l'utiliser
+    if (userModel.latitude != 0.0 && userModel.longitude != 0.0) {
+      setState(() {
+        _selectedLat = userModel.latitude;
+        _selectedLng = userModel.longitude;
+        _selectedAddress = '${userModel.city}, ${userModel.zipCode}';
+      });
+      _updateMarkersWithRadius();
+    } else {
+      // Sinon, essayer d'obtenir la localisation actuelle
+      await _getCurrentLocation();
     }
   }
 
@@ -345,6 +367,9 @@ class _CompaniesPageState extends State<CompaniesPage>
             onPressed: () {
               setState(() {
                 _showMap = !_showMap;
+                if (_showMap && _selectedLat != null && _selectedLng != null) {
+                  _updateMarkersWithRadius();
+                }
               });
             },
           ),
@@ -541,14 +566,11 @@ class _CompaniesPageState extends State<CompaniesPage>
   }
 
   Widget _buildMap() {
-    if (_currentPosition == null) {
+    if (_selectedLat == null || _selectedLng == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final center = _selectedLat != null && _selectedLng != null
-        ? latlong.LatLng(_selectedLat!, _selectedLng!)
-        : latlong.LatLng(
-            _currentPosition!.latitude, _currentPosition!.longitude);
+    final center = latlong.LatLng(_selectedLat!, _selectedLng!);
 
     return FlutterMap(
       mapController: _mapController,
@@ -568,22 +590,21 @@ class _CompaniesPageState extends State<CompaniesPage>
           additionalOptions: const {
             'accessToken': mapboxAccessToken,
           },
+          tileProvider: CancellableNetworkTileProvider(),
         ),
-        // Ajouter le cercle de rayon si une localisation est sélectionnée
-        if (_selectedLat != null && _selectedLng != null)
-          CircleLayer(
-            circles: [
-              CircleMarker(
-                point: center,
-                radius: 50000.0, // Rayon en mètres
-                color:
-                    const Color(0x304B88DA), // Couleur bleue semi-transparente
-                borderColor: const Color(0xFF4B88DA),
-                borderStrokeWidth: 2,
-                useRadiusInMeter: true,
-              ),
-            ],
-          ),
+        // Toujours afficher le cercle de rayon
+        CircleLayer(
+          circles: [
+            CircleMarker(
+              point: center,
+              radius: _selectedRadius * 1000, // Convertir en mètres
+              color: const Color(0x304B88DA), // Couleur bleue semi-transparente
+              borderColor: const Color(0xFF4B88DA),
+              borderStrokeWidth: 2,
+              useRadiusInMeter: true,
+            ),
+          ],
+        ),
         MarkerLayer(
           markers: _markers
               .map((marker) => Marker(
@@ -625,8 +646,10 @@ class _CompaniesPageState extends State<CompaniesPage>
       _selectedLng ?? _currentPosition!.longitude,
     );
 
-    // Ajuster le zoom en fonction du rayon
-    _mapController.move(center, _calculateZoomLevel(_selectedRadius));
+    // Ajuster le zoom en fonction du rayon seulement si la carte est initialisée
+    if (_mapController != null && _showMap) {
+      _mapController!.move(center, _calculateZoomLevel(_selectedRadius));
+    }
 
     for (var doc in companies.docs) {
       try {
@@ -729,9 +752,7 @@ class _CompaniesPageState extends State<CompaniesPage>
     });
 
     // Toujours afficher la liste des entreprises filtrées quand une localisation est sélectionnée
-    if (filteredCompanies.isNotEmpty) {
-      _showCompaniesInRadiusBottomSheet(filteredCompanies, _selectedRadius);
-    } else {
+    if (filteredCompanies.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Aucune entreprise trouvée dans ce rayon'),

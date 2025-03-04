@@ -134,6 +134,12 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                 Provider.of<UserModel>(context, listen: false).description,
             'availability':
                 Provider.of<UserModel>(context, listen: false).availability,
+            'availabilityDate':
+                Provider.of<UserModel>(context, listen: false).availability ==
+                        'Date précise'
+                    ? Provider.of<UserModel>(context, listen: false)
+                        .availabilityDate
+                    : null,
             'contractTypes':
                 Provider.of<UserModel>(context, listen: false).contractTypes,
             'workingHours':
@@ -323,10 +329,20 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                                   userModel.availability,
                                   (value) => userModel.availability = value!, [
                                 'Tout de suite',
-                                'Dans 1 mois',
-                                'Dans 3 mois',
+                                'Date précise',
                                 'À définir'
                               ]),
+                              if (userModel.availability == 'Date précise')
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 16.0),
+                                  child: _buildDatePicker(
+                                    label: 'Date de disponibilité',
+                                    selectedDate: userModel.availabilityDate,
+                                    onChanged: (date) => setState(() =>
+                                        userModel.availabilityDate = date),
+                                    minDate: DateTime.now(),
+                                  ),
+                                ),
                               const SizedBox(height: 24),
                               _buildContractTypes(userModel),
                               const SizedBox(height: 24),
@@ -1293,14 +1309,15 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
     required String label,
     required DateTime? selectedDate,
     required Function(DateTime) onChanged,
+    DateTime? minDate,
   }) {
     return InkWell(
       onTap: () async {
         final picked = await showDatePicker(
           context: context,
           initialDate: selectedDate ?? DateTime.now(),
-          firstDate: DateTime(1900),
-          lastDate: DateTime.now(),
+          firstDate: minDate ?? DateTime(1900),
+          lastDate: minDate != null ? DateTime(2100) : DateTime.now(),
           locale: const Locale('fr', 'FR'),
           builder: (context, child) {
             return Theme(
@@ -1342,7 +1359,7 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
             const SizedBox(height: 4),
             Text(
               selectedDate != null
-                  ? DateFormat('MMMM yyyy', 'fr_FR').format(selectedDate)
+                  ? DateFormat('d MMMM yyyy', 'fr_FR').format(selectedDate)
                   : 'Sélectionner',
               style: const TextStyle(
                 fontSize: 16,
@@ -1625,6 +1642,7 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                             selectedDate: dateDebut,
                             onChanged: (date) =>
                                 setModalState(() => dateDebut = date),
+                            minDate: DateTime.now(),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -1635,6 +1653,7 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
                               selectedDate: dateFin,
                               onChanged: (date) =>
                                   setModalState(() => dateFin = date),
+                              minDate: DateTime.now(),
                             ),
                           ),
                       ],

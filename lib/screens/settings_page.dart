@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users_provider.dart';
+import 'package:happy/screens/followed_associations_page.dart';
+import 'package:happy/screens/followed_companies_page.dart';
+import 'package:happy/screens/followed_users_page.dart';
 import 'package:happy/screens/liked_post_page.dart';
 import 'package:happy/screens/loyalty_card_page.dart';
 import 'package:happy/screens/loyalty_points_page.dart';
-import 'package:happy/screens/marketplace/ad_list_page.dart';
-import 'package:happy/screens/match_market/match_market_intro_page.dart';
 import 'package:happy/screens/mes_evenements.dart';
 import 'package:happy/screens/my_contests_page.dart';
 import 'package:happy/screens/my_deals_express.dart';
@@ -82,6 +83,37 @@ final List<_Category> _categories = [
     ],
   ),
   _Category(
+    title: 'Mon réseau',
+    items: [
+      _ServiceItem(
+        icon: Icons.business_center_outlined,
+        title: 'Entreprises suivies',
+        onTap: (context, _) => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const FollowedCompaniesPage()),
+        ),
+      ),
+      _ServiceItem(
+        icon: Icons.business_outlined,
+        title: 'Associations suivies',
+        onTap: (context, _) => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const FollowedAssociationsPage()),
+        ),
+      ),
+      _ServiceItem(
+        icon: Icons.people_alt_outlined,
+        title: 'Personnes suivies',
+        onTap: (context, _) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const FollowedUsersPage()),
+        ),
+      ),
+    ],
+  ),
+  _Category(
     title: 'Mes services',
     items: [
       _ServiceItem(
@@ -126,14 +158,6 @@ final List<_Category> _categories = [
         ),
       ),
       _ServiceItem(
-        icon: Icons.storefront,
-        title: 'Marketplace',
-        onTap: (context, _) => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AdListPage()),
-        ),
-      ),
-      _ServiceItem(
         icon: Icons.favorite_outline,
         title: 'Mes Likes',
         onTap: (context, _) => Navigator.push(
@@ -147,14 +171,6 @@ final List<_Category> _categories = [
         onTap: (context, userId) => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => MyEventsPage(userId: userId)),
-        ),
-      ),
-      _ServiceItem(
-        icon: Icons.thumb_up_outlined,
-        title: 'Match Market',
-        onTap: (context, _) => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const MatchMarketIntroPage()),
         ),
       ),
       _ServiceItem(
@@ -211,7 +227,7 @@ class _SettingsContent extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(10),
         child: Row(
           children: [
             _buildProfileAvatar(),
@@ -223,38 +239,9 @@ class _SettingsContent extends StatelessWidget {
                   Text(
                     '${user.firstName} ${user.lastName}',
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.edit,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Modifier le profil',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],
@@ -274,7 +261,7 @@ class _SettingsContent extends StatelessWidget {
         border: Border.all(color: Colors.white, width: 2),
       ),
       child: CircleAvatar(
-        radius: 35,
+        radius: 25,
         backgroundImage:
             user.profileUrl.isNotEmpty ? NetworkImage(user.profileUrl) : null,
         backgroundColor: Colors.white,
@@ -330,6 +317,7 @@ class _SettingsContent extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
           backgroundColor: Colors.red[400],
+          iconColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

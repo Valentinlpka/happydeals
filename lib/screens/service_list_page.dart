@@ -1,15 +1,15 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/service.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/details_page/details_service_page.dart';
 import 'package:happy/services/service_service.dart';
-import 'package:http/http.dart' as http;
+import 'package:happy/widgets/location_filter.dart';
+import 'package:provider/provider.dart';
 
 class ServiceListPage extends StatefulWidget {
   final String? professionalId;
@@ -26,11 +26,12 @@ class _ServiceListPageState extends State<ServiceListPage> {
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   bool _showScrollToTop = false;
-  Position? _currentPosition;
-  String? _selectedCity;
-  bool _isLoading = false;
-  List<String> _citySuggestions = [];
-  Timer? _debounce;
+
+  // Variables pour la localisation
+  double? _selectedLat;
+  double? _selectedLng;
+  double _selectedRadius = 20.0;
+  String _selectedAddress = '';
 
   // Remplacer par votre clé API Google Places
   static const String _googleApiKey = 'AIzaSyCS3N9FwFLGHDRSN7PbCSIhDrTjMPALfLc';
@@ -39,158 +40,24 @@ class _ServiceListPageState extends State<ServiceListPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _getCurrentLocation();
-    _cityController.addListener(_onCitySearchChanged);
+    _initializeLocation();
   }
 
-  void _onCitySearchChanged() {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      _getCitySuggestions(_cityController.text);
-    });
-  }
-
-  Future<void> _getCitySuggestions(String input) async {
-    if (input.isEmpty) {
-      setState(() => _citySuggestions = []);
-      return;
-    }
-
-    final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&types=(cities)&language=fr&components=country:fr&key=$_googleApiKey');
-
-    try {
-      final response = await http.get(url);
-      final data = json.decode(response.body);
-
-      if (data['status'] == 'OK') {
-        setState(() {
-          _citySuggestions = (data['predictions'] as List)
-              .map((prediction) => prediction['description'] as String)
-              .toList();
-        });
-      }
-    } catch (e) {
-      print('Erreur lors de la récupération des suggestions: $e');
-    }
-  }
-
-  Future<void> _searchByCity(String city) async {
-    setState(() => _isLoading = true);
-    try {
-      final url = Uri.parse(
-          'https://maps.googleapis.com/maps/api/geocode/json?address=$city&key=$_googleApiKey');
-
-      final response = await http.get(url);
-      final data = json.decode(response.body);
-
-      if (data['status'] == 'OK') {
-        final location = data['results'][0]['geometry']['location'];
-        setState(() {
-          _currentPosition = Position(
-            latitude: location['lat'],
-            longitude: location['lng'],
-            timestamp: DateTime.now(),
-            accuracy: 0,
-            altitude: 0,
-            heading: 0,
-            speed: 0,
-            speedAccuracy: 0,
-            altitudeAccuracy: 0,
-            headingAccuracy: 0,
-          );
-          _selectedCity = city;
-          _cityController.text = city;
-          _citySuggestions = [];
-        });
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ville non trouvée')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Erreur lors de la recherche de la ville')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _showLocationBottomSheet() {
-    showModalBottomSheet(
+  void _showLocationFilter() async {
+    await LocationFilterBottomSheet.show(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16,
-            right: 16,
-            top: 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Entrez votre ville',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _cityController,
-                decoration: InputDecoration(
-                  hintText: 'Ex: Paris',
-                  prefixIcon: const Icon(Icons.location_city),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                textInputAction: TextInputAction.done,
-              ),
-              if (_citySuggestions.isNotEmpty)
-                Container(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.3,
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _citySuggestions.length,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        leading: const Icon(Icons.location_on),
-                        title: Text(_citySuggestions[index]),
-                        onTap: () => _searchByCity(_citySuggestions[index]),
-                      );
-                    },
-                  ),
-                ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => _searchByCity(_cityController.text),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Rechercher'),
-              ),
-              const SizedBox(height: 32),
-            ],
-          ),
-        ),
-      ),
+      onLocationSelected: (lat, lng, radius, address) {
+        setState(() {
+          _selectedLat = lat;
+          _selectedLng = lng;
+          _selectedRadius = radius;
+          _selectedAddress = address;
+        });
+      },
+      currentLat: _selectedLat,
+      currentLng: _selectedLng,
+      currentRadius: _selectedRadius,
+      currentAddress: _selectedAddress,
     );
   }
 
@@ -235,61 +102,14 @@ class _ServiceListPageState extends State<ServiceListPage> {
     );
   }
 
-  Future<void> _getCurrentLocation() async {
-    setState(() => _isLoading = true);
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showLocationBottomSheet();
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          _showLocationBottomSheet();
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _showLocationBottomSheet();
-        return;
-      }
-
-      Position position = await Geolocator.getCurrentPosition();
-
-      // Utiliser l'API Google Geocoding pour obtenir le nom de la ville
-      final url = Uri.parse(
-          'https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.latitude},${position.longitude}&key=$_googleApiKey');
-
-      final response = await http.get(url);
-      final data = json.decode(response.body);
-
-      String? cityName;
-      if (data['status'] == 'OK') {
-        for (var component in data['results'][0]['address_components']) {
-          final types = component['types'] as List;
-          if (types.contains('locality')) {
-            cityName = component['long_name'];
-            break;
-          }
-        }
-      }
-
+  Future<void> _initializeLocation() async {
+    final userProvider = Provider.of<UserModel>(context, listen: false);
+    if (userProvider.latitude != 0.0 && userProvider.longitude != 0.0) {
       setState(() {
-        _currentPosition = position;
-        if (cityName != null) {
-          _selectedCity = cityName;
-          _cityController.text = cityName;
-        }
+        _selectedLat = userProvider.latitude;
+        _selectedLng = userProvider.longitude;
+        _selectedAddress = '${userProvider.city}, ${userProvider.zipCode}';
       });
-    } catch (e) {
-      print('Erreur de géolocalisation: $e');
-      _showLocationBottomSheet();
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
@@ -297,248 +117,231 @@ class _ServiceListPageState extends State<ServiceListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          SliverAppBar(
-            backgroundColor: Colors.grey[50],
-            title: const Text(
-              'Services',
-              style: TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w600,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              backgroundColor: Colors.grey[50],
+              title: const Text(
+                'Services',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.location_on, color: Colors.black87),
-                onPressed: _showLocationBottomSheet,
-              ),
-            ],
-            floating: true,
-            pinned: true,
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(80),
-              child: Container(
-                color: Colors.grey[50],
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Column(
-                  children: [
-                    if (_selectedCity != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 8),
-                        child: Text(
-                          'Localisation : $_selectedCity',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.location_on, color: Colors.black87),
+                  onPressed: _showLocationFilter,
+                ),
+              ],
+              pinned: true,
+              floating: true,
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(80),
+                child: Container(
+                  color: Colors.grey[50],
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Column(
+                    children: [
+                      if (_selectedAddress.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 8),
+                          child: Text(
+                            'Localisation : $_selectedAddress',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
                           ),
                         ),
-                      ),
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher un service...',
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  setState(() {
-                                    _searchController.clear();
-                                    _searchQuery = '';
-                                  });
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                      TextField(
+                        controller: _cityController,
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher un service...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                        });
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          StreamBuilder<List<ServiceModel>>(
-            stream: widget.professionalId != null
-                ? _serviceService
-                    .getServicesByProfessional(widget.professionalId!)
-                : _searchQuery.isEmpty
-                    ? _serviceService.getActiveServices()
-                    : _serviceService.searchServices(_searchQuery),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
+          ];
+        },
+        body: StreamBuilder<List<ServiceModel>>(
+          stream: widget.professionalId != null
+              ? _serviceService
+                  .getServicesByProfessional(widget.professionalId!)
+              : _searchQuery.isEmpty
+                  ? _serviceService.getActiveServices()
+                  : _serviceService.searchServices(_searchQuery),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-              if (snapshot.hasError) {
-                return SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline,
-                            size: 48, color: Colors.red[300]),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Une erreur est survenue',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[800],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Veuillez réessayer plus tard',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              final services = snapshot.data ?? [];
-
-              if (services.isEmpty) {
-                return SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _searchQuery.isEmpty
-                              ? Icons.category_outlined
-                              : Icons.search_off,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isEmpty
-                              ? 'Aucun service disponible'
-                              : 'Aucun résultat trouvé pour "$_searchQuery"',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[800],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              // Grouper les services par professionalId
-              Map<String, List<ServiceModel>> servicesByPro = {};
-              for (var service in services) {
-                if (!servicesByPro.containsKey(service.professionalId)) {
-                  servicesByPro[service.professionalId] = [];
-                }
-                servicesByPro[service.professionalId]!.add(service);
-              }
-
-              // Trier les professionnels par distance si la position est disponible
-              List<String> sortedProIds = servicesByPro.keys.toList();
-
-              // On ne trie pas si on n'a pas de position
-              if (_currentPosition == null) {
-                return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildCompanyCard(
-                      sortedProIds[index],
-                      servicesByPro[sortedProIds[index]]!,
-                    ),
-                    childCount: sortedProIds.length,
-                  ),
-                );
-              }
-
-              // Si on a une position, on retourne un FutureBuilder pour gérer le tri asynchrone
-              return FutureBuilder<List<String>>(
-                future: Future.wait(
-                  sortedProIds.map((proId) async {
-                    final doc = await FirebaseFirestore.instance
-                        .collection('companys')
-                        .doc(proId)
-                        .get();
-                    final data = doc.data();
-                    if (data != null &&
-                        data['latitude'] != null &&
-                        data['longitude'] != null) {
-                      final distance = _calculateDistance(
-                        _currentPosition!.latitude,
-                        _currentPosition!.longitude,
-                        data['latitude'],
-                        data['longitude'],
-                      );
-                      return MapEntry(proId, distance);
-                    }
-                    return MapEntry(proId, double.infinity);
-                  }),
-                ).then((entries) {
-                  final distances = Map.fromEntries(
-                    entries.map((e) => MapEntry(e.key, e.value)),
-                  );
-                  sortedProIds
-                      .sort((a, b) => distances[a]!.compareTo(distances[b]!));
-                  return sortedProIds;
-                }),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SliverToBoxAdapter(
-                      child: Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: CircularProgressIndicator(),
-                        ),
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Une erreur est survenue',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[800],
+                        fontWeight: FontWeight.w500,
                       ),
-                    );
-                  }
-
-                  if (snapshot.hasError) {
-                    return SliverToBoxAdapter(
-                      child: Center(
-                        child: Text('Erreur de tri: ${snapshot.error}'),
-                      ),
-                    );
-                  }
-
-                  final sortedIds = snapshot.data ?? sortedProIds;
-                  return SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _buildCompanyCard(
-                        sortedIds[index],
-                        servicesByPro[sortedIds[index]]!,
-                      ),
-                      childCount: sortedIds.length,
                     ),
-                  );
-                },
+                    const SizedBox(height: 8),
+                    Text(
+                      'Veuillez réessayer plus tard',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
               );
-            },
-          ),
-        ],
+            }
+
+            final services = snapshot.data ?? [];
+
+            if (services.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _searchQuery.isEmpty
+                          ? Icons.category_outlined
+                          : Icons.search_off,
+                      size: 48,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _searchQuery.isEmpty
+                          ? 'Aucun service disponible'
+                          : 'Aucun résultat trouvé pour "$_searchQuery"',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[800],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Grouper les services par professionalId
+            Map<String, List<ServiceModel>> servicesByPro = {};
+            for (var service in services) {
+              if (!servicesByPro.containsKey(service.professionalId)) {
+                servicesByPro[service.professionalId] = [];
+              }
+              servicesByPro[service.professionalId]!.add(service);
+            }
+
+            List<String> sortedProIds = servicesByPro.keys.toList();
+
+            if (_selectedLat == null || _selectedLng == null) {
+              return ListView.builder(
+                itemCount: sortedProIds.length,
+                itemBuilder: (context, index) => _buildCompanyCard(
+                  sortedProIds[index],
+                  servicesByPro[sortedProIds[index]]!,
+                ),
+              );
+            }
+
+            return FutureBuilder<List<String>>(
+              future: Future.wait(
+                sortedProIds.map((proId) async {
+                  final doc = await FirebaseFirestore.instance
+                      .collection('companys')
+                      .doc(proId)
+                      .get();
+                  final data = doc.data();
+                  if (data != null &&
+                      data['latitude'] != null &&
+                      data['longitude'] != null) {
+                    final distance = _calculateDistance(
+                      _selectedLat!,
+                      _selectedLng!,
+                      data['latitude'],
+                      data['longitude'],
+                    );
+                    return MapEntry(proId, distance);
+                  }
+                  return MapEntry(proId, double.infinity);
+                }),
+              ).then((entries) {
+                final distances = Map.fromEntries(
+                  entries.map((e) => MapEntry(e.key, e.value)),
+                );
+                sortedProIds
+                    .sort((a, b) => distances[a]!.compareTo(distances[b]!));
+                return sortedProIds;
+              }),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Erreur de tri: ${snapshot.error}'),
+                  );
+                }
+
+                final sortedIds = snapshot.data ?? sortedProIds;
+                return ListView.builder(
+                  itemCount: sortedIds.length,
+                  itemBuilder: (context, index) => _buildCompanyCard(
+                    sortedIds[index],
+                    servicesByPro[sortedIds[index]]!,
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
       floatingActionButton: _showScrollToTop
           ? FloatingActionButton(
@@ -563,39 +366,19 @@ class _ServiceListPageState extends State<ServiceListPage> {
         Map<String, dynamic> companyData =
             companySnapshot.data!.data() as Map<String, dynamic>;
 
-        // Déboguer les données de l'entreprise
-        print('Données de l\'entreprise $proId:');
-        print(
-            'Position actuelle: ${_currentPosition?.latitude}, ${_currentPosition?.longitude}');
-        print('Données de localisation entreprise:');
-        print('Latitude: ${companyData['latitude']}');
-        print('Longitude: ${companyData['longitude']}');
-        print('Adresse: ${companyData['adress']}');
-
         double? distance;
-        if (_currentPosition != null &&
+        if (_selectedLat != null &&
+            _selectedLng != null &&
             companyData['adress'] != null &&
             companyData['adress'] is Map &&
             companyData['adress']['latitude'] != null &&
             companyData['adress']['longitude'] != null) {
           distance = _calculateDistance(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
+            _selectedLat!,
+            _selectedLng!,
             companyData['adress']['latitude'],
             companyData['adress']['longitude'],
           );
-          print('Distance calculée: $distance km');
-        } else {
-          print('Impossible de calculer la distance:');
-          print('Position actuelle existe: ${_currentPosition != null}');
-          print('Adresse existe: ${companyData['adress'] != null}');
-          print('Adresse est une Map: ${companyData['adress'] is Map}');
-          if (companyData['adress'] is Map) {
-            print(
-                'Latitude existe: ${companyData['adress']['latitude'] != null}');
-            print(
-                'Longitude existe: ${companyData['adress']['longitude'] != null}');
-          }
         }
 
         return Card(
@@ -607,6 +390,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // En-tête de l'entreprise
               InkWell(
@@ -724,22 +508,24 @@ class _ServiceListPageState extends State<ServiceListPage> {
                 ),
               ),
               const Divider(height: 1),
-              // Liste des services
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.75,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
+              // Liste horizontale des services
+              SizedBox(
+                height: 280,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  itemCount: services.length,
+                  itemBuilder: (context, serviceIndex) {
+                    return SizedBox(
+                      width: 200,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: _buildServiceCard(services[serviceIndex]),
+                      ),
+                    );
+                  },
                 ),
-                itemCount: services.length,
-                itemBuilder: (context, serviceIndex) {
-                  final service = services[serviceIndex];
-                  return _buildServiceCard(service);
-                },
               ),
             ],
           ),
@@ -897,9 +683,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
   @override
   void dispose() {
     _searchController.dispose();
-    _cityController.dispose();
     _scrollController.dispose();
-    _debounce?.cancel();
     super.dispose();
   }
 }

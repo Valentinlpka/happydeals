@@ -12,14 +12,12 @@ class HappyDealsCard extends StatelessWidget {
   final String companyCategorie;
   final String companyLogo;
   final String companyCover;
-  final String currentUserId;
 
   const HappyDealsCard({
     super.key,
     required this.post,
     required this.companyName,
     required this.companyCover,
-    required this.currentUserId,
     required this.companyCategorie,
     required this.companyLogo,
   });

@@ -7,12 +7,14 @@ import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/conversation.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
+import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/promo_code_post.dart';
 import 'package:happy/classes/referral.dart';
+import 'package:happy/classes/service_post.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
@@ -20,9 +22,11 @@ import 'package:happy/widgets/cards/concours_card.dart';
 import 'package:happy/widgets/cards/deals_express_card.dart';
 import 'package:happy/widgets/cards/emploi_card.dart';
 import 'package:happy/widgets/cards/evenement_card.dart';
+import 'package:happy/widgets/cards/happy_deals_card.dart';
 import 'package:happy/widgets/cards/news_card.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:happy/widgets/cards/product_cards.dart';
+import 'package:happy/widgets/cards/service_cards.dart';
 import 'package:provider/provider.dart';
 
 class SharedPostMessage extends StatelessWidget {
@@ -210,6 +214,17 @@ class SharedPostMessage extends StatelessWidget {
           ),
         );
 
+      case HappyDeal:
+        return SizedBox(
+          child: HappyDealsCard(
+            post: post as HappyDeal,
+            companyName: companyName,
+            companyLogo: companyLogo,
+            companyCover: companyCover,
+            companyCategorie: companyCategorie,
+          ),
+        );
+
       case PromoCodePost:
         return SizedBox(
           width: 600,
@@ -227,6 +242,15 @@ class SharedPostMessage extends StatelessWidget {
             news: post as News,
             companyLogo: companyLogo,
             companyName: companyName,
+          ),
+        );
+
+      case ServicePost:
+        return SizedBox(
+          child: ServiceCards(
+            post: post as ServicePost,
+            companyName: companyName,
+            companyLogo: companyLogo,
           ),
         );
 

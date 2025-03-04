@@ -181,45 +181,91 @@ class BookingService {
       }
 
       final schedule = scheduleDoc.docs.first.data();
-      final weekDay = date.weekday == 7 ? 0 : date.weekday;
+      // Correction de l'indexation des jours : 0 = Dimanche, 1 = Lundi, etc.
+      final weekDay = date.weekday % 7; // 0-6 où 0 est dimanche
 
-      // 2. Vérifier si le jour est travaillé
-      if (!schedule['workDays'].contains(weekDay)) {
+      // 2. Vérifier si on utilise un planning uniforme ou journalier
+      final bool useUniformSchedule = schedule['useUniformSchedule'] ?? true;
+
+      // 3. Obtenir les horaires pour ce jour
+      String openTime;
+      String closeTime;
+      bool isOpen;
+
+      if (useUniformSchedule) {
+        openTime = schedule['openTime'];
+        closeTime = schedule['closeTime'];
+        isOpen = schedule['workDays'].contains(weekDay);
+      } else {
+        final dailySchedules =
+            schedule['dailySchedules'] as Map<String, dynamic>;
+        final dailySchedule = dailySchedules[weekDay.toString()];
+        if (dailySchedule == null) {
+          print('Pas de planning trouvé pour ce jour: $weekDay');
+          return {};
+        }
+        openTime = dailySchedule['openTime'] as String;
+        closeTime = dailySchedule['closeTime'] as String;
+        isOpen = dailySchedule['isOpen'] as bool;
+        print(
+            'Planning du jour $weekDay: ouvert=$isOpen, de $openTime à $closeTime');
+      }
+
+      if (!isOpen) {
         print('Jour non travaillé');
         return {};
       }
 
-      // 3. Vérifier les exceptions
+      // 4. Vérifier les exceptions
       if (_isExceptionDay(date, schedule['exceptions'] ?? [])) {
         print('Jour d\'exception');
         return {};
       }
 
-      // 4. Générer les créneaux disponibles
-      final openTime = _parseTimeString(schedule['openTime']);
-      final closeTime = _parseTimeString(schedule['closeTime']);
       final simultaneousSlots = schedule['simultaneousSlots'] as int;
+      final breaks = schedule['breaks'] as List<dynamic>? ?? [];
+      print('Pauses configurées: ${breaks.length}');
+      for (var breakTime in breaks) {
+        print('Pause de ${breakTime['start']} à ${breakTime['end']}');
+      }
 
       Map<DateTime, int> availableSlots = {};
+
+      final parsedOpenTime = _parseTimeString(openTime);
+      final parsedCloseTime = _parseTimeString(closeTime);
+
+      print(
+          'Horaires parsés - Ouverture: ${parsedOpenTime.hour}:${parsedOpenTime.minute}, Fermeture: ${parsedCloseTime.hour}:${parsedCloseTime.minute}');
+
       DateTime currentSlot = DateTime(
         date.year,
         date.month,
         date.day,
-        openTime.hour,
-        openTime.minute,
+        parsedOpenTime.hour,
+        parsedOpenTime.minute,
       );
 
       final endTime = DateTime(
         date.year,
         date.month,
         date.day,
-        closeTime.hour,
-        closeTime.minute,
+        parsedCloseTime.hour,
+        parsedCloseTime.minute,
       );
+
+      print(
+          'Génération des créneaux de ${DateFormat('HH:mm').format(currentSlot)} à ${DateFormat('HH:mm').format(endTime)}');
+
       // 5. Vérifier chaque créneau
       while (currentSlot
-          .add(Duration(minutes: serviceDuration))
-          .isBefore(endTime)) {
+              .add(Duration(minutes: serviceDuration))
+              .isBefore(endTime) ||
+          currentSlot
+              .add(Duration(minutes: serviceDuration))
+              .isAtSameMomentAs(endTime)) {
+        print(
+            'Vérification du créneau: ${DateFormat('HH:mm').format(currentSlot)}');
+
         // Ignorer les créneaux passés pour aujourd'hui
         if (date.day == DateTime.now().day &&
             currentSlot.isBefore(DateTime.now())) {
@@ -228,13 +274,14 @@ class BookingService {
         }
 
         // Vérifier si le créneau n'est pas pendant une pause
-        if (!_isInBreakTime(
-            currentSlot, schedule['breaks'] ?? [], serviceDuration)) {
-          final bookings = await _getExistingBookings(businessId, currentSlot);
+        if (!_isInBreakTime(currentSlot, breaks, serviceDuration)) {
+          final bookings = await _getExistingBookings(serviceId, currentSlot);
           final availableCount = simultaneousSlots - bookings;
 
           if (availableCount > 0) {
             availableSlots[currentSlot] = availableCount;
+            print(
+                'Ajout du créneau: ${DateFormat('HH:mm').format(currentSlot)}');
           }
         }
 
@@ -254,7 +301,8 @@ class BookingService {
       final exceptionDate = (exception['date'] as Timestamp).toDate();
       return exceptionDate.year == date.year &&
           exceptionDate.month == date.month &&
-          exceptionDate.day == date.day;
+          exceptionDate.day == date.day &&
+          exception['type'] == 'closed';
     });
   }
 
@@ -270,6 +318,8 @@ class BookingService {
   }
 
   bool _isInBreakTime(DateTime slot, List<dynamic> breaks, int duration) {
+    if (breaks.isEmpty) return false;
+
     final slotTime = DateTime(2000, 1, 1, slot.hour, slot.minute);
     final slotEnd = slotTime.add(Duration(minutes: duration));
 
@@ -277,8 +327,15 @@ class BookingService {
       final breakStart = _parseTimeString(breakTime['start']);
       final breakEnd = _parseTimeString(breakTime['end']);
 
+      print(
+          'Vérification pause: créneau ${DateFormat('HH:mm').format(slot)} - ${DateFormat('HH:mm').format(slot.add(Duration(minutes: duration)))} avec pause ${DateFormat('HH:mm').format(breakStart)} - ${DateFormat('HH:mm').format(breakEnd)}');
+
+      // Un créneau est pendant une pause si :
+      // 1. Le début du créneau est pendant la pause
+      // 2. La fin du créneau est pendant la pause
+      // 3. Le créneau englobe complètement la pause
       return (slotTime.isAtSameMomentAs(breakStart) ||
-              slotTime.isAfter(breakStart) && slotTime.isBefore(breakEnd)) ||
+              (slotTime.isAfter(breakStart) && slotTime.isBefore(breakEnd))) ||
           (slotEnd.isAfter(breakStart) && slotEnd.isBefore(breakEnd)) ||
           (slotTime.isBefore(breakStart) && slotEnd.isAfter(breakEnd));
     });
@@ -286,33 +343,15 @@ class BookingService {
 
   Future<int> _getExistingBookings(String businessId, DateTime slot) async {
     try {
-      // 1. D'abord, récupérer tous les services de l'entreprise
-      final servicesQuery = await _firestore
-          .collection('services')
-          .where('professionalId', isEqualTo: businessId)
-          .where('isActive', isEqualTo: true)
-          .get();
-
-      final serviceIds = servicesQuery.docs.map((doc) => doc.id).toList();
-
-      // Si aucun service n'est trouvé, retourner 0
-      if (serviceIds.isEmpty) {
-        print('Aucun service actif trouvé pour l\'entreprise $businessId');
-        return 0;
-      }
-
-      // 2. Vérifier les réservations pour tous les services de l'entreprise
+      // Vérifier uniquement les réservations pour ce service et avec des statuts valides
       final bookings = await _firestore
           .collection('bookings')
-          .where('serviceId', whereIn: serviceIds)
+          .where('serviceId', isEqualTo: businessId)
           .where('bookingDateTime', isEqualTo: Timestamp.fromDate(slot))
-          .get();
+          .where('status', whereIn: ['confirmed', 'pending']).get();
+
       print(
           'Réservations trouvées pour le créneau ${DateFormat('HH:mm').format(slot)}: ${bookings.docs.length}');
-
-      // Logs détaillés pour le debugging
-      print('Services trouvés: ${serviceIds.length}');
-      print('IDs des services: $serviceIds');
 
       return bookings.docs.length;
     } catch (e) {

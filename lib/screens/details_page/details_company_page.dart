@@ -664,7 +664,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
         case 'À Propos':
           return _buildAboutTab(entreprise);
         case 'Boutique':
-          return ProductList(sellerId: entreprise.sellerId);
+          return ProductList(sellerId: entreprise.id);
         case 'Parrainage':
           return SingleChildScrollView(
             child: Column(

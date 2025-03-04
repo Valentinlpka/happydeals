@@ -3,8 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Product {
   final String id;
   final String name;
-  final List<String> categoryPath;
   final String description;
+  final double price;
+  final List<String> images;
+  final String companyId;
+  final String city;
+  final List<String> categoryPath;
   final String categoryId;
   final double basePrice;
   final double tva;
@@ -15,12 +19,17 @@ class Product {
   final String stripePriceId;
   final List<ProductVariant> variants;
   final ProductDiscount? discount;
+  final Map<String, dynamic> attributes;
 
   Product({
     required this.id,
     required this.name,
-    required this.categoryPath,
     required this.description,
+    required this.price,
+    required this.images,
+    required this.companyId,
+    required this.city,
+    required this.categoryPath,
     required this.categoryId,
     required this.basePrice,
     this.tva = 20.0,
@@ -30,8 +39,9 @@ class Product {
     required this.stripeProductId,
     required this.stripePriceId,
     required this.variants,
+    Map<String, dynamic>? attributes,
     this.discount,
-  });
+  }) : attributes = attributes ?? {};
 
   double get priceHT => basePrice / (1 + (tva / 100));
   double get priceTTC => basePrice;
@@ -48,8 +58,12 @@ class Product {
     return {
       'id': id,
       'name': name,
-      'categoryPath': categoryPath,
       'description': description,
+      'price': price,
+      'images': images,
+      'companyId': companyId,
+      'city': city,
+      'categoryPath': categoryPath,
       'categoryId': categoryId,
       'basePrice': basePrice,
       'tva': tva,
@@ -59,27 +73,40 @@ class Product {
       'stripeProductId': stripeProductId,
       'stripePriceId': stripePriceId,
       'variants': variants.map((v) => v.toMap()).toList(),
+      'attributes': attributes,
     };
   }
 
   factory Product.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
+    final variants = (data['variants'] as List<dynamic>? ?? [])
+        .map((v) => ProductVariant.fromMap(v as Map<String, dynamic>))
+        .toList();
+
+    // Récupérer les images de la première variante si elle existe
+    final List<String> images =
+        variants.isNotEmpty ? List<String>.from(variants.first.images) : [];
+
     return Product(
       id: doc.id,
       name: data['name'] ?? '',
-      categoryPath: List<String>.from(data['categoryPath'] ?? []),
       description: data['description'] ?? '',
+      price: (data['basePrice'] ?? 0.0)
+          .toDouble(), // Utiliser basePrice au lieu de price
+      images: images, // Utiliser les images de la première variante
+      companyId: data['sellerId'] ?? '',
+      city: data['city'] ?? '',
+      categoryPath: List<String>.from(data['categoryPath'] ?? []),
       categoryId: data['categoryId'] ?? '',
       basePrice: (data['basePrice'] ?? 0).toDouble(),
       tva: (data['tva'] ?? 20).toDouble(),
-      isActive: data['isActive'] ?? false,
+      isActive: data['isActive'] ?? true,
       merchantId: data['merchantId'] ?? '',
       sellerId: data['sellerId'] ?? '',
       stripeProductId: data['stripeProductId'] ?? '',
-      stripePriceId: data['stripePriceId'] ?? '',
-      variants: (data['variants'] as List<dynamic>? ?? [])
-          .map((v) => ProductVariant.fromMap(v as Map<String, dynamic>))
-          .toList(),
+      stripePriceId: variants.isNotEmpty ? variants.first.stripePriceId : '',
+      variants: variants,
+      attributes: data['attributes'] as Map<String, dynamic>? ?? {},
       discount: data['discount'] != null
           ? ProductDiscount.fromMap(data['discount'] as Map<String, dynamic>)
           : null,

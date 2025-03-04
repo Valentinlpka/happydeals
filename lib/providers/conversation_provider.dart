@@ -1033,4 +1033,49 @@ class ConversationService extends ChangeNotifier {
       messageContent: '', // Message vide car on va partager un post
     );
   }
+
+  Future<void> shareProductInConversation({
+    required String senderId,
+    required String receiverId,
+    required String productId,
+  }) async {
+    final conversationId = await _getOrCreateConversation(senderId, receiverId);
+
+    await FirebaseFirestore.instance
+        .collection('conversations')
+        .doc(conversationId)
+        .collection('messages')
+        .add({
+      'senderId': senderId,
+      'type': 'product_share',
+      'productId': productId,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<String> _getOrCreateConversation(
+      String userId1, String userId2) async {
+    // Trier les IDs pour avoir une clé cohérente
+    final sortedIds = [userId1, userId2]..sort();
+    final conversationId = '${sortedIds[0]}_${sortedIds[1]}';
+
+    final conversationDoc = await FirebaseFirestore.instance
+        .collection('conversations')
+        .doc(conversationId)
+        .get();
+
+    if (!conversationDoc.exists) {
+      await FirebaseFirestore.instance
+          .collection('conversations')
+          .doc(conversationId)
+          .set({
+        'participants': sortedIds,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastMessage': null,
+        'lastMessageTimestamp': null,
+      });
+    }
+
+    return conversationId;
+  }
 }

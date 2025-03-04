@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/loyalty_card.dart';
 import 'package:happy/classes/loyalty_program.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:intl/intl.dart';
 
 class LoyaltyCardsPage extends StatelessWidget {
@@ -16,13 +17,10 @@ class LoyaltyCardsPage extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Mes cartes de fidélité'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_outlined),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          bottom: const TabBar(
+        appBar: const CustomAppBar(
+          title: 'Mes cartes de fidélité',
+          align: Alignment.center,
+          bottom: TabBar(
             tabs: [
               Tab(text: 'Cartes actives'),
               Tab(text: 'Historique'),

@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 
 class LocationFilterBottomSheet extends StatefulWidget {
   final Function(
@@ -64,9 +64,6 @@ class LocationFilterBottomSheet extends StatefulWidget {
 
 class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
     with SingleTickerProviderStateMixin {
-  static const String mapboxAccessToken =
-      'pk.eyJ1IjoiaGFwcHlkZWFscyIsImEiOiJjbHo3ZHA5NDYwN2hyMnFzNTdiMWd2Zm92In0.1nmT5Fumjq16InZ3dmG9zQ';
-
   late AnimationController _animationController;
   late Animation<double> _animation;
 
@@ -80,6 +77,7 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
   double? _selectedLat;
   double? _selectedLng;
   bool _isSearching = false;
+  List<Map<String, dynamic>> _cities = [];
 
   @override
   void initState() {
@@ -91,6 +89,7 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
     _searchController.text =
         widget.currentAddress.isNotEmpty ? widget.currentAddress : '';
     _getCurrentLocation();
+    _loadCities();
 
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -109,10 +108,76 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
     super.dispose();
   }
 
+  Future<void> _loadCities() async {
+    try {
+      final String jsonString =
+          await rootBundle.loadString('assets/french_cities.json');
+      final data = json.decode(jsonString);
+
+      // Filtrer les villes avec des coordonnées valides dès le chargement
+      final List<Map<String, dynamic>> allCities =
+          List<Map<String, dynamic>>.from(data['cities']);
+      final List<Map<String, dynamic>> validCities = allCities.where((city) {
+        try {
+          final latStr =
+              city['latitude'].toString().trim().replaceAll(',', '.');
+          final lngStr =
+              city['longitude'].toString().trim().replaceAll(',', '.');
+
+          final lat = double.parse(latStr);
+          final lng = double.parse(lngStr);
+
+          // Vérifier si les coordonnées sont dans des limites raisonnables pour la France métropolitaine
+          return lat >= 41.0 && lat <= 52.0 && lng >= -5.0 && lng <= 10.0;
+        } catch (e) {
+          return false;
+        }
+      }).toList();
+
+      setState(() {
+        _cities = validCities;
+      });
+
+      debugPrint('Nombre de villes chargées: ${validCities.length}');
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des villes: $e');
+    }
+  }
+
+  String _capitalizeWords(String input) {
+    if (input.isEmpty) return input;
+    return input.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
+  Future<List<dynamic>> _getPlacePredictions(String input) async {
+    if (input.length < 2) return [];
+
+    final normalizedInput = input.toLowerCase().trim();
+    return _cities
+        .where((city) =>
+            city['label'].toString().toLowerCase().contains(normalizedInput) ||
+            city['zip_code'].toString().contains(normalizedInput))
+        .take(5)
+        .map((city) => {
+              'place_id': city['insee_code'],
+              'description':
+                  '${_capitalizeWords(city['label'])} (${city['zip_code']})',
+              'coordinates': [
+                double.parse(city['longitude']),
+                double.parse(city['latitude'])
+              ],
+            })
+        .toList();
+  }
+
   Future<void> _getCurrentLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        debugPrint('Les services de localisation sont désactivés');
         return;
       }
 
@@ -120,45 +185,27 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          debugPrint('Permission de localisation refusée');
           return;
         }
       }
 
-      Position position = await Geolocator.getCurrentPosition();
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('Permission de localisation refusée définitivement');
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      debugPrint(
+          'Position obtenue: ${position.latitude}, ${position.longitude}');
       setState(() {
         _currentPosition = position;
       });
     } catch (e) {
-      debugPrint('Erreur de localisation: $e');
+      debugPrint('Erreur lors de la récupération de la position: $e');
     }
-  }
-
-  Future<List<dynamic>> _getPlacePredictions(String input) async {
-    if (input.isEmpty) return [];
-
-    try {
-      final url = Uri.parse(
-          'https://api.mapbox.com/geocoding/v5/mapbox.places/$input.json'
-          '?access_token=$mapboxAccessToken'
-          '&country=fr'
-          '&types=place,address');
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['features']
-            .map((feature) => {
-                  'place_id': feature['id'],
-                  'description': feature['place_name'],
-                  'coordinates': feature['center'],
-                })
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Erreur lors de l\'autocomplétion: $e');
-    }
-    return [];
   }
 
   void _handleLocationSelection(double lat, double lng, String address) {
@@ -190,33 +237,65 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
   }
 
   void _useCurrentLocation() async {
-    if (_currentPosition != null) {
-      try {
-        final url = Uri.parse(
-            'https://api.mapbox.com/geocoding/v5/mapbox.places/${_currentPosition!.longitude},${_currentPosition!.latitude}.json'
-            '?access_token=$mapboxAccessToken'
-            '&language=fr');
+    if (_currentPosition == null) {
+      debugPrint('Position actuelle non disponible');
+      await _getCurrentLocation();
+      if (_currentPosition == null) {
+        return;
+      }
+    }
 
-        final response = await http.get(url);
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['features'].isNotEmpty) {
-            final address = data['features'][0]['place_name'];
-            _handleLocationSelection(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-              address,
-            );
-          }
-        }
-      } catch (e) {
-        debugPrint('Erreur lors de la géocodification inverse: $e');
-        _handleLocationSelection(
+    try {
+      debugPrint('Recherche de la ville la plus proche...');
+      double minDistance = double.infinity;
+      Map<String, dynamic>? nearestCity;
+
+      // Optimisation : utiliser les coordonnées déjà validées
+      for (var city in _cities) {
+        final latStr = city['latitude'].toString().trim().replaceAll(',', '.');
+        final lngStr = city['longitude'].toString().trim().replaceAll(',', '.');
+
+        final cityLat = double.parse(latStr);
+        final cityLng = double.parse(lngStr);
+
+        double distance = Geolocator.distanceBetween(
           _currentPosition!.latitude,
           _currentPosition!.longitude,
-          'Ma position actuelle',
+          cityLat,
+          cityLng,
         );
+
+        // Ne logger que les villes vraiment proches (moins de 10km) pour réduire le bruit
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestCity = city;
+          if (distance < 10000) {
+            debugPrint(
+                'Nouvelle ville proche trouvée: ${city['label']} à ${distance.toStringAsFixed(2)} mètres');
+          }
+        }
       }
+
+      if (nearestCity != null) {
+        debugPrint(
+            'Ville la plus proche trouvée: ${nearestCity['label']} à ${minDistance.toStringAsFixed(2)} mètres');
+
+        setState(() {
+          _selectedLat = double.parse(
+              nearestCity!['latitude'].toString().trim().replaceAll(',', '.'));
+          _selectedLng = double.parse(
+              nearestCity['longitude'].toString().trim().replaceAll(',', '.'));
+          _selectedAddress =
+              '${_capitalizeWords(nearestCity['label'])} (${nearestCity['zip_code']})';
+          _searchController.text = _selectedAddress;
+          _predictions = [];
+          _isSearching = false;
+        });
+      } else {
+        debugPrint('Aucune ville proche trouvée');
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la recherche de la ville la plus proche: $e');
     }
   }
 

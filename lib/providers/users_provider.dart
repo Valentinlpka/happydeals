@@ -32,6 +32,11 @@ class UserModel with ChangeNotifier {
   List<String> _followedAssociations = [];
   double _totalSavings = 0.0;
   List<String> sharedPosts = [];
+  DateTime? _availabilityDate;
+  String _city = '';
+  String _zipCode = '';
+  double _latitude = 0.0;
+  double _longitude = 0.0;
 
   double get totalSavings => roundAmount(_totalSavings);
   String get firstName => _firstName;
@@ -53,6 +58,18 @@ class UserModel with ChangeNotifier {
   String get uniqueCode => _uniqueCode;
 
   List<String> get followedAssociations => _followedAssociations;
+
+  DateTime? get availabilityDate => _availabilityDate;
+
+  String get city => _city;
+  String get zipCode => _zipCode;
+  double get latitude => _latitude;
+  double get longitude => _longitude;
+
+  set availabilityDate(DateTime? value) {
+    _availabilityDate = value;
+    notifyListeners();
+  }
 
   double roundAmount(double amount) {
     return (amount * 100).round() / 100;
@@ -125,6 +142,26 @@ class UserModel with ChangeNotifier {
 
   set showPhone(bool value) {
     _showPhone = value;
+    notifyListeners();
+  }
+
+  set city(String value) {
+    _city = value;
+    notifyListeners();
+  }
+
+  set zipCode(String value) {
+    _zipCode = value;
+    notifyListeners();
+  }
+
+  set latitude(double value) {
+    _latitude = value;
+    notifyListeners();
+  }
+
+  set longitude(double value) {
+    _longitude = value;
     notifyListeners();
   }
 
@@ -221,6 +258,10 @@ class UserModel with ChangeNotifier {
       _contractTypes = List<String>.from(data['contractTypes'] ?? []);
       _workingHours = data['workingHours'] ?? '';
       _industrySector = data['industrySector'] ?? '';
+      _city = data['city'] ?? '';
+      _zipCode = data['zipCode'] ?? '';
+      _latitude = (data['latitude'] ?? 0.0).toDouble();
+      _longitude = (data['longitude'] ?? 0.0).toDouble();
 
       followedUsers = List<String>.from(data['followedUsers'] ?? []);
       likedPosts = List<String>.from(data['likedPosts'] ?? []);

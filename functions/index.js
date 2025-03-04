@@ -99,9 +99,12 @@ exports.createPortalSession = functions.https.onCall(async (data, context) => {
       );
     }
 
+    // Utiliser l'URL de retour fournie par le client ou une URL par défaut
+    const returnUrl = data.returnUrl || "https://up-pro.vercel.app/dashboard";
+
     const session = await stripe.billingPortal.sessions.create({
       customer: userData.stripeCustomerId,
-      return_url: "https://up-pro.vercel.app/dashboard", // URL fixe
+      return_url: returnUrl,
     });
 
     console.log("Session portail créée:", session.url);
@@ -123,8 +126,14 @@ exports.createCheckoutSession = functions.https.onCall(
     }
 
     try {
-      const { priceId, planName } = data; // Ajout de planName
+      const { priceId, planName, currentSubscriptionId } = data;
       const userId = context.auth.uid;
+
+      // Définir l'URL de base
+      const baseUrl =
+        process.env.NODE_ENV === "development"
+          ? "http://localhost:3000"
+          : "https://up-pro.vercel.app";
 
       // Récupérer ou créer le client Stripe
       const userDoc = await admin
@@ -145,8 +154,8 @@ exports.createCheckoutSession = functions.https.onCall(
         await userDoc.ref.update({ stripeCustomerId: customer.id });
       }
 
-      // Créer la session de paiement
-      const session = await stripe.checkout.sessions.create({
+      // Configuration de base de la session
+      const sessionConfig = {
         customer: customerId,
         payment_method_types: ["card"],
         line_items: [
@@ -156,14 +165,25 @@ exports.createCheckoutSession = functions.https.onCall(
           },
         ],
         mode: "subscription",
-        success_url: `http://up-pro.vercel.app/plans/success`,
-        cancel_url: `http://up-pro.vercel.app//plans`,
+        success_url: `${baseUrl}/plans/success`,
+        cancel_url: `${baseUrl}/plans`,
         metadata: {
           firebaseUID: userId,
-          planName: planName, // Ajouter le nom du plan aux métadonnées
+          planName: planName,
         },
-      });
+        allow_promotion_codes: true,
+      };
 
+      // Si c'est une mise à niveau/rétrogradation
+      if (currentSubscriptionId) {
+        sessionConfig.subscription_data = {
+          metadata: {
+            previous_subscription: currentSubscriptionId,
+          },
+        };
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
       return { sessionId: session.id };
     } catch (error) {
       console.error("Erreur création session:", error);
@@ -211,27 +231,48 @@ exports.stripeWebhook = functions.https.onRequest(async (request, response) => {
   }
 });
 
-// Fonctions de gestion des événements Stripe
+// Gestion des événements de paiement Stripe
 async function handleCheckoutSessionCompleted(session) {
   const { firebaseUID, planName } = session.metadata;
-  const subscription = await stripe.subscriptions.retrieve(
-    session.subscription
-  );
+  const subscriptionId = session.subscription;
 
-  await admin
-    .firestore()
-    .collection("users")
-    .doc(firebaseUID)
-    .update({
-      stripeCustomerId: session.customer,
-      subscriptionId: subscription.id,
+  try {
+    // Récupérer les détails de l'abonnement
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    // Si c'est une mise à niveau/rétrogradation
+    if (session.subscription_data?.metadata?.previous_subscription) {
+      const previousSubscriptionId =
+        session.subscription_data.metadata.previous_subscription;
+
+      // Annuler l'ancien abonnement à la fin de la période
+      await stripe.subscriptions.update(previousSubscriptionId, {
+        cancel_at_period_end: true,
+        metadata: {
+          replaced_by: subscriptionId,
+        },
+      });
+    }
+
+    // Mettre à jour Firestore
+    const userRef = admin.firestore().collection("users").doc(firebaseUID);
+    await userRef.update({
+      subscriptionId: subscriptionId,
       subscriptionStatus: subscription.status,
       priceId: subscription.items.data[0].price.id,
-      planName: planName, // Sauvegarder le nom du plan
-      subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
-        subscription.current_period_end * 1000
+      planName: planName,
+      subscriptionPeriodEnd: admin.firestore.Timestamp.fromDate(
+        new Date(subscription.current_period_end * 1000)
       ),
+      subscriptionRenewal: true,
     });
+  } catch (error) {
+    console.error(
+      "Erreur lors du traitement de checkout.session.completed:",
+      error
+    );
+    throw error;
+  }
 }
 
 async function handleInvoicePaid(invoice) {
@@ -1665,6 +1706,52 @@ exports.updateService = functions.https.onCall(async (data, context) => {
   } catch (error) {
     console.error("Erreur lors de la mise à jour du service:", error);
     throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+exports.getStripeInvoices = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "L'utilisateur doit être authentifié"
+    );
+  }
+
+  try {
+    // Récupérer le customer ID Stripe de l'utilisateur
+    const customer = await stripe.customers.search({
+      query: `metadata['firebaseUID']:'${context.auth.uid}'`,
+    });
+
+    if (!customer.data.length) {
+      return { invoices: [] };
+    }
+
+    // Récupérer toutes les factures du client
+    const invoices = await stripe.invoices.list({
+      customer: customer.data[0].id,
+      limit: 100,
+    });
+
+    // Formater les factures pour le client
+    const formattedInvoices = invoices.data.map((invoice) => ({
+      id: invoice.id,
+      number: invoice.number,
+      amount_paid: invoice.amount_paid,
+      status: invoice.status,
+      created: invoice.created,
+      invoice_pdf: invoice.invoice_pdf,
+      period_start: invoice.period_start,
+      period_end: invoice.period_end,
+    }));
+
+    return { invoices: formattedInvoices };
+  } catch (error) {
+    console.error("Erreur lors de la récupération des factures:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Erreur lors de la récupération des factures"
+    );
   }
 });
 

@@ -3,10 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/dealexpress.dart';
+import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/reservation_screen.dart';
 import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/share_confirmation_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:provider/provider.dart';
@@ -103,7 +105,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
           ),
           IconButton(
             icon: const Icon(Icons.share),
-            onPressed: () {/* Implement share */},
+            onPressed: () => _showShareOptions(context),
           ),
         ],
       ),
@@ -514,6 +516,248 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showShareOptions(BuildContext context) {
+    final users = Provider.of<UserModel>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const ListTile(
+                title: Text(
+                  "Partager",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.share_outlined),
+                title: const Text('Partager sur mon profil'),
+                onTap: () {
+                  Navigator.pop(context);
+                  final scaffoldContext = context;
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return ShareConfirmationDialog(
+                        post: widget.post,
+                        onConfirm: (String comment) async {
+                          try {
+                            Navigator.of(dialogContext).pop();
+
+                            await FirebaseFirestore.instance
+                                .collection('posts')
+                                .doc(widget.post.id)
+                                .update({
+                              'sharesCount': FieldValue.increment(1),
+                            });
+
+                            await users.sharePost(
+                              widget.post.id,
+                              users.userId,
+                              comment: comment,
+                            );
+
+                            if (scaffoldContext.mounted) {
+                              ScaffoldMessenger.of(scaffoldContext)
+                                  .showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Publication partagée avec succès!'),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (scaffoldContext.mounted) {
+                              ScaffoldMessenger.of(scaffoldContext)
+                                  .showSnackBar(
+                                SnackBar(
+                                  content: Text('Erreur lors du partage: $e'),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.message_outlined),
+                title: const Text('Envoyer en message'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showConversationsList(context, users);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showConversationsList(BuildContext context, UserModel users) {
+    final conversationService =
+        Provider.of<ConversationService>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    "Envoyer à...",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const Divider(),
+                Expanded(
+                  child: StreamBuilder<List<String>>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(users.userId)
+                        .snapshots()
+                        .map((doc) => List<String>.from(
+                            doc.data()?['followedUsers'] ?? [])),
+                    builder: (context, followedSnapshot) {
+                      if (!followedSnapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final followedUsers = followedSnapshot.data!;
+
+                      return FutureBuilder<List<DocumentSnapshot>>(
+                        future: FirebaseFirestore.instance
+                            .collection('users')
+                            .where(FieldPath.documentId, whereIn: followedUsers)
+                            .get()
+                            .then((query) => query.docs),
+                        builder: (context, usersSnapshot) {
+                          if (!usersSnapshot.hasData) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+
+                          final usersList = usersSnapshot.data!;
+
+                          return ListView.builder(
+                            controller: scrollController,
+                            itemCount: usersList.length,
+                            itemBuilder: (context, index) {
+                              final userData = usersList[index].data()
+                                  as Map<String, dynamic>;
+                              final userId = usersList[index].id;
+
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: userData['image_profile'] !=
+                                          null
+                                      ? NetworkImage(userData['image_profile'])
+                                      : null,
+                                  child: userData['image_profile'] == null
+                                      ? const Icon(Icons.person)
+                                      : null,
+                                ),
+                                title: Text(
+                                    '${userData['firstName']} ${userData['lastName']}'),
+                                onTap: () async {
+                                  try {
+                                    await FirebaseFirestore.instance
+                                        .collection('posts')
+                                        .doc(widget.post.id)
+                                        .update({
+                                      'sharesCount': FieldValue.increment(1),
+                                    });
+
+                                    await conversationService
+                                        .sharePostInConversation(
+                                      senderId: users.userId,
+                                      receiverId: userId,
+                                      post: widget.post,
+                                    );
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content:
+                                              Text('Post partagé avec succès')),
+                                    );
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              'Erreur lors du partage: $e')),
+                                    );
+                                  }
+                                },
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

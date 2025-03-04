@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/category_product.dart';
 import 'package:happy/screens/match_market/liked_products_page.dart';
-import 'package:happy/screens/match_market/match_market_swipe_page.dart';
+import 'package:happy/screens/match_market/location_selection_page.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 
 class MatchMarketIntroPage extends StatefulWidget {
@@ -42,6 +42,15 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
       return 'Retour au niveau précédent';
     }
     return categoryPath[categoryPath.length - 2].name;
+  }
+
+  void _onCategorySelected(Category category) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LocationSelectionPage(category: category),
+      ),
+    );
   }
 
   @override
@@ -184,7 +193,7 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => MatchMarketSwipePage(
+                          builder: (context) => LocationSelectionPage(
                             category: selectedCategory!,
                           ),
                         ),

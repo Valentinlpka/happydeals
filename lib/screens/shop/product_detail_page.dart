@@ -2,7 +2,9 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/company.dart';
+import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product.dart';
+import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
@@ -10,10 +12,8 @@ import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/like_service.dart';
 import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/product_card.dart';
+import 'package:happy/widgets/share_confirmation_dialog.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:universal_html/html.dart' as html;
-import 'package:url_launcher/url_launcher.dart';
 
 class ModernProductDetailPage extends StatefulWidget {
   final Product product;
@@ -387,41 +387,38 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   }
 
   Widget _buildSellerInfo() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Vendeur',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Vendeur',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(height: 16),
-          FutureBuilder<Company>(
-            future: companyFuture,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+        ),
+        const SizedBox(height: 16),
+        FutureBuilder<Company>(
+          future: companyFuture,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-              return CompanyInfoCard(
-                company: snapshot.data!,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => DetailsEntreprise(
-                      entrepriseId: widget.product.sellerId,
-                    ),
+            return CompanyInfoCard(
+              company: snapshot.data!,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DetailsEntreprise(
+                    entrepriseId: widget.product.sellerId,
                   ),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -628,213 +625,261 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   }
 
   void _showShareBottomSheet() {
-    // Construire l'URL avec les métadonnées Open Graph
-    final String productUrl = Uri.encodeFull(
-        "https://happy-deals-3f03d.web.app/produits/${widget.product.id}"); // Remplacez par votre URL réelle
-    final String productImage = selectedVariant?.images.first ?? '';
-    final String description = widget.product.description.length > 100
-        ? '${widget.product.description.substring(0, 97)}...'
-        : widget.product.description;
-
-    // Texte de partage avec métadonnées pour les réseaux sociaux
-    final String shareText = """
-${widget.product.name}
-
-$description
-
-Découvrez ce produit sur notre boutique!
-$productUrl
-""";
+    final users = Provider.of<UserModel>(context, listen: false);
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Partager avec',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildShareOption(
-                    icon:
-                        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Facebook_Logo_%282019%29.png/1200px-Facebook_Logo_%282019%29.png',
-                    label: 'Facebook',
-                    onTap: () {
-                      // URL avec paramètres Open Graph pour Facebook
-                      final fbUrl = Uri.encodeFull(
-                          "https://www.facebook.com/sharer/sharer.php?u=$productUrl");
-                      html.window.open(fbUrl, 'facebook-share');
-                      Navigator.pop(context);
-                    },
+              const ListTile(
+                title: Text(
+                  "Partager",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
-                  _buildShareOption(
-                    icon:
-                        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Logo_of_Twitter.svg/512px-Logo_of_Twitter.svg.png',
-                    label: 'Twitter',
-                    onTap: () {
-                      final twitterUrl = Uri.encodeFull(
-                          "https://twitter.com/intent/tweet?text=${Uri.encodeFull(shareText)}");
-                      html.window.open(twitterUrl, 'twitter-share');
-                      Navigator.pop(context);
-                    },
-                  ),
-                  _buildShareOption(
-                    icon:
-                        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/767px-WhatsApp.svg.png',
-                    label: 'WhatsApp',
-                    onTap: () async {
-                      final whatsappUrl = "whatsapp://send?text=$shareText";
-                      if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
-                        await launchUrl(Uri.parse(whatsappUrl));
-                      }
-                      Navigator.pop(context);
-                    },
-                  ),
-                  _buildShareOption(
-                    icon:
-                        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Telegram_2019_Logo.svg/512px-Telegram_2019_Logo.svg.png',
-                    label: 'Telegram',
-                    onTap: () async {
-                      final telegramUrl =
-                          "https://t.me/share/url?url=$productUrl&text=${widget.product.name}";
-                      if (await canLaunchUrl(Uri.parse(telegramUrl))) {
-                        await launchUrl(Uri.parse(telegramUrl));
-                      }
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildShareOption(
-                    icon:
-                        'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/132px-Instagram_logo_2016.svg.png',
-                    label: 'Instagram',
-                    onTap: () async {
-                      // Instagram ne permet pas le partage direct via URL, on utilise le partage général
-                      await Share.share(shareText,
-                          subject: widget.product.name);
-                      Navigator.pop(context);
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.share_outlined),
+                title: const Text('Partager sur mon profil'),
+                onTap: () {
+                  Navigator.pop(context);
+                  final scaffoldContext = context;
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return ShareConfirmationDialog(
+                        post: Post(
+                          id: widget.product.id,
+                          companyId: widget.product.sellerId,
+                          timestamp: DateTime.now(),
+                          type: 'product',
+                        ),
+                        onConfirm: (String comment) async {
+                          try {
+                            Navigator.of(dialogContext).pop();
+
+                            await FirebaseFirestore.instance
+                                .collection('posts')
+                                .doc(widget.product.id)
+                                .update({
+                              'sharesCount': FieldValue.increment(1),
+                            });
+
+                            await users.sharePost(
+                              widget.product.id,
+                              users.userId,
+                              comment: comment,
+                            );
+
+                            if (scaffoldContext.mounted) {
+                              ScaffoldMessenger.of(scaffoldContext)
+                                  .showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Publication partagée avec succès!'),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (scaffoldContext.mounted) {
+                              ScaffoldMessenger.of(scaffoldContext)
+                                  .showSnackBar(
+                                SnackBar(
+                                  content: Text('Erreur lors du partage: $e'),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      );
                     },
-                  ),
-                  _buildShareOption(
-                    icon: 'https://www.svgrepo.com/show/13667/link.svg',
-                    label: 'Copier le lien',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // Utiliser l'API Clipboard du web
-                      html.window.navigator.clipboard
-                          ?.writeText(productUrl)
-                          .then((_) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Lien copié dans le presse-papiers'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      });
-                    },
-                  ),
-                  _buildShareOption(
-                    icon:
-                        'https://www.svgrepo.com/show/533241/message-dots.svg',
-                    label: 'SMS',
-                    onTap: () async {
-                      final smsUrl = "sms:?body=$shareText";
-                      if (await canLaunchUrl(Uri.parse(smsUrl))) {
-                        await launchUrl(Uri.parse(smsUrl));
-                      }
-                      Navigator.pop(context);
-                    },
-                  ),
-                  _buildShareOption(
-                    icon: 'https://www.svgrepo.com/show/533211/mail.svg',
-                    label: 'Email',
-                    onTap: () async {
-                      final emailUrl =
-                          "mailto:?subject=${widget.product.name}&body=$shareText";
-                      if (await canLaunchUrl(Uri.parse(emailUrl))) {
-                        await launchUrl(Uri.parse(emailUrl));
-                      }
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
+                  );
+                },
               ),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+              ListTile(
+                leading: const Icon(Icons.message_outlined),
+                title: const Text('Envoyer en message'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showConversationsList(context, users);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildShareOption({
-    required String icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Image.network(
-              icon,
-              width: 36,
-              height: 36,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black87,
-            ),
-          ),
-        ],
+  void _showConversationsList(BuildContext context, UserModel users) {
+    final conversationService =
+        Provider.of<ConversationService>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (BuildContext context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    "Envoyer à...",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const Divider(),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .where(FieldPath.documentId,
+                            whereIn: users.followedUsers)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      if (users.followedUsers.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            "Vous ne suivez aucun utilisateur",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                        );
+                      }
+
+                      final usersList = snapshot.data!.docs;
+
+                      if (usersList.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            "Aucun utilisateur trouvé",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        controller: scrollController,
+                        itemCount: usersList.length,
+                        itemBuilder: (context, index) {
+                          final userData =
+                              usersList[index].data() as Map<String, dynamic>;
+                          final userId = usersList[index].id;
+
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: userData['image_profile'] != null
+                                  ? NetworkImage(userData['image_profile'])
+                                  : null,
+                              child: userData['image_profile'] == null
+                                  ? const Icon(Icons.person)
+                                  : null,
+                            ),
+                            title: Text(
+                                '${userData['firstName']} ${userData['lastName']}'),
+                            onTap: () async {
+                              try {
+                                await FirebaseFirestore.instance
+                                    .collection('posts')
+                                    .doc(widget.product.id)
+                                    .update({
+                                  'sharesCount': FieldValue.increment(1),
+                                });
+
+                                await conversationService
+                                    .sharePostInConversation(
+                                  senderId: users.userId,
+                                  receiverId: userId,
+                                  post: Post(
+                                    id: widget.product.id,
+                                    companyId: widget.product.sellerId,
+                                    timestamp: DateTime.now(),
+                                    type: 'product',
+                                  ),
+                                );
+
+                                if (!context.mounted) return;
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('Produit partagé avec succès')),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content:
+                                          Text('Erreur lors du partage: $e')),
+                                );
+                              }
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

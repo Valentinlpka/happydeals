@@ -6,8 +6,8 @@ import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
-class FollowedCompaniesPage extends StatelessWidget {
-  const FollowedCompaniesPage({super.key});
+class FollowedAssociationsPage extends StatelessWidget {
+  const FollowedAssociationsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -19,19 +19,19 @@ class FollowedCompaniesPage extends StatelessWidget {
 
     return Scaffold(
       appBar: const CustomAppBar(
-        title: 'Entreprises suivies',
+        title: 'Associations suivies',
         align: Alignment.center,
       ),
-      body: _buildCompaniesList(userModel: userModel),
+      body: _buildAssociationsList(userModel: userModel),
     );
   }
 
-  Widget _buildCompaniesList({required UserModel userModel}) {
+  Widget _buildAssociationsList({required UserModel userModel}) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('companys')
           .where(FieldPath.documentId, whereIn: userModel.likedCompanies)
-          .where('type', isEqualTo: 'company')
+          .where('type', isEqualTo: 'association')
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -44,7 +44,7 @@ class FollowedCompaniesPage extends StatelessWidget {
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Center(
-            child: Text('Vous ne suivez aucune entreprise'),
+            child: Text('Vous ne suivez aucune association'),
           );
         }
 
@@ -54,10 +54,10 @@ class FollowedCompaniesPage extends StatelessWidget {
           itemBuilder: (context, index) {
             try {
               final doc = snapshot.data!.docs[index];
-              final company = Company.fromDocument(doc);
+              final association = Company.fromDocument(doc);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: CompanyCard(company),
+                child: CompanyCard(association),
               );
             } catch (e) {
               return const SizedBox.shrink();
@@ -71,7 +71,7 @@ class FollowedCompaniesPage extends StatelessWidget {
   Widget _buildEmptyState(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(
-        title: 'Entreprises suivies',
+        title: 'Associations suivies',
         align: Alignment.center,
       ),
       body: Center(
@@ -79,13 +79,13 @@ class FollowedCompaniesPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.business_outlined,
+              Icons.volunteer_activism_outlined,
               size: 64,
               color: Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
-              'Vous ne suivez aucune entreprise',
+              'Vous ne suivez aucune association',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
@@ -95,7 +95,7 @@ class FollowedCompaniesPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Explorez notre catalogue d\'entreprises\npour en découvrir de nouvelles',
+              'Découvrez les associations près de chez vous\net soutenez leurs actions',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[500],
@@ -105,7 +105,7 @@ class FollowedCompaniesPage extends StatelessWidget {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pushNamed('/companies');
+                Navigator.of(context).pushNamed('/associations');
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
@@ -118,7 +118,7 @@ class FollowedCompaniesPage extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                'Explorer les entreprises',
+                'Découvrir les associations',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -134,7 +134,7 @@ class FollowedCompaniesPage extends StatelessWidget {
   Widget _buildErrorState(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(
-        title: 'Entreprises suivies',
+        title: 'Associations suivies',
         align: Alignment.center,
       ),
       body: Center(

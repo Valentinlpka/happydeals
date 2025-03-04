@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/screens/shop/checkout_page.dart';
 import 'package:happy/services/cart_service.dart';
@@ -7,6 +11,30 @@ import 'package:provider/provider.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
+
+  double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371; // Rayon de la Terre en kilomètres
+
+    // Conversion en radians
+    final double lat1Rad = lat1 * math.pi / 180;
+    final double lon1Rad = lon1 * math.pi / 180;
+    final double lat2Rad = lat2 * math.pi / 180;
+    final double lon2Rad = lon2 * math.pi / 180;
+
+    // Différence de longitude et latitude
+    final double dLat = lat2Rad - lat1Rad;
+    final double dLon = lon2Rad - lon1Rad;
+
+    // Formule de Haversine
+    final double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1Rad) *
+            math.cos(lat2Rad) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return earthRadius * c;
+  }
 
   void _showDeleteConfirmation(
       BuildContext context, Cart cart, CartService cartService) {
@@ -140,6 +168,7 @@ class CartScreen extends StatelessWidget {
       body: Consumer<CartService>(
         builder: (context, cartService, child) {
           final activeCarts = cartService.activeCarts;
+          final userModel = Provider.of<UserModel>(context);
 
           if (activeCarts.isEmpty) {
             return const Center(child: Text('Vous n\'avez aucun panier actif'));
@@ -152,150 +181,239 @@ class CartScreen extends StatelessWidget {
               final remainingHours =
                   24 - DateTime.now().difference(cart.createdAt).inHours;
 
-              return Card(
-                margin: const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      color: Colors.blue[50],
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              cart.sellerName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            'Expire dans: ${remainingHours}h',
-                            style: TextStyle(
-                              color: remainingHours < 2
-                                  ? Colors.red
-                                  : Colors.grey[600],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.red),
-                            onPressed: () => _showDeleteConfirmation(
-                              context,
-                              cart,
-                              cartService,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: cart.items.length,
-                      itemBuilder: (context, itemIndex) {
-                        final item = cart.items[itemIndex];
-                        final hasDiscount =
-                            item.variant.discount?.isValid() ?? false;
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('companys')
+                    .doc(cart.sellerId)
+                    .get(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                        return ListTile(
-                          leading: item.variant.images.isNotEmpty
-                              ? _buildProductImage(item.variant.images[0])
-                              : const Icon(Icons.image_not_supported),
-                          title: Text(item.product.name),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  if (!snapshot.hasData || !snapshot.data!.exists) {
+                    return const SizedBox();
+                  }
+
+                  final companyData =
+                      snapshot.data!.data() as Map<String, dynamic>;
+                  final companyAddress =
+                      companyData['adress'] as Map<String, dynamic>;
+
+                  double distance = 0;
+                  if (userModel.latitude != 0 && userModel.longitude != 0) {
+                    distance = calculateDistance(
+                      userModel.latitude,
+                      userModel.longitude,
+                      companyAddress['latitude'] as double,
+                      companyAddress['longitude'] as double,
+                    );
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          color: Colors.blue[50],
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
                             children: [
-                              Text(
-                                item.variant.attributes.entries
-                                    .map((e) => '${e.key}: ${e.value}')
-                                    .join(', '),
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Text(
-                                'TVA: ${item.tva.toStringAsFixed(2)} %',
-                              ),
-                              if (hasDiscount)
-                                Text(
-                                  '${item.variant.price.toStringAsFixed(2)} €',
-                                  style: const TextStyle(
-                                    decoration: TextDecoration.lineThrough,
-                                    color: Colors.grey,
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: const Color(0xFF3476B2),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(2),
+                                  child: CircleAvatar(
+                                    radius: 24,
+                                    backgroundImage:
+                                        NetworkImage(companyData['logo'] ?? ''),
+                                    backgroundColor: Colors.white,
                                   ),
                                 ),
-                              Text(
-                                '${item.appliedPrice.toStringAsFixed(2)} €',
-                                style: TextStyle(
-                                  color: hasDiscount ? Colors.red : null,
-                                  fontWeight: FontWeight.bold,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      companyData['name'] ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.start,
+                                      spacing: 4,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue[100],
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            companyData['category'] ?? '',
+                                            style: TextStyle(
+                                              color: Colors.blue[900],
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.location_on,
+                                                size: 14,
+                                                color: Colors.grey[600]),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${companyAddress['ville']} • ${distance.toStringAsFixed(1)} km',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.close,
+                                        color: Colors.red),
+                                    onPressed: () => _showDeleteConfirmation(
+                                      context,
+                                      cart,
+                                      cartService,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        ),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: cart.items.length,
+                          itemBuilder: (context, itemIndex) {
+                            final item = cart.items[itemIndex];
+                            final hasDiscount =
+                                item.variant.discount?.isValid() ?? false;
+
+                            return ListTile(
+                              leading: item.variant.images.isNotEmpty
+                                  ? _buildProductImage(item.variant.images[0])
+                                  : const Icon(Icons.image_not_supported),
+                              title: Text(item.product.name),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.variant.attributes.entries
+                                        .map((e) => '${e.key}: ${e.value}')
+                                        .join(', '),
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  if (hasDiscount)
+                                    Text(
+                                      '${item.variant.price.toStringAsFixed(2)} €',
+                                      style: const TextStyle(
+                                        decoration: TextDecoration.lineThrough,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  Text(
+                                    '${item.appliedPrice.toStringAsFixed(2)} €',
+                                    style: TextStyle(
+                                      color: hasDiscount ? Colors.red : null,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.remove),
+                                    onPressed: () => cartService.removeFromCart(
+                                      cart.sellerId,
+                                      item.product.id,
+                                      item.variant.id,
+                                    ),
+                                  ),
+                                  Text('${item.quantity}'),
+                                  IconButton(
+                                    icon: const Icon(Icons.add),
+                                    onPressed: () async {
+                                      try {
+                                        await cartService.addToCart(
+                                          item.product,
+                                          variantId: item.variant.id,
+                                        );
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(content: Text(e.toString())),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
                             children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove),
-                                onPressed: () => cartService.removeFromCart(
-                                  cart.sellerId,
-                                  item.product.id,
-                                  item.variant.id,
+                              if (cart.discountAmount > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: Text(
+                                    'Code promo appliqué: -${cart.discountAmount.toStringAsFixed(2)} €',
+                                    style: const TextStyle(color: Colors.blue),
+                                  ),
                                 ),
-                              ),
-                              Text('${item.quantity}'),
-                              IconButton(
-                                icon: const Icon(Icons.add),
-                                onPressed: () async {
-                                  try {
-                                    await cartService.addToCart(
-                                      item.product,
-                                      variantId: item.variant.id,
-                                    );
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(e.toString())),
-                                    );
-                                  }
-                                },
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue[800],
+                                  minimumSize: const Size(double.infinity, 50),
+                                ),
+                                onPressed: () =>
+                                    _proceedToCheckout(context, cart),
+                                child: Text(
+                                  'Payer ce panier (${cart.finalTotal.toStringAsFixed(2)} €)',
+                                ),
                               ),
                             ],
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          if (cart.discountAmount > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Text(
-                                'Code promo appliqué: -${cart.discountAmount.toStringAsFixed(2)} €',
-                                style: const TextStyle(color: Colors.blue),
-                              ),
-                            ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue[800],
-                              minimumSize: const Size(double.infinity, 50),
-                            ),
-                            onPressed: () => _proceedToCheckout(context, cart),
-                            child: Text(
-                              'Payer ce panier (${cart.finalTotal.toStringAsFixed(2)} €)',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               );
             },
           );

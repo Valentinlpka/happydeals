@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/geo_point.dart';
 import 'package:happy/providers/ads_provider.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/marketplace/ad_card.dart';
 import 'package:happy/screens/marketplace/ad_creation_page.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
@@ -60,91 +61,96 @@ class _AdListPageState extends State<AdListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: Stack(
-        children: [
-          CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              _buildSliverAppBar(),
-              SliverToBoxAdapter(child: _buildQuickActions()),
-              SliverToBoxAdapter(child: _buildFilterChips()),
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.55,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      if (index >= _ads.length) {
-                        if (_hasMore && !_isLoading) {
-                          _loadMoreAds();
-                        }
-                        return null;
-                      }
-                      final ad = _ads[index];
-                      return AdCard(
-                        ad: ad,
-                        onTap: () => _navigateToAdDetail(ad),
-                        onSaveTap: () => _toggleSaveAd(ad),
-                        userLocation: _selectedCityData != null
-                            ? GeoPoint(
-                                _selectedCityData!['coordinates'][1],
-                                _selectedCityData!['coordinates'][0],
-                              )
-                            : null,
-                      );
-                    },
-                    childCount: _ads.length,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (_isLoading)
-            Positioned(
-              bottom: 20,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
+      body: Consumer<UserModel>(
+        builder: (context, userModel, child) {
+          final userLocation =
+              userModel.latitude != 0 && userModel.longitude != 0
+                  ? GeoPoint(userModel.latitude, userModel.longitude)
+                  : null;
+
+          return Stack(
+            children: [
+              CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  _buildSliverAppBar(),
+                  SliverToBoxAdapter(child: _buildQuickActions()),
+                  SliverToBoxAdapter(child: _buildFilterChips()),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.55,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
                       ),
-                    ],
-                  ),
-                  child: const CircularProgressIndicator(),
-                ),
-              ),
-            ),
-          if (_ads.isEmpty && !_isLoading)
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Aucune annonce trouvée',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      height: 1.5,
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index >= _ads.length) {
+                            if (_hasMore && !_isLoading) {
+                              _loadMoreAds();
+                            }
+                            return null;
+                          }
+                          final ad = _ads[index];
+                          return AdCard(
+                            ad: ad,
+                            onTap: () => _navigateToAdDetail(ad),
+                            onSaveTap: () => _toggleSaveAd(ad),
+                            userLocation: userLocation,
+                          );
+                        },
+                        childCount: _ads.length,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-        ],
+              if (_isLoading)
+                Positioned(
+                  bottom: 20,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: const CircularProgressIndicator(),
+                    ),
+                  ),
+                ),
+              if (_ads.isEmpty && !_isLoading)
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Aucune annonce trouvée',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

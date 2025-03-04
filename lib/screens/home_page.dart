@@ -9,6 +9,7 @@ import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/marketplace/ad_detail_page.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
+import 'package:happy/screens/match_market/match_market_intro_page.dart';
 import 'package:happy/screens/post_type_page/code_promo_page.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
@@ -16,6 +17,7 @@ import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
+import 'package:happy/screens/search_page.dart';
 import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
 import 'package:happy/widgets/bottom_sheet_profile.dart';
@@ -81,13 +83,18 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     ),
     NavigationItem(
       title: 'Services',
-      icon: Icons.miscellaneous_services, // Icône engrenage pour les services
+      icon: Icons.calendar_today_outlined, // Icône engrenage pour les services
       page: const ServiceListPage(),
     ),
     NavigationItem(
-      title: 'Marketplace',
+      title: 'Troc & Échange',
       icon: Icons.storefront, // Icône boutique pour la marketplace
       page: const AdListPage(),
+    ),
+    NavigationItem(
+      title: 'Match Market',
+      icon: Icons.local_fire_department_outlined, // Icône d'entreprise/business
+      page: const MatchMarketIntroPage(),
     ),
   ];
 
@@ -237,12 +244,20 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         end: Alignment.bottomRight,
       ),
       'Services': const LinearGradient(
-        colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+        colors: [Color(0xFF6B48FF), Color(0xFF8466FF)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
-      'Marketplace': const LinearGradient(
+      'Troc & Échange': const LinearGradient(
         colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Match Market': const LinearGradient(
+        colors: [
+          Color.fromARGB(251, 209, 142, 8),
+          Color.fromARGB(255, 237, 59, 23)
+        ],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
@@ -403,6 +418,29 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey[50]!.withOpacity(0.5),
+                      spreadRadius: 2,
+                      blurRadius: 2,
+                    ),
+                  ],
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.search, color: Colors.black87),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const SearchPage()),
+                    );
+                  },
                 ),
               ),
             ],

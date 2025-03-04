@@ -302,7 +302,6 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
                       companyCategorie: companyCategorie,
                       companyLogo: companyLogo,
                       companyCover: companyCover,
-                      currentUserId: currentUserId,
                     ),
                   );
                 },

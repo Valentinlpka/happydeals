@@ -1,15 +1,60 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/post_type_page/job_search_profile_page.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
+class City {
+  final String inseeCode;
+  final String label;
+  final String zipCode;
+  final double latitude;
+  final double longitude;
+
+  City({
+    required this.inseeCode,
+    required this.label,
+    required this.zipCode,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  factory City.fromJson(Map<String, dynamic> json) {
+    String capitalizeWords(String input) {
+      if (input.isEmpty) return input;
+      return input.split(' ').map((word) {
+        if (word.isEmpty) return word;
+        return word[0].toUpperCase() + word.substring(1).toLowerCase();
+      }).join(' ');
+    }
+
+    double parseCoordinate(String value) {
+      try {
+        return double.parse(value.trim());
+      } catch (e) {
+        print('Erreur de conversion pour la coordonnée: $value');
+        return 0.0;
+      }
+    }
+
+    return City(
+      inseeCode: json['insee_code'] as String,
+      label: capitalizeWords(json['label'] as String),
+      zipCode: json['zip_code'] as String,
+      latitude: parseCoordinate(json['latitude'] as String),
+      longitude: parseCoordinate(json['longitude'] as String),
+    );
+  }
+}
 
 class GeneralProfilePage extends StatefulWidget {
   const GeneralProfilePage({super.key});
@@ -22,6 +67,60 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final _formKey = GlobalKey<FormState>();
   dynamic _imageFile;
+  List<City> _allCities = [];
+  List<City> _filteredCities = [];
+  final TextEditingController _cityController = TextEditingController();
+  bool _isLoadingCities = false;
+  City? _selectedCity;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCities();
+  }
+
+  Future<void> _loadCities() async {
+    try {
+      setState(() {
+        _isLoadingCities = true;
+      });
+
+      final String jsonString =
+          await rootBundle.loadString('assets/french_cities.json');
+      final data = json.decode(jsonString);
+
+      _allCities = (data['cities'] as List)
+          .map((cityJson) => City.fromJson(cityJson))
+          .toList();
+
+      setState(() {
+        _isLoadingCities = false;
+      });
+    } catch (e) {
+      print('Erreur lors du chargement des villes: $e');
+      setState(() {
+        _isLoadingCities = false;
+      });
+    }
+  }
+
+  void _filterCities(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _filteredCities = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _filteredCities = _allCities
+          .where((city) =>
+              city.label.toLowerCase().contains(query.toLowerCase()) ||
+              city.zipCode.contains(query))
+          .take(5)
+          .toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +170,9 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
                                 (value) => userModel.firstName = value),
                             _buildTextField('Nom', userModel.lastName,
                                 (value) => userModel.lastName = value),
+                            _buildTextField('Ville', userModel.city,
+                                (value) => userModel.city = value,
+                                controller: _cityController),
                           ],
                         ),
                       ),
@@ -115,6 +217,10 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
                               'lastName': userModel.lastName,
                               'email': userModel.email,
                               'phone': userModel.phone,
+                              'city': userModel.city,
+                              'zipCode': userModel.zipCode,
+                              'latitude': userModel.latitude,
+                              'longitude': userModel.longitude,
                             });
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -204,12 +310,117 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
   }
 
   Widget _buildTextField(
-      String label, String initialValue, Function(String) onSaved) {
+      String label, String initialValue, Function(String) onSaved,
+      {TextEditingController? controller}) {
+    if (label == 'Ville') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _cityController,
+            decoration: InputDecoration(
+              labelText: 'Ville',
+              hintText: 'Entrez votre ville',
+              prefixIcon: Icon(Icons.location_city, color: Colors.grey[600]),
+              suffixIcon: _selectedCity != null
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        setState(() {
+                          _selectedCity = null;
+                          _cityController.clear();
+                          _filteredCities = [];
+                        });
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.blue[700]!, width: 2),
+              ),
+            ),
+            onChanged: (value) {
+              _filterCities(value);
+              setState(() {
+                _selectedCity = null;
+              });
+            },
+          ),
+          if (_filteredCities.isNotEmpty && _selectedCity == null)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _filteredCities.length,
+                itemBuilder: (context, index) {
+                  final city = _filteredCities[index];
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedCity = city;
+                          _cityController.text =
+                              '${city.label} (${city.zipCode})';
+                          _filteredCities = [];
+                        });
+                        Provider.of<UserModel>(context, listen: false)
+                          ..city = city.label
+                          ..zipCode = city.zipCode
+                          ..latitude = city.latitude
+                          ..longitude = city.longitude;
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Text(
+                          '${city.label} (${city.zipCode})',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
-          initialValue: initialValue,
+          controller: controller,
+          initialValue: controller == null ? initialValue : null,
           decoration: InputDecoration(
             hintText: 'Entrez votre $label',
             hintStyle: TextStyle(color: Colors.grey[400]),
@@ -265,6 +476,8 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
         return Icons.email_outlined;
       case 'téléphone':
         return Icons.phone_outlined;
+      case 'ville':
+        return Icons.location_city;
       default:
         return Icons.edit_outlined;
     }

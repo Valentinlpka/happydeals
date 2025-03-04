@@ -1,8 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/category_product.dart';
 import 'package:happy/classes/product.dart';
-import 'package:happy/widgets/product_card.dart';
+import 'package:happy/providers/users_provider.dart';
+import 'package:happy/utils/location_utils.dart';
+import 'package:happy/widgets/cards/product_card_list.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/location_filter.dart';
+import 'package:provider/provider.dart';
 
 String formatCategoryName(String categoryId) {
   if (categoryId.isEmpty) return '';
@@ -37,6 +43,12 @@ class _ProductsPageState extends State<ProductsPage> {
   List<CategoryAttribute> availableAttributes = [];
   bool isLoading = false;
 
+  // Variables pour la localisation
+  double? _selectedLat;
+  double? _selectedLng;
+  double _selectedRadius = 20.0;
+  String _selectedAddress = '';
+
   // Variables temporaires pour les filtres
   Category? tempMainCategory;
   Category? tempSubCategory;
@@ -49,6 +61,19 @@ class _ProductsPageState extends State<ProductsPage> {
   void initState() {
     super.initState();
     _resetTempValues();
+    _initializeLocation();
+  }
+
+  Future<void> _initializeLocation() async {
+    final userProvider = Provider.of<UserModel>(context, listen: false);
+    if (userProvider.latitude != 0.0 && userProvider.longitude != 0.0) {
+      setState(() {
+        _selectedLat = userProvider.latitude;
+        _selectedLng = userProvider.longitude;
+        _selectedAddress = userProvider.city;
+        _updateProductsList();
+      });
+    }
   }
 
   void _resetTempValues() {
@@ -81,9 +106,17 @@ class _ProductsPageState extends State<ProductsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Produits'),
+      appBar: CustomAppBar(
+        title: 'Produits',
+        align: Alignment.center,
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.location_on,
+              color: _selectedLat != null ? const Color(0xFF4B88DA) : null,
+            ),
+            onPressed: _showLocationFilterBottomSheet,
+          ),
           IconButton(
             icon: Icon(
               Icons.business,
@@ -126,6 +159,25 @@ class _ProductsPageState extends State<ProductsPage> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
+          // Filtre de localisation
+          if (_selectedLat != null && _selectedLng != null) ...[
+            FilterChip(
+              label: Text('$_selectedAddress (${_selectedRadius.round()} km)'),
+              onSelected: (_) {},
+              onDeleted: () {
+                setState(() {
+                  _selectedLat = null;
+                  _selectedLng = null;
+                  _selectedAddress = '';
+                  _updateProductsList();
+                });
+              },
+              labelStyle: const TextStyle(color: Colors.white),
+              backgroundColor: Colors.blue[800],
+            ),
+            const SizedBox(width: 8),
+          ],
+
           // Filtres de catégories
           if (selectedMainCategory != null) ...[
             FilterChip(
@@ -260,40 +312,24 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Widget _buildProductsGrid() {
-    Query<Map<String, dynamic>> productsQuery =
-        FirebaseFirestore.instance.collection('products');
+    Query productsQuery = FirebaseFirestore.instance
+        .collection('products')
+        .where('isActive', isEqualTo: true);
 
-    // Appliquer le filtre de catégorie
-    Category? selectedCategory;
-    if (selectedSubCategory3 != null) {
-      selectedCategory = selectedSubCategory3;
-    } else if (selectedSubCategory2 != null) {
-      selectedCategory = selectedSubCategory2;
-    } else if (selectedSubCategory != null) {
-      selectedCategory = selectedSubCategory;
-    } else if (selectedMainCategory != null) {
-      selectedCategory = selectedMainCategory;
+    // Appliquer les filtres de catégories
+    if (selectedMainCategory != null) {
+      productsQuery = productsQuery.where('mainCategory',
+          isEqualTo: selectedMainCategory!.id);
+      if (selectedSubCategory != null) {
+        productsQuery = productsQuery.where('subCategory',
+            isEqualTo: selectedSubCategory!.id);
+      }
     }
 
-    if (selectedCategory != null) {
-      productsQuery = productsQuery.where('categoryPath',
-          arrayContains: selectedCategory.id);
-    }
-
-    // Appliquer le filtre d'entreprises
+    // Appliquer les filtres d'entreprises
     if (selectedCompanies.isNotEmpty) {
       productsQuery =
           productsQuery.where('sellerId', whereIn: selectedCompanies);
-    }
-
-    // Appliquer les filtres d'attributs
-    if (selectedAttributes.isNotEmpty) {
-      for (var entry in selectedAttributes.entries) {
-        productsQuery = productsQuery.where(
-          'variants.attributes.${entry.key}',
-          whereIn: entry.value,
-        );
-      }
     }
 
     return StreamBuilder<QuerySnapshot>(
@@ -311,52 +347,166 @@ class _ProductsPageState extends State<ProductsPage> {
           return const Center(
             child: Text(
               'Aucun produit ne correspond à vos critères',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           );
         }
 
-        final products = snapshot.data!.docs;
+        final products = snapshot.data!.docs
+            .map((doc) => Product.fromFirestore(doc))
+            .where((product) => _filterProduct(product))
+            .toList();
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isTabletOrDesktop = constraints.maxWidth > 600;
-            final crossAxisCount = isTabletOrDesktop ? 3 : 2;
-            final horizontalPadding = isTabletOrDesktop ? 24.0 : 16.0;
-            final spacing = isTabletOrDesktop ? 20.0 : 12.0;
-            final availableWidth = constraints.maxWidth -
-                (2 * horizontalPadding) -
-                (spacing * (crossAxisCount - 1));
-            final cardWidth = availableWidth / crossAxisCount;
-            final childAspectRatio = cardWidth / (cardWidth * 1.45);
+        if (_selectedLat != null && _selectedLng != null) {
+          // On utilise un FutureBuilder pour filtrer par localisation
+          return FutureBuilder<List<Product>>(
+            future: _filterProductsByLocation(products),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            return GridView.builder(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: spacing,
-              ),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                childAspectRatio: childAspectRatio,
-                crossAxisSpacing: spacing,
-                mainAxisSpacing: spacing,
-              ),
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                final product = Product.fromFirestore(products[index]);
-                return ProductCard(
-                  product: product,
-                  width: cardWidth,
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'Aucun produit ne correspond à vos critères de localisation',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
                 );
-              },
+              }
+
+              return _buildProductsGridView(snapshot.data!);
+            },
+          );
+        }
+
+        return _buildProductsGridView(products);
+      },
+    );
+  }
+
+  bool _filterProduct(Product product) {
+    // Filtrer par attributs si nécessaire
+    if (selectedAttributes.isNotEmpty) {
+      bool matchesAttributes = true;
+      for (var entry in selectedAttributes.entries) {
+        if (!product.attributes.containsKey(entry.key) ||
+            !entry.value.contains(product.attributes[entry.key])) {
+          matchesAttributes = false;
+          break;
+        }
+      }
+      if (!matchesAttributes) return false;
+    }
+
+    // Filtrer par localisation si une localisation est sélectionnée
+    if (_selectedLat != null && _selectedLng != null) {
+      return true; // On retourne true ici car le filtrage se fera dans le FutureBuilder
+    }
+
+    return true;
+  }
+
+  Future<List<Product>> _filterProductsByLocation(
+      List<Product> products) async {
+    final filteredProducts = <Product>[];
+
+    for (var product in products) {
+      final companyDoc = await FirebaseFirestore.instance
+          .collection('companys')
+          .doc(product.sellerId)
+          .get();
+
+      if (!companyDoc.exists) continue;
+
+      final companyData = companyDoc.data()!;
+      final address = companyData['adress'] as Map<String, dynamic>?;
+
+      if (address != null &&
+          address['latitude'] != null &&
+          address['longitude'] != null) {
+        final isWithinRadius = LocationUtils.isWithinRadius(
+          _selectedLat!,
+          _selectedLng!,
+          address['latitude'],
+          address['longitude'],
+          _selectedRadius,
+        );
+
+        if (isWithinRadius) {
+          filteredProducts.add(product);
+        }
+      }
+    }
+
+    return filteredProducts;
+  }
+
+  Widget _buildProductsGridView(List<Product> products) {
+    // Regrouper les produits par entreprise
+    final Map<String, List<Product>> productsByCompany = {};
+    for (var product in products) {
+      if (!productsByCompany.containsKey(product.sellerId)) {
+        productsByCompany[product.sellerId] = [];
+      }
+      productsByCompany[product.sellerId]!.add(product);
+    }
+
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: productsByCompany.length,
+      itemBuilder: (context, index) {
+        final companyId = productsByCompany.keys.elementAt(index);
+        final companyProducts = productsByCompany[companyId]!;
+
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('companys')
+              .doc(companyId)
+              .get(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const SizedBox.shrink();
+            }
+
+            final companyData = snapshot.data!.data() as Map<String, dynamic>;
+            final companyName = companyData['name'] as String;
+            final companyLogo = companyData['logo'] as String;
+            final companyCategory = companyData['category'] as String;
+            final address = companyData['adress'] as Map<String, dynamic>?;
+            final companyCity = address?['ville'] as String?;
+
+            double? distance;
+            if (_selectedLat != null &&
+                _selectedLng != null &&
+                address != null) {
+              if (address['latitude'] != null && address['longitude'] != null) {
+                distance = Geolocator.distanceBetween(
+                      _selectedLat!,
+                      _selectedLng!,
+                      address['latitude'],
+                      address['longitude'],
+                    ) /
+                    1000; // Convertir en kilomètres
+              }
+            }
+
+            return ProductCards(
+              products: companyProducts,
+              companyName: companyName,
+              companyLogo: companyLogo,
+              companyCategory: companyCategory,
+              distance: distance,
+              companyCity: companyCity,
             );
           },
         );
       },
     );
+  }
+
+  void _updateProductsList() {
+    setState(() {});
   }
 
   Future<void> _loadAttributes(String categoryId) async {
@@ -538,49 +688,6 @@ class _ProductsPageState extends State<ProductsPage> {
         );
       },
     );
-  }
-
-  void _updateProductsList() {
-    Query<Map<String, dynamic>> productsQuery =
-        FirebaseFirestore.instance.collection('products');
-
-    // Déterminer la catégorie la plus spécifique sélectionnée
-    Category? selectedCategory;
-    if (selectedSubCategory3 != null) {
-      selectedCategory = selectedSubCategory3;
-    } else if (selectedSubCategory2 != null) {
-      selectedCategory = selectedSubCategory2;
-    } else if (selectedSubCategory != null) {
-      selectedCategory = selectedSubCategory;
-    } else if (selectedMainCategory != null) {
-      selectedCategory = selectedMainCategory;
-    }
-
-    // Appliquer le filtre de catégorie
-    if (selectedCategory != null) {
-      productsQuery = productsQuery.where('categoryPath',
-          arrayContains: selectedCategory.id);
-    }
-
-    // Appliquer le filtre d'entreprises
-    if (selectedCompanies.isNotEmpty) {
-      productsQuery =
-          productsQuery.where('sellerId', whereIn: selectedCompanies);
-    }
-
-    // Appliquer les filtres d'attributs
-    if (selectedAttributes.isNotEmpty) {
-      for (var entry in selectedAttributes.entries) {
-        productsQuery = productsQuery.where(
-          'variants.attributes.${entry.key}',
-          whereIn: entry.value,
-        );
-      }
-    }
-
-    setState(() {
-      // Le StreamBuilder se mettra à jour automatiquement avec la nouvelle requête
-    });
   }
 
   Widget _buildMainCategories(StateSetter setModalState) {
@@ -1012,15 +1119,17 @@ class _ProductsPageState extends State<ProductsPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
             return Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     width: 40,
@@ -1031,30 +1140,16 @@ class _ProductsPageState extends State<ProductsPage> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Entreprises',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            setModalState(() {
-                              tempSelectedCompanies.clear();
-                            });
-                          },
-                          child: const Text('Réinitialiser'),
-                        ),
-                      ],
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Sélectionner les entreprises',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const Divider(),
                   Expanded(
                     child: StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
@@ -1070,6 +1165,7 @@ class _ProductsPageState extends State<ProductsPage> {
                         final companies = snapshot.data!.docs;
 
                         return ListView.builder(
+                          controller: scrollController,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: companies.length,
                           itemBuilder: (context, index) {
@@ -1079,7 +1175,7 @@ class _ProductsPageState extends State<ProductsPage> {
                             final companyName = companyData['name'] as String;
                             final companyLogo = companyData['logo'] as String;
                             final isSelected =
-                                tempSelectedCompanies.contains(company.id);
+                                selectedCompanies.contains(company.id);
 
                             return ListTile(
                               leading: CircleAvatar(
@@ -1092,74 +1188,19 @@ class _ProductsPageState extends State<ProductsPage> {
                                       color: Color(0xFF4B88DA))
                                   : const Icon(Icons.circle_outlined),
                               onTap: () {
-                                setModalState(() {
+                                setState(() {
                                   if (isSelected) {
-                                    tempSelectedCompanies.remove(company.id);
+                                    selectedCompanies.remove(company.id);
                                   } else {
-                                    tempSelectedCompanies.add(company.id);
+                                    selectedCompanies.add(company.id);
                                   }
                                 });
+                                _updateProductsList();
                               },
                             );
                           },
                         );
                       },
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          offset: const Offset(0, -4),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              _cancelFilters();
-                              Navigator.pop(context);
-                            },
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: const BorderSide(color: Color(0xFF4B88DA)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Text('Annuler'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              _applyFilters();
-                              Navigator.pop(context);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF4B88DA),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Text(
-                              'Appliquer',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],
@@ -1168,6 +1209,25 @@ class _ProductsPageState extends State<ProductsPage> {
           },
         );
       },
+    );
+  }
+
+  void _showLocationFilterBottomSheet() async {
+    await LocationFilterBottomSheet.show(
+      context: context,
+      onLocationSelected: (lat, lng, radius, address) {
+        setState(() {
+          _selectedLat = lat;
+          _selectedLng = lng;
+          _selectedRadius = radius;
+          _selectedAddress = address;
+          _updateProductsList();
+        });
+      },
+      currentLat: _selectedLat,
+      currentLng: _selectedLng,
+      currentRadius: _selectedRadius,
+      currentAddress: _selectedAddress,
     );
   }
 }

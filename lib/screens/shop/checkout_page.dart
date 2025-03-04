@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart' hide Card;
+import 'package:happy/classes/product.dart';
 import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/promo_service.dart';
@@ -32,7 +33,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   bool _isLoading = false;
   late Cart _cart;
-  Timer? _expirationTimer;
   StreamSubscription<DocumentSnapshot>? _cartSubscription;
 
   @override
@@ -41,13 +41,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _cart = widget.cart;
     _generateOrderId();
     _loadPickupAddress();
-    _startExpirationTimer();
     _listenToCartChanges();
   }
 
   @override
   void dispose() {
-    _expirationTimer?.cancel();
     _cartSubscription?.cancel();
     _promoCodeController.dispose();
     super.dispose();
@@ -66,18 +64,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final orderRef = FirebaseFirestore.instance.collection('orders').doc();
     setState(() {
       _orderId = orderRef.id;
-    });
-  }
-
-  void _startExpirationTimer() {
-    _expirationTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) {
-        setState(() {
-          if (_cart.isExpired) {
-            Navigator.of(context).pop();
-          }
-        });
-      }
     });
   }
 
@@ -130,7 +116,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              _buildExpirationBadge(),
             ],
           ),
           const SizedBox(height: 24),
@@ -140,47 +125,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Divider(height: 1),
           ),
           _buildTotalSection(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExpirationBadge() {
-    final remainingMinutes = _cart.createdAt
-        .add(const Duration(hours: 24))
-        .difference(DateTime.now())
-        .inMinutes;
-    final isNearExpiration = remainingMinutes < 30;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: isNearExpiration
-            ? Colors.red.withOpacity(0.1)
-            : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isNearExpiration ? Colors.red : Colors.grey.shade300,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.timer_outlined,
-            size: 16,
-            color: isNearExpiration ? Colors.red : Colors.grey[700],
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '${remainingMinutes}min',
-            style: TextStyle(
-              color: isNearExpiration ? Colors.red : Colors.grey[800],
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
         ],
       ),
     );
@@ -452,6 +396,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 },
                 successUrl: '${Uri.base.origin}/#/payment-success',
                 cancelUrl: '${Uri.base.origin}/#/payment-cancel',
+                onBeforePayment: () => _verifyBeforePayment(),
               ),
             ),
           ],
@@ -677,6 +622,141 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
       ],
     );
+  }
+
+  Future<bool> _verifyBeforePayment() async {
+    try {
+      bool needsUpdate = false;
+      Map<String, dynamic> updateData = {};
+      List<Map<String, dynamic>> updatedItems = [];
+
+      // 1. Vérifier le stock de chaque article
+      for (var item in _cart.items) {
+        final productDoc =
+            await _firestore.collection('products').doc(item.product.id).get();
+
+        if (!productDoc.exists) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content:
+                    Text('Le produit ${item.product.name} n\'existe plus')),
+          );
+          return false;
+        }
+
+        final product = Product.fromFirestore(productDoc);
+        final variant =
+            product.variants.firstWhere((v) => v.id == item.variant.id);
+
+        if (!product.isActive) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Le produit ${item.product.name} n\'est plus disponible')),
+          );
+          return false;
+        }
+
+        // Vérifier et ajuster le stock si nécessaire
+        if (variant.stock < item.quantity) {
+          needsUpdate = true;
+          final updatedItem = item.toMap();
+          updatedItem['quantity'] = variant.stock;
+          updatedItems.add(updatedItem);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Stock ajusté pour ${item.product.name} (${variant.stock} disponible(s))')),
+          );
+        }
+
+        // Vérifier et ajuster le prix si changé
+        double currentPrice = variant.price;
+        if (variant.discount?.isValid() ?? false) {
+          currentPrice =
+              variant.discount!.calculateDiscountedPrice(variant.price);
+        }
+
+        if (currentPrice != item.appliedPrice) {
+          needsUpdate = true;
+          final updatedItem = item.toMap();
+          updatedItem['appliedPrice'] = currentPrice;
+          updatedItems.add(updatedItem);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Prix mis à jour pour ${item.product.name}')),
+          );
+        }
+      }
+
+      // 2. Vérifier le code promo si appliqué
+      if (_cart.appliedPromoCode != null) {
+        final promoDetails =
+            await _promoService.getPromoCodeDetails(_cart.appliedPromoCode!);
+
+        if (promoDetails == null ||
+            !(await _promoService.validatePromoCode(
+              _cart.appliedPromoCode!,
+              _cart.sellerId,
+              _auth.currentUser!.uid,
+            ))) {
+          needsUpdate = true;
+          updateData['appliedPromoCode'] = null;
+          updateData['discountAmount'] = 0;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Code promo supprimé car non valide')),
+          );
+        }
+      }
+
+      // Mettre à jour le panier si nécessaire
+      if (needsUpdate) {
+        if (updatedItems.isNotEmpty) {
+          updateData['items'] = updatedItems;
+        }
+
+        await _firestore.collection('carts').doc(_cart.id).update(updateData);
+
+        // Attendre que le listener mette à jour le panier
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Demander à l'utilisateur s'il souhaite continuer
+        if (!mounted) return false;
+
+        bool? continuer = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Panier mis à jour'),
+              content: const Text(
+                  'Le panier a été mis à jour suite à des changements. Souhaitez-vous continuer vers le paiement ?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Continuer'),
+                ),
+              ],
+            );
+          },
+        );
+
+        return continuer ?? false;
+      }
+
+      return true;
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la vérification: $e')),
+      );
+      return false;
+    }
   }
 
   @override

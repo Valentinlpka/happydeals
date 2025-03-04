@@ -79,11 +79,6 @@ class _AdDetailPageState extends State<AdDetailPage> {
                   const SizedBox(height: 24),
                   _buildInfoSection('Description', widget.ad.description),
                   const SizedBox(height: 16),
-                  _buildInfoSection(
-                    'Souhaité en échange',
-                    widget.ad.additionalData['wishInReturn'] ?? 'Non spécifié',
-                  ),
-                  const SizedBox(height: 16),
                   if (widget.ad.additionalData['exchangeType'] ==
                       'Article') ...[
                     _buildArticleDetails(),
@@ -91,6 +86,11 @@ class _AdDetailPageState extends State<AdDetailPage> {
                       'Temps et Compétences') ...[
                     _buildServiceDetails(),
                   ],
+                  const SizedBox(height: 16),
+                  _buildInfoSection(
+                    'Souhaité en échange',
+                    widget.ad.additionalData['wishInReturn'] ?? 'Non spécifié',
+                  ),
                   const SizedBox(height: 24),
                   _buildLocationSection(),
                   const SizedBox(height: 24),
