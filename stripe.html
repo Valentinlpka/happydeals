@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Stripe Payment</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+
+<body>
+    <div id="payment-element"></div>
+    <script>
+        var stripe;
+        var elements;
+
+        function initializeStripe(publishableKey, clientSecret) {
+            stripe = Stripe(publishableKey);
+            elements = stripe.elements({ clientSecret: clientSecret });
+            const paymentElement = elements.create('payment');
+            paymentElement.mount('#payment-element');
+        }
+
+        function confirmPayment(returnUrl) {
+            return stripe.confirmPayment({
+                elements,
+                confirmParams: {
+                    return_url: returnUrl,
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
