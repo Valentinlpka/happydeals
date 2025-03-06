@@ -503,19 +503,6 @@ class _ProductsListPageState extends State<ProductsListPage> {
                                   const EdgeInsets.symmetric(horizontal: 0),
                               title: Row(
                                 children: [
-                                  if (category['icon'] != null &&
-                                      category['icon'].isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 12),
-                                      child: Icon(
-                                        IconData(int.parse(category['icon']),
-                                            fontFamily: 'MaterialIcons',
-                                            matchTextDirection: false),
-                                        color: isSelected
-                                            ? const Color(0xFF4B88DA)
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
                                   Expanded(
                                     child: Text(
                                       category['name'],
@@ -529,9 +516,6 @@ class _ProductsListPageState extends State<ProductsListPage> {
                                       ),
                                     ),
                                   ),
-                                  if (hasSubcategories)
-                                    const Icon(Icons.chevron_right,
-                                        color: Colors.grey),
                                   Checkbox(
                                     value: isSelected,
                                     onChanged: (bool? value) {

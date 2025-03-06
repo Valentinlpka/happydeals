@@ -218,20 +218,6 @@ class _ProductsPageState extends State<ProductsPage> {
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
-                                          if (category.icon != null &&
-                                              category.icon!.isNotEmpty) ...[
-                                            Icon(
-                                              IconData(
-                                                  int.parse(category.icon!),
-                                                  fontFamily: 'MaterialIcons',
-                                                  matchTextDirection: false),
-                                              size: 18,
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : const Color(0xFF4B88DA),
-                                            ),
-                                            const SizedBox(width: 8),
-                                          ],
                                           Text(
                                             category.name,
                                             style: TextStyle(
