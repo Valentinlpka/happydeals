@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
+import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/cards/emploi_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/location_filter.dart';
 
 class JobOffersPage extends StatefulWidget {
   const JobOffersPage({super.key});
@@ -18,6 +20,12 @@ class _JobOffersPageState extends State<JobOffersPage> {
   String _selectedSector = 'Tous';
   List<String> _locations = ['Tous'];
   List<String> _sectors = ['Tous'];
+
+  // Variables pour la localisation
+  double? _selectedLat;
+  double? _selectedLng;
+  double _selectedRadius = 5.0;
+  String _selectedAddress = '';
 
   @override
   void initState() {
@@ -50,6 +58,24 @@ class _JobOffersPageState extends State<JobOffersPage> {
     } catch (e) {}
   }
 
+  void _showLocationFilterBottomSheet() async {
+    await LocationFilterBottomSheet.show(
+      context: context,
+      onLocationSelected: (lat, lng, radius, address) {
+        setState(() {
+          _selectedLat = lat;
+          _selectedLng = lng;
+          _selectedRadius = radius;
+          _selectedAddress = address;
+        });
+      },
+      currentLat: _selectedLat,
+      currentLng: _selectedLng,
+      currentRadius: _selectedRadius,
+      currentAddress: _selectedAddress,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,6 +83,13 @@ class _JobOffersPageState extends State<JobOffersPage> {
         title: 'Offres d\'emploi',
         align: Alignment.center,
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.location_on,
+              color: _selectedLat != null ? const Color(0xFF4B88DA) : null,
+            ),
+            onPressed: _showLocationFilterBottomSheet,
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterBottomSheet,
@@ -79,7 +112,6 @@ class _JobOffersPageState extends State<JobOffersPage> {
       padding: const EdgeInsets.all(20.0),
       child: Column(
         children: [
-          // Barre de recherche moderne
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -120,7 +152,9 @@ class _JobOffersPageState extends State<JobOffersPage> {
           ),
 
           // Filtres sélectionnés
-          if (_selectedLocation != 'Tous' || _selectedSector != 'Tous')
+          if (_selectedLocation != 'Tous' ||
+              _selectedSector != 'Tous' ||
+              _selectedAddress.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(top: 12),
               height: 40,
@@ -148,13 +182,44 @@ class _JobOffersPageState extends State<JobOffersPage> {
                       ),
                     ),
                   if (_selectedSector != 'Tous')
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(_selectedSector),
+                        onSelected: (_) {},
+                        selected: true,
+                        onDeleted: () {
+                          setState(() {
+                            _selectedSector = 'Tous';
+                          });
+                        },
+                        deleteIcon: const Icon(Icons.close,
+                            size: 18, color: Colors.white),
+                        backgroundColor: const Color(0xFF4B88DA),
+                        selectedColor: const Color(0xFF4B88DA),
+                        labelStyle: const TextStyle(color: Colors.white),
+                        showCheckmark: false,
+                      ),
+                    ),
+                  if (_selectedAddress.isNotEmpty)
                     FilterChip(
-                      label: Text(_selectedSector),
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.location_on,
+                              size: 16, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text(
+                              '${_selectedRadius.toInt()} km - $_selectedAddress'),
+                        ],
+                      ),
                       onSelected: (_) {},
                       selected: true,
                       onDeleted: () {
                         setState(() {
-                          _selectedSector = 'Tous';
+                          _selectedLat = null;
+                          _selectedLng = null;
+                          _selectedAddress = '';
                         });
                       },
                       deleteIcon: const Icon(Icons.close,
@@ -332,15 +397,41 @@ class _JobOffersPageState extends State<JobOffersPage> {
                     .doc(jobOfferData['companyId'])
                     .get(),
                 builder: (context, companySnapshot) {
-                  if (companySnapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                  if (!companySnapshot.hasData) {
+                    return const SizedBox.shrink();
                   }
 
                   final companyData =
                       companySnapshot.data?.data() as Map<String, dynamic>?;
-                  final companyName = companyData?['name'] ?? 'Nom inconnu';
-                  final companyLogo = companyData?['logo'] ?? '';
+
+                  if (companyData == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  final companyName = companyData['name'] ?? 'Nom inconnu';
+                  final companyLogo = companyData['logo'] ?? '';
+                  final companyAddress =
+                      companyData['adress'] as Map<String, dynamic>?;
+
+                  // Vérification de la distance si un filtre de localisation est actif
+                  if (_selectedLat != null &&
+                      _selectedLng != null &&
+                      companyAddress != null &&
+                      companyAddress['latitude'] != null &&
+                      companyAddress['longitude'] != null) {
+                    final companyLat = companyAddress['latitude'] as double;
+                    final companyLng = companyAddress['longitude'] as double;
+
+                    if (!LocationUtils.isWithinRadius(
+                      _selectedLat!,
+                      _selectedLng!,
+                      companyLat,
+                      companyLng,
+                      _selectedRadius,
+                    )) {
+                      return const SizedBox.shrink();
+                    }
+                  }
 
                   return JobOfferCard(
                     post: JobOffer.fromDocument(jobOffers[index]),

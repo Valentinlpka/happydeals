@@ -6,6 +6,7 @@ class Category {
   final int level;
   final String? parentId;
   final bool hasAttributes;
+  final String? icon;
 
   Category({
     required this.id,
@@ -13,6 +14,7 @@ class Category {
     required this.level,
     this.parentId,
     this.hasAttributes = false,
+    this.icon,
   });
 
   @override
@@ -34,6 +36,7 @@ class Category {
       parentId: data['parentId'],
       level: data['level'] ?? 1,
       hasAttributes: data['hasAttributes'] ?? false,
+      icon: data['icon'],
     );
   }
 }

@@ -152,17 +152,139 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     );
   }
 
+  Widget _buildSkeletonPost() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey[200]!,
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // En-tête du post
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // Avatar skeleton
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Nom skeleton
+                        Container(
+                          width: 120,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        // Date skeleton
+                        Container(
+                          width: 80,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Image skeleton
+            Container(
+              height: 200,
+              width: double.infinity,
+              color: Colors.grey[300],
+            ),
+            // Contenu skeleton
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Ligne de texte 1
+                  Container(
+                    width: double.infinity,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Ligne de texte 2
+                  Container(
+                    width: MediaQuery.of(context).size.width * 0.7,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Actions skeleton
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: List.generate(
+                      3,
+                      (index) => Container(
+                        width: 60,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildStreamBuilder() {
     return Consumer<HomeProvider>(
       builder: (context, homeProvider, _) {
         return StreamBuilder<List<CombinedItem>>(
           stream: homeProvider.feedStream,
           builder: (context, snapshot) {
-            // Afficher les données existantes pendant le chargement
+            // Afficher le skeleton pendant le chargement
             if (snapshot.connectionState == ConnectionState.waiting &&
                 !snapshot.hasData &&
                 homeProvider.currentFeedItems.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
+              return ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: 3, // Nombre de skeletons à afficher
+                itemBuilder: (context, index) => _buildSkeletonPost(),
+              );
             }
 
             if (snapshot.hasError) {
@@ -454,7 +576,11 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     final homeProvider = Provider.of<HomeProvider>(context);
 
     if (homeProvider.isLoading && items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return ListView.builder(
+        padding: EdgeInsets.zero,
+        itemCount: 3,
+        itemBuilder: (context, index) => _buildSkeletonPost(),
+      );
     } else if (items.isEmpty) {
       return const Center(child: Text('Aucun élément trouvé'));
     } else {
@@ -469,10 +595,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         itemBuilder: (context, index) {
           if (index == items.length) {
             if (homeProvider.isLoading) {
-              return const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Center(child: CircularProgressIndicator()),
-              );
+              return _buildSkeletonPost();
             } else if (!homeProvider.hasMoreData) {
               return Container(
                 padding: const EdgeInsets.all(16.0),
