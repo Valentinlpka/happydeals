@@ -508,10 +508,9 @@ class _ProductsListPageState extends State<ProductsListPage> {
                                     Padding(
                                       padding: const EdgeInsets.only(right: 12),
                                       child: Icon(
-                                        IconData(
-                                          int.parse(category['icon']),
-                                          fontFamily: 'MaterialIcons',
-                                        ),
+                                        IconData(int.parse(category['icon']),
+                                            fontFamily: 'MaterialIcons',
+                                            matchTextDirection: false),
                                         color: isSelected
                                             ? const Color(0xFF4B88DA)
                                             : Colors.grey[600],

@@ -222,9 +222,9 @@ class _ProductsPageState extends State<ProductsPage> {
                                               category.icon!.isNotEmpty) ...[
                                             Icon(
                                               IconData(
-                                                int.parse(category.icon!),
-                                                fontFamily: 'MaterialIcons',
-                                              ),
+                                                  int.parse(category.icon!),
+                                                  fontFamily: 'MaterialIcons',
+                                                  matchTextDirection: false),
                                               size: 18,
                                               color: isSelected
                                                   ? Colors.white
