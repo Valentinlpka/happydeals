@@ -297,6 +297,7 @@ class _ProductsPageState extends State<ProductsPage> {
                               );
                             },
                           ),
+                        const SizedBox(height: 32),
 
                         // Autres sections existantes...
                         _buildProductSection(
@@ -325,6 +326,7 @@ class _ProductsPageState extends State<ProductsPage> {
                             );
                           },
                         ),
+                        const SizedBox(height: 32),
 
                         // Section Produits les plus vendus
                         _buildProductSection(
@@ -353,6 +355,7 @@ class _ProductsPageState extends State<ProductsPage> {
                             );
                           },
                         ),
+                        const SizedBox(height: 32),
 
                         // Sections par catégorie
                         ..._mainCategories.map(
@@ -472,6 +475,7 @@ class _ProductsPageState extends State<ProductsPage> {
             ],
           ),
         ),
+        const SizedBox(height: 16),
         SizedBox(
           height: 320,
           child: StreamBuilder<QuerySnapshot>(
