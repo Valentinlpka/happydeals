@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/login_page.dart';
@@ -11,6 +12,7 @@ import 'package:provider/provider.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   Future<String?> signUp(
       {required String email, required String password}) async {
@@ -130,6 +132,54 @@ class AuthService {
       }
     } catch (e) {
       debugPrint('Erreur de mise à jour du token FCM: $e');
+    }
+  }
+
+  Future<String?> signInWithGoogle(BuildContext context) async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return 'Connexion Google annulée';
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential result =
+          await _auth.signInWithCredential(credential);
+      final User? user = result.user;
+
+      if (user != null) {
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
+        bool isNewUser = !userDoc.exists;
+
+        if (isNewUser) {
+          await _firestore.collection('users').doc(user.uid).set({
+            'email': user.email,
+            'firstName': user.displayName?.split(' ').first ?? '',
+            'lastName': user.displayName?.split(' ').last ?? '',
+            'image_profile': user.photoURL ?? '',
+            'phone': user.phoneNumber ?? '',
+            'isProfileComplete': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        await Provider.of<UserModel>(context, listen: false).loadUserData();
+
+        if (kIsWeb) {
+          await updateFCMToken();
+        }
+
+        return isNewUser ? 'NewUser' : 'Success';
+      }
+      return 'Erreur lors de la connexion avec Google';
+    } catch (e) {
+      debugPrint('Erreur de connexion Google: $e');
+      return e.toString();
     }
   }
 

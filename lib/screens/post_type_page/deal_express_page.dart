@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/cards/deals_express_card.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
+import 'package:provider/provider.dart';
 
 class DealExpressPage extends StatefulWidget {
   const DealExpressPage({super.key});
@@ -22,13 +24,27 @@ class _DealExpressPageState extends State<DealExpressPage> {
   List<String> _categories = ['Toutes'];
   double? _selectedLat;
   double? _selectedLng;
-  double _selectedRadius = 5.0;
+  double _selectedRadius = 15.0;
   String _selectedAddress = '';
+  bool _isLocationFilterActive = false;
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _initializeLocation();
+  }
+
+  Future<void> _initializeLocation() async {
+    final userProvider = Provider.of<UserModel>(context, listen: false);
+    if (userProvider.latitude != 0.0 && userProvider.longitude != 0.0) {
+      setState(() {
+        _selectedLat = userProvider.latitude;
+        _selectedLng = userProvider.longitude;
+        _selectedAddress = '${userProvider.city}, ${userProvider.zipCode}';
+        _isLocationFilterActive = true;
+      });
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -68,12 +84,30 @@ class _DealExpressPageState extends State<DealExpressPage> {
         title: 'Deal Express',
         align: Alignment.center,
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.location_on,
-              color: _selectedLat != null ? const Color(0xFF4B88DA) : null,
-            ),
-            onPressed: _showLocationFilterBottomSheet,
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.location_on,
+                  color:
+                      _isLocationFilterActive ? const Color(0xFF4B88DA) : null,
+                ),
+                onPressed: _showLocationFilterBottomSheet,
+              ),
+              if (_isLocationFilterActive)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -279,68 +313,175 @@ class _DealExpressPageState extends State<DealExpressPage> {
         final deals = snapshot.data!.docs;
 
         return Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 5),
-            itemCount: deals.length,
-            itemBuilder: (context, index) {
-              final deal = ExpressDeal.fromDocument(deals[index]);
-
-              return FutureBuilder<DocumentSnapshot>(
-                future:
-                    _firestore.collection('companys').doc(deal.companyId).get(),
-                builder: (context, companySnapshot) {
-                  if (!companySnapshot.hasData) return const SizedBox.shrink();
-
-                  final companyData =
-                      companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyName = companyData['name'] as String;
-                  final companyCategorie = companyData['categorie'] as String;
-                  final companyLogo = companyData['logo'] as String;
-                  final companyAddress =
-                      companyData['adress'] as Map<String, dynamic>;
-                  final companyLat = companyAddress['latitude'] as double;
-                  final companyLng = companyAddress['longitude'] as double;
-
-                  // Filtrer par catégorie
-                  if (_selectedCategory != 'Toutes' &&
-                      companyCategorie != _selectedCategory) {
-                    return const SizedBox.shrink();
-                  }
-
-                  // Filtrer par recherche
-                  if (_searchQuery.isNotEmpty &&
-                      !deal.title
-                          .toLowerCase()
-                          .contains(_searchQuery.toLowerCase())) {
-                    return const SizedBox.shrink();
-                  }
-
-                  // Filtrer par localisation
-                  if (_selectedLat != null &&
-                      _selectedLng != null &&
-                      !LocationUtils.isWithinRadius(
-                        _selectedLat!,
-                        _selectedLng!,
-                        companyLat,
-                        companyLng,
-                        _selectedRadius,
-                      )) {
-                    return const SizedBox.shrink();
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: DealsExpressCard(
-                      post: deal,
-                      companyName: companyName,
-                      companyLogo: companyLogo,
-                      currentUserId: currentUserId,
-                    ),
-                  );
-                },
-              );
-            },
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDealsSection(
+                  deals,
+                  title: 'Près de chez vous',
+                  isNearby: true,
+                  showVertical: true,
+                ),
+                if (_selectedLat != null && _selectedLng != null)
+                  _buildDealsSection(
+                    deals,
+                    title: 'Un peu plus loin',
+                    isNearby: false,
+                    showVertical: false,
+                  ),
+                _buildDealsSection(
+                  deals,
+                  title: 'Plus disponible actuellement',
+                  showUnavailable: true,
+                  showVertical: false,
+                ),
+              ],
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  Future<List<Widget>> _processDeals(
+    List<QueryDocumentSnapshot<Object?>> deals,
+    bool isNearby,
+    bool showUnavailable,
+    bool showVertical,
+  ) async {
+    List<Widget> processedDeals = [];
+
+    for (var dealDoc in deals) {
+      final deal = ExpressDeal.fromDocument(dealDoc);
+      final companyDoc =
+          await _firestore.collection('companys').doc(deal.companyId).get();
+
+      if (!companyDoc.exists) continue;
+
+      final companyData = companyDoc.data() as Map<String, dynamic>;
+      final companyName = companyData['name'] as String;
+      final companyCategorie = companyData['categorie'] as String;
+      final companyLogo = companyData['logo'] as String;
+      final companyAddress = companyData['adress'] as Map<String, dynamic>;
+
+      // Vérification de la présence des coordonnées
+      final companyLat = companyAddress['latitude'] as double?;
+      final companyLng = companyAddress['longitude'] as double?;
+      final companyCity = companyAddress['ville'] as String? ?? '';
+
+      // Filtrer par catégorie
+      if (_selectedCategory != 'Toutes' &&
+          companyCategorie != _selectedCategory) {
+        continue;
+      }
+
+      // Filtrer par recherche
+      if (_searchQuery.isNotEmpty &&
+          !deal.title.toLowerCase().contains(_searchQuery.toLowerCase())) {
+        continue;
+      }
+
+      // Vérifier la disponibilité
+      final isActive = deal.availableBaskets > 0;
+      if (showUnavailable != !isActive) {
+        continue;
+      }
+
+      // Calculer la distance si possible
+      String? distance;
+      bool isInRadius = false;
+      if (_selectedLat != null &&
+          _selectedLng != null &&
+          companyLat != null &&
+          companyLng != null) {
+        final distanceKm = LocationUtils.calculateDistance(
+          _selectedLat!,
+          _selectedLng!,
+          companyLat,
+          companyLng,
+        );
+
+        distance = distanceKm < 1
+            ? '${(distanceKm * 1000).round()}m'
+            : '${distanceKm.toStringAsFixed(1)}km';
+
+        isInRadius = LocationUtils.isWithinRadius(
+          _selectedLat!,
+          _selectedLng!,
+          companyLat,
+          companyLng,
+          _selectedRadius,
+        );
+
+        // Filtrer selon la proximité
+        if (isNearby != isInRadius && !showUnavailable) {
+          continue;
+        }
+      } else if (isNearby && !showUnavailable) {
+        continue;
+      }
+
+      processedDeals.add(
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: showVertical ? 8.0 : 0,
+          ),
+          child: DealsExpressCard(
+            post: deal,
+            companyName: companyName,
+            companyLogo: companyLogo,
+            currentUserId: currentUserId,
+            companyCity: companyCity.isNotEmpty ? companyCity : null,
+            distance: distance,
+            isHorizontal: !showVertical,
+          ),
+        ),
+      );
+    }
+
+    return processedDeals;
+  }
+
+  Widget _buildDealsSection(
+    List<QueryDocumentSnapshot<Object?>> deals, {
+    required String title,
+    bool isNearby = false,
+    bool showUnavailable = false,
+    bool showVertical = false,
+  }) {
+    return FutureBuilder<List<Widget>>(
+      future: _processDeals(deals, isNearby, showUnavailable, showVertical),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (showVertical)
+              Column(children: snapshot.data!)
+            else
+              SizedBox(
+                height: 320,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: snapshot.data!,
+                ),
+              ),
+          ],
         );
       },
     );

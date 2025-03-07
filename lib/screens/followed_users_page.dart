@@ -17,6 +17,12 @@ class FollowedUsersPage extends StatelessWidget {
       ),
       body: Consumer<UserModel>(
         builder: (context, userModel, _) {
+          if (userModel.followedUsers.isEmpty) {
+            return const Center(
+              child: Text('Vous ne suivez personne pour le moment'),
+            );
+          }
+
           return StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')

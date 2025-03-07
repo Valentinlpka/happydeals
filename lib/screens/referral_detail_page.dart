@@ -23,6 +23,9 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
   late Future<Map<String, dynamic>?> _dataFuture;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  final TextEditingController _messageController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -44,6 +47,8 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
   @override
   void dispose() {
     _animationController.dispose();
+    _messageController.dispose();
+    _messageFocusNode.dispose();
     super.dispose();
   }
 
@@ -257,8 +262,55 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
     );
   }
 
+  Future<void> _sendMessage() async {
+    if (_messageController.text.trim().isEmpty) return;
+    if (widget.referralId == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
+      final message = {
+        'text': _messageController.text.trim(),
+        'timestamp': Timestamp.now(),
+        'senderType':
+            'user', // type 'user' pour les messages envoyés par l'utilisateur
+        'senderUid': currentUser.uid,
+      };
+
+      await _firestore.collection('referrals').doc(widget.referralId).update({
+        'messages': FieldValue.arrayUnion([message]),
+        'lastUpdated': Timestamp.now(),
+      });
+
+      // Réinitialiser le contrôleur et rafraîchir les données
+      _messageController.clear();
+      setState(() {
+        _dataFuture = _fetchData();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de l\'envoi du message: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return Scaffold(
       appBar: const CustomAppBarBack(title: 'Détails du parrainage'),
       backgroundColor: Colors.grey[50],
@@ -299,103 +351,199 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
           final referralData = data['referralData'] as Map<String, dynamic>;
           final currentUserId = _auth.currentUser?.uid;
           final isParrain = currentUserId == referralData['sponsorUid'];
+          final hasMessages = referralData['messages'] != null;
 
-          return FadeTransition(
-            opacity: _fadeAnimation,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (referralData['status'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 24),
-                      child: _buildStatusBadge(referralData['status']),
+          return Column(
+            children: [
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 12 : 16,
+                      vertical: 16,
                     ),
-
-                  // Carte des récompenses
-                  if (referralData['sponsorReward'] != null ||
-                      referralData['refereeReward'] != null)
-                    _buildInfoCard(
-                      title: 'Récompenses',
-                      icon: Icons.card_giftcard_rounded,
-                      iconColor: Colors.purple[700],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (referralData['sponsorReward'] != null)
-                          _buildRewardItem(
-                            'Parrain',
-                            referralData['sponsorReward'].toString(),
-                            isParrain,
+                        if (referralData['status'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: _buildStatusBadge(referralData['status']),
                           ),
-                        if (referralData['refereeReward'] != null)
-                          _buildRewardItem(
-                            'Filleul',
-                            referralData['refereeReward'].toString(),
-                            !isParrain,
+
+                        // Carte des récompenses
+                        if (referralData['sponsorReward'] != null ||
+                            referralData['refereeReward'] != null)
+                          _buildInfoCard(
+                            title: 'Récompenses',
+                            icon: Icons.card_giftcard_rounded,
+                            iconColor: Colors.purple[700],
+                            children: [
+                              if (referralData['sponsorReward'] != null)
+                                _buildRewardItem(
+                                  'Parrain',
+                                  referralData['sponsorReward'].toString(),
+                                  isParrain,
+                                ),
+                              if (referralData['refereeReward'] != null)
+                                _buildRewardItem(
+                                  'Filleul',
+                                  referralData['refereeReward'].toString(),
+                                  !isParrain,
+                                ),
+                            ],
                           ),
+
+                        // Informations du filleul
+                        _buildInfoCard(
+                          title: 'Informations du filleul',
+                          icon: Icons.person_outline_rounded,
+                          iconColor: Colors.green[700],
+                          children: [
+                            _buildInfoRow('Nom', referralData['refereeName']),
+                            _buildInfoRow(
+                                'Contact', referralData['refereeContact']),
+                            _buildInfoRow('Type de contact',
+                                referralData['refereeContactType']),
+                          ],
+                        ),
+
+                        // Informations du parrain
+                        _buildInfoCard(
+                          title: 'Informations du parrain',
+                          icon: Icons.supervised_user_circle_outlined,
+                          iconColor: Colors.orange[700],
+                          children: [
+                            _buildInfoRow('Nom', referralData['sponsorName']),
+                            _buildInfoRow(
+                                'Email', referralData['sponsorEmail']),
+                          ],
+                        ),
+
+                        // Messages
+                        if (hasMessages)
+                          _buildInfoCard(
+                            title: 'Conversation',
+                            icon: Icons.message_outlined,
+                            iconColor: Colors.teal[700],
+                            children: [
+                              ...(referralData['messages'] as List<dynamic>)
+                                  .map((message) => _buildMessageBubble(
+                                      message as Map<String, dynamic>,
+                                      message['senderType'] == 'company')),
+                            ],
+                          ),
+
+                        // Offre de parrainage originale
+                        if (data['postData'] != null &&
+                            data['postId'] != null &&
+                            currentUserId != null) ...[
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Offre de parrainage',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildOriginalReferral(
+                              data['postData'] as Map<String, dynamic>,
+                              data['postId'] as String,
+                              currentUserId),
+                        ],
                       ],
                     ),
-
-                  // Informations du filleul
-                  _buildInfoCard(
-                    title: 'Informations du filleul',
-                    icon: Icons.person_outline_rounded,
-                    iconColor: Colors.green[700],
-                    children: [
-                      _buildInfoRow('Nom', referralData['refereeName']),
-                      _buildInfoRow('Contact', referralData['refereeContact']),
-                      _buildInfoRow('Type de contact',
-                          referralData['refereeContactType']),
-                    ],
                   ),
+                ),
+              ),
 
-                  // Informations du parrain
-                  _buildInfoCard(
-                    title: 'Informations du parrain',
-                    icon: Icons.supervised_user_circle_outlined,
-                    iconColor: Colors.orange[700],
-                    children: [
-                      _buildInfoRow('Nom', referralData['sponsorName']),
-                      _buildInfoRow('Email', referralData['sponsorEmail']),
-                    ],
-                  ),
-
-                  // Messages
-                  if (referralData['messages'] != null)
-                    _buildInfoCard(
-                      title: 'Conversation',
-                      icon: Icons.message_outlined,
-                      iconColor: Colors.teal[700],
-                      children: [
-                        ...(referralData['messages'] as List<dynamic>).map(
-                            (message) => _buildMessageBubble(
-                                message as Map<String, dynamic>,
-                                message['senderType'] == 'company')),
-                      ],
+              // Zone de saisie de message
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 5,
+                      offset: const Offset(0, -2),
                     ),
-
-                  // Offre de parrainage originale
-                  if (data['postData'] != null &&
-                      data['postId'] != null &&
-                      currentUserId != null) ...[
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Offre de parrainage',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                  ],
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 12 : 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          maxHeight: 120,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          focusNode: _messageFocusNode,
+                          maxLines: null,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: 'Écrivez votre message...',
+                            hintStyle: TextStyle(color: Colors.grey[500]),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            border: InputBorder.none,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _buildOriginalReferral(
-                        data['postData'] as Map<String, dynamic>,
-                        data['postId'] as String,
-                        currentUserId),
+                    const SizedBox(width: 8),
+                    Container(
+                      height: 48,
+                      width: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF3476B2), Color(0xFF2A5D8F)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _isLoading ? null : _sendMessage,
+                          borderRadius: BorderRadius.circular(24),
+                          child: _isLoading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.send_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                        ),
+                      ),
+                    ),
                   ],
-                ],
+                ),
               ),
-            ),
+            ],
           );
         },
       ),
@@ -576,40 +724,6 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
           child: Column(
             children: [
               // En-tête de l'entreprise
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(companyData['logo'] ?? ''),
-                      backgroundColor: Colors.grey[100],
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            companyData['name'] ?? '',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            companyData['categorie'] ?? '',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
               // Carte de parrainage
               ParrainageCard(

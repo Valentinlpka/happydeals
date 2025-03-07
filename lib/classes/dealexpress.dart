@@ -11,6 +11,7 @@ class ExpressDeal extends Post {
   final int basketCount;
   final String basketType;
   final double tva;
+  final String imageUrl;
   final int price;
   int availableBaskets;
   final String stripeAccountId;
@@ -24,6 +25,7 @@ class ExpressDeal extends Post {
     required this.searchText,
     required this.pickupTimes,
     required this.content,
+    required this.imageUrl,
     required super.companyId,
     required this.basketCount,
     required this.price,
@@ -54,6 +56,8 @@ class ExpressDeal extends Post {
       companyId: data['companyId'],
       basketCount: data['basketCount'],
       basketType: data['basketType'],
+      imageUrl: data['imageUrl'] ??
+          'https://solidarites.gouv.fr/sites/solidarite/files/2024-02/panier-colis-alimentaire.jpg',
       price: data['price'],
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
@@ -75,6 +79,7 @@ class ExpressDeal extends Post {
       'title': title,
       'searchText': searchText,
       'tva': tva,
+      'imageUrl': imageUrl,
       'pickupTimes':
           pickupTimes.map((time) => Timestamp.fromDate(time)).toList(),
       'content': content,

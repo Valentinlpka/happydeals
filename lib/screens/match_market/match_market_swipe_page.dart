@@ -9,20 +9,23 @@ import 'package:happy/models/company_location.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/match_market/liked_products_page.dart';
 import 'package:happy/screens/match_market/match_market_intro_page.dart';
+import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
 class MatchMarketSwipePage extends StatefulWidget {
   final Category category;
-  final Position? userPosition;
+  final double latitude;
+  final double longitude;
   final double searchRadius;
-  final String? citySearch;
+  final String cityName;
 
   const MatchMarketSwipePage({
     super.key,
     required this.category,
-    this.userPosition,
+    required this.latitude,
+    required this.longitude,
     required this.searchRadius,
-    this.citySearch,
+    required this.cityName,
   });
 
   @override
@@ -37,12 +40,17 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
   int likesCount = 0;
   Set<String> viewedProducts = {};
   Map<String, CompanyLocation> companyLocations = {};
-  bool _isProcessingSwipe = false;
+  final bool _isProcessingSwipe = false;
   Product? _currentProduct;
+  final List<Product> _productsToRemove = [];
+  final int _currentIndex = 0;
+  bool _allCardsSwipedAway = false;
+  final Set<String> _likedProductsIds = {};
 
   @override
   void initState() {
     super.initState();
+    likesCount = 0;
     _loadViewedAndLikedProducts();
   }
 
@@ -80,99 +88,114 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
   Future<void> _loadProducts() async {
     try {
       print('🔍 Début du chargement des produits');
-      Query productsQuery = FirebaseFirestore.instance
+      print('📍 Position: ${widget.latitude}, ${widget.longitude}');
+      print('🎯 Rayon: ${widget.searchRadius} km');
+      print('🏙️ Ville: ${widget.cityName}');
+      print('📁 Catégorie: ${widget.category.id}');
+
+      // 1. Trouver les entreprises dans le rayon
+      final companiesSnapshot =
+          await FirebaseFirestore.instance.collection('companys').get();
+
+      print('🏢 Nombre total d\'entreprises: ${companiesSnapshot.docs.length}');
+
+      // Filtrer les entreprises dans le rayon
+      final companiesInRange = companiesSnapshot.docs.where((doc) {
+        try {
+          final data = doc.data();
+          if (!data.containsKey('adress')) {
+            print('⚠️ Entreprise ${doc.id} sans adresse');
+            return false;
+          }
+
+          final adress = data['adress'] as Map<String, dynamic>;
+          if (!adress.containsKey('latitude') ||
+              !adress.containsKey('longitude')) {
+            print('⚠️ Entreprise ${doc.id} sans coordonnées');
+            return false;
+          }
+
+          final lat = adress['latitude'] as double;
+          final lng = adress['longitude'] as double;
+
+          final distance = Geolocator.distanceBetween(
+                widget.latitude,
+                widget.longitude,
+                lat,
+                lng,
+              ) /
+              1000; // Convertir en km
+
+          final isInRange = distance <= widget.searchRadius;
+          if (isInRange) {
+            print(
+                '✅ Entreprise ${doc.id} dans le rayon (${distance.toStringAsFixed(2)} km)');
+          }
+          return isInRange;
+        } catch (e) {
+          print('❌ Erreur avec l\'entreprise ${doc.id}: $e');
+          return false;
+        }
+      }).toList();
+
+      print('🏢 Entreprises dans le rayon: ${companiesInRange.length}');
+
+      if (companiesInRange.isEmpty) {
+        setState(() {
+          error = 'Aucune entreprise trouvée dans ce rayon';
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Stocker les informations des entreprises
+      for (var doc in companiesInRange) {
+        try {
+          final company = CompanyLocation.fromFirestore(doc);
+          companyLocations[company.id] = company;
+        } catch (e) {
+          print(
+              '❌ Erreur lors de la conversion de l\'entreprise ${doc.id}: $e');
+        }
+      }
+
+      // 2. Charger les produits des entreprises trouvées
+      final companyIds = companiesInRange.map((doc) => doc.id).toList();
+      print('🔍 Recherche de produits pour ${companyIds.length} entreprises');
+
+      final productsQuery = FirebaseFirestore.instance
           .collection('products')
+          .where('sellerId', whereIn: companyIds)
           .where('categoryPath', arrayContains: widget.category.id)
           .where('isActive', isEqualTo: true);
 
-      if (widget.citySearch != null) {
-        print('🏙️ Recherche par ville: ${widget.citySearch}');
-        productsQuery =
-            productsQuery.where('city', isEqualTo: widget.citySearch);
-      }
+      final productsSnapshot = await productsQuery.get();
+      print('📦 Produits trouvés: ${productsSnapshot.docs.length}');
 
-      print('📥 Récupération des produits depuis Firestore...');
-      final snapshot = await productsQuery.get();
-      print('📦 Nombre de produits trouvés: ${snapshot.docs.length}');
-
-      // Filtrer d'abord les produits déjà vus
-      final availableDocs =
-          snapshot.docs.where((doc) => !viewedProducts.contains(doc.id));
-      print('📦 Nombre de produits non vus: ${availableDocs.length}');
-
-      final allProducts = availableDocs
+      // Filtrer les produits déjà vus
+      final availableProducts = productsSnapshot.docs
+          .where((doc) => !viewedProducts.contains(doc.id))
           .map((doc) {
             try {
-              print('🔄 Conversion du produit ${doc.id}:');
-              print('  - Données brutes: ${doc.data()}');
-              final product = Product.fromFirestore(doc);
-              print('  - Nom: ${product.name}');
-              print('  - Images: ${product.images.length} images');
-              print('  - CompanyId: ${product.companyId}');
-              return product;
+              return Product.fromFirestore(doc);
             } catch (e) {
               print('❌ Erreur lors de la conversion du produit ${doc.id}: $e');
               return null;
             }
           })
-          .where((p) => p != null)
+          .where((product) => product != null)
           .cast<Product>()
           .toList();
 
-      print('📝 Nombre de produits convertis: ${allProducts.length}');
-
-      // Charger les informations des entreprises
-      print('🏢 Chargement des informations des entreprises...');
-      final companyIds = allProducts.map((p) => p.companyId).toSet();
-      print('🏢 Nombre d\'entreprises à charger: ${companyIds.length}');
-
-      for (final companyId in companyIds) {
-        try {
-          print('🏢 Chargement de l\'entreprise: $companyId');
-          final companyDoc = await FirebaseFirestore.instance
-              .collection('companys')
-              .doc(companyId)
-              .get();
-
-          if (companyDoc.exists) {
-            print('✅ Entreprise trouvée: $companyId');
-            companyLocations[companyId] =
-                CompanyLocation.fromFirestore(companyDoc);
-          } else {
-            print('⚠️ Entreprise non trouvée: $companyId');
-          }
-        } catch (e) {
-          print('❌ Erreur lors du chargement de l\'entreprise $companyId: $e');
-        }
-      }
-
-      // Filtrer les produits par distance
-      print('📏 Filtrage des produits par distance...');
       print(
-          '📍 Position utilisateur: ${widget.userPosition?.latitude}, ${widget.userPosition?.longitude}');
-      print('🎯 Rayon de recherche: ${widget.searchRadius} km');
-
-      final filteredProducts = allProducts.where((product) {
-        final companyLocation = companyLocations[product.companyId];
-        if (companyLocation != null && widget.userPosition != null) {
-          final distance =
-              companyLocation.distanceFromUser(widget.userPosition!);
-          print('📍 Distance pour ${product.name}: $distance km');
-          return distance <= widget.searchRadius;
-        }
-        print('ℹ️ Pas de filtrage par distance pour ${product.name}');
-        return widget.citySearch != null;
-      }).toList();
-
-      print('✅ Nombre de produits filtrés: ${filteredProducts.length}');
+          '📦 Produits disponibles après filtrage: ${availableProducts.length}');
 
       setState(() {
-        products.addAll(filteredProducts);
+        products.addAll(availableProducts);
         isLoading = false;
       });
     } catch (e, stackTrace) {
-      print('❌ Erreur lors du chargement des produits:');
-      print('Message d\'erreur: $e');
+      print('❌ Erreur lors du chargement des produits: $e');
       print('Stack trace: $stackTrace');
       setState(() {
         error = 'Erreur lors du chargement des produits: $e';
@@ -183,17 +206,34 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
 
   Future<void> _saveLike(Product product) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
+    if (userId == null) {
+      print('❌ Impossible de liker: utilisateur non connecté');
+      return;
+    }
 
-    await FirebaseFirestore.instance.collection('likes').add({
-      'userId': userId,
-      'productId': product.id,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    print('💾 Sauvegarde du like pour le produit: ${product.name}');
 
-    setState(() {
-      likesCount++;
-    });
+    try {
+      await FirebaseFirestore.instance.collection('likes').add({
+        'userId': userId,
+        'productId': product.id,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      print('✅ Like sauvegardé avec succès');
+
+      // Ajouter l'ID à l'ensemble des produits likés
+      _likedProductsIds.add(product.id);
+
+      setState(() {
+        likesCount = _likedProductsIds
+            .length; // Mettre à jour le compteur avec le nombre exact
+      });
+
+      print('📊 Nombre total de likes: $likesCount');
+    } catch (e) {
+      print('❌ Erreur lors de la sauvegarde du like: $e');
+    }
   }
 
   Future<void> _markProductAsViewed(String productId) async {
@@ -343,11 +383,22 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
     );
   }
 
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000;
+  }
+
   Widget _buildCard(Product product) {
     final companyLocation = companyLocations[product.companyId];
     String? distance;
-    if (widget.userPosition != null && companyLocation != null) {
-      final distanceKm = companyLocation.distanceFromUser(widget.userPosition!);
+
+    if (companyLocation != null) {
+      final distanceKm = _calculateDistance(
+        widget.latitude,
+        widget.longitude,
+        companyLocation.location.latitude,
+        companyLocation.location.longitude,
+      );
       distance = '${distanceKm.toStringAsFixed(1)} km';
     }
 
@@ -397,58 +448,223 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${availableVariant.price.toStringAsFixed(2)} €',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.green,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (availableVariant.attributes.isNotEmpty)
-                  Text(
-                    availableVariant.attributes.entries
-                        .map((e) => '${e.key}: ${e.value}')
-                        .join(' • '),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
+                Row(
+                  children: [
+                    Text(
+                      '${availableVariant.price.toStringAsFixed(2)} €',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                const SizedBox(height: 8),
+                    const Spacer(),
+                    if (product.variants.length > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              Theme.of(context).primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color:
+                                Theme.of(context).primaryColor.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Text(
+                          'Plusieurs variantes disponibles',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Informations sur l'entreprise et localisation
                 if (companyLocation != null) ...[
-                  Row(
-                    children: [
-                      const Icon(Icons.store, size: 16),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          companyLocation.name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance
+                              .collection('companys')
+                              .doc(companyLocation.id)
+                              .get(),
+                          builder: (context, snapshot) {
+                            // Logo et nom par défaut si les données ne sont pas encore chargées
+                            String? logo;
+                            String? category;
+
+                            if (snapshot.hasData && snapshot.data != null) {
+                              final data = snapshot.data!.data()
+                                  as Map<String, dynamic>?;
+                              if (data != null) {
+                                logo = data['logo'] as String?;
+                                category = data['category'] as String?;
+                              }
+                            }
+
+                            return Column(
+                              spacing: 10,
+                              children: [
+                                Row(
+                                  children: [
+                                    // Logo de l'entreprise
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                        border: Border.all(
+                                          color: Theme.of(context)
+                                              .primaryColor
+                                              .withOpacity(0.3),
+                                        ),
+                                        image: logo != null && logo.isNotEmpty
+                                            ? DecorationImage(
+                                                image: NetworkImage(logo),
+                                                fit: BoxFit.cover,
+                                              )
+                                            : null,
+                                      ),
+                                      child: logo == null || logo.isEmpty
+                                          ? Icon(
+                                              Icons.store,
+                                              size: 18,
+                                              color: Theme.of(context)
+                                                  .primaryColor,
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            companyLocation.name.toUpperCase(),
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.black87,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          // Catégorie de l'entreprise
+                                          if (category != null &&
+                                              category.isNotEmpty)
+                                            Text(
+                                              category.toUpperCase(),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[700],
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 16),
+                              ],
+                            );
+                          },
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 16),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          companyLocation.city +
-                              (distance != null ? ' • $distance' : ''),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.blue.withOpacity(0.1),
+                                border: Border.all(
+                                    color: Colors.blue.withOpacity(0.3)),
+                              ),
+                              child: const Icon(
+                                Icons.location_on,
+                                size: 14,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: FutureBuilder<DocumentSnapshot>(
+                                future: FirebaseFirestore.instance
+                                    .collection('companys')
+                                    .doc(companyLocation.id)
+                                    .get(),
+                                builder: (context, snapshot) {
+                                  String cityName = companyLocation.city;
+
+                                  // Si la ville est vide, essayons de la récupérer directement depuis Firestore
+                                  if (cityName.isEmpty &&
+                                      snapshot.hasData &&
+                                      snapshot.data != null) {
+                                    final data = snapshot.data!.data()
+                                        as Map<String, dynamic>?;
+                                    if (data != null &&
+                                        data.containsKey('adress')) {
+                                      final address = data['adress']
+                                          as Map<String, dynamic>;
+                                      cityName = address['city'] ?? '';
+                                      print(
+                                          'Ville récupérée depuis Firestore: $cityName');
+                                    }
+                                  }
+
+                                  return Text(
+                                    cityName.isEmpty
+                                        ? 'LOCALISATION INCONNUE'
+                                        : cityName.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                },
+                              ),
+                            ),
+                            if (distance != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  distance,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -482,50 +698,9 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
     );
   }
 
-  bool _handleSwipe(
-      int previousIndex, int? currentIndex, CardSwiperDirection direction) {
-    if (_isProcessingSwipe) return false;
-    _isProcessingSwipe = true;
-
-    try {
-      if (previousIndex >= 0 && previousIndex < products.length) {
-        final product = products[previousIndex];
-        print('👆 Traitement du swipe pour le produit: ${product.name}');
-        print('📊 Index actuel: $previousIndex, Prochain index: $currentIndex');
-        print('📊 Nombre de produits avant suppression: ${products.length}');
-
-        Future.delayed(const Duration(milliseconds: 100), () async {
-          if (!mounted) return;
-
-          await _markProductAsViewed(product.id);
-          if (direction == CardSwiperDirection.right) {
-            await _saveLike(product);
-          }
-
-          if (!mounted) return;
-
-          setState(() {
-            if (products.contains(product)) {
-              products.remove(product);
-              print('✅ Produit retiré de la liste: ${product.name}');
-              print('📊 Nombre de produits restants: ${products.length}');
-            }
-          });
-
-          _isProcessingSwipe = false;
-        });
-
-        return true;
-      }
-    } catch (e) {
-      print('❌ Erreur lors du traitement du swipe: $e');
-    }
-
-    _isProcessingSwipe = false;
-    return false;
-  }
-
   Widget _buildEndScreen() {
+    print('🏁 Construction de l\'écran de fin avec $likesCount likes');
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.category.name),
@@ -645,16 +820,15 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
       );
     }
 
-    if (products.isEmpty) {
+    if (_allCardsSwipedAway || products.isEmpty) {
+      print('Affichage de l\'écran de fin');
       return _buildEndScreen();
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.category.name),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+      appBar: CustomAppBar(
+        title: widget.category.name,
+        align: Alignment.center,
         actions: [
           IconButton(
             icon: const Icon(Icons.favorite),
@@ -676,20 +850,61 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
               controller: controller,
               cardsCount: products.length,
               numberOfCardsDisplayed: 1,
-              backCardOffset: const Offset(0, 0),
+              backCardOffset: const Offset(0, -10),
               allowedSwipeDirection:
                   const AllowedSwipeDirection.only(left: true, right: true),
               maxAngle: 25,
               threshold: 50,
               isLoop: false,
-              duration: const Duration(milliseconds: 600),
+              duration: const Duration(milliseconds: 400),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-              onSwipe: _handleSwipe,
+              onSwipe: (int previousIndex, int? currentIndex,
+                  CardSwiperDirection direction) {
+                // Traiter le swipe sans modifier la liste
+                final product = products[previousIndex];
+                print(
+                    '👆 Traitement du swipe pour le produit: ${product.name}');
+
+                // Marquer comme vu
+                _markProductAsViewed(product.id);
+
+                // Gérer les likes avec plus de logs
+                if (direction == CardSwiperDirection.right) {
+                  print('❤️ Like du produit: ${product.name}');
+                  _saveLike(product);
+                } else {
+                  print('👎 Pas de like pour le produit: ${product.name}');
+                }
+
+                // Si c'était le dernier produit, afficher l'écran de fin après un court délai
+                if (currentIndex == null || currentIndex >= products.length) {
+                  print(
+                      'Dernier produit swipé, préparation de l\'écran de fin');
+                }
+
+                return true; // Toujours autoriser le swipe
+              },
+              onEnd: () {
+                print('Fin des cartes');
+
+                print(
+                    '📊 Nombre de produits likés dans cette session: ${_likedProductsIds.length}');
+                print(
+                    '📊 IDs des produits likés: ${_likedProductsIds.join(", ")}');
+
+                setState(() {
+                  _allCardsSwipedAway = true;
+                  likesCount =
+                      _likedProductsIds.length; // Utiliser le nombre exact
+                });
+              },
               cardBuilder: (context, index, horizontalOffsetPercentage,
                   verticalOffsetPercentage) {
                 if (index >= products.length) {
                   return const SizedBox.shrink();
                 }
+
+                _currentProduct = products[index];
                 return _buildCard(products[index]);
               },
             ),
@@ -703,5 +918,38 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
   void dispose() {
     controller.dispose();
     super.dispose();
+  }
+
+  Future<List<CompanyLocation>> _getCompaniesInRange({
+    required double centerLat,
+    required double centerLng,
+    required double radius,
+  }) async {
+    final companiesSnapshot =
+        await FirebaseFirestore.instance.collection('companys').get();
+
+    return companiesSnapshot.docs
+        .where((doc) {
+          try {
+            final data = doc.data();
+            final adress = data['adress'] as Map<String, dynamic>;
+            final lat = adress['latitude'] as double;
+            final lng = adress['longitude'] as double;
+
+            final distance = Geolocator.distanceBetween(
+                  centerLat,
+                  centerLng,
+                  lat,
+                  lng,
+                ) /
+                1000;
+
+            return distance <= radius;
+          } catch (e) {
+            return false;
+          }
+        })
+        .map((doc) => CompanyLocation.fromFirestore(doc))
+        .toList();
   }
 }

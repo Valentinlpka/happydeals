@@ -6,45 +6,36 @@ class CompanyLocation {
   final String name;
   final String city;
   final GeoPoint location;
-  final String address;
-  final String postalCode;
-  final String country;
 
   CompanyLocation({
     required this.id,
     required this.name,
     required this.city,
     required this.location,
-    required this.address,
-    required this.postalCode,
-    required this.country,
   });
 
   factory CompanyLocation.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    final addressData = data['adress'] as Map<String, dynamic>? ?? {};
+    final address = data['adress'] as Map<String, dynamic>;
 
     return CompanyLocation(
       id: doc.id,
       name: data['name'] ?? '',
-      city: addressData['ville'] ?? '',
+      city: address['ville'] ?? '',
       location: GeoPoint(
-        addressData['latitude'] ?? 0,
-        addressData['longitude'] ?? 0,
+        address['latitude'] as double,
+        address['longitude'] as double,
       ),
-      address: addressData['adresse'] ?? '',
-      postalCode: addressData['code_postal'] ?? '',
-      country: addressData['pays']?.toLowerCase() ?? 'france',
     );
   }
 
-  double distanceFromUser(Position userPosition) {
+  double distanceFromPoint(double lat, double lng) {
     return Geolocator.distanceBetween(
-          userPosition.latitude,
-          userPosition.longitude,
+          lat,
+          lng,
           location.latitude,
           location.longitude,
         ) /
-        1000; // Convertir en kilomètres
+        1000;
   }
 }

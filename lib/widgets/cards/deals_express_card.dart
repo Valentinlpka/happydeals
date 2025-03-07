@@ -9,6 +9,9 @@ class DealsExpressCard extends StatelessWidget {
   final String currentUserId;
   final String companyName;
   final String companyLogo;
+  final String? companyCity;
+  final String? distance;
+  final bool isHorizontal;
 
   const DealsExpressCard({
     super.key,
@@ -16,6 +19,9 @@ class DealsExpressCard extends StatelessWidget {
     required this.companyName,
     required this.companyLogo,
     required this.currentUserId,
+    this.companyCity,
+    this.distance,
+    this.isHorizontal = false,
   });
 
   String _formatDateTimeStamp(DateTime dateTime) {
@@ -63,6 +69,216 @@ class DealsExpressCard extends StatelessWidget {
     final bool isActive = post.availableBaskets > 0;
     final timeRemaining = _getTimeRemaining(post.pickupTimes[0]);
 
+    if (isHorizontal) {
+      return Container(
+        width: 280,
+        margin: const EdgeInsets.only(right: 12),
+        child: Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 4,
+          child: InkWell(
+            onTap: isActive
+                ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DetailsDealsExpress(
+                          post: post,
+                        ),
+                      ),
+                    );
+                  }
+                : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Image
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
+                      ),
+                      child: Image.network(
+                        post.imageUrl,
+                        height: 140,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Image.asset(
+                            'assets/images/UP.png',
+                            height: 140,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          );
+                        },
+                      ),
+                    ),
+                    if (!isActive)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              topRight: Radius.circular(12),
+                            ),
+                          ),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'Indisponible',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // Contenu
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // En-tête avec logo et nom
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundImage: NetworkImage(companyLogo),
+                            backgroundColor: Colors.white,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  companyName,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (companyCity != null) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.location_on,
+                                        size: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Expanded(
+                                        child: Text(
+                                          distance != null
+                                              ? '$companyCity • $distance'
+                                              : companyCity!,
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Titre
+                      Text(
+                        post.title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Prix et disponibilité
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "${post.price.toStringAsFixed(2)} €",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? Colors.green[50]
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isActive
+                                    ? Colors.green[200]!
+                                    : Colors.grey[300]!,
+                              ),
+                            ),
+                            child: Text(
+                              isActive
+                                  ? '${post.availableBaskets} restants'
+                                  : 'Épuisé',
+                              style: TextStyle(
+                                color: isActive
+                                    ? Colors.green[700]
+                                    : Colors.grey[600],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Version verticale existante
     return Column(
       children: [
         // En-tête avec logo et informations
@@ -147,6 +363,52 @@ class DealsExpressCard extends StatelessWidget {
                               fontSize: 13,
                             ),
                           ),
+                          if (companyCity?.isNotEmpty ?? false) ...[
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.location_on,
+                                      size: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Flexible(
+                                      child: Text(
+                                        companyCity!,
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (distance != null) ...[
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '• $distance',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],
@@ -157,7 +419,7 @@ class DealsExpressCard extends StatelessWidget {
           ),
         ),
 
-        // Carte du Deal Express
+        // Carte du Deal Express avec image
         Stack(
           children: [
             Container(
@@ -186,166 +448,203 @@ class DealsExpressCard extends StatelessWidget {
                         );
                       }
                     : null,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Badge paniers disponibles
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isActive
-                                  ? Colors.green[50]
-                                  : Colors.grey[100],
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isActive
-                                    ? Colors.green[200]!
-                                    : Colors.grey[300]!,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.shopping_basket_rounded,
-                                  size: 16,
-                                  color: isActive
-                                      ? Colors.green[700]
-                                      : Colors.grey[600],
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  isActive
-                                      ? '${post.availableBaskets} panier${post.availableBaskets > 1 ? 's' : ''}'
-                                      : 'Indisponible',
-                                  style: TextStyle(
-                                    color: isActive
-                                        ? Colors.green[700]
-                                        : Colors.grey[600],
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Timer
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange[50],
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.orange[200]!),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.timer_outlined,
-                                  size: 16,
-                                  color: Colors.orange[700],
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  timeRemaining,
-                                  style: TextStyle(
-                                    color: Colors.orange[700],
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Image principale
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        post.title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxHeight: 160, // Hauteur maximale fixée
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.schedule_rounded,
-                            size: 16,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            "À récupérer ${_formatDateTime(post.pickupTimes[0])}",
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red[50],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '-50%',
-                              style: TextStyle(
-                                color: Colors.red[700],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                        child: post.imageUrl.isNotEmpty
+                            ? Image.network(
+                                post.imageUrl,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Image.asset(
+                                    'assets/images/UP.png',
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                  );
+                                },
+                              )
+                            : Image.asset(
+                                'assets/images/UP.png',
+                                fit: BoxFit.cover,
+                                width: double.infinity,
                               ),
-                            ),
-                          ),
+                      ),
+                    ),
+
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                "${post.price.toStringAsFixed(2)} €",
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
+                              // Badge paniers disponibles
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isActive
+                                      ? Colors.green[50]
+                                      : Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isActive
+                                        ? Colors.green[200]!
+                                        : Colors.grey[300]!,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.shopping_basket_rounded,
+                                      size: 16,
+                                      color: isActive
+                                          ? Colors.green[700]
+                                          : Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      isActive
+                                          ? '${post.availableBaskets} panier${post.availableBaskets > 1 ? 's' : ''}'
+                                          : 'Indisponible',
+                                      style: TextStyle(
+                                        color: isActive
+                                            ? Colors.green[700]
+                                            : Colors.grey[600],
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                "${(post.price * 2).toStringAsFixed(2)} €",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  decoration: TextDecoration.lineThrough,
-                                  color: Colors.grey[500],
+                              // Timer
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
                                 ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      Border.all(color: Colors.orange[200]!),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.timer_outlined,
+                                      size: 16,
+                                      color: Colors.orange[700],
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      timeRemaining,
+                                      style: TextStyle(
+                                        color: Colors.orange[700],
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            post.title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.schedule_rounded,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                "À récupérer ${_formatDateTime(post.pickupTimes[0])}",
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '-50%',
+                                  style: TextStyle(
+                                    color: Colors.red[700],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
+                                children: [
+                                  Text(
+                                    "${post.price.toStringAsFixed(2)} €",
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    "${(post.price * 2).toStringAsFixed(2)} €",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      decoration: TextDecoration.lineThrough,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

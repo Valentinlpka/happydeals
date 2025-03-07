@@ -20,6 +20,7 @@ class Product {
   final List<ProductVariant> variants;
   final ProductDiscount? discount;
   final Map<String, dynamic> attributes;
+  double? distance;
 
   Product({
     required this.id,
@@ -41,6 +42,7 @@ class Product {
     required this.variants,
     Map<String, dynamic>? attributes,
     this.discount,
+    this.distance,
   }) : attributes = attributes ?? {};
 
   double get priceHT => basePrice / (1 + (tva / 100));
@@ -110,6 +112,7 @@ class Product {
       discount: data['discount'] != null
           ? ProductDiscount.fromMap(data['discount'] as Map<String, dynamic>)
           : null,
+      distance: data['distance']?.toDouble(),
     );
   }
 }

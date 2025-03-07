@@ -253,6 +253,70 @@ class _LoginState extends State<Login> {
                   ),
                 ),
                 const SizedBox(height: 30),
+                // Bouton de connexion avec Google
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      setState(() {
+                        _isLoading = true;
+                      });
+                      try {
+                        String? result = await _auth.signInWithGoogle(context);
+                        if (!mounted) return;
+
+                        if (result == 'Success') {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MainContainer(),
+                            ),
+                          );
+                        } else if (result == 'NewUser') {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ProfileCompletionPage(),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content:
+                                    Text(result ?? 'Une erreur est survenue')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() {
+                            _isLoading = false;
+                          });
+                        }
+                      }
+                    },
+                    icon: Image.asset(
+                      'assets/images/google_logo.png',
+                      height: 24,
+                    ),
+                    label: const Text(
+                      'Continuer avec Google',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      side: BorderSide(color: Colors.grey[300]!),
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
                 // Séparateur
                 Row(
                   children: [
