@@ -121,11 +121,14 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       return;
     }
 
-    await userProvider.loadUserData();
-    await homeProvider.initializeFeed(
-      userProvider.likedCompanies,
-      userProvider.followedUsers,
-    );
+    // Charger les données en parallèle
+    await Future.wait([
+      userProvider.loadUserData(),
+      homeProvider.initializeFeed(
+        userProvider.likedCompanies,
+        userProvider.followedUsers,
+      ),
+    ]);
 
     // Indiquer que le premier chargement est terminé
     setState(() => _isFirstLoad = false);

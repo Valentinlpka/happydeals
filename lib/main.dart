@@ -4,7 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:happy/config/app_router.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
@@ -20,54 +20,74 @@ import 'package:happy/widgets/url_strategy.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:timeago/timeago.dart' as timeago_fr;
 
 void main() async {
+  // Initialiser les widgets Flutter de manière asynchrone
   WidgetsFlutterBinding.ensureInitialized();
 
-  initializeUrlStrategy();
-  setUrlStrategy(PathUrlStrategy());
-
-  await FirebaseService().initialize();
-
-  await initializeDateFormatting('fr_FR', null);
-  timeago.setLocaleMessages('fr', timeago_fr.FrMessages());
-
+  // Configuration URL uniquement pour le web
   if (kIsWeb) {
-    try {
-      await _initializeFirebaseMessagingWeb();
-    } catch (e) {
+    initializeUrlStrategy();
+    // ignore: prefer_const_constructors
+    setUrlStrategy(PathUrlStrategy());
+  }
+
+  // Initialiser Firebase en parallèle avec d'autres initialisations
+  final futures = <Future>[
+    FirebaseService().initialize(),
+    initializeDateFormatting('fr_FR', null),
+  ];
+
+  // Exécuter les initialisations en parallèle
+  await Future.wait(futures);
+
+  // Configuration de timeago après l'initialisation de la localisation
+  timeago.setLocaleMessages('fr', timeago.FrMessages());
+
+  // Initialiser FCM pour le web de manière asynchrone
+  if (kIsWeb) {
+    _initializeFirebaseMessagingWeb().catchError((e) {
       debugPrint('Erreur d\'initialisation FCM: $e');
-    }
+    });
   }
 
   runApp(const MyApp());
 }
 
 Future<void> _initializeFirebaseMessagingWeb() async {
-  // Attendre que l'utilisateur soit connecté
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
+  try {
+    // Demander les permissions de manière asynchrone
     await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
-    String? token = await FirebaseMessaging.instance.getToken(
+    // Obtenir le token FCM
+    final token = await FirebaseMessaging.instance.getToken(
       vapidKey:
           'BJqxpGh0zaBedTU9JBdIQ8LrVUXetBpUBKT4wrrV_LXiI9vy0LwRa4_KCprNARbLEiV9gFnVipimUO5AN60XqSI',
     );
 
     if (token != null) {
-      // Sauvegarder le token dans Firestore pour l'utilisateur
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({'fcmToken': token});
+      debugPrint('FCM Token Web obtenu: $token');
 
-      debugPrint('FCM Token Web: $token');
+      // Écouteur pour sauvegarder le token quand l'utilisateur se connecte
+      FirebaseAuth.instance.authStateChanges().listen((User? user) {
+        if (user != null) {
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'fcmToken': token})
+              .then((_) => debugPrint(
+                  'Token FCM sauvegardé pour l\'utilisateur ${user.uid}'))
+              .catchError((error) =>
+                  debugPrint('Erreur lors de la sauvegarde du token: $error'));
+        }
+      });
     }
+  } catch (e) {
+    debugPrint('Erreur lors de l\'initialisation de FCM: $e');
   }
 }
 
@@ -91,7 +111,7 @@ class MyApp extends StatelessWidget {
         navigatorKey: AppRouter.navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        title: 'Happy Shop',
+        title: 'Up !',
         home: AppRouter.getHomeScreen(),
         initialRoute: '/',
         routes: AppRouter.routes,

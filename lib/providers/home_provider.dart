@@ -58,7 +58,6 @@ class HomeProvider extends ChangeNotifier {
     if (refresh && _lastRefreshTime != null) {
       final timeSinceLastRefresh = DateTime.now().difference(_lastRefreshTime!);
       if (timeSinceLastRefresh < _minRefreshInterval) {
-        // Retourner les données existantes si le refresh est trop récent
         return _currentFeedItems;
       }
     }
@@ -80,17 +79,47 @@ class HomeProvider extends ChangeNotifier {
       final Set<String> addedPostIds = {};
       final List<CombinedItem> combinedItems = [];
 
-      await Future.wait([
-        _loadLikedCompanyPostsPaginated(
-            likedCompanies, addedPostIds, combinedItems),
-        _loadSharedPostsPaginated(followedUsers, addedPostIds, combinedItems),
-      ]);
+      // Limiter le nombre de requêtes en combinant les conditions
+      final List<Query> queries = [];
 
+      if (likedCompanies.isNotEmpty) {
+        queries.add(_firestore
+            .collection('posts')
+            .where('companyId', whereIn: likedCompanies)
+            .where('type', isNotEqualTo: 'shared')
+            .where('isActive', isEqualTo: true)
+            .orderBy('timestamp', descending: true)
+            .limit(_pageSize));
+      }
+
+      if (followedUsers.isNotEmpty) {
+        queries.add(_firestore
+            .collection('posts')
+            .where('type', isEqualTo: 'shared')
+            .where('sharedBy', whereIn: followedUsers)
+            .orderBy('timestamp', descending: true)
+            .limit(_pageSize));
+      }
+
+      // Exécuter toutes les requêtes en parallèle
+      final List<QuerySnapshot> snapshots = await Future.wait(
+        queries.map((query) => query.get()),
+      );
+
+      // Traiter les résultats
+      for (var snapshot in snapshots) {
+        await _processPostsSnapshot(snapshot, addedPostIds, combinedItems);
+      }
+
+      // Trier par date
       combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      _currentFeedItems = combinedItems;
+
+      // Limiter le nombre d'éléments retournés
+      _currentFeedItems = combinedItems.take(_pageSize).toList();
       _feedController.add(_currentFeedItems);
       _lastRefreshTime = DateTime.now();
-      return combinedItems;
+
+      return _currentFeedItems;
     } catch (e) {
       _feedController.addError(e);
       return [];
@@ -174,103 +203,71 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadLikedCompanyPostsPaginated(List<String> likedCompanies,
-      Set<String> addedPostIds, List<CombinedItem> combinedItems,
-      {DocumentSnapshot? startAfter, int limit = _pageSize}) async {
-    if (likedCompanies.isEmpty) return;
-
-    var query = _firestore
-        .collection('posts')
-        .where('companyId', whereIn: likedCompanies)
-        .where('type', isNotEqualTo: 'shared')
-        .where('isActive', isEqualTo: true)
-        .orderBy('timestamp', descending: true)
-        .limit(limit);
-
-    if (startAfter != null) {
-      query = query.startAfterDocument(startAfter);
-    }
-
-    final postsSnapshot = await query.get();
-    await _processPostsSnapshot(postsSnapshot, addedPostIds, combinedItems);
-  }
-
-  Future<void> _loadSharedPostsPaginated(List<String> followedUsers,
-      Set<String> addedPostIds, List<CombinedItem> combinedItems,
-      {DocumentSnapshot? startAfter, int limit = _pageSize}) async {
-    if (followedUsers.isEmpty) return;
-
-    var query = _firestore
-        .collection('posts')
-        .where('type', isEqualTo: 'shared')
-        .where('sharedBy', whereIn: followedUsers)
-        .orderBy('timestamp', descending: true)
-        .limit(limit);
-
-    if (startAfter != null) {
-      query = query.startAfterDocument(startAfter);
-    }
-
-    final postsSnapshot = await query.get();
-    await _processPostsSnapshot(postsSnapshot, addedPostIds, combinedItems);
-  }
-
   Future<void> _processPostsSnapshot(
     QuerySnapshot postsSnapshot,
     Set<String> addedPostIds,
     List<CombinedItem> combinedItems,
   ) async {
+    // Créer une liste de futures pour le traitement parallèle
+    final List<Future<void>> futures = [];
+
     for (var postDoc in postsSnapshot.docs) {
-      try {
-        final post = _createPostFromDocument(postDoc);
-        if (post != null) {
-          String uniqueId = post is SharedPost
-              ? '${post.id}_${post.originalPostId}_${postDoc.id}_${post.timestamp}'
-              : '${post.id}_${postDoc.id}_${post.timestamp}';
+      futures.add(_processPost(postDoc, addedPostIds, combinedItems));
+    }
 
-          if (!addedPostIds.contains(uniqueId)) {
-            addedPostIds.add(uniqueId);
+    // Attendre que tous les posts soient traités
+    await Future.wait(futures);
+  }
 
-            final Map<String, dynamic> postData;
+  Future<void> _processPost(
+    DocumentSnapshot postDoc,
+    Set<String> addedPostIds,
+    List<CombinedItem> combinedItems,
+  ) async {
+    try {
+      final post = _createPostFromDocument(postDoc);
+      if (post == null) return;
 
-            if (post is SharedPost) {
-              final sharedByUserData =
-                  await _getSharedByUserData(post.sharedBy);
-              final contentData = await _getOriginalContent(post);
-              if (contentData == null || sharedByUserData == null) continue;
+      String uniqueId = post is SharedPost
+          ? '${post.id}_${post.originalPostId}_${postDoc.id}_${post.timestamp}'
+          : '${post.id}_${postDoc.id}_${post.timestamp}';
 
-              postData = {
-                'post': post,
-                ...contentData,
-                'sharedByUser': sharedByUserData,
-                'uniqueId': uniqueId,
-              };
-            } else {
-              // Vérifier d'abord si c'est une association
-              final entityDoc = await _firestore
-                  .collection(post.entityType == 'association'
-                      ? 'associations'
-                      : 'companys')
-                  .doc(post.companyId)
-                  .get();
+      if (addedPostIds.contains(uniqueId)) return;
+      addedPostIds.add(uniqueId);
 
-              if (!entityDoc.exists) continue;
+      final Map<String, dynamic> postData;
 
-              postData = {
-                'post': post,
-                'company': entityDoc.data(),
-                'uniqueId': uniqueId,
-              };
-            }
+      if (post is SharedPost) {
+        final sharedByUserData = await _getSharedByUserData(post.sharedBy);
+        final contentData = await _getOriginalContent(post);
+        if (contentData == null || sharedByUserData == null) return;
 
-            combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
-          }
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('Erreur lors du traitement du post: $e');
-        }
-        continue;
+        postData = {
+          'post': post,
+          ...contentData,
+          'sharedByUser': sharedByUserData,
+          'uniqueId': uniqueId,
+        };
+      } else {
+        final entityDoc = await _firestore
+            .collection(
+                post.entityType == 'association' ? 'associations' : 'companys')
+            .doc(post.companyId)
+            .get();
+
+        if (!entityDoc.exists) return;
+
+        postData = {
+          'post': post,
+          'company': entityDoc.data(),
+          'uniqueId': uniqueId,
+        };
+      }
+
+      combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Erreur lors du traitement du post: $e');
       }
     }
   }

@@ -237,12 +237,14 @@ class UserModel with ChangeNotifier {
     if (userId.isEmpty) return;
 
     try {
+      // Charger les données de base de l'utilisateur
       final userSnapshot =
           await _firestore.collection('users').doc(userId).get();
       if (!userSnapshot.exists) return;
 
       final data = userSnapshot.data() as Map<String, dynamic>;
 
+      // Mettre à jour les données de base
       _firstName = data['firstName'] ?? '';
       _uniqueCode = data['uniqueCode'] ?? '';
       _lastName = data['lastName'] ?? '';
@@ -263,20 +265,26 @@ class UserModel with ChangeNotifier {
       _latitude = (data['latitude'] ?? 0.0).toDouble();
       _longitude = (data['longitude'] ?? 0.0).toDouble();
 
-      followedUsers = List<String>.from(data['followedUsers'] ?? []);
-      likedPosts = List<String>.from(data['likedPosts'] ?? []);
-      likedCompanies = List<String>.from(data['likedCompanies'] ?? []);
-      sharedPosts = List<String>.from(data['sharedPosts'] ?? []);
-      _followedAssociations =
-          List<String>.from(data['followedAssociations'] ?? []);
-
-      await loadDailyQuote();
-      await calculateAndUpdateTotalSavings();
+      // Charger les listes en parallèle
+      await Future.wait([
+        _loadUserLists(data),
+        loadDailyQuote(),
+        calculateAndUpdateTotalSavings(),
+      ]);
 
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading user data: $e');
     }
+  }
+
+  Future<void> _loadUserLists(Map<String, dynamic> data) async {
+    followedUsers = List<String>.from(data['followedUsers'] ?? []);
+    likedPosts = List<String>.from(data['likedPosts'] ?? []);
+    likedCompanies = List<String>.from(data['likedCompanies'] ?? []);
+    sharedPosts = List<String>.from(data['sharedPosts'] ?? []);
+    _followedAssociations =
+        List<String>.from(data['followedAssociations'] ?? []);
   }
 
   Stream<double> get totalSavingsStream {
