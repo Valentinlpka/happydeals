@@ -11,6 +11,7 @@ import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/review_service.dart';
+import 'package:happy/providers/search_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/firebase_service.dart';
@@ -80,6 +81,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CartService()),
         ChangeNotifierProvider(create: (_) => ReviewService()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
       ],
       child: MaterialApp(
         navigatorKey: AppRouter.navigatorKey,

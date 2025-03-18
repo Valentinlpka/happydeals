@@ -541,7 +541,7 @@ class _PostWidgetState extends State<PostWidget>
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   child: Row(
                     children: [
                       Icon(Icons.remove_red_eye_outlined,
@@ -554,47 +554,50 @@ class _PostWidgetState extends State<PostWidget>
                     ],
                   ),
                 ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: isLiked ? Colors.red : null,
-                          ),
-                          onPressed: () async {
-                            try {
-                              await Provider.of<UserModel>(context,
-                                      listen: false)
-                                  .handleLike(widget.post);
-                            } catch (e) {
-                              if (kDebugMode) {
-                                print('Erreur lors du like: $e');
-                              }
-                            }
-                          },
-                        ),
-                        Text('$likes'),
-                        const SizedBox(width: 20),
-                        IconButton(
-                          icon: const Icon(Icons.comment_outlined),
-                          onPressed: () => _navigateToComments(context),
-                        ),
-                        Text('$commentsCount'),
-                        const SizedBox(width: 20),
-                        if (!isCurrentUser) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
                           IconButton(
-                            icon: const Icon(Icons.share_outlined),
-                            onPressed: () =>
-                                _showShareConfirmation(context, userModel),
+                            icon: Icon(
+                              isLiked ? Icons.favorite : Icons.favorite_border,
+                              color: isLiked ? Colors.red : null,
+                            ),
+                            onPressed: () async {
+                              try {
+                                await Provider.of<UserModel>(context,
+                                        listen: false)
+                                    .handleLike(widget.post);
+                              } catch (e) {
+                                if (kDebugMode) {
+                                  print('Erreur lors du like: $e');
+                                }
+                              }
+                            },
                           ),
-                          Text('$shares'),
+                          Text('$likes'),
+                          const SizedBox(width: 20),
+                          IconButton(
+                            icon: const Icon(Icons.comment_outlined),
+                            onPressed: () => _navigateToComments(context),
+                          ),
+                          Text('$commentsCount'),
+                          const SizedBox(width: 20),
+                          if (!isCurrentUser) ...[
+                            IconButton(
+                              icon: const Icon(Icons.share_outlined),
+                              onPressed: () =>
+                                  _showShareConfirmation(context, userModel),
+                            ),
+                            Text('$shares'),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
                 Divider(height: 20, color: Colors.grey[300]),
               ],

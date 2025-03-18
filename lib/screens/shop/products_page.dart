@@ -9,6 +9,7 @@ import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/shop/category_products_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
 import 'package:happy/screens/shop/products_list_page.dart';
+import 'package:happy/services/algolia_service.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:provider/provider.dart';
@@ -44,6 +45,11 @@ class _ProductsPageState extends State<ProductsPage> {
   String _searchQuery = '';
   Timer? _debounce;
 
+  // Ajoutez ces variables pour Algolia
+  final AlgoliaService _algoliaService = AlgoliaService();
+  List<Map<String, dynamic>> _algoliaResults = [];
+  bool _isSearching = false;
+
   // Variables pour la localisation
   double? _selectedLat;
   double? _selectedLng;
@@ -72,7 +78,43 @@ class _ProductsPageState extends State<ProductsPage> {
       setState(() {
         _searchQuery = _searchController.text.trim().toLowerCase();
       });
+
+      // Effectuer la recherche Algolia si le terme a au moins 2 caractères
+      if (_searchQuery.length >= 2) {
+        _searchProductsWithAlgolia(_searchQuery);
+      } else {
+        setState(() {
+          _algoliaResults = [];
+          _isSearching = false;
+        });
+      }
     });
+  }
+
+  // Nouvelle méthode pour rechercher avec Algolia
+  Future<void> _searchProductsWithAlgolia(String query) async {
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      final results = await _algoliaService.search(
+        query,
+        indexName: 'products',
+        hitsPerPage: 50,
+      );
+
+      setState(() {
+        _algoliaResults = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      print('Erreur lors de la recherche Algolia: $e');
+      setState(() {
+        _algoliaResults = [];
+        _isSearching = false;
+      });
+    }
   }
 
   Future<void> _loadMainCategories() async {
@@ -779,61 +821,62 @@ class _ProductsPageState extends State<ProductsPage> {
     return degrees * pi / 180;
   }
 
-  // Nouvelle méthode pour afficher les résultats de recherche
+  // Modifiez la méthode _buildSearchResults pour utiliser les résultats d'Algolia
   Widget _buildSearchResults() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('products')
-          .where('isActive', isEqualTo: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    if (_isSearching) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (snapshot.hasError) {
-          return Center(child: Text('Erreur: ${snapshot.error}'));
-        }
-
-        final products = snapshot.data?.docs
-                .map((doc) => Product.fromFirestore(doc))
-                .where((product) =>
-                    product.name.toLowerCase().contains(_searchQuery) ||
-                    (product.description.toLowerCase().contains(_searchQuery) ??
-                        false))
-                .toList() ??
-            [];
-
-        if (products.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'Aucun produit trouvé pour "${_searchController.text}"',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
+    if (_algoliaResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Aucun produit trouvé pour "${_searchController.text}"',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
             ),
-          );
-        }
+          ],
+        ),
+      );
+    }
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.7,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-          ),
-          itemCount: products.length,
-          itemBuilder: (context, index) {
-            final product = products[index];
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.7,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: _algoliaResults.length,
+      itemBuilder: (context, index) {
+        final productData = _algoliaResults[index];
+
+        // Récupérer les données du produit depuis Algolia
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('products')
+              .doc(productData['objectID'])
+              .get(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Card(
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const SizedBox.shrink();
+            }
+
+            final product = Product.fromFirestore(snapshot.data!);
+
             return InkWell(
               onTap: () {
                 Navigator.push(

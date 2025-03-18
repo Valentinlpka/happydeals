@@ -8,6 +8,40 @@
       overscroll-behavior-y: none;
       -webkit-overflow-scrolling: auto;
     }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #FFFFFF;
+    }
+
+    .loading-logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 24px;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 5px solid #F3F3F3;
+      border-top: 5px solid #FF6B6B;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 
   <base href="$FLUTTER_BASE_HREF">
@@ -34,7 +68,9 @@
 
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-
+  <link rel="preload" as="script" href="main.dart.js">
+  <link rel="preload" as="script" href="flutter_bootstrap.js">
+  <link rel="preload" as="image" href="icons/Icon-192.png">
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png" />
 
@@ -88,6 +124,18 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
+        navigator.serviceWorker.register('flutter_service_worker.js')
+          .then(function (registration) {
+            console.log('Service Worker registered with scope:', registration.scope);
+          })
+          .catch(function (error) {
+            console.error('Service Worker registration failed:', error);
+          });
+      });
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
         navigator.serviceWorker.register('firebase-messaging-sw.js')
           .then(function (registration) {
             console.log('Service Worker registered with scope:', registration.scope);
@@ -111,12 +159,27 @@
 </script>
 
 <body>
-  <script>    document.addEventListener('touchstart', (startEvent) => {
+  <!-- Écran de chargement personnalisé -->
+  <div id="loading-screen" class="loading-container">
+    <img src="icons/Icon-192.png" class="loading-logo" alt="Logo" />
+    <div class="loading-spinner"></div>
+  </div>
+  <script src="flutter_bootstrap.js" async></script>
+
+
+  <script>
+    // Masquer l'écran de chargement une fois que Flutter est initialisé
+    window.addEventListener('flutter-first-frame', function () {
+      var loadingScreen = document.getElementById('loading-screen');
+      if (loadingScreen) {
+        loadingScreen.style.display = 'none';
+      }
+    });
+    document.addEventListener('touchstart', (startEvent) => {
       if (startEvent.touches.length > 1) return;
       startEvent.preventDefault();
     }, { passive: false });
   </script>
-  <script src="flutter_bootstrap.js" async></script>
 </body>
 
 </html>

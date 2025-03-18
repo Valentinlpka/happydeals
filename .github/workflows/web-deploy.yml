@@ -34,7 +34,7 @@ jobs:
           flutter pub get
 
       - name: Build Flutter Web
-        run: flutter build web --release --base-href "/happydeals/"
+        run: flutter build web --web-renderer canvaskit --release --dart-define=Dart2jsOptimization=O4 --base-href "/happydeals/"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

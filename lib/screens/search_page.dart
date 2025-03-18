@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:happy/providers/search_provider.dart';
 import 'package:happy/screens/marketplace/ad_list_page.dart';
 import 'package:happy/screens/post_type_page/associations_page.dart';
 import 'package:happy/screens/post_type_page/code_promo_page.dart';
@@ -11,6 +14,7 @@ import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/search_result.dart';
+import 'package:provider/provider.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -23,6 +27,7 @@ class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchTerm = "";
   String _selectedFilter = "Tous";
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -34,12 +39,23 @@ class _SearchPageState extends State<SearchPage> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
   void _onSearchChanged() {
-    setState(() {
-      _searchTerm = _searchController.text;
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        _searchTerm = _searchController.text;
+      });
+
+      // Effectuer la recherche si le terme a au moins 2 caractères
+      if (_searchTerm.length >= 2) {
+        context.read<SearchProvider>().search(_searchTerm);
+      } else if (_searchTerm.isEmpty) {
+        context.read<SearchProvider>().clearResults();
+      }
     });
   }
 
@@ -51,19 +67,35 @@ class _SearchPageState extends State<SearchPage> {
         title: 'Rechercher',
         align: Alignment.center,
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      body: Column(
         children: [
-          _buildSearchBar(),
-          if (_searchTerm.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _buildFilters(),
-            const SizedBox(height: 20),
-            _buildSearchResults(),
-          ] else ...[
-            const SizedBox(height: 32),
-            _buildDiscoverSection(),
-          ],
+          // Barre de recherche et filtres (avec padding)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              children: [
+                _buildSearchBar(),
+                if (_searchTerm.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  _buildFilters(),
+                ],
+              ],
+            ),
+          ),
+
+          // Résultats de recherche ou section découverte
+          Expanded(
+            child: _searchTerm.isNotEmpty
+                ? SearchResults(
+                    key: ValueKey(_searchTerm),
+                    searchTerm: _searchTerm,
+                    filter: _selectedFilter,
+                  )
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildDiscoverSection(),
+                  ),
+          ),
         ],
       ),
     );
@@ -91,6 +123,15 @@ class _SearchPageState extends State<SearchPage> {
           prefixIcon: Icon(Icons.search, color: Colors.blue[700]),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    context.read<SearchProvider>().clearResults();
+                  },
+                )
+              : null,
         ),
       ),
     );
@@ -120,6 +161,8 @@ class _SearchPageState extends State<SearchPage> {
           setState(() {
             _selectedFilter = label;
           });
+          // Mettre à jour le filtre dans le provider
+          context.read<SearchProvider>().setFilter(label);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -153,19 +196,8 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildSearchResults() {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height - 300,
-      child: SearchResults(
-        searchTerm: _searchTerm,
-        filter: _selectedFilter,
-      ),
-    );
-  }
-
   Widget _buildDiscoverSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
       children: _getCategories().map((category) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,15 +213,13 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
             ),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: category.items.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final item = category.items[index];
-                return _buildDiscoverCard(item);
-              },
+            Column(
+              children: category.items.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _buildDiscoverCard(item),
+                );
+              }).toList(),
             ),
             const SizedBox(height: 32),
           ],

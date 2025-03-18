@@ -3,150 +3,322 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/association.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/providers/search_provider.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/postwidget.dart';
+import 'package:provider/provider.dart';
 
-class SearchResults extends StatelessWidget {
+class SearchResults extends StatefulWidget {
   final String searchTerm;
   final String filter;
 
-  const SearchResults(
-      {super.key, required this.searchTerm, required this.filter});
+  const SearchResults({
+    super.key,
+    required this.searchTerm,
+    required this.filter,
+  });
+
+  @override
+  State<SearchResults> createState() => _SearchResultsState();
+}
+
+class _SearchResultsState extends State<SearchResults> {
+  // Cache pour stocker les widgets déjà construits
+  final Map<String, Widget> _widgetCache = {};
 
   @override
   Widget build(BuildContext context) {
-    if (searchTerm.isEmpty) {
+    if (widget.searchTerm.isEmpty) {
       return const Center(child: Text("Saisissez un terme pour rechercher"));
     }
 
-    String normalizedSearchTerm = normalizeText(searchTerm);
+    // Utiliser le provider pour la recherche
+    final searchProvider = Provider.of<SearchProvider>(context);
 
-    return FutureBuilder<List<Widget>>(
-      future: _getFilteredResults(context, normalizedSearchTerm),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    // Mettre à jour le filtre si nécessaire
+    if (searchProvider.currentFilter != widget.filter) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        searchProvider.setFilter(widget.filter);
+      });
+    }
 
-        if (snapshot.hasError) {
-          return Center(child: Text("Erreur: ${snapshot.error}"));
-        }
+    // Effectuer la recherche si le terme a changé
+    if (searchProvider.lastQuery != widget.searchTerm &&
+        widget.searchTerm.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        searchProvider.search(widget.searchTerm);
+      });
+    }
 
-        List<Widget> results = snapshot.data ?? [];
+    if (searchProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (results.isEmpty) {
-          return const Center(child: Text("Aucun résultat trouvé"));
-        }
+    // Vérifier si nous avons des résultats
+    bool hasResults = false;
+    searchProvider.searchResults.forEach((key, value) {
+      if (value.isNotEmpty) hasResults = true;
+    });
 
-        return ListView(children: results);
-      },
+    if (!hasResults) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Aucun résultat trouvé pour "${widget.searchTerm}"',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Construire les résultats
+    return _buildResultsList(context, searchProvider);
+  }
+
+  Widget _buildResultsList(
+      BuildContext context, SearchProvider searchProvider) {
+    List<Widget> resultWidgets = [];
+
+    if (widget.filter == "Tous") {
+      // Afficher tous les types de résultats avec des en-têtes
+
+      // Utilisateurs
+      final userResults = searchProvider.getResultsByType('users');
+      if (userResults.isNotEmpty) {
+        resultWidgets.add(_buildSectionHeader('Utilisateurs'));
+        resultWidgets.addAll(_buildUserResults(context, userResults));
+      }
+
+      // Entreprises
+      final companyResults = searchProvider.getResultsByType('companys');
+      if (companyResults.isNotEmpty) {
+        resultWidgets.add(_buildSectionHeader('Entreprises'));
+        resultWidgets.addAll(_buildCompanyResults(context, companyResults));
+      }
+
+      // Associations
+      final associationResults =
+          searchProvider.getResultsByType('associations');
+      if (associationResults.isNotEmpty) {
+        resultWidgets.add(_buildSectionHeader('Associations'));
+        resultWidgets
+            .addAll(_buildAssociationResults(context, associationResults));
+      }
+
+      // Posts
+      final postResults = searchProvider.getResultsByType('posts');
+      if (postResults.isNotEmpty) {
+        resultWidgets.add(_buildSectionHeader('Publications'));
+        resultWidgets.addAll(_buildPostResults(context, postResults));
+      }
+    } else {
+      // Afficher uniquement le type sélectionné
+      String indexName;
+      switch (widget.filter) {
+        case "Utilisateurs":
+          indexName = 'users';
+          resultWidgets.addAll(_buildUserResults(
+              context, searchProvider.getResultsByType(indexName)));
+          break;
+        case "Entreprises":
+          indexName = 'companys';
+          resultWidgets.addAll(_buildCompanyResults(
+              context, searchProvider.getResultsByType(indexName)));
+          break;
+        case "Associations":
+          indexName = 'associations';
+          resultWidgets.addAll(_buildAssociationResults(
+              context, searchProvider.getResultsByType(indexName)));
+          break;
+        case "Posts":
+          indexName = 'posts';
+          resultWidgets.addAll(_buildPostResults(
+              context, searchProvider.getResultsByType(indexName)));
+          break;
+      }
+    }
+
+    // Utiliser un ListView.builder pour une meilleure performance
+    return ListView.builder(
+      itemCount: resultWidgets.length,
+      itemBuilder: (context, index) => resultWidgets[index],
+      // Ajouter ces propriétés pour améliorer les performances
+      cacheExtent: 1000, // Mettre en cache plus d'éléments
+      addAutomaticKeepAlives: true, // Garder les éléments en vie
+      addRepaintBoundaries: true, // Ajouter des limites de repeinture
     );
   }
 
-  Future<List<Widget>> _getFilteredResults(
-      BuildContext context, String normalizedSearchTerm) async {
-    List<Widget> results = [];
+  List<Widget> _buildUserResults(
+      BuildContext context, List<Map<String, dynamic>> users) {
+    return users.map((userData) {
+      // Utiliser l'ID comme clé de cache
+      final cacheKey = 'user_${userData['objectID']}';
 
-    if (filter == "Tous") {
-      // Utilisateurs avec en-tête
-      final userResults = await _getUserResults(context, normalizedSearchTerm);
-      if (userResults.isNotEmpty) {
-        results.add(_buildSectionHeader('Utilisateurs'));
-        results.addAll(userResults);
-      }
-
-      // Entreprises avec en-tête
-      final companyResults = await _getCompanyResults(normalizedSearchTerm);
-      if (companyResults.isNotEmpty) {
-        results.add(_buildSectionHeader('Entreprises'));
-        results.addAll(companyResults);
+      // Vérifier si le widget est déjà en cache
+      if (_widgetCache.containsKey(cacheKey)) {
+        return _widgetCache[cacheKey]!;
       }
 
-      // Associations avec en-tête
-      final associationResults =
-          await _getAssociationResults(normalizedSearchTerm);
-      if (associationResults.isNotEmpty) {
-        results.add(_buildSectionHeader('Associations'));
-        results.addAll(associationResults);
-      }
+      // Créer le widget et le mettre en cache
+      final widget = ListTile(
+        leading: CircleAvatar(
+          backgroundImage: NetworkImage(userData['image_profile'] ?? ''),
+        ),
+        title: Text(
+            '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => Profile(userId: userData['objectID']),
+            ),
+          );
+        },
+      );
 
-      // Posts avec en-tête
-      final postResults = await _getPostResults(normalizedSearchTerm);
-      if (postResults.isNotEmpty) {
-        results.add(_buildSectionHeader('Publications'));
-        results.addAll(postResults);
-      }
-    } else {
-      // Comportement existant pour les filtres individuels
-      if (filter == "Utilisateurs") {
-        results.addAll(await _getUserResults(context, normalizedSearchTerm));
-      }
-      if (filter == "Entreprises") {
-        results.addAll(await _getCompanyResults(normalizedSearchTerm));
-      }
-      if (filter == "Posts") {
-        results.addAll(await _getPostResults(normalizedSearchTerm));
-      }
-      if (filter == "Associations") {
-        results.addAll(await _getAssociationResults(normalizedSearchTerm));
-      }
-    }
-
-    return results;
+      _widgetCache[cacheKey] = widget;
+      return widget;
+    }).toList();
   }
 
-  Future<List<Widget>> _getUserResults(
-      BuildContext context, String normalizedSearchTerm) async {
-    QuerySnapshot userSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('searchName', arrayContains: normalizedSearchTerm)
-        .get();
+  List<Widget> _buildCompanyResults(
+      BuildContext context, List<Map<String, dynamic>> companies) {
+    return companies.map((companyData) {
+      // Utiliser l'ID comme clé de cache
+      final cacheKey = 'company_${companyData['objectID']}';
 
-    return userSnapshot.docs
-        .map((doc) => buildUserWidget(context, doc))
-        .toList();
+      // Vérifier si le widget est déjà en cache
+      if (_widgetCache.containsKey(cacheKey)) {
+        return _widgetCache[cacheKey]!;
+      }
+
+      // Récupérer les données complètes depuis Firestore
+      return FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance
+            .collection('companys')
+            .doc(companyData['objectID'])
+            .get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const ListTile(
+              title: Text('Chargement...'),
+              leading: CircleAvatar(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const SizedBox.shrink();
+          }
+
+          final widget = buildCompanyCard(snapshot.data!);
+          _widgetCache[cacheKey] = widget;
+          return widget;
+        },
+      );
+    }).toList();
   }
 
-  Future<List<Widget>> _getCompanyResults(String normalizedSearchTerm) async {
-    QuerySnapshot companySnapshot = await FirebaseFirestore.instance
-        .collection('companys')
-        .where('searchText', isGreaterThanOrEqualTo: normalizedSearchTerm)
-        .where('searchText', isLessThanOrEqualTo: '$normalizedSearchTerm\uf7ff')
-        .get();
+  List<Widget> _buildAssociationResults(
+      BuildContext context, List<Map<String, dynamic>> associations) {
+    return associations.map((associationData) {
+      // Utiliser l'ID comme clé de cache
+      final cacheKey = 'association_${associationData['objectID']}';
 
-    return companySnapshot.docs.map((doc) => buildCompanyCard(doc)).toList();
+      // Vérifier si le widget est déjà en cache
+      if (_widgetCache.containsKey(cacheKey)) {
+        return _widgetCache[cacheKey]!;
+      }
+
+      // Récupérer les données complètes depuis Firestore
+      return FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance
+            .collection('companys')
+            .doc(associationData['objectID'])
+            .get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const ListTile(
+              title: Text('Chargement...'),
+              leading: CircleAvatar(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const SizedBox.shrink();
+          }
+
+          final widget = buildCompanyCard(snapshot.data!);
+          _widgetCache[cacheKey] = widget;
+          return widget;
+        },
+      );
+    }).toList();
   }
 
-  Future<List<Widget>> _getPostResults(String normalizedSearchTerm) async {
-    QuerySnapshot postSnapshot = await FirebaseFirestore.instance
-        .collection('posts')
-        .where('searchText', isGreaterThanOrEqualTo: normalizedSearchTerm)
-        .where('searchText', isLessThanOrEqualTo: '$normalizedSearchTerm\uf7ff')
-        .get();
+  List<Widget> _buildPostResults(
+      BuildContext context, List<Map<String, dynamic>> posts) {
+    return posts.map((postData) {
+      // Utiliser l'ID comme clé de cache
+      final cacheKey = 'post_${postData['objectID']}';
 
-    List<Widget> postWidgets = [];
-    for (var doc in postSnapshot.docs) {
-      Widget postWidget = await buildPostWidget(doc);
-      postWidgets.add(postWidget);
-    }
+      // Vérifier si le widget est déjà en cache
+      if (_widgetCache.containsKey(cacheKey)) {
+        return _widgetCache[cacheKey]!;
+      }
 
-    return postWidgets;
+      // Récupérer les données complètes depuis Firestore
+      return FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance
+            .collection('posts')
+            .doc(postData['objectID'])
+            .get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const ListTile(
+              title: Text('Chargement...'),
+              leading: CircleAvatar(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const SizedBox.shrink();
+          }
+
+          return FutureBuilder<Widget>(
+            future: buildPostWidget(snapshot.data!),
+            builder: (context, postWidgetSnapshot) {
+              if (postWidgetSnapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return const ListTile(
+                  title: Text('Chargement du post...'),
+                );
+              }
+
+              if (!postWidgetSnapshot.hasData) {
+                return const SizedBox.shrink();
+              }
+
+              final widget = postWidgetSnapshot.data!;
+              _widgetCache[cacheKey] = widget;
+              return widget;
+            },
+          );
+        },
+      );
+    }).toList();
   }
 
-  Future<List<Widget>> _getAssociationResults(
-      String normalizedSearchTerm) async {
-    QuerySnapshot associationSnapshot = await FirebaseFirestore.instance
-        .collection('associations')
-        .where('searchText', isGreaterThanOrEqualTo: normalizedSearchTerm)
-        .where('searchText', isLessThanOrEqualTo: '$normalizedSearchTerm\uf7ff')
-        .get();
-
-    return associationSnapshot.docs
-        .map((doc) => buildAssociationCard(doc))
-        .toList();
-  }
-
+  // Les méthodes existantes pour construire les widgets restent inchangées
   Widget buildUserWidget(BuildContext context, DocumentSnapshot document) {
     Map<String, dynamic> userData = document.data() as Map<String, dynamic>;
     return ListTile(
@@ -167,7 +339,10 @@ class SearchResults extends StatelessWidget {
 
   Widget buildCompanyCard(DocumentSnapshot document) {
     Company company = Company.fromDocument(document);
-    return CompanyCard(company);
+    return Padding(
+      padding: const EdgeInsets.all(10.0),
+      child: CompanyCard(company),
+    );
   }
 
   Future<Widget> buildPostWidget(DocumentSnapshot document) async {
@@ -186,20 +361,17 @@ class SearchResults extends StatelessWidget {
     Map<String, dynamic> companyData =
         companySnapshot.data() as Map<String, dynamic>;
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: PostWidget(
-        key: Key(document.id),
-        post: post,
-        companyCover: companyData['cover'],
-        companyCategorie: companyData['categorie'] ?? '',
-        companyName: companyData['name'] ?? 'Unknown',
-        companyLogo: companyData['logo'] ?? '',
-        companyData: companyData,
-        currentUserId: '',
-        currentProfileUserId: '',
-        onView: () {},
-      ),
+    return PostWidget(
+      key: Key(document.id),
+      post: post,
+      companyCover: companyData['cover'],
+      companyCategorie: companyData['categorie'] ?? '',
+      companyName: companyData['name'] ?? 'Unknown',
+      companyLogo: companyData['logo'] ?? '',
+      companyData: companyData,
+      currentUserId: '',
+      currentProfileUserId: '',
+      onView: () {},
     );
   }
 
@@ -256,18 +428,6 @@ class SearchResults extends StatelessWidget {
     );
   }
 
-  String normalizeText(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[àáâãäå]'), 'a')
-        .replaceAll(RegExp(r'[èéêë]'), 'e')
-        .replaceAll(RegExp(r'[ìíîï]'), 'i')
-        .replaceAll(RegExp(r'[òóôõö]'), 'o')
-        .replaceAll(RegExp(r'[ùúûü]'), 'u')
-        .replaceAll(RegExp(r'[ýÿ]'), 'y')
-        .replaceAll(RegExp(r'[ñ]'), 'n');
-  }
-
   Widget _buildSectionHeader(String title) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -286,5 +446,12 @@ class SearchResults extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // Vider le cache lorsque le widget est supprimé
+    _widgetCache.clear();
+    super.dispose();
   }
 }
