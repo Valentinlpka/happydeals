@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:happy/providers/search_provider.dart';
-import 'package:happy/screens/marketplace/ad_list_page.dart';
 import 'package:happy/screens/post_type_page/code_promo_page.dart';
 import 'package:happy/screens/post_type_page/companys_page.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
@@ -11,6 +10,7 @@ import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
+import 'package:happy/screens/troc-et-echange/ad_list_page.dart';
 import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/search_result.dart';
 import 'package:provider/provider.dart';

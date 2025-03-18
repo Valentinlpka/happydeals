@@ -5,12 +5,12 @@ import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/geo_point.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/users_provider.dart';
-import 'package:happy/screens/marketplace/ad_card.dart';
-import 'package:happy/screens/marketplace/ad_creation_page.dart';
-import 'package:happy/screens/marketplace/ad_detail_page.dart';
-import 'package:happy/screens/marketplace/city_autocomplete.dart';
-import 'package:happy/screens/marketplace/my_ad_page.dart';
-import 'package:happy/screens/marketplace/saved_ads_page.dart';
+import 'package:happy/screens/troc-et-echange/ad_card.dart';
+import 'package:happy/screens/troc-et-echange/ad_creation_page.dart';
+import 'package:happy/screens/troc-et-echange/ad_detail_page.dart';
+import 'package:happy/screens/troc-et-echange/city_autocomplete.dart';
+import 'package:happy/screens/troc-et-echange/my_ad_page.dart';
+import 'package:happy/screens/troc-et-echange/saved_ads_page.dart';
 import 'package:provider/provider.dart';
 
 class AdListPage extends StatefulWidget {

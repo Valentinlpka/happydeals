@@ -3,9 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
-import 'package:happy/screens/marketplace/ad_card.dart';
-import 'package:happy/screens/marketplace/ad_creation_page.dart';
-import 'package:happy/screens/marketplace/ad_detail_page.dart';
+import 'package:happy/screens/troc-et-echange/ad_card.dart';
+import 'package:happy/screens/troc-et-echange/ad_creation_page.dart';
+import 'package:happy/screens/troc-et-echange/ad_detail_page.dart';
 import 'package:happy/widgets/custom_app_bar_back.dart';
 
 class MyAdsPage extends StatelessWidget {

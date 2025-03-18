@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_list.dart';
 import 'package:happy/screens/home_page.dart';
-import 'package:happy/screens/marketplace/ad_list_page.dart';
 import 'package:happy/screens/settings_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
+import 'package:happy/screens/troc-et-echange/ad_list_page.dart';
 import 'package:happy/widgets/custom_bottom_bar.dart';
 import 'package:provider/provider.dart';
 

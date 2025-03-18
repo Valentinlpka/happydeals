@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
-import 'package:happy/screens/marketplace/city_autocomplete.dart';
-import 'package:happy/screens/marketplace/photo_section.dart';
+import 'package:happy/screens/troc-et-echange/city_autocomplete.dart';
+import 'package:happy/screens/troc-et-echange/photo_section.dart';
 
 class ExchangeForm extends StatefulWidget {
   final GlobalKey<ExchangeFormState> formKey = GlobalKey<ExchangeFormState>();
@@ -164,7 +164,7 @@ class ExchangeFormState extends State<ExchangeForm> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(left:10.0),
+                      padding: const EdgeInsets.only(left: 10.0),
                       child: PhotoSection(key: _photoSectionKey),
                     ),
                     const SizedBox(height: 16),

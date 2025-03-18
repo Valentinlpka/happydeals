@@ -7,7 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/share_post.dart';
-import 'package:happy/screens/marketplace/exchange_form.dart';
+import 'package:happy/screens/troc-et-echange/exchange_form.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
