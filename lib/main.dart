@@ -35,36 +35,40 @@ void main() async {
 
   if (kIsWeb) {
     try {
-      // Attendre que l'utilisateur soit connecté
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseMessaging.instance.requestPermission(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
-
-        String? token = await FirebaseMessaging.instance.getToken(
-          vapidKey:
-              'BJqxpGh0zaBedTU9JBdIQ8LrVUXetBpUBKT4wrrV_LXiI9vy0LwRa4_KCprNARbLEiV9gFnVipimUO5AN60XqSI',
-        );
-
-        if (token != null) {
-          // Sauvegarder le token dans Firestore pour l'utilisateur
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .update({'fcmToken': token});
-
-          debugPrint('FCM Token Web: $token');
-        }
-      }
+      await _initializeFirebaseMessagingWeb();
     } catch (e) {
       debugPrint('Erreur d\'initialisation FCM: $e');
     }
   }
 
   runApp(const MyApp());
+}
+
+Future<void> _initializeFirebaseMessagingWeb() async {
+  // Attendre que l'utilisateur soit connecté
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    String? token = await FirebaseMessaging.instance.getToken(
+      vapidKey:
+          'BJqxpGh0zaBedTU9JBdIQ8LrVUXetBpUBKT4wrrV_LXiI9vy0LwRa4_KCprNARbLEiV9gFnVipimUO5AN60XqSI',
+    );
+
+    if (token != null) {
+      // Sauvegarder le token dans Firestore pour l'utilisateur
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'fcmToken': token});
+
+      debugPrint('FCM Token Web: $token');
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -87,6 +91,7 @@ class MyApp extends StatelessWidget {
         navigatorKey: AppRouter.navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
+        title: 'Happy Shop',
         home: AppRouter.getHomeScreen(),
         initialRoute: '/',
         routes: AppRouter.routes,

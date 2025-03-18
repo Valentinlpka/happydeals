@@ -7,6 +7,9 @@
     body {
       overscroll-behavior-y: none;
       -webkit-overflow-scrolling: auto;
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
     }
 
     .loading-container {
@@ -22,6 +25,7 @@
       width: 120px;
       height: 120px;
       margin-bottom: 24px;
+      animation: pulse 2s infinite ease-in-out;
     }
 
     .loading-spinner {
@@ -40,6 +44,20 @@
 
       100% {
         transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
+
+      100% {
+        transform: scale(1);
       }
     }
   </style>
@@ -105,9 +123,9 @@
   </script>
 
   <!-- Firebase Configuration -->
-  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js" defer></script>
 
   <script>
     // Initialisation de Firebase
@@ -120,10 +138,10 @@
       appId: "1:289031542511:web:e608b4fb09685d0d8b6d1a"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    document.addEventListener('DOMContentLoaded', function () {
+      firebase.initializeApp(firebaseConfig);
 
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('firebase-messaging-sw.js')
           .then(function (registration) {
             console.log('Service Worker registered with scope:', registration.scope);
@@ -131,8 +149,8 @@
           .catch(function (error) {
             console.error('Service Worker registration failed:', error);
           });
-      });
-    }
+      }
+    });
   </script>
 
   <meta http-equiv="Content-Security-Policy"
@@ -140,10 +158,12 @@
 </head>
 
 <!-- Scripts externes -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js" defer></script>
 <script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+  window.addEventListener('DOMContentLoaded', function () {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+  });
 </script>
 
 <body>
@@ -151,6 +171,7 @@
   <div id="loading-screen" class="loading-container">
     <img src="icons/Icon-192.png" class="loading-logo" alt="Logo" />
     <div class="loading-spinner"></div>
+    <p style="margin-top: 16px; color: #186dbc;">Chargement en cours...</p>
   </div>
   <script src="flutter_bootstrap.js" async></script>
 

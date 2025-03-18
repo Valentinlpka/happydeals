@@ -35,7 +35,9 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   late String currentUserId;
   final ScrollController _scrollController = ScrollController();
-  final bool _isLoading = false;
+
+  // Ajout d'un indicateur de premier chargement
+  bool _isFirstLoad = true;
 
   @override
   bool get wantKeepAlive => true; // Garde la page en vie
@@ -115,6 +117,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
 
     // Vérifier si les données sont déjà chargées
     if (homeProvider.currentFeedItems.isNotEmpty) {
+      setState(() => _isFirstLoad = false);
       return;
     }
 
@@ -123,6 +126,9 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       userProvider.likedCompanies,
       userProvider.followedUsers,
     );
+
+    // Indiquer que le premier chargement est terminé
+    setState(() => _isFirstLoad = false);
   }
 
   @override
@@ -276,19 +282,37 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         return StreamBuilder<List<CombinedItem>>(
           stream: homeProvider.feedStream,
           builder: (context, snapshot) {
-            // Afficher le skeleton pendant le chargement
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData &&
+            // Afficher le skeleton pendant le chargement avec priorité au premier chargement
+            if ((_isFirstLoad ||
+                    (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData)) &&
                 homeProvider.currentFeedItems.isEmpty) {
               return ListView.builder(
                 padding: EdgeInsets.zero,
+                physics:
+                    const NeverScrollableScrollPhysics(), // Empêche le défilement pendant le chargement
                 itemCount: 3, // Nombre de skeletons à afficher
                 itemBuilder: (context, index) => _buildSkeletonPost(),
               );
             }
 
             if (snapshot.hasError) {
-              return Center(child: Text('Erreur: ${snapshot.error}'));
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('Erreur: ${snapshot.error}'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _handleRefresh,
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              );
             }
 
             final items = snapshot.data ?? homeProvider.currentFeedItems;
@@ -578,15 +602,36 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     if (homeProvider.isLoading && items.isEmpty) {
       return ListView.builder(
         padding: EdgeInsets.zero,
+        physics:
+            const NeverScrollableScrollPhysics(), // Empêche le défilement pendant le chargement
         itemCount: 3,
         itemBuilder: (context, index) => _buildSkeletonPost(),
       );
     } else if (items.isEmpty) {
-      return const Center(child: Text('Aucun élément trouvé'));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.inbox_outlined, size: 48, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text('Aucun contenu trouvé'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _handleRefresh,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF186dbc),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Actualiser'),
+            ),
+          ],
+        ),
+      );
     } else {
       return ListView.builder(
         key: const PageStorageKey('feed-list'),
-        cacheExtent: 1000,
+        cacheExtent:
+            2000, // Augmentation du cache pour une meilleure performance
         padding: EdgeInsets.zero,
         addRepaintBoundaries: true,
         addAutomaticKeepAlives: true,
@@ -595,39 +640,9 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         itemBuilder: (context, index) {
           if (index == items.length) {
             if (homeProvider.isLoading) {
-              return _buildSkeletonPost();
+              return _buildLoaderItem();
             } else if (!homeProvider.hasMoreData) {
-              return Container(
-                padding: const EdgeInsets.all(16.0),
-                child: Center(
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.check_circle_outline,
-                        size: 40,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Vous avez tout vu !',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Revenez plus tard pour voir plus de contenu',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
+              return _buildEndOfListIndicator();
             }
             return const SizedBox.shrink();
           }
@@ -661,11 +676,27 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         ? homeProvider.currentFeedItems.last
         : null;
 
-    await homeProvider.loadMoreUnifiedFeed(
-      userProvider.likedCompanies,
-      userProvider.followedUsers,
-      lastItem,
-    );
+    try {
+      await homeProvider.loadMoreUnifiedFeed(
+        userProvider.likedCompanies,
+        userProvider.followedUsers,
+        lastItem,
+      );
+    } catch (e) {
+      // Gestion silencieuse des erreurs de chargement
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du chargement: $e'),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Réessayer',
+              onPressed: () => _loadMoreData(),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildItem(CombinedItem item) {
@@ -741,6 +772,65 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       // Gestion des autres types
       return const SizedBox.shrink();
     }
+  }
+
+  // Nouveau widget séparé pour l'indicateur de chargement
+  Widget _buildLoaderItem() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: const Center(
+        child: Column(
+          children: [
+            SizedBox(
+              width: 30,
+              height: 30,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF186dbc)),
+              ),
+            ),
+            SizedBox(height: 8),
+            Text('Chargement en cours...',
+                style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Nouveau widget séparé pour l'indicateur de fin de liste
+  Widget _buildEndOfListIndicator() {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      child: Center(
+        child: Column(
+          children: [
+            const Icon(
+              Icons.check_circle_outline,
+              size: 40,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Vous avez tout vu !',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Revenez plus tard pour voir plus de contenu',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
