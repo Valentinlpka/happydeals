@@ -77,6 +77,20 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
   void initState() {
     super.initState();
     _loadCities();
+    // Précharger la ville enregistrée
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userModel = Provider.of<UserModel>(context, listen: false);
+      if (userModel.city.isNotEmpty && userModel.zipCode.isNotEmpty) {
+        _cityController.text = '${userModel.city} (${userModel.zipCode})';
+        _selectedCity = City(
+          inseeCode: '', // Ces champs ne sont pas nécessaires pour l'affichage
+          label: userModel.city,
+          zipCode: userModel.zipCode,
+          latitude: userModel.latitude,
+          longitude: userModel.longitude,
+        );
+      }
+    });
   }
 
   Future<void> _loadCities() async {

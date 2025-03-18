@@ -32,6 +32,7 @@ class ReservationListDealExpress extends StatelessWidget {
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.all(16),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               final reservation = snapshot.data!.docs[index];
@@ -47,7 +48,7 @@ class ReservationListDealExpress extends StatelessWidget {
   Widget _buildReservationCard(
       BuildContext context, String reservationId, Map<String, dynamic> data) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),

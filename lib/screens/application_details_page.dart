@@ -19,10 +19,25 @@ class ApplicationDetailsPage extends StatefulWidget {
 class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _messageController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        // Attendre que le clavier soit complètement ouvert
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -42,14 +57,16 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
         align: Alignment.center,
         title: 'Candidature',
       ),
-      body: Column(
-        children: [
-          _buildApplicationHeader(),
-          Expanded(
-            child: _buildMessagesSection(),
-          ),
-          _buildMessageInput(),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildApplicationHeader(),
+            Expanded(
+              child: _buildMessagesSection(),
+            ),
+            _buildMessageInput(),
+          ],
+        ),
       ),
     );
   }
@@ -180,31 +197,30 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
             ),
           ),
           const SizedBox(height: 16),
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('applications')
-                .doc(widget.application.id)
-                .collection('messages')
-                .orderBy('timestamp', descending: false)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final messages = snapshot.data!.docs;
-
-              // Scroll to bottom after messages are loaded
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (_scrollController.hasClients) {
-                  _scrollController
-                      .jumpTo(_scrollController.position.maxScrollExtent);
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('applications')
+                  .doc(widget.application.id)
+                  .collection('messages')
+                  .orderBy('timestamp', descending: false)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
                 }
-              });
 
-              return SizedBox(
-                height: MediaQuery.of(context).size.height * 0.5,
-                child: ListView.builder(
+                final messages = snapshot.data!.docs;
+
+                // Scroll to bottom after messages are loaded
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients) {
+                    _scrollController
+                        .jumpTo(_scrollController.position.maxScrollExtent);
+                  }
+                });
+
+                return ListView.builder(
                   controller: _scrollController,
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
@@ -219,9 +235,9 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
                       isUser: isUserMessage,
                     );
                   },
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -282,6 +298,7 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 controller: _messageController,
+                focusNode: _focusNode,
                 decoration: InputDecoration(
                   hintText: 'Votre message...',
                   border: InputBorder.none,
@@ -335,6 +352,7 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
                 });
 
                 _messageController.clear();
+                _focusNode.unfocus();
               },
             ),
           ),
@@ -389,6 +407,7 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
   void dispose() {
     _scrollController.dispose();
     _messageController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 }

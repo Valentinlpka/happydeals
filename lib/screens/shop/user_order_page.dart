@@ -78,16 +78,14 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
           // Trier les commandes par date de création (plus récentes en premier)
           orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-          return Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 8),
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: orders.length,
-              itemBuilder: (context, index) {
-                final order = orders[index];
-                return _buildOrderCard(order);
-              },
-            ),
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            controller: _scrollController,
+            itemCount: orders.length,
+            itemBuilder: (context, index) {
+              final order = orders[index];
+              return _buildOrderCard(order);
+            },
           );
         },
       ),
@@ -96,7 +94,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
 
   Widget _buildOrderCard(Orders order) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
