@@ -97,77 +97,74 @@ class _BookingCard extends StatelessWidget {
                   ),
                 );
               },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                service.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              service.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('EEEE d MMMM yyyy à HH:mm', 'fr_FR')
-                                    .format(booking.bookingDate),
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 13,
-                                ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormat('EEEE d MMMM yyyy à HH:mm', 'fr_FR')
+                                  .format(booking.bookingDate),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        _buildStatusChip(booking.status),
+                      ),
+                      _buildStatusChip(booking.status),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildInfoItem(
+                          icon: Icons.timelapse,
+                          label: 'Durée',
+                          value: '${service.duration} min',
+                        ),
+                        Container(
+                          height: 24,
+                          width: 1,
+                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                          color: Colors.grey[300],
+                        ),
+                        _buildInfoItem(
+                          icon: Icons.euro,
+                          label: 'Prix',
+                          value:
+                              '${(booking.price / 100).toStringAsFixed(2)} €',
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 20,
+                          color: Colors.grey[400],
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildInfoItem(
-                            icon: Icons.timelapse,
-                            label: 'Durée',
-                            value: '${service.duration} min',
-                          ),
-                          Container(
-                            height: 24,
-                            width: 1,
-                            margin: const EdgeInsets.symmetric(horizontal: 12),
-                            color: Colors.grey[300],
-                          ),
-                          _buildInfoItem(
-                            icon: Icons.euro,
-                            label: 'Prix',
-                            value:
-                                '${(booking.price / 100).toStringAsFixed(2)} €',
-                          ),
-                          const Spacer(),
-                          Icon(
-                            Icons.chevron_right,
-                            size: 20,
-                            color: Colors.grey[400],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
