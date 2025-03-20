@@ -17,8 +17,8 @@ class Company {
   final String sellerId;
   final Address adress;
   final Map<String, dynamic> openingHours;
-  final double averageRating;
-  final int numberOfReviews;
+  final double? averageRating;
+  final int? numberOfReviews;
   final DateTime createdAt;
 
   Company({
@@ -39,8 +39,8 @@ class Company {
     required this.adress,
     DateTime? createdAt,
     required this.openingHours,
-    this.averageRating = 0.0,
-    this.numberOfReviews = 0,
+    this.averageRating,
+    this.numberOfReviews,
   }) : createdAt = createdAt ?? DateTime.now();
 
   factory Company.fromDocument(DocumentSnapshot doc) {
@@ -62,8 +62,8 @@ class Company {
       sellerId: data['sellerId'] ?? '',
       adress: Address.fromMap(data['adress'] ?? {}),
       openingHours: Map<String, dynamic>.from(data['openingHours'] ?? {}),
-      averageRating: (data['averageRating'] ?? 0.0).toDouble(),
-      numberOfReviews: data['numberOfReviews'] ?? 0,
+      averageRating: (data['rating'] as num?)?.toDouble(),
+      numberOfReviews: data['numberOfReviews'] as int?,
       createdAt: data['createdAt'] is Timestamp
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
@@ -99,16 +99,16 @@ class Address {
   final String codePostal;
   final String pays;
   final String ville;
-  final double latitude;
-  final double longitude;
+  final double? latitude;
+  final double? longitude;
 
   Address({
     required this.adresse,
     required this.codePostal,
     required this.pays,
     required this.ville,
-    required this.longitude,
-    required this.latitude,
+    this.longitude,
+    this.latitude,
   });
 
   factory Address.fromMap(Map<String, dynamic> map) {
@@ -117,8 +117,8 @@ class Address {
       codePostal: map['code_postal'] ?? '',
       pays: map['pays'] ?? '',
       ville: map['ville'] ?? '',
-      latitude: map['latitude'],
-      longitude: map['longitude'],
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -128,6 +128,8 @@ class Address {
       'code_postal': codePostal,
       'pays': pays,
       'ville': ville,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 }

@@ -46,6 +46,11 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         .collection('companys')
         .doc(widget.product.sellerId)
         .get();
+
+    if (!doc.exists) {
+      throw Exception('Company not found');
+    }
+
     return Company.fromDocument(doc);
   }
 
@@ -401,8 +406,20 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         FutureBuilder<Company>(
           future: companyFuture,
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Text('Erreur: ${snapshot.error}'),
+              );
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(
+                child: Text('Aucune information sur le vendeur'),
+              );
             }
 
             return CompanyInfoCard(

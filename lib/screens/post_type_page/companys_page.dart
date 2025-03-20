@@ -195,8 +195,8 @@ class _CompaniesPageState extends State<CompaniesPage>
       final companies = entry.value;
       final firstCompany = companies.first;
       final position = latlong.LatLng(
-        firstCompany.adress.latitude,
-        firstCompany.adress.longitude,
+        firstCompany.adress.latitude ?? 0.0,
+        firstCompany.adress.longitude ?? 0.0,
       );
 
       if (companies.length == 1) {
@@ -507,7 +507,8 @@ class _CompaniesPageState extends State<CompaniesPage>
               if (_selectedLat != null && _selectedLng != null) {
                 final distance = calculateDistance(
                   latlong.LatLng(_selectedLat!, _selectedLng!),
-                  latlong.LatLng(org.adress.latitude, org.adress.longitude),
+                  latlong.LatLng(
+                      org.adress.latitude ?? 0.0, org.adress.longitude ?? 0.0),
                 );
                 return matchesCategory && distance <= _selectedRadius;
               }
@@ -668,8 +669,8 @@ class _CompaniesPageState extends State<CompaniesPage>
         }
 
         final companyLatLng = latlong.LatLng(
-          company.adress.latitude,
-          company.adress.longitude,
+          company.adress.latitude ?? 0.0,
+          company.adress.longitude ?? 0.0,
         );
 
         final distance = calculateDistance(center, companyLatLng);
@@ -691,8 +692,8 @@ class _CompaniesPageState extends State<CompaniesPage>
         final companies = entry.value;
         final firstCompany = companies.first;
         final position = latlong.LatLng(
-          firstCompany.adress.latitude,
-          firstCompany.adress.longitude,
+          firstCompany.adress.latitude ?? 0.0,
+          firstCompany.adress.longitude ?? 0.0,
         );
 
         return CustomMarker(

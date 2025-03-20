@@ -308,10 +308,10 @@ class _ServiceCardsState extends State<ServiceCards> {
                                   if (service.hasActivePromotion) ...[
                                     Text(
                                       "${service.finalPrice.toStringAsFixed(2)} €",
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.green,
+                                        color: Colors.red[800],
                                       ),
                                     ),
                                     const SizedBox(width: 4),

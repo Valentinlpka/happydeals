@@ -674,22 +674,29 @@ class _ProductsPageState extends State<ProductsPage> {
                                         const SizedBox(height: 4),
                                         if (product.discount?.isValid() ??
                                             false) ...[
-                                          Text(
-                                            '${product.price.toStringAsFixed(2)}€',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 12,
-                                              decoration:
-                                                  TextDecoration.lineThrough,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${product.finalPrice.toStringAsFixed(2)}€',
-                                            style: TextStyle(
-                                              color: Colors.red[700],
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                            ),
+                                          Row(
+                                            spacing: 5,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                '${product.finalPrice.toStringAsFixed(2)}€',
+                                                style: TextStyle(
+                                                  color: Colors.red[700],
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${product.price.toStringAsFixed(2)}€',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 12,
+                                                  decoration: TextDecoration
+                                                      .lineThrough,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ] else
                                           Text(

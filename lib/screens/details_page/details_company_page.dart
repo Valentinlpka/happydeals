@@ -10,9 +10,12 @@ import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/loyalty_card.dart';
 import 'package:happy/classes/loyalty_program.dart';
+import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
+import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/referral_options_modal.dart';
+import 'package:happy/classes/service_post.dart';
 // Imports de vos providers et widgets
 import 'package:happy/providers/company_provider.dart';
 import 'package:happy/providers/review_service.dart';
@@ -47,12 +50,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   late Future<List<Map<String, dynamic>>> _postsFuture;
 
   // État de l'onglet courant
-  final String _currentTab = 'Boutique';
+  final String _currentTab = 'Publications';
 
   // Définir les onglets selon le type
   final List<String> _companyTabs = [
-    'Boutique',
     'Publications',
+    'Boutique',
     'Galerie',
     'Parrainage',
     'Avis',
@@ -73,6 +76,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   // Ajoutez cette liste pour les filtres
   final List<String> _filterOptions = [
     'Tous',
+    'Actualité',
     'Happy Deals',
     'Événements',
     'Jeux concours',
@@ -238,6 +242,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
           return Referral.fromDocument(doc);
         case 'event':
           return Event.fromDocument(doc);
+        case 'news':
+          return News.fromDocument(doc);
+        case 'service':
+          return ServicePost.fromDocument(doc);
+        case 'product':
+          return ProductPost.fromDocument(doc);
         default:
           return null;
       }
@@ -255,6 +265,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
       "Offres d'emploi": 'job_offer',
       'Parrainage': 'referral',
       'Jeux concours': 'contest',
+      'Actualité': 'news',
     };
     return typeMap[filter] ?? '';
   }

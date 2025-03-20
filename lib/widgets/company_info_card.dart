@@ -97,7 +97,7 @@ class CompanyInfoCard extends StatelessWidget {
                           ],
                         ],
                       ),
-                      if (showRating) ...[
+                      if (showRating && (company.numberOfReviews ?? 0) > 0) ...[
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -120,7 +120,8 @@ class CompanyInfoCard extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    company.averageRating.toStringAsFixed(1),
+                                    (company.averageRating ?? 0.0)
+                                        .toStringAsFixed(1),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -131,7 +132,7 @@ class CompanyInfoCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '(${company.numberOfReviews} avis)',
+                              '(${company.numberOfReviews ?? 0} avis)',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 14,

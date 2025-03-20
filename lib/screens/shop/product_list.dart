@@ -30,7 +30,7 @@ class _ProductListState extends State<ProductList>
     super.initState();
     _productsStream = FirebaseFirestore.instance
         .collection('products')
-        .where('merchantId', isEqualTo: widget.sellerId)
+        .where('sellerId', isEqualTo: widget.sellerId)
         .where('isActive', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .snapshots();
@@ -137,7 +137,9 @@ class ProductListItem extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              '-${mainVariant.discount!.value.toStringAsFixed(0)}%',
+                              mainVariant.discount!.type == 'percentage'
+                                  ? '-${mainVariant.discount!.value.toStringAsFixed(0)}%'
+                                  : '-${mainVariant.discount!.value.toStringAsFixed(2)}€',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
