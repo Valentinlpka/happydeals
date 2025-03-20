@@ -151,6 +151,7 @@ extension CompanyExtension on Company {
       description: description ?? this.description,
       email: email ?? this.email,
       like: like ?? this.like,
+      website: website ?? website,
       logo: logo ?? this.logo,
       gallery: gallery ?? this.gallery,
       phone: phone ?? this.phone,

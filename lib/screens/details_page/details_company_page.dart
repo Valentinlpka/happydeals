@@ -415,7 +415,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
           const SizedBox(height: 16),
           Text(entreprise.description),
           const SizedBox(height: 8),
-          _buildInfoTile(Icons.language, 'google.fr'),
+          _buildInfoTile(Icons.language, entreprise.website),
           _buildInfoTile(Icons.location_on,
               "${entreprise.adress.adresse} ${entreprise.adress.codePostal} ${entreprise.adress.ville}"),
           _buildInfoTile(Icons.phone, entreprise.phone),
