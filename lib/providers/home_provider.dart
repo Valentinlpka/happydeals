@@ -249,11 +249,8 @@ class HomeProvider extends ChangeNotifier {
           'uniqueId': uniqueId,
         };
       } else {
-        final entityDoc = await _firestore
-            .collection(
-                post.entityType == 'association' ? 'associations' : 'companys')
-            .doc(post.companyId)
-            .get();
+        final entityDoc =
+            await _firestore.collection('companys').doc(post.companyId).get();
 
         if (!entityDoc.exists) return;
 
@@ -422,12 +419,8 @@ class HomeProvider extends ChangeNotifier {
 // Traite un post original
   Future<Map<String, dynamic>?> _handleOriginalPost(
       SharedPost sharedPost, DocumentSnapshot originalPostDoc) async {
-    final entityDoc = await _firestore
-        .collection(sharedPost.entityType == 'association'
-            ? 'associations'
-            : 'companys')
-        .doc(sharedPost.companyId)
-        .get();
+    final entityDoc =
+        await _firestore.collection('companys').doc(sharedPost.companyId).get();
 
     if (!entityDoc.exists) return null;
 

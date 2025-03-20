@@ -13,6 +13,7 @@ class Company {
   final List<Map<String, dynamic>> gallery;
   final String phone;
   final String type;
+  final String website;
   final String sellerId;
   final Address adress;
   final Map<String, dynamic> openingHours;
@@ -25,6 +26,7 @@ class Company {
     required this.name,
     required this.entityType,
     required this.categorie,
+    required this.website,
     required this.cover,
     required this.gallery,
     required this.description,
@@ -47,6 +49,7 @@ class Company {
       id: doc.id,
       name: data['name'] ?? '',
       entityType: data['entityType'] ?? '',
+      website: data['website'] ?? '',
       categorie: data['categorie'] ?? '',
       cover: data['cover'] ?? '',
       gallery: List<Map<String, dynamic>>.from(data['gallery'] ?? []),
@@ -74,6 +77,7 @@ class Company {
       'categorie': categorie,
       'cover': cover,
       'description': description,
+      'website': website,
       'email': email,
       'like': like,
       'logo': logo,

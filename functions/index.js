@@ -456,8 +456,8 @@ exports.createConnectAccount = functions.https.onCall(async (data, context) => {
     // Créer le lien d'onboarding
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `https://yourapp.com/reauth`,
-      return_url: `https://yourapp.com/return`,
+      refresh_url: `https://up-pro.vercel.app/dashboard`,
+      return_url: `https://up-pro.vercel.app/dashboard`,
       type: "account_onboarding",
     });
 
@@ -486,8 +486,8 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
 
   const accountLink = await stripe.accountLinks.create({
     account: accountId,
-    refresh_url: `https://yourapp.com/reauth`,
-    return_url: `https://yourapp.com/return`,
+    refresh_url: `https://up-pro.vercel.app/login`,
+    return_url: `https://up-pro.vercel.app/dashboard`,
     type: "account_onboarding",
   });
 
