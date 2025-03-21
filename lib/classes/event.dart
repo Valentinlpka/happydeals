@@ -8,7 +8,12 @@ class Event extends Post {
 
   final String category;
   final DateTime eventDate;
+  final DateTime eventEndDate;
   final String city;
+  final String address;
+  final String subCategory;
+  final double latitude;
+  final double longitude;
   final String description;
   final List<String> products;
   final String photo;
@@ -22,11 +27,16 @@ class Event extends Post {
     required this.searchText,
     required this.category,
     required this.eventDate,
+    required this.eventEndDate,
     required this.city,
     required this.description,
     required super.companyId,
     required this.products,
     required this.photo,
+    required this.address,
+    required this.subCategory,
+    required this.latitude,
+    required this.longitude,
     this.maxAttendees = 100, // valeur par défaut
     this.attendeeCount = 0,
     super.views,
@@ -47,7 +57,12 @@ class Event extends Post {
       searchText: data['searchText'],
       category: data['category'],
       eventDate: (data['eventDate'] as Timestamp).toDate(),
+      eventEndDate: (data['eventEndDate'] as Timestamp).toDate(),
       city: data['city'],
+      address: data['address'],
+      subCategory: data['subCategory'],
+      latitude: data['latitude'],
+      longitude: data['longitude'],
       description: data['description'],
       companyId: data['companyId'],
       products: List<String>.from(data['products']),
@@ -73,6 +88,7 @@ class Event extends Post {
       'searchText': searchText,
       'category': category,
       'eventDate': Timestamp.fromDate(eventDate),
+      'eventEndDate': Timestamp.fromDate(eventEndDate),
       'city': city,
       'description': description,
       'products': products,
@@ -80,6 +96,10 @@ class Event extends Post {
       'companyId': companyId,
       'maxAttendees': maxAttendees,
       'attendeeCount': attendeeCount,
+      'address': address,
+      'subCategory': subCategory,
+      'latitude': latitude,
+      'longitude': longitude,
     });
     return map;
   }

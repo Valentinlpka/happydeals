@@ -1,9 +1,14 @@
+import 'dart:html' as html;
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/custom_image_viewer.dart';
 import 'package:happy/widgets/video_player_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class NewsCard extends StatelessWidget {
   final News news;
@@ -174,6 +179,215 @@ class NewsCard extends StatelessWidget {
     );
   }
 
+  Widget _buildArticlePreview() {
+    if (news.articleUrl == null || news.articleUrl!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.grey[50],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: GestureDetector(
+        onTap: () => _launchURL(news.articleUrl!),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (news.articlePreview?.image != null)
+              Stack(
+                children: [
+                  SizedBox(
+                    height: 180,
+                    width: double.infinity,
+                    child: kIsWeb
+                        ? _buildWebImage(news.articlePreview!.image!)
+                        : Image.network(
+                            news.articlePreview!.image!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
+                  ),
+                  // Overlay gradient
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 80,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.7),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Source badge
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.article_outlined,
+                            size: 16,
+                            color: Colors.grey[800],
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            Uri.parse(news.articleUrl!)
+                                .host
+                                .replaceAll('www.', ''),
+                            style: TextStyle(
+                              color: Colors.grey[800],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (news.articlePreview?.title != null)
+                    Text(
+                      news.articlePreview!.title!,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  if (news.articlePreview?.description != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      news.articlePreview!.description!,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.open_in_new,
+                        size: 16,
+                        color: Colors.blue[700],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Lire l\'article',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebImage(String url, {BoxFit fit = BoxFit.cover}) {
+    // Créer un ID unique pour l'élément
+    final String viewId = 'image-${DateTime.now().millisecondsSinceEpoch}';
+
+    // Enregistrer l'élément dans la factory
+    // ignore: undefined_prefixed_name
+    ui.platformViewRegistry.registerViewFactory(viewId, (int viewId) {
+      final img = html.ImageElement()
+        ..src = url
+        ..style.height = '100%'
+        ..style.width = '100%'
+        ..style.objectFit = fit == BoxFit.cover ? 'cover' : 'contain';
+      return img;
+    });
+
+    return Stack(
+      children: [
+        HtmlElementView(viewType: viewId),
+        // Fallback en cas d'erreur
+        _buildImageErrorListener(url),
+      ],
+    );
+  }
+
+  Widget _buildImageErrorListener(String url) {
+    return StreamBuilder<html.Event>(
+      stream: html.window.onError,
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return Container(
+            color: Colors.grey[100],
+            child: Center(
+              child: Icon(
+                Icons.article_outlined,
+                size: 40,
+                color: Colors.grey[400],
+              ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  void _launchURL(String url) async {
+    try {
+      Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de l\'ouverture du lien: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -296,6 +510,8 @@ class NewsCard extends StatelessWidget {
                     color: Colors.grey[800],
                   ),
                 ),
+
+                _buildArticlePreview(),
 
                 _buildMediaGallery(context),
               ],

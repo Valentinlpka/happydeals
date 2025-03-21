@@ -8,6 +8,8 @@ class News extends Post {
   final String content;
   final List<String> photos;
   final List<String> videos;
+  final String? articleUrl;
+  final ArticlePreview? articlePreview;
 
   News({
     required super.id,
@@ -18,6 +20,8 @@ class News extends Post {
     required super.companyId,
     required this.photos,
     required this.videos,
+    this.articleUrl,
+    this.articlePreview,
     super.views,
     super.likes,
     super.likedBy,
@@ -30,6 +34,10 @@ class News extends Post {
     return News(
       id: doc.id,
       title: data['title'] ?? '',
+      articleUrl: data['articleUrl'],
+      articlePreview: data['articlePreview'] != null
+          ? ArticlePreview.fromMap(data['articlePreview'])
+          : null,
       content: data['content'],
       photos: List<String>.from(data['photos'] ?? []),
       videos: List<String>.from(data['videos'] ?? []),
@@ -44,6 +52,10 @@ class News extends Post {
     return News(
       id: doc.id,
       title: data['title'] ?? '',
+      articleUrl: data['articleUrl'],
+      articlePreview: data['articlePreview'] != null
+          ? ArticlePreview.fromMap(data['articlePreview'])
+          : null,
       content: data['content'],
       photos: List<String>.from(data['photos'] ?? []),
       videos: List<String>.from(data['videos'] ?? []),
@@ -68,6 +80,7 @@ class News extends Post {
     final map = super.toMap();
     map.addAll({
       'title': title,
+      'articlePreview': articlePreview?.toMap(),
       'searchText': searchText,
       'content': content,
       'photos': photos,
@@ -82,11 +95,45 @@ class News extends Post {
     return {
       'title': title,
       'searchText': searchText,
+      'articlePreview': articlePreview?.toMap(),
       'content': content,
       'photos': photos,
       'videos': videos,
       'timestamp': timestamp,
       'companyId': companyId,
+      'articleUrl': articleUrl,
+    };
+  }
+}
+
+class ArticlePreview {
+  final String? title;
+  final String? description;
+  final String? image;
+  final String? url;
+
+  ArticlePreview({
+    this.title,
+    this.description,
+    this.image,
+    this.url,
+  });
+
+  factory ArticlePreview.fromMap(Map<String, dynamic> map) {
+    return ArticlePreview(
+      title: map['title'],
+      description: map['description'],
+      image: map['image'],
+      url: map['url'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'description': description,
+      'image': image,
+      'url': url,
     };
   }
 }
