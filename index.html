@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    html,
+    body {
+      overscroll-behavior-y: none;
+      -webkit-overflow-scrolling: auto;
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #FFFFFF;
+    }
+
+    .loading-logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 24px;
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 5px solid #F3F3F3;
+      border-top: 5px solid #186dbc;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+  </style>
+
+  <base href="/happydeals/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+  <meta name="theme-color" content="#FFFAFA">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="google-signin-client_id"
+    content="289031542511-qmck135q90i1crsuk2lkb22rhodieo49.apps.googleusercontent.com">
+
+  <!-- Préchargement des ressources critiques -->
+  <link rel="preload" href="main.dart.js" as="script">
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
+  <link rel="preload" href="icons/Icon-192.png" as="image">
+  <link rel="preload" href="favicon.png" as="image">
+
+  <!-- Polices et styles avec priorité -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.css" />
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="happydeals">
+
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png" />
+
+  <title>Up</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Métadonnées Open Graph dynamiques -->
+  <meta property="og:title" content="Happy Shop" />
+  <meta property="og:description" content="Découvrez notre boutique en ligne" />
+  <meta property="og:image" content="" />
+  <meta property="og:url" content="" />
+  <meta property="og:type" content="website" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Happy Shop">
+  <meta name="twitter:description" content="Découvrez notre boutique en ligne">
+  <meta name="twitter:image" content="">
+
+  <!-- Script pour les métadonnées dynamiques -->
+  <script>
+    window.updateMetaTags = function (title, description, image, url) {
+      document.querySelector('meta[property="og:title"]').setAttribute('content', title);
+      document.querySelector('meta[property="og:description"]').setAttribute('content', description);
+      document.querySelector('meta[property="og:image"]').setAttribute('content', image);
+      document.querySelector('meta[property="og:url"]').setAttribute('content', url);
+
+      document.querySelector('meta[name="twitter:title"]').setAttribute('content', title);
+      document.querySelector('meta[name="twitter:description"]').setAttribute('content', description);
+      document.querySelector('meta[name="twitter:image"]').setAttribute('content', image);
+    }
+  </script>
+
+  <!-- Firebase Configuration avec chargement différé -->
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js" defer></script>
+
+  <script>
+    // Initialisation de Firebase avec chargement différé
+    document.addEventListener('DOMContentLoaded', function () {
+      const firebaseConfig = {
+        apiKey: "AIzaSyAF_EaXi4OI5SEndI-Phe4FfJ6P7M5MaoA",
+        authDomain: "happy-deals-3f03d.firebaseapp.com",
+        projectId: "happy-deals-3f03d",
+        storageBucket: "happy-deals-3f03d.appspot.com",
+        messagingSenderId: "289031542511",
+        appId: "1:289031542511:web:e608b4fb09685d0d8b6d1a"
+      };
+
+      // Initialiser Firebase de manière asynchrone
+      setTimeout(() => {
+        firebase.initializeApp(firebaseConfig);
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('firebase-messaging-sw.js')
+            .then(function (registration) {
+              console.log('Service Worker registered with scope:', registration.scope);
+            })
+            .catch(function (error) {
+              console.error('Service Worker registration failed:', error);
+            });
+        }
+      }, 0);
+    });
+  </script>
+
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src * self blob: data: gap:; style-src * self 'unsafe-inline' blob: data: gap:; script-src * 'self' 'unsafe-eval' 'unsafe-inline' blob: data: gap:; object-src * 'self' blob: data: gap:; img-src * self 'unsafe-inline' blob: data: gap:; connect-src self * 'unsafe-inline' blob: data: gap:; frame-src * self blob: data: gap:; geolocation *;">
+</head>
+
+<!-- Scripts externes -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js" defer></script>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+  });
+</script>
+
+<body>
+  <!-- Écran de chargement optimisé -->
+  <div id="loading-screen" class="loading-container">
+    <img src="icons/Icon-192.png" class="loading-logo" alt="Logo" loading="eager" />
+    <div class="loading-spinner"></div>
+    <p style="margin-top: 16px; color: #186dbc;">Chargement en cours...</p>
+  </div>
+
+  <!-- Scripts externes avec chargement différé -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js" defer></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+    });
+  </script>
+
+  <!-- Scripts principaux -->
+  <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    // Masquer l'écran de chargement une fois que Flutter est initialisé
+    window.addEventListener('flutter-first-frame', function () {
+      var loadingScreen = document.getElementById('loading-screen');
+      if (loadingScreen) {
+        loadingScreen.style.display = 'none';
+      }
+    });
+
+    // Désactiver le zoom sur double-tap
+    document.addEventListener('touchstart', (startEvent) => {
+      if (startEvent.touches.length > 1) return;
+      startEvent.preventDefault();
+    }, { passive: false });
+  </script>
+</body>
+
+</html>
