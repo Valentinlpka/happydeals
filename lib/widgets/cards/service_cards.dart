@@ -65,7 +65,6 @@ class _ServiceCardsState extends State<ServiceCards> {
           .get();
 
       if (serviceDoc.exists) {
-        print('Service found: ${serviceDoc.data()}');
         return ServiceModel.fromMap(serviceDoc.data()!);
       }
       print('Service not found');

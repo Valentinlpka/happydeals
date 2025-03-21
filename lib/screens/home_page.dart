@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/combined_item.dart';
@@ -662,10 +663,17 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
 
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.offset;
+    const threshold = 0.7; // Déclencher le chargement plus tôt
 
-    // Charge plus de contenu quand on est à 200 pixels de la fin
-    if (currentScroll >= (maxScroll - 200)) {
-      _loadMoreData();
+    if (currentScroll >= (maxScroll * threshold)) {
+      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+
+      if (!homeProvider.isLoading && homeProvider.hasMoreData) {
+        if (kDebugMode) {
+          print("Déclenchement du chargement de plus de posts...");
+        }
+        _loadMoreData();
+      }
     }
   }
 

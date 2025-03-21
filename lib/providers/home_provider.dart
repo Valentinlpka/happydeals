@@ -51,6 +51,12 @@ class HomeProvider extends ChangeNotifier {
   String get errorMessage =>
       _errorMessage ?? "Une erreur inconnue est survenue";
 
+  // Ajoutons une variable pour suivre le dernier timestamp
+  DateTime? _lastLoadedTimestamp;
+
+  // Gardons un Set des IDs déjà chargés
+  final Set<String> _loadedItemIds = {};
+
   Future<List<CombinedItem>> loadUnifiedFeed(
       List<String> likedCompanies, List<String> followedUsers,
       {bool refresh = false}) async {
@@ -66,6 +72,7 @@ class HomeProvider extends ChangeNotifier {
       _lastDocument = null;
       _hasMoreData = true;
       _currentFeedItems.clear();
+      _loadedItemIds.clear(); // Réinitialiser le Set des IDs
       notifyListeners();
     }
 
@@ -82,14 +89,28 @@ class HomeProvider extends ChangeNotifier {
       // Limiter le nombre de requêtes en combinant les conditions
       final List<Query> queries = [];
 
+      // Diviser les entreprises en groupes plus petits pour éviter la limitation "IN"
+      const int batchSize = 10; // Firebase limite à 10 valeurs dans whereIn
+      final List<List<String>> companyBatches = [];
+
+      for (var i = 0; i < likedCompanies.length; i += batchSize) {
+        final end = (i + batchSize < likedCompanies.length)
+            ? i + batchSize
+            : likedCompanies.length;
+        companyBatches.add(likedCompanies.sublist(i, end));
+      }
+
+      // Créer une requête pour chaque batch d'entreprises
       if (likedCompanies.isNotEmpty) {
-        queries.add(_firestore
-            .collection('posts')
-            .where('companyId', whereIn: likedCompanies)
-            .where('type', isNotEqualTo: 'shared')
-            .where('isActive', isEqualTo: true)
-            .orderBy('timestamp', descending: true)
-            .limit(_pageSize));
+        for (var batch in companyBatches) {
+          queries.add(_firestore
+              .collection('posts')
+              .where('companyId', whereIn: batch)
+              .where('type', isNotEqualTo: 'shared')
+              .where('isActive', isEqualTo: true)
+              .orderBy('timestamp', descending: true)
+              .limit(_pageSize));
+        }
       }
 
       if (followedUsers.isNotEmpty) {
@@ -108,6 +129,9 @@ class HomeProvider extends ChangeNotifier {
 
       // Traiter les résultats
       for (var snapshot in snapshots) {
+        print('Nombre de posts traités : ${snapshot.docs.length}');
+        print(
+            'Entreprises concernées : ${snapshot.docs.map((doc) => (doc.data() as Map<String, dynamic>)['companyId']).toSet()}');
         await _processPostsSnapshot(snapshot, addedPostIds, combinedItems);
       }
 
@@ -135,66 +159,91 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (lastItem?.type == 'post') {
-        final lastPostData = lastItem?.item as Map<String, dynamic>;
-        final lastPost = lastPostData['post'] as Post;
-        final lastTimestamp = lastPost.timestamp;
-
-        final List<CombinedItem> allNewItems = [];
-        final Set<String> addedPostIds = {};
-
-        // Obtenir les posts des entreprises
-        if (likedCompanies.isNotEmpty) {
-          var companyQuery = _firestore
-              .collection('posts')
-              .where('companyId', whereIn: likedCompanies)
-              .where('type', isNotEqualTo: 'shared')
-              .where('isActive', isEqualTo: true)
-              .where('timestamp', isLessThan: lastTimestamp)
-              .orderBy('timestamp', descending: true)
-              .limit(limit);
-
-          final companyPosts = await companyQuery.get();
-          await _processPostsSnapshot(companyPosts, addedPostIds, allNewItems);
-        }
-
-        // Obtenir les posts partagés
-        if (followedUsers.isNotEmpty) {
-          var sharedQuery = _firestore
-              .collection('posts')
-              .where('sharedBy', whereIn: followedUsers)
-              .where('type', isEqualTo: 'shared')
-              .where('timestamp', isLessThan: lastTimestamp)
-              .orderBy('timestamp', descending: true)
-              .limit(limit);
-
-          final sharedPosts = await sharedQuery.get();
-          await _processPostsSnapshot(sharedPosts, addedPostIds, allNewItems);
-        }
-
-        // Trier par date et prendre les plus récents
-        allNewItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-        if (allNewItems.isEmpty) {
-          _hasMoreData = false;
-          notifyListeners();
-          return [];
-        }
-
-        // Ne retourner que le nombre demandé d'éléments les plus récents
-        final newItems = allNewItems.take(limit).toList();
-
-        if (newItems.length < limit) {
-          _hasMoreData = false;
-        }
-
-        _currentFeedItems.addAll(newItems);
-        _feedController.add(_currentFeedItems);
-        return newItems;
+      if (kDebugMode) {
+        print("Chargement de plus de posts...");
+        print("Dernier timestamp: ${lastItem?.timestamp}");
+        print("Nombre d'entreprises suivies: ${likedCompanies.length}");
       }
-      return [];
+
+      final lastTimestamp = lastItem?.timestamp ?? DateTime.now();
+      final List<CombinedItem> allNewItems = [];
+      final Set<String> addedPostIds = {};
+
+      // Augmentons la limite par requête pour avoir plus de résultats
+      final queryLimit = limit * 2;
+
+      // Charger les posts des entreprises
+      for (var i = 0; i < likedCompanies.length; i += 10) {
+        final batch = likedCompanies.sublist(
+            i, i + 10 < likedCompanies.length ? i + 10 : likedCompanies.length);
+
+        if (kDebugMode) {
+          print("Traitement du lot d'entreprises: ${batch.length}");
+        }
+
+        var companyQuery = _firestore
+            .collection('posts')
+            .where('companyId', whereIn: batch)
+            .where('type', isNotEqualTo: 'shared')
+            .where('isActive', isEqualTo: true)
+            .where('timestamp', isLessThan: lastTimestamp)
+            .orderBy('timestamp', descending: true)
+            .limit(queryLimit);
+
+        final companyPosts = await companyQuery.get();
+
+        if (kDebugMode) {
+          print("Posts trouvés pour ce lot: ${companyPosts.docs.length}");
+        }
+
+        await _processPostsSnapshot(companyPosts, addedPostIds, allNewItems);
+      }
+
+      // Charger les posts partagés
+      if (followedUsers.isNotEmpty) {
+        var sharedQuery = _firestore
+            .collection('posts')
+            .where('sharedBy', whereIn: followedUsers)
+            .where('type', isEqualTo: 'shared')
+            .where('timestamp', isLessThan: lastTimestamp)
+            .orderBy('timestamp', descending: true)
+            .limit(queryLimit);
+
+        final sharedPosts = await sharedQuery.get();
+        await _processPostsSnapshot(sharedPosts, addedPostIds, allNewItems);
+      }
+
+      // Trier par date
+      allNewItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      if (kDebugMode) {
+        print("Nouveaux items trouvés: ${allNewItems.length}");
+      }
+
+      if (allNewItems.isEmpty) {
+        _hasMoreData = false;
+        notifyListeners();
+        return [];
+      }
+
+      // Prendre seulement les 10 plus récents pour cette page
+      final itemsToAdd = allNewItems.take(limit).toList();
+
+      // Mettre à jour la liste principale
+      _currentFeedItems.addAll(itemsToAdd);
+      _feedController.add(_currentFeedItems);
+
+      // S'il reste des items, il y a plus de données à charger
+      _hasMoreData = allNewItems.length >= limit;
+
+      if (kDebugMode) {
+        print("Items ajoutés à la liste: ${itemsToAdd.length}");
+        print("Total items dans la liste: ${_currentFeedItems.length}");
+        print("Plus de données disponibles: $_hasMoreData");
+      }
+
+      return itemsToAdd;
     } catch (e) {
-      _feedController.addError(e);
       print('Erreur dans loadMoreUnifiedFeed: $e');
       return [];
     } finally {
@@ -228,12 +277,17 @@ class HomeProvider extends ChangeNotifier {
       final post = _createPostFromDocument(postDoc);
       if (post == null) return;
 
-      String uniqueId = post is SharedPost
-          ? '${post.id}_${post.originalPostId}_${postDoc.id}_${post.timestamp}'
-          : '${post.id}_${postDoc.id}_${post.timestamp}';
+      // Créer un ID unique pour ce post
+      final uniqueId = '${post.id}_${post.timestamp.millisecondsSinceEpoch}';
 
-      if (addedPostIds.contains(uniqueId)) return;
+      // Vérifier si on a déjà ce post
+      if (addedPostIds.contains(uniqueId) ||
+          _loadedItemIds.contains(uniqueId)) {
+        return;
+      }
+
       addedPostIds.add(uniqueId);
+      _loadedItemIds.add(uniqueId);
 
       final Map<String, dynamic> postData;
 
@@ -263,9 +317,7 @@ class HomeProvider extends ChangeNotifier {
 
       combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
     } catch (e) {
-      if (kDebugMode) {
-        print('Erreur lors du traitement du post: $e');
-      }
+      print('Erreur lors du traitement du post: $e');
     }
   }
 
@@ -533,5 +585,15 @@ class HomeProvider extends ChangeNotifier {
     // Ne pas fermer le StreamController pour maintenir l'état
     // _feedController.close();
     super.dispose();
+  }
+
+  // Ajoutons une méthode pour obtenir un ID unique pour chaque item
+  String _getUniqueItemId(CombinedItem item) {
+    if (item.type == 'post') {
+      final postData = item.item as Map<String, dynamic>;
+      final post = postData['post'] as Post;
+      return '${post.id}_${post.timestamp.millisecondsSinceEpoch}';
+    }
+    return ''; // Pour les autres types si nécessaire
   }
 }

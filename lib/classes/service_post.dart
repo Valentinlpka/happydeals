@@ -44,7 +44,6 @@ class ServicePost extends Post {
       throw Exception('Service ID cannot be empty');
     }
 
-    print('Creating ServicePost from service: ${service.id}');
     final post = ServicePost(
       id: FirebaseFirestore.instance.collection('posts').doc().id,
       companyId: service.professionalId,
@@ -63,7 +62,6 @@ class ServicePost extends Post {
           ? ServiceDiscount.fromMap(service.discount!)
           : null,
     );
-    print('Created ServicePost: ${post.toMap()}');
     return post;
   }
 
@@ -95,7 +93,6 @@ class ServicePost extends Post {
   }
 
   factory ServicePost.fromDocument(DocumentSnapshot doc) {
-    print('Creating ServicePost from document: ${doc.id}');
     final data = doc.data() as Map<String, dynamic>;
 
     final serviceId = data['id'] ?? '';
@@ -129,7 +126,6 @@ class ServicePost extends Post {
               .toList() ??
           [],
     );
-    print('Created ServicePost from document: ${post.toMap()}');
     return post;
   }
 }

@@ -124,9 +124,7 @@ class _PostWidgetState extends State<PostWidget>
 
     try {
       await widget.post.incrementViews();
-      if (kDebugMode) {
-        print('Vues incrémentées pour le post: ${widget.post.id}');
-      }
+      if (kDebugMode) {}
     } catch (e) {
       if (kDebugMode) {
         print('Erreur lors de l\'incrémentation des vues: $e');
@@ -489,7 +487,6 @@ class _PostWidgetState extends State<PostWidget>
         );
 
       case ServicePost:
-        print('Creating ServiceCard for post: ${post.id}');
         return ServiceCards(
           post: post as ServicePost,
           companyName: widget.companyName,
