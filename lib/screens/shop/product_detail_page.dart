@@ -30,6 +30,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   ProductVariant? selectedVariant;
   Map<String, String> selectedAttributes = {};
   late Future<Company> companyFuture;
+  final ScrollController _scrollController = ScrollController();
+  bool isNameExpanded = false;
 
   @override
   void initState() {
@@ -82,62 +84,30 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    bool isFavorite =
-        context.watch<UserModel>().likedPosts.contains(widget.product.id);
-    final hasDiscount = selectedVariant?.discount?.isValid() ?? false;
-
     return Scaffold(
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 80),
-            child: CustomScrollView(
-              slivers: [
-                _buildSliverAppBar(isFavorite),
-                SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildImageCarousel(),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.product.name,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (selectedVariant != null)
-                              _buildPriceSection(hasDiscount),
-                            _buildVariantSelector(),
-                            const SizedBox(height: 10),
-                            _buildProductDetails(),
-                            const SizedBox(height: 16),
-                            _buildSellerInfo(),
-                            _buildSimilarProducts(),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          _buildAppBar(),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _buildProductHeader(),
+                _buildMainContent(),
               ],
             ),
           ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: _buildBottomSheet(),
-          ),
         ],
       ),
+      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
-  Widget _buildSliverAppBar(bool isFavorite) {
+  Widget _buildAppBar() {
+    bool isFavorite =
+        context.watch<UserModel>().likedPosts.contains(widget.product.id);
+
     return SliverAppBar(
       expandedHeight: 0,
       floating: true,
@@ -180,6 +150,317 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
     );
   }
 
+  Widget _buildProductHeader() {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildImageCarousel(),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.product.name,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        height: 1.3,
+                      ),
+                      maxLines: isNameExpanded ? null : 1,
+                      overflow: isNameExpanded ? null : TextOverflow.ellipsis,
+                    ),
+                    if (widget.product.name.length > 30)
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => isNameExpanded = !isNameExpanded),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            isNameExpanded ? 'Voir moins' : 'Voir plus',
+                            style: TextStyle(
+                              color: Colors.blue[600],
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: _buildPriceSection()),
+                    if (selectedVariant?.stock != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: selectedVariant!.stock > 0
+                              ? Colors.green.withOpacity(0.1)
+                              : Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              selectedVariant!.stock > 0
+                                  ? Icons.check_circle
+                                  : Icons.error,
+                              size: 16,
+                              color: selectedVariant!.stock > 0
+                                  ? Colors.green
+                                  : Colors.red,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              selectedVariant!.stock > 0
+                                  ? 'En stock (${selectedVariant!.stock})'
+                                  : 'Rupture de stock',
+                              style: TextStyle(
+                                color: selectedVariant!.stock > 0
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                if (widget.product.keywords.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: widget.product.keywords.map((keyword) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          keyword,
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+                if (widget.product.variants.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _buildVariantSelector(),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              const Text(
+                'Description',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildDescriptionCard(),
+              if (widget.product.technicalDetails.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Caractéristiques techniques',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildTechnicalDetailsCard(),
+              ],
+              const SizedBox(height: 16),
+              const Text(
+                'Informations de livraison',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildDeliveryInfoCard(),
+              const SizedBox(height: 16),
+              _buildSellerCard(),
+              const SizedBox(height: 16),
+              _buildSimilarProducts(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescriptionCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Text(
+        widget.product.description,
+        style: TextStyle(
+          fontSize: 16,
+          color: Colors.grey[800],
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTechnicalDetailsCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(2),
+          1: FlexColumnWidth(3),
+        },
+        children: widget.product.technicalDetails.map((detail) {
+          return TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  detail.key,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(detail.value),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildDeliveryInfoCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              widget.product.pickupType == 'company'
+                  ? Icons.store
+                  : Icons.local_shipping,
+              color: Colors.blue,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.product.pickupType == 'company'
+                      ? 'Retrait en magasin'
+                      : 'Livraison',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.product.pickupAddress ?? 'Adresse non spécifiée',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildImageCarousel() {
     final images = selectedVariant?.images ?? [];
     if (images.isEmpty) return const SizedBox();
@@ -199,6 +480,51 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
               child: Image.network(
                 url,
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  // En cas d'erreur de chargement de l'image
+                  return Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.width * 0.6,
+                      minHeight: 200,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline,
+                              size: 40, color: Colors.grey[400]),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Image non disponible',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  // Pendant le chargement de l'image
+                  return Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.width * 0.6,
+                      minHeight: 200,
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                },
                 frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                   return Container(
                     constraints: BoxConstraints(
@@ -280,70 +606,97 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                attribute[0].toUpperCase() +
-                    attribute.substring(1).toLowerCase(),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+            Text(
+              attribute[0].toUpperCase() + attribute.substring(1).toLowerCase(),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            Wrap(
-              spacing: 8,
-              children: validOptions.map((value) {
-                final isSelected = selectedAttributes[attribute] == value;
-                return ChoiceChip(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
-                    side: BorderSide(
-                      width: isSelected ? 0 : 1,
-                      color: isSelected ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  color: WidgetStatePropertyAll(
-                      isSelected ? Colors.blue[700] : Colors.white),
-                  label: Text(value),
-
-                  selected: isSelected,
-                  onSelected: validOptions.contains(value)
-                      ? (bool selected) {
-                          if (selected) {
-                            setState(() {
-                              selectedAttributes[attribute] = value;
-
-                              if (!isValidCombination(selectedAttributes)) {
-                                Map<String, String> newAttributes = {
-                                  attribute: value
-                                };
-                                for (var variant in widget.product.variants) {
-                                  if (variant.attributes[attribute] == value) {
-                                    newAttributes =
-                                        Map.from(variant.attributes);
-                                    break;
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: validOptions.map((value) {
+                  final isSelected = selectedAttributes[attribute] == value;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Material(
+                      child: InkWell(
+                        onTap: validOptions.contains(value)
+                            ? () {
+                                setState(() {
+                                  selectedAttributes[attribute] = value;
+                                  if (!isValidCombination(selectedAttributes)) {
+                                    Map<String, String> newAttributes = {
+                                      attribute: value
+                                    };
+                                    for (var variant
+                                        in widget.product.variants) {
+                                      if (variant.attributes[attribute] ==
+                                          value) {
+                                        newAttributes =
+                                            Map.from(variant.attributes);
+                                        break;
+                                      }
+                                    }
+                                    selectedAttributes = newAttributes;
                                   }
-                                }
-                                selectedAttributes = newAttributes;
+                                  _updateSelectedVariant();
+                                });
                               }
-
-                              _updateSelectedVariant();
-                            });
-                          }
-                        }
-                      : null, // Si l'option n'est pas valide, on désactive le chip
-                );
-              }).toList(),
+                            : null,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.blue.shade50
+                                : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Colors.blue
+                                  : Colors.grey.shade300,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            value,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.blue.shade700
+                                  : Colors.grey.shade700,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
+            const SizedBox(height: 16),
           ],
         );
       }).toList(),
     );
   }
 
-  Widget _buildPriceSection(bool hasDiscount) {
+  Widget _buildPriceSection() {
     if (selectedVariant == null) return const SizedBox();
+
+    final hasDiscount = selectedVariant!.discount?.isValid() ?? false;
+    final price = hasDiscount
+        ? selectedVariant!.discount!
+            .calculateDiscountedPrice(selectedVariant!.price)
+        : selectedVariant!.price;
 
     return Row(
       spacing: 10,
@@ -379,19 +732,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
     );
   }
 
-  Widget _buildProductDetails() {
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(widget.product.description),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSellerInfo() {
+  Widget _buildSellerCard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -489,7 +830,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
     );
   }
 
-  Widget _buildBottomSheet() {
+  Widget _buildBottomBar() {
     if (selectedVariant == null) return const SizedBox();
 
     final hasDiscount = selectedVariant!.discount?.isValid() ?? false;

@@ -32,11 +32,18 @@ class DetailsEmploiPage extends StatefulWidget {
 class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
   bool _isLoading = true;
   bool _hasApplied = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _checkApplicationStatus();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkApplicationStatus() async {
@@ -138,80 +145,305 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
         context.watch<UserModel>().likedPosts.contains(widget.post.id);
 
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.arrow_back_ios_new, size: 16),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              isLiked ? Icons.favorite : Icons.favorite_border,
-              color: isLiked ? Colors.red : Colors.grey[800],
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isLiked ? Icons.bookmark : Icons.bookmark_border,
+                size: 20,
+                color: isLiked ? Colors.blue[700] : Colors.grey[800],
+              ),
             ),
             onPressed: () async {
               await Provider.of<UserModel>(context, listen: false)
                   .handleLike(widget.post);
-              setState(() {});
             },
           ),
           IconButton(
-            icon: Icon(Icons.share, color: Colors.grey[800]),
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child:
+                  Icon(Icons.share_outlined, size: 20, color: Colors.grey[800]),
+            ),
             onPressed: () => _showShareOptions(context),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+            // En-tête avec informations principales
+            Container(
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     widget.post.title,
                     style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.post.city,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
+                  const SizedBox(height: 24),
+
+                  // CompanyInfoCard
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('companys')
+                        .doc(widget.post.companyId)
+                        .get(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const SizedBox(
+                          height: 100,
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      }
+                      final company = Company.fromDocument(snapshot.data!);
+                      return CompanyInfoCard(
+                        company: company,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailsEntreprise(
+                              entrepriseId: widget.post.companyId,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            _buildCompanySection(),
-            _buildJobInfoSection(),
-            _buildDescriptionSection(),
-            _buildMissionsSection(),
-            _buildProfileSection(),
-            _buildSkillsSection(),
-            _buildBenefitsSection(),
-            _buildWhyJoinSection(),
-            _buildSalarySection(),
-            _buildCategorySection(),
-            _buildContractSection(),
-            _buildWorkingHoursSection(),
-            const SizedBox(height: 100),
+
+            // Informations clés
+            Container(
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.all(24),
+              child: GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 2.5,
+                children: [
+                  _buildKeyInfoCard(
+                    Icons.location_on_outlined,
+                    'Localisation',
+                    widget.post.city,
+                  ),
+                  _buildKeyInfoCard(
+                    Icons.work_outline,
+                    'Type de contrat',
+                    widget.post.contractType ?? 'Non spécifié',
+                  ),
+                  if (widget.post.workingHours != null)
+                    _buildKeyInfoCard(
+                      Icons.access_time_outlined,
+                      'Temps de travail',
+                      widget.post.workingHours!,
+                    ),
+                  _buildKeyInfoCard(
+                    Icons.euro_outlined,
+                    'Salaire',
+                    (widget.post.salary == null || widget.post.salary!.isEmpty)
+                        ? 'À définir'
+                        : widget.post.salary!,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Description du poste
+            _buildSectionContainer(
+                'Description du poste', widget.post.description),
+
+            const SizedBox(height: 12),
+
+            // Missions
+            _buildSectionContainer('Missions', widget.post.missions),
+
+            const SizedBox(height: 12),
+
+            // Profil recherché
+            _buildSectionContainer('Profil recherché', widget.post.profile),
+
+            const SizedBox(height: 12),
+
+            // Mots clés
+            Container(
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Mots clés',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 12,
+                    children: widget.post.keywords.map((keyword) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Text(
+                          keyword,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Avantages (si présent)
+            _buildSectionContainer('Avantages', widget.post.benefits),
+
+            const SizedBox(height: 12),
+
+            // Pourquoi nous rejoindre (si présent)
+            _buildSectionContainer(
+                'Pourquoi nous rejoindre', widget.post.whyJoin),
+
+            const SizedBox(height: 12),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(_isLoading, Theme.of(context)),
+      bottomNavigationBar: _buildBottomBar(_isLoading),
     );
   }
 
-  Widget _buildBottomBar(bool isLoading, ThemeData theme) {
+  Widget _buildSectionContainer(String title, String content) {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            content,
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.6,
+              color: Colors.grey[800],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKeyInfoCard(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        spacing: 5,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(bool isLoading) {
     if (isLoading) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -311,15 +543,15 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
               )
             : ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
+                  backgroundColor: Colors.blue[700],
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => _showApplicationBottomSheet(),
+                onPressed: _showApplicationBottomSheet,
                 child: const Text(
-                  'Postuler',
+                  'Postuler maintenant',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -327,475 +559,6 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                 ),
               ),
       ),
-    );
-  }
-
-  Widget _buildSection(String title, String content) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              content,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[800],
-                height: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCompanySection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance
-            .collection('companys')
-            .doc(widget.post.companyId)
-            .get(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Entreprise non trouvée'));
-          }
-
-          final company = Company.fromDocument(snapshot.data!);
-          return CompanyInfoCard(
-            company: company,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DetailsEntreprise(
-                  entrepriseId: widget.post.companyId,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildJobInfoSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text(
-            'Informations',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildInfoRow(
-                Icons.calendar_today,
-                'Date de publication',
-                formatDate(widget.post.timestamp),
-                Colors.blue[700]!,
-              ),
-              if (widget.post.contractType != null) ...[
-                const SizedBox(height: 12),
-                _buildInfoRow(
-                  Icons.work_outline,
-                  'Type de contrat',
-                  widget.post.contractType!,
-                  Colors.indigo[700]!,
-                ),
-              ],
-              const SizedBox(height: 12),
-              _buildInfoRow(
-                Icons.location_on,
-                'Localisation',
-                widget.post.city,
-                Colors.green[700]!,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value, Color color) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDescriptionSection() {
-    return _buildSection('Description du poste', widget.post.description);
-  }
-
-  Widget _buildMissionsSection() {
-    return _buildSection('Missions', widget.post.missions);
-  }
-
-  Widget _buildProfileSection() {
-    return _buildSection('Profil recherché', widget.post.profile);
-  }
-
-  Widget _buildSkillsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text(
-            'Compétences requises',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: widget.post.keywords.map((keyword) {
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.blue[100]!),
-                ),
-                child: Text(
-                  keyword,
-                  style: TextStyle(
-                    color: Colors.blue[800],
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBenefitsSection() {
-    return _buildSection('Avantages', widget.post.benefits);
-  }
-
-  Widget _buildWhyJoinSection() {
-    return _buildSection('Pourquoi nous rejoindre', widget.post.whyJoin);
-  }
-
-  Widget _buildSalarySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text(
-            'Rémunération',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.euro, color: Colors.green[700], size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.post.salary!,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[800],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategorySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text(
-            'Catégorie de service',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.purple[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child:
-                    Icon(Icons.category, color: Colors.purple[700], size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.post.industrySector,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[800],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContractSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text(
-            'Type de contrat',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.indigo[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.description,
-                    color: Colors.indigo[700], size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.post.contractType!,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[800],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWorkingHoursSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text(
-            'Horaires de travail',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.amber[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child:
-                    Icon(Icons.access_time, color: Colors.amber[700], size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.post.workingHours!,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[800],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 

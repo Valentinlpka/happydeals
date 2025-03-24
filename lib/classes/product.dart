@@ -16,7 +16,15 @@ class Product {
   final String merchantId;
   final String sellerId;
   final String stripeProductId;
+  final String pickupType;
+  final String pickupAddress;
+  final String pickupPostalCode;
+  final String pickupCity;
+  final double pickupLatitude;
+  final double pickupLongitude;
   final String stripePriceId;
+  final List<TechnicalDetail> technicalDetails;
+  final List<String> keywords;
   final List<ProductVariant> variants;
   final ProductDiscount? discount;
   final Map<String, dynamic> attributes;
@@ -28,10 +36,18 @@ class Product {
     required this.description,
     required this.price,
     required this.images,
+    required this.keywords,
     required this.companyId,
+    required this.technicalDetails,
     required this.city,
     required this.categoryPath,
     required this.categoryId,
+    required this.pickupType,
+    required this.pickupAddress,
+    required this.pickupPostalCode,
+    required this.pickupCity,
+    required this.pickupLatitude,
+    required this.pickupLongitude,
     required this.basePrice,
     this.tva = 20.0,
     required this.isActive,
@@ -65,9 +81,17 @@ class Product {
       'images': images,
       'companyId': companyId,
       'city': city,
+      'keywords': keywords,
       'categoryPath': categoryPath,
+      'pickupType': pickupType,
+      'pickupAddress': pickupAddress,
+      'pickupPostalCode': pickupPostalCode,
+      'pickupCity': pickupCity,
+      'pickupLatitude': pickupLatitude,
+      'pickupLongitude': pickupLongitude,
       'categoryId': categoryId,
       'basePrice': basePrice,
+      'technicalDetails': technicalDetails.map((t) => t.toMap()).toList(),
       'tva': tva,
       'isActive': isActive,
       'merchantId': merchantId,
@@ -90,6 +114,11 @@ class Product {
         variants.isNotEmpty ? List<String>.from(variants.first.images) : [];
 
     return Product(
+      technicalDetails: data['technicalDetails'] != null
+          ? (data['technicalDetails'] as List<dynamic>)
+              .map((t) => TechnicalDetail.fromMap(t as Map<String, dynamic>))
+              .toList()
+          : [],
       id: doc.id,
       name: data['name'] ?? '',
       description: data['description'] ?? '',
@@ -99,10 +128,17 @@ class Product {
       companyId: data['sellerId'] ?? '',
       city: data['city'] ?? '',
       categoryPath: List<String>.from(data['categoryPath'] ?? []),
+      keywords: List<String>.from(data['keywords'] ?? []),
       categoryId: data['categoryId'] ?? '',
       basePrice: (data['basePrice'] ?? 0).toDouble(),
       tva: (data['tva'] ?? 20).toDouble(),
       isActive: data['isActive'] ?? true,
+      pickupType: data['pickupType'] ?? '',
+      pickupAddress: data['pickupAddress'] ?? '',
+      pickupPostalCode: data['pickupPostalCode'] ?? '',
+      pickupCity: data['pickupCity'] ?? '',
+      pickupLatitude: (data['pickupLatitude'] ?? 0).toDouble(),
+      pickupLongitude: (data['pickupLongitude'] ?? 0).toDouble(),
       merchantId: data['merchantId'] ?? '',
       sellerId: data['sellerId'] ?? '',
       stripeProductId: data['stripeProductId'] ?? '',
@@ -236,4 +272,23 @@ class ProductDiscount {
       'isActive': isActive,
     };
   }
+}
+
+class TechnicalDetail {
+  final String key;
+  final String value;
+
+  TechnicalDetail({required this.key, required this.value});
+
+  factory TechnicalDetail.fromMap(Map<String, dynamic> map) {
+    return TechnicalDetail(
+      key: map['key'] ?? '',
+      value: map['value'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'key': key,
+        'value': value,
+      };
 }

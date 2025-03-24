@@ -57,7 +57,6 @@ class _ServiceCardsState extends State<ServiceCards> {
       return null;
     }
 
-    print('Fetching service with ID: $serviceId');
     try {
       final serviceDoc = await FirebaseFirestore.instance
           .collection('services')
