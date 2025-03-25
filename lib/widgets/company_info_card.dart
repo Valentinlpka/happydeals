@@ -6,6 +6,7 @@ class CompanyInfoCard extends StatelessWidget {
   final VoidCallback? onTap;
   final bool showRating;
   final bool showVerifiedBadge;
+  final bool isCompact;
 
   const CompanyInfoCard({
     super.key,
@@ -13,12 +14,13 @@ class CompanyInfoCard extends StatelessWidget {
     this.onTap,
     this.showRating = true,
     this.showVerifiedBadge = true,
+    this.isCompact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isCompact ? 12 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -37,8 +39,8 @@ class CompanyInfoCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: isCompact ? 40 : 60,
+                  height: isCompact ? 40 : 60,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
@@ -47,7 +49,7 @@ class CompanyInfoCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: isCompact ? 12 : 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,8 +59,8 @@ class CompanyInfoCard extends StatelessWidget {
                           Flexible(
                             child: Text(
                               company.name,
-                              style: const TextStyle(
-                                fontSize: 18,
+                              style: TextStyle(
+                                fontSize: isCompact ? 16 : 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -66,9 +68,9 @@ class CompanyInfoCard extends StatelessWidget {
                           if (showVerifiedBadge) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isCompact ? 6 : 8,
+                                vertical: isCompact ? 2 : 4,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.blue[50],
@@ -79,14 +81,14 @@ class CompanyInfoCard extends StatelessWidget {
                                 children: [
                                   Icon(
                                     Icons.verified,
-                                    size: 14,
+                                    size: isCompact ? 12 : 14,
                                     color: Colors.blue[700],
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     'Vérifié',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: isCompact ? 10 : 12,
                                       fontWeight: FontWeight.w500,
                                       color: Colors.blue[700],
                                     ),
@@ -98,13 +100,13 @@ class CompanyInfoCard extends StatelessWidget {
                         ],
                       ),
                       if (showRating && (company.numberOfReviews ?? 0) > 0) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(height: isCompact ? 4 : 8),
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isCompact ? 4 : 6,
+                                vertical: isCompact ? 1 : 2,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.blue[700],
@@ -113,18 +115,19 @@ class CompanyInfoCard extends StatelessWidget {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.star,
-                                    size: 16,
+                                    size: isCompact ? 14 : 16,
                                     color: Colors.white,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     (company.averageRating ?? 0.0)
                                         .toStringAsFixed(1),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
+                                      fontSize: isCompact ? 12 : 14,
                                     ),
                                   ),
                                 ],
@@ -135,7 +138,7 @@ class CompanyInfoCard extends StatelessWidget {
                               '(${company.numberOfReviews ?? 0} avis)',
                               style: TextStyle(
                                 color: Colors.grey[600],
-                                fontSize: 14,
+                                fontSize: isCompact ? 12 : 14,
                               ),
                             ),
                           ],
@@ -145,7 +148,11 @@ class CompanyInfoCard extends StatelessWidget {
                   ),
                 ),
                 if (onTap != null)
-                  Icon(Icons.chevron_right, color: Colors.grey[400]),
+                  Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey[400],
+                    size: isCompact ? 20 : 24,
+                  ),
               ],
             ),
           ],

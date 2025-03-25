@@ -15,6 +15,7 @@ class JobOffer extends Post {
   final String? workingHours;
   final String? salary;
   final String industrySector;
+  final String workplaceType;
 
   static const List<String> industrySectors = [
     'Services à domicile',
@@ -51,6 +52,7 @@ class JobOffer extends Post {
     required this.industrySector,
     required this.benefits,
     required this.whyJoin,
+    required this.workplaceType,
     required this.keywords,
     required super.companyId,
     this.contractType,
@@ -76,6 +78,7 @@ class JobOffer extends Post {
       description: data['description'] ?? '',
       missions: data['missions'] ?? '',
       profile: data['profile'] ?? '',
+      workplaceType: data['workplaceType'] ?? '',
       salary: data['salary'],
       contractType: data['contractType'],
       workingHours: data['workingHours'],
@@ -109,16 +112,17 @@ class JobOffer extends Post {
       'searchText': searchText,
       'city': city,
       'description': description,
+      'industrySector': industrySector,
       'missions': missions,
       'profile': profile,
       'benefits': benefits,
       'why_join': whyJoin,
+      'workplaceType': workplaceType,
       'keywords': keywords,
       'companyId': companyId,
       'contractType': contractType,
       'workingHours': workingHours,
       'salary': salary,
-      'industrySector': industrySector,
     });
     return map;
   }

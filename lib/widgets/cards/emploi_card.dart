@@ -161,9 +161,16 @@ class JobOfferCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Badges en ligne séparée
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
                       if (post.contractType != null)
                         Container(
-                          margin: const EdgeInsets.only(left: 8),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 4,
@@ -180,6 +187,37 @@ class JobOfferCard extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               fontSize: 12,
                             ),
+                          ),
+                        ),
+                      if (post.industrySector.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple[50],
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.purple[200]!),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.category_outlined,
+                                size: 12,
+                                color: Colors.purple[700],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                post.industrySector,
+                                style: TextStyle(
+                                  color: Colors.purple[700],
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                     ],
@@ -245,7 +283,7 @@ class JobOfferCard extends StatelessWidget {
                   const SizedBox(height: 16),
 
                   // Salaire si disponible
-                  if (post.salary != null)
+                  if (post.salary != '')
                     Container(
                       margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.symmetric(

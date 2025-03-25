@@ -447,7 +447,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.product.pickupAddress ?? 'Adresse non spécifiée',
+                  '${widget.product.pickupAddress},${widget.product.pickupPostalCode}, ${widget.product.pickupCity}' ??
+                      'Adresse non spécifiée',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 14,

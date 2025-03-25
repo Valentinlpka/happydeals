@@ -10,7 +10,6 @@ import 'package:happy/screens/bottom_sheet_emploi.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class DetailsEmploiPage extends StatefulWidget {
@@ -33,17 +32,32 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
   bool _isLoading = true;
   bool _hasApplied = false;
   final ScrollController _scrollController = ScrollController();
+  bool _isStickyHeaderVisible = false;
 
   @override
   void initState() {
     super.initState();
     _checkApplicationStatus();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.offset > 100) {
+      if (!_isStickyHeaderVisible) {
+        setState(() => _isStickyHeaderVisible = true);
+      }
+    } else {
+      if (_isStickyHeaderVisible) {
+        setState(() => _isStickyHeaderVisible = false);
+      }
+    }
   }
 
   Future<void> _checkApplicationStatus() async {
@@ -135,17 +149,14 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
     }
   }
 
-  String formatDate(DateTime date) {
-    return DateFormat('dd/MM/yyyy').format(date);
-  }
-
   @override
   Widget build(BuildContext context) {
     final isLiked =
         context.watch<UserModel>().likedPosts.contains(widget.post.id);
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -160,6 +171,21 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
           ),
           onPressed: () => Navigator.pop(context),
         ),
+        title: AnimatedOpacity(
+          opacity: _isStickyHeaderVisible ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 200),
+          child: Text(
+            widget.post.title,
+            style: TextStyle(
+              fontSize: isMobile ? 16 : 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: Container(
@@ -194,370 +220,458 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // En-tête avec informations principales
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.post.title,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      height: 1.2,
-                    ),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            controller: _scrollController,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // En-tête avec informations principales
+                Container(
+                  width: double.infinity,
+                  color: Colors.white,
+                  padding: EdgeInsets.all(isMobile ? 16 : 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.post.title,
+                        style: TextStyle(
+                          fontSize: isMobile ? 24 : 32,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Badges d'information
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (widget.post.contractType != null)
+                            _buildInfoChip(
+                              Icons.work_outline,
+                              widget.post.contractType!,
+                              Colors.blue,
+                            ),
+                          if (widget.post.industrySector.isNotEmpty)
+                            _buildInfoChip(
+                              Icons.category_outlined,
+                              widget.post.industrySector,
+                              Colors.purple,
+                            ),
+                          if (widget.post.workplaceType.isNotEmpty)
+                            _buildInfoChip(
+                              Icons.business_outlined,
+                              widget.post.workplaceType,
+                              Colors.orange,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // CompanyInfoCard avec style amélioré
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance
+                              .collection('companys')
+                              .doc(widget.post.companyId)
+                              .get(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const SizedBox(
+                                height: 80,
+                                child: Center(
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              );
+                            }
+                            final company =
+                                Company.fromDocument(snapshot.data!);
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey[200]!,
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: CompanyInfoCard(
+                                company: company,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DetailsEntreprise(
+                                      entrepriseId: widget.post.companyId,
+                                    ),
+                                  ),
+                                ),
+                                isCompact: true,
+                                showRating: false,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
+                ),
 
-                  // CompanyInfoCard
-                  FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('companys')
-                        .doc(widget.post.companyId)
-                        .get(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const SizedBox(
-                          height: 100,
-                          child: Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                // Informations clés
+                Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                  ),
+                  padding: EdgeInsets.all(isMobile ? 16 : 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Informations clés',
+                        style: TextStyle(
+                          fontSize: isMobile ? 18 : 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildKeyInfoRow(
+                        Icons.location_on_outlined,
+                        'Localisation',
+                        widget.post.city,
+                      ),
+                      _buildKeyInfoRow(
+                        Icons.work_outline,
+                        'Type de contrat',
+                        widget.post.contractType ?? 'Non spécifié',
+                      ),
+                      if (widget.post.workingHours != null)
+                        _buildKeyInfoRow(
+                          Icons.access_time_outlined,
+                          'Temps de travail',
+                          widget.post.workingHours!,
+                        ),
+                      _buildKeyInfoRow(
+                        Icons.euro_outlined,
+                        'Salaire',
+                        (widget.post.salary == null ||
+                                widget.post.salary!.isEmpty)
+                            ? 'À définir'
+                            : widget.post.salary!,
+                      ),
+                      if (widget.post.industrySector.isNotEmpty)
+                        _buildKeyInfoRow(
+                          Icons.category_outlined,
+                          'Catégorie',
+                          widget.post.industrySector,
+                        ),
+                      if (widget.post.workplaceType.isNotEmpty)
+                        _buildKeyInfoRow(
+                          Icons.business_outlined,
+                          'Type de lieu',
+                          widget.post.workplaceType,
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Description du poste
+                _buildSectionContainer(
+                  'Description du poste',
+                  widget.post.description,
+                  isMobile,
+                ),
+
+                // Missions
+                _buildSectionContainer(
+                  'Missions',
+                  widget.post.missions,
+                  isMobile,
+                ),
+
+                // Profil recherché
+                _buildSectionContainer(
+                  'Profil recherché',
+                  widget.post.profile,
+                  isMobile,
+                ),
+
+                // Mots clés
+                Container(
+                  width: double.infinity,
+                  color: Colors.white,
+                  margin: const EdgeInsets.only(top: 12),
+                  padding: EdgeInsets.all(isMobile ? 16 : 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Mots clés',
+                        style: TextStyle(
+                          fontSize: isMobile ? 18 : 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: widget.post.keywords.map((keyword) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.indigo[50],
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              keyword,
+                              style: TextStyle(
+                                color: Colors.indigo[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Avantages
+                if (widget.post.benefits.isNotEmpty)
+                  _buildSectionContainer(
+                    'Avantages',
+                    widget.post.benefits,
+                    isMobile,
+                  ),
+
+                // Pourquoi nous rejoindre
+                if (widget.post.whyJoin.isNotEmpty)
+                  _buildSectionContainer(
+                    'Pourquoi nous rejoindre',
+                    widget.post.whyJoin,
+                    isMobile,
+                  ),
+                // Padding pour éviter que le bouton flottant ne cache le contenu
+                const SizedBox(height: 80),
+              ],
+            ),
+          ),
+          // Bouton flottant qui apparaît au scroll
+          if (_isStickyHeaderVisible)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 16 : 24,
+                  vertical: 12,
+                ),
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.post.title,
+                          style: TextStyle(
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                        );
-                      }
-                      final company = Company.fromDocument(snapshot.data!);
-                      return CompanyInfoCard(
-                        company: company,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DetailsEntreprise(
-                              entrepriseId: widget.post.companyId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      if (!_hasApplied)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[700],
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // Informations clés
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 2.5,
-                children: [
-                  _buildKeyInfoCard(
-                    Icons.location_on_outlined,
-                    'Localisation',
-                    widget.post.city,
-                  ),
-                  _buildKeyInfoCard(
-                    Icons.work_outline,
-                    'Type de contrat',
-                    widget.post.contractType ?? 'Non spécifié',
-                  ),
-                  if (widget.post.workingHours != null)
-                    _buildKeyInfoCard(
-                      Icons.access_time_outlined,
-                      'Temps de travail',
-                      widget.post.workingHours!,
-                    ),
-                  _buildKeyInfoCard(
-                    Icons.euro_outlined,
-                    'Salaire',
-                    (widget.post.salary == null || widget.post.salary!.isEmpty)
-                        ? 'À définir'
-                        : widget.post.salary!,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Description du poste
-            _buildSectionContainer(
-                'Description du poste', widget.post.description),
-
-            const SizedBox(height: 12),
-
-            // Missions
-            _buildSectionContainer('Missions', widget.post.missions),
-
-            const SizedBox(height: 12),
-
-            // Profil recherché
-            _buildSectionContainer('Profil recherché', widget.post.profile),
-
-            const SizedBox(height: 12),
-
-            // Mots clés
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Mots clés',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 12,
-                    children: widget.post.keywords.map((keyword) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Text(
-                          keyword,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          onPressed: _showApplicationBottomSheet,
+                          child: const Text(
+                            'Postuler',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green[200]!),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle,
+                                  size: 16, color: Colors.green[700]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Déjà postulé',
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      );
-                    }).toList(),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-
-            const SizedBox(height: 12),
-
-            // Avantages (si présent)
-            _buildSectionContainer('Avantages', widget.post.benefits),
-
-            const SizedBox(height: 12),
-
-            // Pourquoi nous rejoindre (si présent)
-            _buildSectionContainer(
-                'Pourquoi nous rejoindre', widget.post.whyJoin),
-
-            const SizedBox(height: 12),
-          ],
-        ),
+        ],
       ),
-      bottomNavigationBar: _buildBottomBar(_isLoading),
     );
   }
 
-  Widget _buildSectionContainer(String title, String content) {
+  Widget _buildInfoChip(IconData icon, String label, Color color) {
+    final baseColor = color;
+    final backgroundColor = Color.fromRGBO(
+      baseColor.red,
+      baseColor.green,
+      baseColor.blue,
+      0.1,
+    );
+    final borderColor = Color.fromRGBO(
+      baseColor.red,
+      baseColor.green,
+      baseColor.blue,
+      0.2,
+    );
+    final textColor = Color.fromRGBO(
+      baseColor.red,
+      baseColor.green,
+      baseColor.blue,
+      0.8,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKeyInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 16, color: Colors.grey[700]),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionContainer(String title, String content, bool isMobile) {
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.only(top: 12),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 20,
+            style: TextStyle(
+              fontSize: isMobile ? 18 : 20,
               fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 16),
           Text(
             content,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: isMobile ? 14 : 16,
               height: 1.6,
               color: Colors.grey[800],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildKeyInfoCard(IconData icon, String label, String value) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        spacing: 5,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: Colors.grey[600]),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomBar(bool isLoading) {
-    if (isLoading) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-            ),
-          ],
-        ),
-        child: const SafeArea(
-          child: Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      );
-    }
-
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Veuillez vous connecter pour postuler'),
-                ),
-              );
-            },
-            child: const Text(
-              'Connectez-vous pour postuler',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: _hasApplied
-            ? Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green[200]!),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green[700]),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Vous avez déjà postulé',
-                      style: TextStyle(
-                        color: Colors.green[700],
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[700],
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _showApplicationBottomSheet,
-                child: const Text(
-                  'Postuler maintenant',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
       ),
     );
   }
