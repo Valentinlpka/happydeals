@@ -431,6 +431,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
               "${entreprise.adress.adresse} ${entreprise.adress.codePostal} ${entreprise.adress.ville}"),
           _buildInfoTile(Icons.phone, entreprise.phone),
           _buildInfoTile(Icons.email, entreprise.email),
+          _buildOpeningHoursTile(entreprise.openingHours),
 
           // Programme de fidélité
           FutureBuilder<LoyaltyProgram?>(
@@ -501,7 +502,90 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
       ),
     );
   }
-  // ... code précédent ...
+
+  Widget _buildOpeningHoursTile(Map<String, dynamic> openingHours) {
+    final now = DateTime.now();
+    final currentDay = now.weekday;
+    final currentTime = now.hour * 60 + now.minute;
+    final dayName = _getDayName(currentDay);
+    final todayHours = openingHours[dayName];
+
+    bool isOpen = false;
+    String displayText = 'Fermé';
+
+    if (todayHours != null && todayHours.isNotEmpty) {
+      final [openTime, closeTime] =
+          todayHours.split('-').map((e) => e.trim()).toList();
+      final [openHour, openMinute] =
+          openTime.split(':').map(int.parse).toList();
+      final [closeHour, closeMinute] =
+          closeTime.split(':').map(int.parse).toList();
+
+      final openTimeMinutes = openHour * 60 + openMinute;
+      final closeTimeMinutes = closeHour * 60 + closeMinute;
+
+      isOpen =
+          currentTime >= openTimeMinutes && currentTime <= closeTimeMinutes;
+      displayText = isOpen ? 'Ouvert' : 'Fermé';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(
+            isOpen ? Icons.check_circle : Icons.access_time,
+            size: 16,
+            color: isOpen ? Colors.green : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayText,
+                  style: TextStyle(
+                    color: isOpen ? Colors.green : Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (todayHours != null && todayHours.isNotEmpty)
+                  Text(
+                    todayHours,
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 13,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getDayName(int day) {
+    switch (day) {
+      case 1:
+        return 'monday';
+      case 2:
+        return 'tuesday';
+      case 3:
+        return 'wednesday';
+      case 4:
+        return 'thursday';
+      case 5:
+        return 'friday';
+      case 6:
+        return 'saturday';
+      case 7:
+        return 'sunday';
+      default:
+        return '';
+    }
+  }
 
   void _showLoyaltyProgramDetails(LoyaltyProgram program) {
     showModalBottomSheet(

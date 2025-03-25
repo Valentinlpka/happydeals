@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/company_provider.dart';
-import 'package:happy/widgets/average_rating_page.dart';
 import 'package:provider/provider.dart';
 
 import '../../classes/company.dart';
@@ -12,8 +11,110 @@ class CompanyCard extends StatelessWidget {
 
   const CompanyCard(this.company, {super.key});
 
+  String _getNextOpenTime() {
+    final now = DateTime.now();
+    final currentDay = now.weekday;
+    final currentTime = now.hour * 60 + now.minute;
+
+    // Vérifier d'abord les heures du jour actuel
+    final dayName = _getDayName(currentDay);
+    final openingHours = company.openingHours[dayName];
+
+    if (openingHours != null && openingHours.isNotEmpty) {
+      final [openTime, closeTime] =
+          openingHours.split('-').map((e) => e.trim()).toList();
+      final [openHour, openMinute] =
+          openTime.split(':').map(int.parse).toList();
+      final openTimeMinutes = openHour * 60 + openMinute;
+
+      // Si on est avant l'heure d'ouverture aujourd'hui
+      if (currentTime < openTimeMinutes) {
+        return '$openTime - $closeTime';
+      }
+      // Si on est après l'heure de fermeture aujourd'hui
+      final [closeHour, closeMinute] =
+          closeTime.split(':').map(int.parse).toList();
+      final closeTimeMinutes = closeHour * 60 + closeMinute;
+      if (currentTime > closeTimeMinutes) {
+        // Chercher le prochain jour d'ouverture
+        for (int i = 1; i < 7; i++) {
+          final nextDay = (currentDay + i) % 7;
+          final nextDayName = _getDayName(nextDay);
+          final nextOpeningHours = company.openingHours[nextDayName];
+
+          if (nextOpeningHours != null && nextOpeningHours.isNotEmpty) {
+            final [nextOpenTime, nextCloseTime] =
+                nextOpeningHours.split('-').map((e) => e.trim()).toList();
+            return '$nextOpenTime - $nextCloseTime';
+          }
+        }
+      }
+    }
+
+    // Si on n'a pas trouvé d'heures d'ouverture, chercher le prochain jour
+    for (int i = 1; i < 7; i++) {
+      final nextDay = (currentDay + i) % 7;
+      final nextDayName = _getDayName(nextDay);
+      final nextOpeningHours = company.openingHours[nextDayName];
+
+      if (nextOpeningHours != null && nextOpeningHours.isNotEmpty) {
+        final [nextOpenTime, nextCloseTime] =
+            nextOpeningHours.split('-').map((e) => e.trim()).toList();
+        return '$nextOpenTime - $nextCloseTime';
+      }
+    }
+
+    return '';
+  }
+
+  String _getDayName(int day) {
+    switch (day) {
+      case 1:
+        return 'monday';
+      case 2:
+        return 'tuesday';
+      case 3:
+        return 'wednesday';
+      case 4:
+        return 'thursday';
+      case 5:
+        return 'friday';
+      case 6:
+        return 'saturday';
+      case 7:
+        return 'sunday';
+      default:
+        return '';
+    }
+  }
+
+  bool _isOpen() {
+    final now = DateTime.now();
+    final currentDay = now.weekday;
+    final currentTime = now.hour * 60 + now.minute;
+
+    final dayName = _getDayName(currentDay);
+    final openingHours = company.openingHours[dayName];
+
+    if (openingHours == null || openingHours.isEmpty) return false;
+
+    final [openTime, closeTime] =
+        openingHours.split('-').map((e) => e.trim()).toList();
+    final [openHour, openMinute] = openTime.split(':').map(int.parse).toList();
+    final [closeHour, closeMinute] =
+        closeTime.split(':').map(int.parse).toList();
+
+    final openTimeMinutes = openHour * 60 + openMinute;
+    final closeTimeMinutes = closeHour * 60 + closeMinute;
+
+    return currentTime >= openTimeMinutes && currentTime <= closeTimeMinutes;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isOpen = _isOpen();
+    final nextOpenTime = _getNextOpenTime();
+
     return ChangeNotifierProvider(
       create: (context) =>
           CompanyLikeService(FirebaseAuth.instance.currentUser!.uid),
@@ -29,177 +130,188 @@ class CompanyCard extends StatelessWidget {
               ),
             );
           },
-          child: Card(
-            shadowColor: Colors.grey,
-            color: Colors.white,
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildCoverImage(context),
-                const Padding(
-                  padding: EdgeInsets.only(top: 30),
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          company.logo,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[100],
+                              child: const Icon(Icons.business, size: 24),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            company.name,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.3,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            company.categorie,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isOpen ? Colors.green[50] : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isOpen ? Icons.check_circle : Icons.access_time,
+                            size: 14,
+                            color:
+                                isOpen ? Colors.green[700] : Colors.grey[700],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isOpen
+                                ? 'Ouvert'
+                                : nextOpenTime.isNotEmpty
+                                    ? nextOpenTime
+                                    : 'Fermé',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color:
+                                  isOpen ? Colors.green[700] : Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                _buildCompanyInfo(context),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.location_on_outlined,
+                              size: 14, color: Colors.grey[700]),
+                          const SizedBox(width: 4),
+                          Text(
+                            company.adress.ville,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (company.numberOfReviews != null &&
+                        company.numberOfReviews! > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.amber[200]!,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.star_rounded,
+                                size: 16, color: Colors.amber[700]),
+                            const SizedBox(width: 4),
+                            Text(
+                              company.averageRating?.toStringAsFixed(1) ??
+                                  '0.0',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.amber[700],
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              '(${company.numberOfReviews})',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.amber[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
         );
       }),
-    );
-  }
-
-  Widget _buildCoverImage(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(
-        left: 10,
-        bottom: 10,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
-        image: DecorationImage(
-          colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.30), BlendMode.darken),
-          alignment: Alignment.center,
-          fit: BoxFit.cover,
-          image: NetworkImage(company.cover),
-        ),
-      ),
-      height: 100,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10.0),
-                    child: _buildLocationTag(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          _buildCompanyLogo(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLocationTag() {
-    return Container(
-      padding: const EdgeInsets.only(top: 3, bottom: 3, right: 7, left: 5),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.pink, Colors.blue],
-        ),
-        borderRadius: BorderRadius.all(Radius.circular(5)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Icon(
-            Icons.location_on_outlined,
-            size: 18,
-            color: Colors.white,
-          ),
-          Text(
-            company.adress.ville,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompanyLogo() {
-    return Positioned(
-      bottom: -40,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 15.0),
-        child: CircleAvatar(
-          radius: 28,
-          backgroundColor: Colors.blue,
-          child: CircleAvatar(
-            radius: 25,
-            backgroundImage: NetworkImage(company.logo),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompanyInfo(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(
-        left: 10,
-        right: 10,
-        bottom: 10,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            overflow: TextOverflow.ellipsis,
-            (company.name),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          // Remplacer la ligne existante avec le nouveau widget
-          AverageRatingWidget(companyId: company.id),
-          Text(
-            (company.categorie),
-            style: const TextStyle(
-                fontSize: 14, color: Color.fromARGB(255, 85, 85, 85)),
-          ),
-          Row(
-            children: [
-              Text(
-                company.like.toString(),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(
-                height: 5,
-                width: 5,
-              ),
-              const Text("J'aime")
-            ],
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.phone,
-                size: 20,
-              ),
-              const SizedBox(
-                height: 5,
-                width: 5,
-              ),
-              Text(company.phone)
-            ],
-          )
-        ],
-      ),
     );
   }
 }
