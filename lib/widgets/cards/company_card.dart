@@ -21,6 +21,25 @@ class CompanyCard extends StatelessWidget {
     final openingHours = company.openingHours[dayName];
 
     if (openingHours != null && openingHours.isNotEmpty) {
+      // Si le jour est marqué comme "Fermé"
+      if (openingHours.toLowerCase() == 'fermé') {
+        // Chercher le prochain jour d'ouverture
+        for (int i = 1; i < 7; i++) {
+          final nextDay = (currentDay + i) % 7;
+          final nextDayName = _getDayName(nextDay);
+          final nextOpeningHours = company.openingHours[nextDayName];
+
+          if (nextOpeningHours != null &&
+              nextOpeningHours.isNotEmpty &&
+              nextOpeningHours.toLowerCase() != 'fermé') {
+            final [nextOpenTime, nextCloseTime] =
+                nextOpeningHours.split('-').map((e) => e.trim()).toList();
+            return '$nextOpenTime - $nextCloseTime';
+          }
+        }
+        return '';
+      }
+
       final [openTime, closeTime] =
           openingHours.split('-').map((e) => e.trim()).toList();
       final [openHour, openMinute] =
@@ -42,7 +61,9 @@ class CompanyCard extends StatelessWidget {
           final nextDayName = _getDayName(nextDay);
           final nextOpeningHours = company.openingHours[nextDayName];
 
-          if (nextOpeningHours != null && nextOpeningHours.isNotEmpty) {
+          if (nextOpeningHours != null &&
+              nextOpeningHours.isNotEmpty &&
+              nextOpeningHours.toLowerCase() != 'fermé') {
             final [nextOpenTime, nextCloseTime] =
                 nextOpeningHours.split('-').map((e) => e.trim()).toList();
             return '$nextOpenTime - $nextCloseTime';
@@ -57,7 +78,9 @@ class CompanyCard extends StatelessWidget {
       final nextDayName = _getDayName(nextDay);
       final nextOpeningHours = company.openingHours[nextDayName];
 
-      if (nextOpeningHours != null && nextOpeningHours.isNotEmpty) {
+      if (nextOpeningHours != null &&
+          nextOpeningHours.isNotEmpty &&
+          nextOpeningHours.toLowerCase() != 'fermé') {
         final [nextOpenTime, nextCloseTime] =
             nextOpeningHours.split('-').map((e) => e.trim()).toList();
         return '$nextOpenTime - $nextCloseTime';
@@ -98,6 +121,9 @@ class CompanyCard extends StatelessWidget {
 
     if (openingHours == null || openingHours.isEmpty) return false;
 
+    // Si le jour est marqué comme "Fermé"
+    if (openingHours.toLowerCase() == 'fermé') return false;
+
     final [openTime, closeTime] =
         openingHours.split('-').map((e) => e.trim()).toList();
     final [openHour, openMinute] = openTime.split(':').map(int.parse).toList();
@@ -114,6 +140,10 @@ class CompanyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isOpen = _isOpen();
     final nextOpenTime = _getNextOpenTime();
+    final currentDay = DateTime.now().weekday;
+    final dayName = _getDayName(currentDay);
+    final openingHours = company.openingHours[dayName];
+    final isClosedToday = openingHours?.toLowerCase() == 'fermé';
 
     return ChangeNotifierProvider(
       create: (context) =>
@@ -219,11 +249,13 @@ class CompanyCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            isOpen
-                                ? 'Ouvert'
-                                : nextOpenTime.isNotEmpty
-                                    ? nextOpenTime
-                                    : 'Fermé',
+                            isClosedToday
+                                ? 'Fermé'
+                                : isOpen
+                                    ? 'Ouvert'
+                                    : nextOpenTime.isNotEmpty
+                                        ? nextOpenTime
+                                        : 'Fermé',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -243,21 +275,25 @@ class CompanyCard extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 1,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.location_on_outlined,
-                              size: 14, color: Colors.grey[700]),
+                              size: 16, color: Colors.grey[700]),
                           const SizedBox(width: 4),
                           Text(
                             company.adress.ville,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 14,
                               color: Colors.grey[700],
                               fontWeight: FontWeight.w500,
                             ),
