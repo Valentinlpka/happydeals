@@ -28,10 +28,15 @@ class _MainContainerState extends State<MainContainer> {
   @override
   void initState() {
     super.initState();
-    // Écouter les changements d'authentification
+    _initializeAuthState();
+  }
+
+  Future<void> _initializeAuthState() async {
     _authStateSubscription =
         FirebaseAuth.instance.authStateChanges().listen((user) {
-      setState(() {}); // Forcer la reconstruction du widget
+      if (mounted) {
+        setState(() {});
+      }
     });
   }
 
@@ -67,8 +72,7 @@ class _MainContainerState extends State<MainContainer> {
       body: PageView.builder(
         controller: _pageController,
         itemCount: _children.length,
-        physics:
-            const NeverScrollableScrollPhysics(), // Si vous utilisez BottomNavigationBar
+        physics: const NeverScrollableScrollPhysics(),
         itemBuilder: (context, index) {
           return KeepAliveWrapper(
             child: _children[index],

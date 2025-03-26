@@ -57,9 +57,22 @@ class HomeProvider extends ChangeNotifier {
   // Gardons un Set des IDs déjà chargés
   final Set<String> _loadedItemIds = {};
 
+  // Ajout d'un cache pour les données initiales
+  static Map<String, dynamic>? _initialDataCache;
+  static DateTime? _lastCacheUpdate;
+  static const Duration _cacheValidityDuration = Duration(minutes: 5);
+
   Future<List<CombinedItem>> loadUnifiedFeed(
       List<String> likedCompanies, List<String> followedUsers,
       {bool refresh = false}) async {
+    // Vérifier si on peut utiliser le cache
+    if (!refresh && _initialDataCache != null && _lastCacheUpdate != null) {
+      final timeSinceLastCache = DateTime.now().difference(_lastCacheUpdate!);
+      if (timeSinceLastCache < _cacheValidityDuration) {
+        return _currentFeedItems;
+      }
+    }
+
     // Vérifier si le dernier refresh n'est pas trop récent
     if (refresh && _lastRefreshTime != null) {
       final timeSinceLastRefresh = DateTime.now().difference(_lastRefreshTime!);
@@ -72,7 +85,7 @@ class HomeProvider extends ChangeNotifier {
       _lastDocument = null;
       _hasMoreData = true;
       _currentFeedItems.clear();
-      _loadedItemIds.clear(); // Réinitialiser le Set des IDs
+      _loadedItemIds.clear();
       notifyListeners();
     }
 
@@ -86,11 +99,11 @@ class HomeProvider extends ChangeNotifier {
       final Set<String> addedPostIds = {};
       final List<CombinedItem> combinedItems = [];
 
-      // Limiter le nombre de requêtes en combinant les conditions
-      final List<Query> queries = [];
+      // Optimisation : Charger les données en parallèle avec des limites
+      final List<Future<QuerySnapshot>> queries = [];
 
-      // Diviser les entreprises en groupes plus petits pour éviter la limitation "IN"
-      const int batchSize = 10; // Firebase limite à 10 valeurs dans whereIn
+      // Diviser les entreprises en groupes plus petits
+      const int batchSize = 10;
       final List<List<String>> companyBatches = [];
 
       for (var i = 0; i < likedCompanies.length; i += batchSize) {
@@ -100,7 +113,7 @@ class HomeProvider extends ChangeNotifier {
         companyBatches.add(likedCompanies.sublist(i, end));
       }
 
-      // Créer une requête pour chaque batch d'entreprises
+      // Créer des requêtes optimisées
       if (likedCompanies.isNotEmpty) {
         for (var batch in companyBatches) {
           queries.add(_firestore
@@ -109,7 +122,8 @@ class HomeProvider extends ChangeNotifier {
               .where('type', isNotEqualTo: 'shared')
               .where('isActive', isEqualTo: true)
               .orderBy('timestamp', descending: true)
-              .limit(_pageSize));
+              .limit(_pageSize)
+              .get());
         }
       }
 
@@ -119,27 +133,38 @@ class HomeProvider extends ChangeNotifier {
             .where('type', isEqualTo: 'shared')
             .where('sharedBy', whereIn: followedUsers)
             .orderBy('timestamp', descending: true)
-            .limit(_pageSize));
+            .limit(_pageSize)
+            .get());
       }
 
-      // Exécuter toutes les requêtes en parallèle
+      // Exécuter toutes les requêtes en parallèle avec un timeout
       final List<QuerySnapshot> snapshots = await Future.wait(
-        queries.map((query) => query.get()),
+        queries,
+        eagerError: true,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Le chargement a pris trop de temps');
+        },
       );
 
-      // Traiter les résultats
-      for (var snapshot in snapshots) {
-        print('Nombre de posts traités : ${snapshot.docs.length}');
-        print(
-            'Entreprises concernées : ${snapshot.docs.map((doc) => (doc.data() as Map<String, dynamic>)['companyId']).toSet()}');
-        await _processPostsSnapshot(snapshot, addedPostIds, combinedItems);
-      }
+      // Traiter les résultats en parallèle
+      await Future.wait(
+        snapshots.map((snapshot) =>
+            _processPostsSnapshot(snapshot, addedPostIds, combinedItems)),
+      );
 
-      // Trier par date
+      // Trier et limiter les résultats
       combinedItems.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-      // Limiter le nombre d'éléments retournés
       _currentFeedItems = combinedItems.take(_pageSize).toList();
+
+      // Mettre à jour le cache
+      _initialDataCache = {
+        'items': _currentFeedItems,
+        'timestamp': DateTime.now(),
+      };
+      _lastCacheUpdate = DateTime.now();
+
       _feedController.add(_currentFeedItems);
       _lastRefreshTime = DateTime.now();
 

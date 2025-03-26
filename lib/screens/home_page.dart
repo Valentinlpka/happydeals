@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -36,9 +38,8 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   late String currentUserId;
   final ScrollController _scrollController = ScrollController();
-
-  // Ajout d'un indicateur de premier chargement
   bool _isFirstLoad = true;
+  bool _isInitializing = false;
 
   @override
   bool get wantKeepAlive => true; // Garde la page en vie
@@ -106,33 +107,60 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
     _scrollController.addListener(_onScroll);
-    // Initialisation différée pour éviter les problèmes de context
+
+    // Initialisation différée optimisée
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeFeed();
     });
   }
 
   Future<void> _initializeFeed() async {
-    final userProvider = Provider.of<UserModel>(context, listen: false);
-    final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+    if (_isInitializing) return;
+    _isInitializing = true;
 
-    // Vérifier si les données sont déjà chargées
-    if (homeProvider.currentFeedItems.isNotEmpty) {
-      setState(() => _isFirstLoad = false);
-      return;
+    try {
+      final userProvider = Provider.of<UserModel>(context, listen: false);
+      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+
+      // Vérifier si les données sont déjà chargées
+      if (homeProvider.currentFeedItems.isNotEmpty) {
+        setState(() => _isFirstLoad = false);
+        return;
+      }
+
+      // Charger les données en parallèle avec un timeout
+      await Future.wait([
+        userProvider.loadUserData(),
+        homeProvider.initializeFeed(
+          userProvider.likedCompanies,
+          userProvider.followedUsers,
+        ),
+      ], eagerError: true)
+          .timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Le chargement initial a pris trop de temps');
+        },
+      );
+
+      if (mounted) {
+        setState(() => _isFirstLoad = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement: ${e.toString()}'),
+            action: SnackBarAction(
+              label: 'Réessayer',
+              onPressed: _initializeFeed,
+            ),
+          ),
+        );
+      }
+    } finally {
+      _isInitializing = false;
     }
-
-    // Charger les données en parallèle
-    await Future.wait([
-      userProvider.loadUserData(),
-      homeProvider.initializeFeed(
-        userProvider.likedCompanies,
-        userProvider.followedUsers,
-      ),
-    ]);
-
-    // Indiquer que le premier chargement est terminé
-    setState(() => _isFirstLoad = false);
   }
 
   @override
@@ -286,16 +314,14 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         return StreamBuilder<List<CombinedItem>>(
           stream: homeProvider.feedStream,
           builder: (context, snapshot) {
-            // Afficher le skeleton pendant le chargement avec priorité au premier chargement
-            if ((_isFirstLoad ||
-                    (snapshot.connectionState == ConnectionState.waiting &&
-                        !snapshot.hasData)) &&
-                homeProvider.currentFeedItems.isEmpty) {
+            // Afficher le skeleton pendant le chargement initial
+            if (_isFirstLoad ||
+                (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData)) {
               return ListView.builder(
                 padding: EdgeInsets.zero,
-                physics:
-                    const NeverScrollableScrollPhysics(), // Empêche le défilement pendant le chargement
-                itemCount: 3, // Nombre de skeletons à afficher
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 3,
                 itemBuilder: (context, index) => _buildSkeletonPost(),
               );
             }
