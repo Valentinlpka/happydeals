@@ -16,7 +16,7 @@ class Company {
   final String website;
   final String sellerId;
   final Address adress;
-  final Map<String, dynamic> openingHours;
+  final OpeningHours openingHours;
   final double? averageRating;
   final int? numberOfReviews;
   final DateTime createdAt;
@@ -61,7 +61,10 @@ class Company {
       type: data['type'] ?? '',
       sellerId: data['sellerId'] ?? '',
       adress: Address.fromMap(data['adress'] ?? {}),
-      openingHours: Map<String, dynamic>.from(data['openingHours'] ?? {}),
+      openingHours: OpeningHours(
+        hours: Map<String, String>.from(data['openingHours'] ?? {}),
+        sameHoursAllDays: false,
+      ),
       averageRating: (data['rating'] as num?)?.toDouble(),
       numberOfReviews: data['numberOfReviews'] as int?,
       createdAt: data['createdAt'] is Timestamp
@@ -86,7 +89,7 @@ class Company {
       'type': type,
       'sellerId': sellerId,
       'adress': adress.toMap(),
-      'openingHours': openingHours,
+      'openingHours': openingHours.toMap(),
       'averageRating': averageRating,
       'numberOfReviews': numberOfReviews,
       'createdAt': createdAt,
@@ -131,5 +134,84 @@ class Address {
       'latitude': latitude,
       'longitude': longitude,
     };
+  }
+}
+
+class OpeningHours {
+  final Map<String, String> hours;
+  final bool sameHoursAllDays;
+
+  OpeningHours({
+    required this.hours,
+    this.sameHoursAllDays = false,
+  });
+
+  factory OpeningHours.fromMap(Map<String, dynamic> map) {
+    return OpeningHours(
+      hours: Map<String, String>.from(map['hours'] ?? {}),
+      sameHoursAllDays: map['sameHoursAllDays'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'hours': hours,
+      'sameHoursAllDays': sameHoursAllDays,
+    };
+  }
+
+  bool isOpenNow() {
+    final now = DateTime.now();
+    final currentDay = now.weekday;
+    final currentTime = now.hour * 60 + now.minute;
+    final dayName = _getDayName(currentDay);
+    final dayHours = hours[dayName] ?? "fermé";
+
+    if (dayHours == "fermé") return false;
+
+    final timeSlots = dayHours.split(' / ');
+    for (var slot in timeSlots) {
+      try {
+        final [openTime, closeTime] =
+            slot.split('-').map((e) => e.trim()).toList();
+        final [openHour, openMinute] =
+            openTime.split(':').map(int.parse).toList();
+        final [closeHour, closeMinute] =
+            closeTime.split(':').map(int.parse).toList();
+
+        final openTimeMinutes = openHour * 60 + openMinute;
+        final closeTimeMinutes = closeHour * 60 + closeMinute;
+
+        if (currentTime >= openTimeMinutes && currentTime <= closeTimeMinutes) {
+          return true;
+        }
+      } catch (e) {
+        print('Erreur lors du parsing des horaires: $e');
+        continue;
+      }
+    }
+
+    return false;
+  }
+
+  String _getDayName(int day) {
+    switch (day) {
+      case 1:
+        return 'monday';
+      case 2:
+        return 'tuesday';
+      case 3:
+        return 'wednesday';
+      case 4:
+        return 'thursday';
+      case 5:
+        return 'friday';
+      case 6:
+        return 'saturday';
+      case 7:
+        return 'sunday';
+      default:
+        return '';
+    }
   }
 }

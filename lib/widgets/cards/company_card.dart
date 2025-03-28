@@ -18,72 +18,64 @@ class CompanyCard extends StatelessWidget {
 
     // Vérifier d'abord les heures du jour actuel
     final dayName = _getDayName(currentDay);
-    final openingHours = company.openingHours[dayName];
+    final dayHours = company.openingHours.hours[dayName] ?? "fermé";
 
-    if (openingHours != null && openingHours.isNotEmpty) {
-      // Si le jour est marqué comme "Fermé"
-      if (openingHours.toLowerCase() == 'fermé') {
-        // Chercher le prochain jour d'ouverture
-        for (int i = 1; i < 7; i++) {
-          final nextDay = (currentDay + i) % 7;
-          final nextDayName = _getDayName(nextDay);
-          final nextOpeningHours = company.openingHours[nextDayName];
+    if (dayHours != "fermé") {
+      // Gérer les horaires multiples
+      final timeSlots = dayHours.split(' / ');
+      for (var slot in timeSlots) {
+        try {
+          final [openTime, closeTime] =
+              slot.split('-').map((e) => e.trim()).toList();
+          final [openHour, openMinute] =
+              openTime.split(':').map(int.parse).toList();
+          final [closeHour, closeMinute] =
+              closeTime.split(':').map(int.parse).toList();
 
-          if (nextOpeningHours != null &&
-              nextOpeningHours.isNotEmpty &&
-              nextOpeningHours.toLowerCase() != 'fermé') {
-            final [nextOpenTime, nextCloseTime] =
-                nextOpeningHours.split('-').map((e) => e.trim()).toList();
-            return '$nextOpenTime - $nextCloseTime';
+          final openTimeMinutes = openHour * 60 + openMinute;
+          final closeTimeMinutes = closeHour * 60 + closeMinute;
+
+          // Si on est avant l'heure d'ouverture aujourd'hui
+          if (currentTime < openTimeMinutes) {
+            return '$openTime - $closeTime';
           }
-        }
-        return '';
-      }
+          // Si on est après l'heure de fermeture aujourd'hui
+          if (currentTime > closeTimeMinutes) {
+            // Chercher le prochain jour d'ouverture
+            for (int i = 1; i < 7; i++) {
+              final nextDay = (currentDay + i) % 7;
+              final nextDayName = _getDayName(nextDay);
+              final nextDayHours =
+                  company.openingHours.hours[nextDayName] ?? "fermé";
 
-      final [openTime, closeTime] =
-          openingHours.split('-').map((e) => e.trim()).toList();
-      final [openHour, openMinute] =
-          openTime.split(':').map(int.parse).toList();
-      final openTimeMinutes = openHour * 60 + openMinute;
-
-      // Si on est avant l'heure d'ouverture aujourd'hui
-      if (currentTime < openTimeMinutes) {
-        return '$openTime - $closeTime';
-      }
-      // Si on est après l'heure de fermeture aujourd'hui
-      final [closeHour, closeMinute] =
-          closeTime.split(':').map(int.parse).toList();
-      final closeTimeMinutes = closeHour * 60 + closeMinute;
-      if (currentTime > closeTimeMinutes) {
-        // Chercher le prochain jour d'ouverture
-        for (int i = 1; i < 7; i++) {
-          final nextDay = (currentDay + i) % 7;
-          final nextDayName = _getDayName(nextDay);
-          final nextOpeningHours = company.openingHours[nextDayName];
-
-          if (nextOpeningHours != null &&
-              nextOpeningHours.isNotEmpty &&
-              nextOpeningHours.toLowerCase() != 'fermé') {
-            final [nextOpenTime, nextCloseTime] =
-                nextOpeningHours.split('-').map((e) => e.trim()).toList();
-            return '$nextOpenTime - $nextCloseTime';
+              if (nextDayHours != "fermé") {
+                final nextTimeSlots = nextDayHours.split(' / ');
+                final [nextOpenTime, nextCloseTime] = nextTimeSlots.first
+                    .split('-')
+                    .map((e) => e.trim())
+                    .toList();
+                return '$nextOpenTime - $nextCloseTime';
+              }
+            }
           }
+        } catch (e) {
+          print('Erreur lors du parsing des horaires: $e');
+          continue;
         }
       }
-    }
+    } else {
+      // Si le jour est marqué comme "Fermé", chercher le prochain jour d'ouverture
+      for (int i = 1; i < 7; i++) {
+        final nextDay = (currentDay + i) % 7;
+        final nextDayName = _getDayName(nextDay);
+        final nextDayHours = company.openingHours.hours[nextDayName] ?? "fermé";
 
-    // Si on n'a pas trouvé d'heures d'ouverture, chercher le prochain jour
-    for (int i = 1; i < 7; i++) {
-      final nextDay = (currentDay + i) % 7;
-      final nextDayName = _getDayName(nextDay);
-      final nextOpeningHours = company.openingHours[nextDayName];
-
-      if (nextOpeningHours != null &&
-          nextOpeningHours.isNotEmpty &&
-          nextOpeningHours.toLowerCase() != 'fermé') {
-        final [nextOpenTime, nextCloseTime] =
-            nextOpeningHours.split('-').map((e) => e.trim()).toList();
-        return '$nextOpenTime - $nextCloseTime';
+        if (nextDayHours != "fermé") {
+          final nextTimeSlots = nextDayHours.split(' / ');
+          final [nextOpenTime, nextCloseTime] =
+              nextTimeSlots.first.split('-').map((e) => e.trim()).toList();
+          return '$nextOpenTime - $nextCloseTime';
+        }
       }
     }
 
@@ -112,28 +104,7 @@ class CompanyCard extends StatelessWidget {
   }
 
   bool _isOpen() {
-    final now = DateTime.now();
-    final currentDay = now.weekday;
-    final currentTime = now.hour * 60 + now.minute;
-
-    final dayName = _getDayName(currentDay);
-    final openingHours = company.openingHours[dayName];
-
-    if (openingHours == null || openingHours.isEmpty) return false;
-
-    // Si le jour est marqué comme "Fermé"
-    if (openingHours.toLowerCase() == 'fermé') return false;
-
-    final [openTime, closeTime] =
-        openingHours.split('-').map((e) => e.trim()).toList();
-    final [openHour, openMinute] = openTime.split(':').map(int.parse).toList();
-    final [closeHour, closeMinute] =
-        closeTime.split(':').map(int.parse).toList();
-
-    final openTimeMinutes = openHour * 60 + openMinute;
-    final closeTimeMinutes = closeHour * 60 + closeMinute;
-
-    return currentTime >= openTimeMinutes && currentTime <= closeTimeMinutes;
+    return company.openingHours.isOpenNow();
   }
 
   @override
@@ -142,8 +113,8 @@ class CompanyCard extends StatelessWidget {
     final nextOpenTime = _getNextOpenTime();
     final currentDay = DateTime.now().weekday;
     final dayName = _getDayName(currentDay);
-    final openingHours = company.openingHours[dayName];
-    final isClosedToday = openingHours?.toLowerCase() == 'fermé';
+    final dayHours = company.openingHours.hours[dayName] ?? "fermé";
+    final isClosedToday = dayHours == "fermé";
 
     return ChangeNotifierProvider(
       create: (context) =>

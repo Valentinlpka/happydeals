@@ -22,7 +22,6 @@ import 'package:happy/providers/review_service.dart';
 import 'package:happy/screens/main_container.dart';
 import 'package:happy/screens/shop/product_list.dart';
 import 'package:happy/widgets/company_message_bottom_sheet.dart';
-import 'package:happy/widgets/opening_hours_widget.dart';
 import 'package:happy/widgets/photo_viewer_modal.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/review_list.dart';
@@ -503,31 +502,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
     );
   }
 
-  Widget _buildOpeningHoursTile(Map<String, dynamic> openingHours) {
+  Widget _buildOpeningHoursTile(OpeningHours openingHours) {
     final now = DateTime.now();
     final currentDay = now.weekday;
-    final currentTime = now.hour * 60 + now.minute;
     final dayName = _getDayName(currentDay);
-    final todayHours = openingHours[dayName];
-
-    bool isOpen = false;
-    String displayText = 'Fermé';
-
-    if (todayHours != null && todayHours.isNotEmpty) {
-      final [openTime, closeTime] =
-          todayHours.split('-').map((e) => e.trim()).toList();
-      final [openHour, openMinute] =
-          openTime.split(':').map(int.parse).toList();
-      final [closeHour, closeMinute] =
-          closeTime.split(':').map(int.parse).toList();
-
-      final openTimeMinutes = openHour * 60 + openMinute;
-      final closeTimeMinutes = closeHour * 60 + closeMinute;
-
-      isOpen =
-          currentTime >= openTimeMinutes && currentTime <= closeTimeMinutes;
-      displayText = isOpen ? 'Ouvert' : 'Fermé';
-    }
+    final dayHours = openingHours.hours[dayName] ?? "fermé";
+    final isOpen = openingHours.isOpenNow();
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -544,15 +524,15 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  displayText,
+                  isOpen ? 'Ouvert' : 'Fermé',
                   style: TextStyle(
                     color: isOpen ? Colors.green : Colors.grey,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                if (todayHours != null && todayHours.isNotEmpty)
+                if (dayHours != "fermé")
                   Text(
-                    todayHours,
+                    dayHours,
                     style: const TextStyle(
                       color: Colors.grey,
                       fontSize: 13,
@@ -1226,9 +1206,60 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
         Text('Horaires d\'ouverture',
             style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
-        OpeningHoursWidget(openingHours: entreprise.openingHours),
+        if (entreprise.openingHours.sameHoursAllDays)
+          _buildOpeningHoursTile(entreprise.openingHours)
+        else
+          ...[
+            'monday',
+            'tuesday',
+            'wednesday',
+            'thursday',
+            'friday',
+            'saturday',
+            'sunday'
+          ].map((day) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 100,
+                      child: Text(
+                        _getDayNameInFrench(day),
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        entreprise.openingHours.hours[day] ?? "fermé",
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
       ],
     );
+  }
+
+  String _getDayNameInFrench(String day) {
+    switch (day) {
+      case 'monday':
+        return 'Lundi';
+      case 'tuesday':
+        return 'Mardi';
+      case 'wednesday':
+        return 'Mercredi';
+      case 'thursday':
+        return 'Jeudi';
+      case 'friday':
+        return 'Vendredi';
+      case 'saturday':
+        return 'Samedi';
+      case 'sunday':
+        return 'Dimanche';
+      default:
+        return day;
+    }
   }
 
   void _startConversation(
