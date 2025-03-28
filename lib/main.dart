@@ -13,9 +13,10 @@ import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/review_service.dart';
 import 'package:happy/providers/search_provider.dart';
 import 'package:happy/providers/users_provider.dart';
+import 'package:happy/services/analytics_service.dart';
 import 'package:happy/services/cart_service.dart';
-import 'package:happy/services/firebase_service.dart';
 import 'package:happy/theme/app_theme.dart';
+import 'package:happy/widgets/analytics_navigator_observer.dart';
 import 'package:happy/widgets/url_strategy.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -32,23 +33,36 @@ void main() async {
     setUrlStrategy(PathUrlStrategy());
   }
 
-  // Initialiser Firebase en parallèle avec d'autres initialisations
-  final futures = <Future>[
-    FirebaseService().initialize(),
-    initializeDateFormatting('fr_FR', null),
-  ];
+  try {
+    // Initialiser Firebase et Analytics en premier
+    await AnalyticsService().initialize();
 
-  // Exécuter les initialisations en parallèle
-  await Future.wait(futures);
+    // Autres initialisations
+    await Future.wait([
+      initializeDateFormatting('fr_FR', null),
+    ]);
 
-  // Configuration de timeago après l'initialisation de la localisation
-  timeago.setLocaleMessages('fr', timeago.FrMessages());
+    // Configuration de timeago
+    timeago.setLocaleMessages('fr', timeago.FrMessages());
 
-  // Initialiser FCM pour le web de manière asynchrone
-  if (kIsWeb) {
-    _initializeFirebaseMessagingWeb().catchError((e) {
-      debugPrint('Erreur d\'initialisation FCM: $e');
-    });
+    // Initialiser FCM pour le web
+    if (kIsWeb) {
+      await _initializeFirebaseMessagingWeb().catchError((e) {
+        debugPrint('Erreur d\'initialisation FCM: $e');
+      });
+    }
+
+    // Envoyer un événement de test
+    await AnalyticsService().logEvent(
+      name: 'app_start',
+      parameters: {
+        'platform': kIsWeb ? 'web' : 'mobile',
+        'timestamp': DateTime.now().toIso8601String(),
+        'version': '1.0.0',
+      },
+    );
+  } catch (e) {
+    debugPrint('Erreur lors de l\'initialisation: $e');
   }
 
   runApp(const MyApp());
@@ -116,6 +130,7 @@ class MyApp extends StatelessWidget {
         initialRoute: '/',
         routes: AppRouter.routes,
         onGenerateRoute: AppRouter.generateRoute,
+        navigatorObservers: [AnalyticsNavigatorObserver()],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,

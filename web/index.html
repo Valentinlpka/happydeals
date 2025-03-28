@@ -2,6 +2,16 @@
 <html>
 
 <head>
+  <!-- Google Tag Manager -->
+  <script>(function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-TLXTK4F6');</script>
+  <!-- End Google Tag Manager -->
   <style>
     html,
     body {
@@ -188,6 +198,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-analytics-compat.js" defer></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -197,22 +208,26 @@
         projectId: "happy-deals-3f03d",
         storageBucket: "happy-deals-3f03d.appspot.com",
         messagingSenderId: "289031542511",
-        appId: "1:289031542511:web:e608b4fb09685d0d8b6d1a"
+        appId: "1:289031542511:web:e608b4fb09685d0d8b6d1a",
+        measurementId: "G-XXXXXXXXXX" // Remplacez par votre Measurement ID
       };
 
-      setTimeout(() => {
-        firebase.initializeApp(firebaseConfig);
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
 
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('firebase-messaging-sw.js')
-            .then(function (registration) {
-              console.log('Service Worker registered with scope:', registration.scope);
-            })
-            .catch(function (error) {
-              console.error('Service Worker registration failed:', error);
-            });
-        }
-      }, 0);
+      // Initialize Analytics
+      const analytics = firebase.analytics();
+      analytics.setAnalyticsCollectionEnabled(true);
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('firebase-messaging-sw.js')
+          .then(function (registration) {
+            console.log('Service Worker registered with scope:', registration.scope);
+          })
+          .catch(function (error) {
+            console.error('Service Worker registration failed:', error);
+          });
+      }
     });
   </script>
 
@@ -259,6 +274,10 @@
 </script>
 
 <body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLXTK4F6" height="0" width="0"
+      style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
   <!-- Nouveau Splash Screen -->
   <div id="loading-screen" class="splash-container">
     <div class="splash-background"></div>

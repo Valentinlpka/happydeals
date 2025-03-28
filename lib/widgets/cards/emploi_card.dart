@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/screens/details_page/details_emploi_page.dart';
 import 'package:intl/intl.dart';
 
 class JobOfferCard extends StatelessWidget {
@@ -27,13 +25,9 @@ class JobOfferCard extends StatelessWidget {
         // En-tête avec logo et informations
         InkWell(
           onTap: () {
-            Navigator.push(
+            Navigator.pushNamed(
               context,
-              MaterialPageRoute(
-                builder: (context) => DetailsEntreprise(
-                  entrepriseId: post.companyId,
-                ),
-              ),
+              '/entreprise/${post.companyId}',
             );
           },
           child: Padding(
@@ -132,15 +126,14 @@ class JobOfferCard extends StatelessWidget {
           ),
           child: InkWell(
             onTap: () {
-              Navigator.push(
+              Navigator.pushNamed(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => DetailsEmploiPage(
-                    post: post,
-                    individualName: companyName,
-                    individualPhoto: companyLogo,
-                  ),
-                ),
+                '/emploi/${post.id}',
+                arguments: {
+                  'post': post,
+                  'individualName': companyName,
+                  'individualPhoto': companyLogo,
+                },
               );
             },
             child: Padding(
