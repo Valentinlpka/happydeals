@@ -215,9 +215,6 @@
       // Initialize Firebase
       firebase.initializeApp(firebaseConfig);
 
-      // Initialize Analytics
-      const analytics = firebase.analytics();
-      analytics.setAnalyticsCollectionEnabled(true);
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('firebase-messaging-sw.js')

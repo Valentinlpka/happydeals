@@ -10,7 +10,7 @@ import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/providers/users_provider.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
 
@@ -87,13 +87,14 @@ class LikedPostsPage extends StatelessWidget {
                     child: PostWidget(
                       key: ValueKey(post.id),
                       post: post,
-                      companyCover: companyData['cover'],
-                      companyCategorie: companyData['categorie'] ?? '',
-                      companyName: companyData['name'] ?? '',
-                      companyLogo: companyData['logo'] ?? '',
                       currentUserId: currentUserId,
                       currentProfileUserId: currentUserId,
-                      companyData: companyData,
+                      companyData: CompanyData(
+                          category: companyData['categorie'] ?? '',
+                          cover: companyData['cover'] ?? '',
+                          logo: companyData['logo'] ?? '',
+                          name: companyData['name'] ?? '',
+                          rawData: companyData),
                       onView: () {
                         // Logique d'affichage du détail du post
                       },

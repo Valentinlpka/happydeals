@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/profile.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
 class FollowedUsersPage extends StatelessWidget {

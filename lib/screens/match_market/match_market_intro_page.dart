@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/category_product.dart';
 import 'package:happy/screens/match_market/liked_products_page.dart';
 import 'package:happy/screens/match_market/location_selection_page.dart';
-import 'package:happy/widgets/custom_app_bar_back.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar_back.dart';
 
 class MatchMarketIntroPage extends StatefulWidget {
   const MatchMarketIntroPage({super.key});

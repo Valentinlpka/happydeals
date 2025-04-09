@@ -8,8 +8,8 @@ import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_ti
 import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/providers/users_provider.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/cards/company_card.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:latlong2/latlong.dart' show Distance, LengthUnit;

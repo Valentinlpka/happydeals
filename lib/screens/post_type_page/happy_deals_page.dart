@@ -3,9 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/utils/location_utils.dart';
-import 'package:happy/widgets/cards/happy_deals_card.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/postwidget.dart';
 
 class HappyDealsPage extends StatefulWidget {
   const HappyDealsPage({super.key});
@@ -257,14 +257,13 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
                     .doc(happyDeal.companyId)
                     .get(),
                 builder: (context, companySnapshot) {
-                  if (!companySnapshot.hasData) return const SizedBox.shrink();
+                  if (!companySnapshot.hasData) {
+                    return const SizedBox.shrink();
+                  }
 
                   final companyData =
                       companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyName = companyData['name'] as String;
                   final companyCategorie = companyData['categorie'] as String;
-                  final companyLogo = companyData['logo'] as String;
-                  final companyCover = companyData['cover'] as String;
                   final companyAddress =
                       companyData['adress'] as Map<String, dynamic>;
                   final companyLat = companyAddress['latitude'] as double;
@@ -296,12 +295,18 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: HappyDealsCard(
+                    child: PostWidget(
                       post: happyDeal,
-                      companyName: companyName,
-                      companyCategorie: companyCategorie,
-                      companyLogo: companyLogo,
-                      companyCover: companyCover,
+                      currentUserId: currentUserId,
+                      currentProfileUserId: currentUserId,
+                      onView: () {},
+                      companyData: CompanyData(
+                        name: companyData['name'],
+                        category: companyData['categorie'] ?? '',
+                        logo: companyData['logo'],
+                        cover: companyData['cover'] ?? '',
+                        rawData: companyData,
+                      ),
                     ),
                   );
                 },

@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/utils/location_utils.dart';
-import 'package:happy/widgets/cards/deals_express_card.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
 
 class DealExpressPage extends StatefulWidget {
@@ -50,6 +50,7 @@ class _DealExpressPageState extends State<DealExpressPage> {
   Future<void> _loadCategories() async {
     final companiesSnapshot = await _firestore.collection('companys').get();
     final categories = companiesSnapshot.docs
+        .where((doc) => doc.data().containsKey('categorie'))
         .map((doc) => doc['categorie'] as String)
         .toSet()
         .toList();
@@ -300,7 +301,6 @@ class _DealExpressPageState extends State<DealExpressPage> {
         }
 
         if (snapshot.hasError) {
-          print(snapshot.error);
           return Center(child: Text('Erreur: ${snapshot.error}'));
         }
 
@@ -353,91 +353,97 @@ class _DealExpressPageState extends State<DealExpressPage> {
     List<Widget> processedDeals = [];
 
     for (var dealDoc in deals) {
-      final deal = ExpressDeal.fromDocument(dealDoc);
-      final companyDoc =
-          await _firestore.collection('companys').doc(deal.companyId).get();
+      try {
+        final deal = ExpressDeal.fromDocument(dealDoc);
+        final companyDoc =
+            await _firestore.collection('companys').doc(deal.companyId).get();
 
-      if (!companyDoc.exists) continue;
+        if (!companyDoc.exists) continue;
 
-      final companyData = companyDoc.data() as Map<String, dynamic>;
-      final companyName = companyData['name'] as String;
-      final companyCategorie = companyData['categorie'] as String;
-      final companyLogo = companyData['logo'] as String;
-      final companyAddress = companyData['adress'] as Map<String, dynamic>;
+        final companyData = companyDoc.data() as Map<String, dynamic>;
+        final companyCategorie = companyData['categorie'] as String;
+        final companyAddress = companyData['adress'] as Map<String, dynamic>;
+        final companyLat = companyAddress['latitude'] as double?;
+        final companyLng = companyAddress['longitude'] as double?;
+        final companyCity = companyAddress['ville'] as String? ?? '';
 
-      // Vérification de la présence des coordonnées
-      final companyLat = companyAddress['latitude'] as double?;
-      final companyLng = companyAddress['longitude'] as double?;
-      final companyCity = companyAddress['ville'] as String? ?? '';
-
-      // Filtrer par catégorie
-      if (_selectedCategory != 'Toutes' &&
-          companyCategorie != _selectedCategory) {
-        continue;
-      }
-
-      // Filtrer par recherche
-      if (_searchQuery.isNotEmpty &&
-          !deal.title.toLowerCase().contains(_searchQuery.toLowerCase())) {
-        continue;
-      }
-
-      // Vérifier la disponibilité
-      final isActive = deal.availableBaskets > 0;
-      if (showUnavailable != !isActive) {
-        continue;
-      }
-
-      // Calculer la distance si possible
-      String? distance;
-      bool isInRadius = false;
-      if (_selectedLat != null &&
-          _selectedLng != null &&
-          companyLat != null &&
-          companyLng != null) {
-        final distanceKm = LocationUtils.calculateDistance(
-          _selectedLat!,
-          _selectedLng!,
-          companyLat,
-          companyLng,
-        );
-
-        distance = distanceKm < 1
-            ? '${(distanceKm * 1000).round()}m'
-            : '${distanceKm.toStringAsFixed(1)}km';
-
-        isInRadius = LocationUtils.isWithinRadius(
-          _selectedLat!,
-          _selectedLng!,
-          companyLat,
-          companyLng,
-          _selectedRadius,
-        );
-
-        // Filtrer selon la proximité
-        if (isNearby != isInRadius && !showUnavailable) {
+        // Filtres
+        if (_selectedCategory != 'Toutes' &&
+            companyCategorie != _selectedCategory) {
           continue;
         }
-      } else if (isNearby && !showUnavailable) {
-        continue;
-      }
 
-      processedDeals.add(
-        Padding(
+        if (_searchQuery.isNotEmpty &&
+            !deal.title.toLowerCase().contains(_searchQuery.toLowerCase())) {
+          continue;
+        }
+
+        final isActive = deal.availableBaskets > 0;
+        if (showUnavailable != !isActive) {
+          continue;
+        }
+
+        // Gestion de la distance
+        String? distance;
+        bool isInRadius = false;
+        if (_selectedLat != null &&
+            _selectedLng != null &&
+            companyLat != null &&
+            companyLng != null) {
+          final distanceKm = LocationUtils.calculateDistance(
+            _selectedLat!,
+            _selectedLng!,
+            companyLat,
+            companyLng,
+          );
+
+          distance = distanceKm < 1
+              ? '${(distanceKm * 1000).round()}m'
+              : '${distanceKm.toStringAsFixed(1)}km';
+
+          isInRadius = LocationUtils.isWithinRadius(
+            _selectedLat!,
+            _selectedLng!,
+            companyLat,
+            companyLng,
+            _selectedRadius,
+          );
+
+          if (isNearby != isInRadius && !showUnavailable) {
+            continue;
+          }
+        } else if (isNearby && !showUnavailable) {
+          continue;
+        }
+
+        // Création du widget avec PostWidget
+        final postWidget = Padding(
           padding: EdgeInsets.only(
             bottom: showVertical ? 8.0 : 0,
+            right: !showVertical ? 8.0 : 0,
           ),
-          child: DealsExpressCard(
-            post: deal,
-            companyName: companyName,
-            companyLogo: companyLogo,
-            currentUserId: currentUserId,
-            companyCity: companyCity.isNotEmpty ? companyCity : null,
-            distance: distance,
-            isHorizontal: !showVertical,
+          child: SizedBox(
+            width: !showVertical ? 300 : null,
+            child: PostWidget(
+              post: deal,
+              currentUserId: currentUserId,
+              currentProfileUserId: currentUserId,
+              onView: () {},
+              companyData: CompanyData(
+                name: companyData['name'],
+                category: companyData['categorie'] ?? '',
+                logo: companyData['logo'],
+                cover: companyData['cover'] ?? '',
+                rawData: companyData,
+              ),
+            ),
           ),
-        ),
-      );
+        );
+
+        processedDeals.add(postWidget);
+      } catch (e) {
+        print('Erreur lors du traitement du deal: $e');
+      }
     }
 
     return processedDeals;
@@ -474,7 +480,7 @@ class _DealExpressPageState extends State<DealExpressPage> {
               Column(children: snapshot.data!)
             else
               SizedBox(
-                height: 320,
+                height: 400, // Augmenté pour accommoder le PostWidget
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),

@@ -212,8 +212,23 @@ class UserModel with ChangeNotifier {
   }
 
   Future<void> updateUserProfile(Map<String, dynamic> userData) async {
+    bool shouldNotify = false;
+    // Vérifier si les données ont réellement changé
+    if (userData['firstName'] != _firstName) {
+      _firstName = userData['firstName'];
+      shouldNotify = true;
+    }
+    if (userData['lastName'] != _lastName) {
+      _lastName = userData['lastName'];
+      shouldNotify = true;
+    }
+
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
+
+    if (shouldNotify) {
+      notifyListeners();
+    }
 
     await _firestore.collection('users').doc(uid).update(userData);
     await loadUserData();

@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/classes/card_promo_code.dart';
 import 'package:happy/utils/location_utils.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/postwidget.dart';
 
 import '../../classes/promo_code_post.dart';
 
@@ -275,16 +275,10 @@ class _CodePromoPageState extends State<CodePromoPage> {
 
                   final companyData =
                       companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyName = companyData['name'] as String;
-                  final companyLogo = companyData['logo'] as String;
-                  final companyAddress =
-                      companyData['adress'] as Map<String, dynamic>;
-                  final companyLat = companyAddress['latitude'] as double;
-                  final companyLng = companyAddress['longitude'] as double;
 
                   // Filtrer par entreprise
                   if (_selectedCompany != 'Toutes' &&
-                      companyName != _selectedCompany) {
+                      companyData['name'] != _selectedCompany) {
                     return const SizedBox.shrink();
                   }
 
@@ -305,8 +299,8 @@ class _CodePromoPageState extends State<CodePromoPage> {
                       !LocationUtils.isWithinRadius(
                         _selectedLat!,
                         _selectedLng!,
-                        companyLat,
-                        companyLng,
+                        companyData['adress']['latitude'],
+                        companyData['adress']['longitude'],
                         _selectedRadius,
                       )) {
                     return const SizedBox.shrink();
@@ -314,11 +308,18 @@ class _CodePromoPageState extends State<CodePromoPage> {
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: PromoCodeCard(
+                    child: PostWidget(
                       post: promoCodePost,
-                      companyName: companyName,
-                      companyLogo: companyLogo,
                       currentUserId: '',
+                      currentProfileUserId: '',
+                      onView: () {},
+                      companyData: CompanyData(
+                        name: companyData['name'],
+                        category: companyData['categorie'] ?? '',
+                        logo: companyData['logo'],
+                        cover: companyData['cover'] ?? '',
+                        rawData: companyData,
+                      ),
                     ),
                   );
                 },

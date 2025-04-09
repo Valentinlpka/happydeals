@@ -6,7 +6,7 @@ import 'package:happy/classes/category_product.dart';
 import 'package:happy/models/french_city.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/match_market/match_market_swipe_page.dart';
-import 'package:happy/widgets/custom_app_bar_back.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar_back.dart';
 import 'package:provider/provider.dart';
 
 class LocationSelectionPage extends StatefulWidget {

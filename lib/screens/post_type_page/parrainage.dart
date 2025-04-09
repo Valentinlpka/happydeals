@@ -3,9 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/utils/location_utils.dart';
-import 'package:happy/widgets/cards/parrainage_card.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/postwidget.dart';
 
 class ParraiangePage extends StatefulWidget {
   const ParraiangePage({super.key});
@@ -296,11 +296,20 @@ class _ParraiangePageState extends State<ParraiangePage> {
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: ParrainageCard(
+                    child: PostWidget(
                       post: referral,
-                      companyName: companyName,
-                      companyLogo: companyLogo,
                       currentUserId: currentUserId,
+                      currentProfileUserId: currentUserId,
+                      onView: () {
+                        // TODO: Implémenter la navigation vers la vue détaillée
+                      },
+                      companyData: CompanyData(
+                        name: companyData['name'] ?? '',
+                        category: companyData['categorie'] ?? '',
+                        logo: companyData['logo'] ?? '',
+                        cover: companyData['cover'] ?? '',
+                        rawData: companyData,
+                      ),
                     ),
                   );
                 },

@@ -6,7 +6,7 @@ import 'package:happy/classes/ad.dart';
 import 'package:happy/screens/troc-et-echange/ad_card.dart';
 import 'package:happy/screens/troc-et-echange/ad_creation_page.dart';
 import 'package:happy/screens/troc-et-echange/ad_detail_page.dart';
-import 'package:happy/widgets/custom_app_bar_back.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar_back.dart';
 
 class MyAdsPage extends StatelessWidget {
   const MyAdsPage({super.key});

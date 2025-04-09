@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/contest.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/screens/details_page/details_jeuxconcours_page.dart';
+import 'package:happy/config/app_router.dart';
 import 'package:intl/intl.dart';
 
 class ConcoursCard extends StatelessWidget {
   final Contest contest;
   final String currentUserId;
-  final String companyLogo;
-  final String companyName;
 
   const ConcoursCard({
     super.key,
     required this.contest,
     required this.currentUserId,
-    required this.companyLogo,
-    required this.companyName,
   });
 
   String _formatDateTime(DateTime dateTime) {
@@ -35,98 +30,6 @@ class ConcoursCard extends StatelessWidget {
 
     return Column(
       children: [
-        // En-tête séparé
-        InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DetailsEntreprise(
-                  entrepriseId: contest.companyId,
-                ),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: const Color(0xFF3476B2),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(companyLogo),
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        companyName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFC62828), Color(0xFFEF5350)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.card_giftcard_rounded,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Jeux Concours',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatDateTime(contest.timestamp),
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
         // Carte principale
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -142,14 +45,13 @@ class ConcoursCard extends StatelessWidget {
             ],
           ),
           child: InkWell(
-            onTap: () => Navigator.push(
+            onTap: () => Navigator.pushNamed(
               context,
-              MaterialPageRoute(
-                builder: (context) => DetailsJeuxConcoursPage(
-                  contest: contest,
-                  currentUserId: currentUserId,
-                ),
-              ),
+              AppRouter.contestDetails,
+              arguments: {
+                'contest': contest,
+                'currentUserId': currentUserId,
+              },
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

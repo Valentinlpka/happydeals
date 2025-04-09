@@ -10,7 +10,7 @@ import 'package:happy/screens/shop/category_products_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
 import 'package:happy/screens/shop/products_list_page.dart';
 import 'package:happy/services/algolia_service.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:provider/provider.dart';
 

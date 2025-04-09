@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/widgets/unified_payment_button.dart';
@@ -121,8 +122,10 @@ class _ReservationScreenState extends State<ReservationScreen> {
               'pickupAddress': companyAddress,
               'timestamp': widget.deal.timestamp.toIso8601String(),
             },
-            successUrl: '${Uri.base.origin}/#/payment-success',
-            cancelUrl: '${Uri.base.origin}/#/payment-cancel',
+            successUrl:
+                '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-success?reservationId=$_reservationId',
+            cancelUrl:
+                '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-cancel',
           ),
         ),
       ),

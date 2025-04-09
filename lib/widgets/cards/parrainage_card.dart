@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/referral.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/screens/details_page/details_parrainage.dart';
+import 'package:happy/config/app_router.dart';
 import 'package:intl/intl.dart';
 
 class ParrainageCard extends StatelessWidget {
@@ -26,127 +25,22 @@ class ParrainageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // En-tête avec logo et informations
-        InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DetailsEntreprise(
-                  entrepriseId: post.companyId,
-                ),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: const Color(0xFF3476B2),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(companyLogo),
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        companyName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Colors.green, Colors.lightGreen],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.people_alt_outlined,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Parrainage',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatDateTime(post.timestamp),
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
         // Carte principale
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+          margin: const EdgeInsets.symmetric(horizontal: 10),
           child: InkWell(
             onTap: () {
-              Navigator.push(
+              Navigator.pushNamed(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => DetailsParrainagePage(
-                    referral: post,
-                    currentUserId: currentUserId,
-                  ),
-                ),
+                AppRouter.referralDetails,
+                arguments: {
+                  'referral': post,
+                  'currentUserId': currentUserId,
+                },
               );
             },
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

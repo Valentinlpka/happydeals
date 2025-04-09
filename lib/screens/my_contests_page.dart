@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/contest.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/cards/concours_card.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
 
 class MyContestsPage extends StatelessWidget {
   final String userId;
@@ -112,8 +112,6 @@ class _ContestsList extends StatelessWidget {
                 return ConcoursCard(
                   contest: contest,
                   currentUserId: userId,
-                  companyLogo: companyInfo['logo'],
-                  companyName: companyInfo['name'],
                 );
               },
             );

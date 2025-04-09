@@ -10,7 +10,7 @@ class ExpressDeal extends Post {
   final String content;
   final int basketCount;
   final String basketType;
-  final double tva;
+  final int tva;
   final String imageUrl;
   final int price;
   int availableBaskets;

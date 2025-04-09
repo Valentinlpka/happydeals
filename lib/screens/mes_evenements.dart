@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/event.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/cards/evenement_card.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
 
 class MyEventsPage extends StatelessWidget {
   final String userId;

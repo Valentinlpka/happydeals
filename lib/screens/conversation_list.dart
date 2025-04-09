@@ -4,7 +4,7 @@ import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/conversation.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/new_chat_bottom_sheet.dart';
 import 'package:provider/provider.dart';
 

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/card_promo_code.dart';
@@ -22,6 +21,7 @@ import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/comments_page.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/troc-et-echange/ad_card.dart';
 import 'package:happy/screens/troc-et-echange/ad_detail_page.dart';
@@ -35,6 +35,7 @@ import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:happy/widgets/cards/product_cards.dart';
 import 'package:happy/widgets/cards/service_cards.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:visibility_detector/visibility_detector.dart';
@@ -43,93 +44,68 @@ class PostWidget extends StatefulWidget {
   final Ad? ad;
   final Post post;
   final String currentUserId;
-  final String currentProfileUserId; // Ajoutez cette nouvelle propriété
-
+  final String currentProfileUserId;
   final VoidCallback onView;
-  final String companyName;
-  final String companyCategorie;
-  final String companyLogo;
-  final String companyCover;
-  final Map<String, dynamic> companyData;
+  final CompanyData companyData;
   final Map<String, dynamic>? sharedByUserData;
 
   const PostWidget({
+    super.key,
     this.ad,
-    required Key key,
     required this.post,
     required this.currentUserId,
     required this.currentProfileUserId,
     required this.onView,
-    required this.companyName,
-    required this.companyCategorie,
-    required this.companyLogo,
-    required this.companyCover,
     required this.companyData,
     this.sharedByUserData,
-  }) : super(key: key);
+  });
 
   @override
   State<PostWidget> createState() => _PostWidgetState();
 }
 
+// Classe pour encapsuler les données de l'entreprise
+class CompanyData {
+  final String name;
+  final String category;
+  final String logo;
+  final String cover;
+  final Map<String, dynamic> rawData;
+
+  const CompanyData({
+    required this.name,
+    required this.category,
+    required this.logo,
+    required this.cover,
+    required this.rawData,
+  });
+}
+
 class _PostWidgetState extends State<PostWidget>
     with AutomaticKeepAliveClientMixin {
-  BuildContext? _scaffoldContext;
+  // Constants
+  static const double _avatarRadius = 26.0;
+  static const double _innerAvatarRadius = 24.0;
+  static const EdgeInsets _standardPadding = EdgeInsets.all(12.0);
 
-  final GlobalKey _postKey = GlobalKey();
-  bool _isPostVisible = false;
-  StreamSubscription? _visibilitySubscription;
-  bool _hasIncrementedView = false; // Pour éviter les incrémentations multiples
+  // State variables
+  late final PostStateManager _stateManager;
+  bool _isDisposed = false;
 
   @override
-  bool get wantKeepAlive => _isPostVisible;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _scaffoldContext = context;
-  }
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkVisibility();
-    });
-  }
-
-  void _checkVisibility() {
-    if (!mounted) return;
-
-    final RenderBox? renderBox =
-        _postKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final bool isVisible = renderBox.hasSize && renderBox.size.height > 0;
-    if (isVisible != _isPostVisible) {
-      setState(() {
-        _isPostVisible = isVisible;
-      });
-      updateKeepAlive();
-
-      if (isVisible && !_hasIncrementedView) {
-        _incrementPostViews();
-        _hasIncrementedView = true;
-      }
-    }
-  }
-
-  Future<void> _incrementPostViews() async {
-    if (!mounted) return;
-
-    try {
-      await widget.post.incrementViews();
-      if (kDebugMode) {}
-    } catch (e) {
-      if (kDebugMode) {
-        print('Erreur lors de l\'incrémentation des vues: $e');
-      }
-    }
+    _stateManager = PostStateManager(
+      postId: widget.post.id,
+      currentUserId: widget.currentUserId,
+      onStateChanged: () {
+        if (!_isDisposed) setState(() {});
+      },
+    );
+    _stateManager.initialize();
   }
 
   @override
@@ -137,33 +113,393 @@ class _PostWidgetState extends State<PostWidget>
     super.build(context);
     return VisibilityDetector(
       key: Key(widget.post.id),
-      onVisibilityChanged: (VisibilityInfo info) {
-        if (info.visibleFraction > 0.5 && !_hasIncrementedView) {
-          _incrementPostViews();
-          _hasIncrementedView = true;
-        }
-      },
+      onVisibilityChanged: _handleVisibilityChanged,
       child: RepaintBoundary(
-        key: _postKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.post is SharedPost) _buildSharedPostHeader(),
-            _buildPostContent(),
-            _buildInteractionBar(),
-          ],
+        child: _PostCard(
+          post: widget.post,
+          stateManager: _stateManager,
+          companyData: widget.companyData,
+          sharedByUserData: widget.sharedByUserData,
+          currentUserId: widget.currentUserId,
+          currentProfileUserId: widget.currentProfileUserId,
+          onView: widget.onView,
         ),
       ),
     );
   }
 
-  Widget _buildSharedPostHeader() {
-    final sharedPost = widget.post as SharedPost;
-    final userData = widget.sharedByUserData;
-    final currentUserId = Provider.of<UserModel>(context, listen: false).userId;
+  void _handleVisibilityChanged(VisibilityInfo info) {
+    if (info.visibleFraction > 0.5) {
+      _stateManager.incrementViews();
+    }
+  }
 
-    // Déterminez le texte à afficher en fonction du contenu partagé
-    final sharedText = sharedPost.comment == "a publié une annonce"
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _stateManager.dispose();
+    super.dispose();
+  }
+}
+
+// Gestionnaire d'état du post
+class PostStateManager {
+  final String postId;
+  final String currentUserId;
+  final VoidCallback onStateChanged;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  List<String> _viewedBy = [];
+  bool _isLoading = false;
+  StreamSubscription? _postSubscription;
+
+  PostStateManager({
+    required this.postId,
+    required this.currentUserId,
+    required this.onStateChanged,
+  });
+
+  Future<void> initialize() async {
+    try {
+      final doc = await _firestore.collection('posts').doc(postId).get();
+      if (doc.exists) {
+        _viewedBy = List<String>.from(doc.data()?['viewedBy'] ?? []);
+        onStateChanged();
+      }
+      _setupPostListener();
+    } catch (e) {
+      debugPrint('Erreur lors de l\'initialisation: $e');
+    }
+  }
+
+  void _setupPostListener() {
+    _postSubscription =
+        _firestore.collection('posts').doc(postId).snapshots().listen((doc) {
+      if (doc.exists) {
+        _viewedBy = List<String>.from(doc.data()?['viewedBy'] ?? []);
+        onStateChanged();
+      }
+    });
+  }
+
+  Future<void> incrementViews() async {
+    if (_isLoading || _viewedBy.contains(currentUserId)) return;
+
+    _isLoading = true;
+    try {
+      await _firestore.collection('posts').doc(postId).update({
+        'views': FieldValue.increment(1),
+        'viewedBy': FieldValue.arrayUnion([currentUserId])
+      });
+      _viewedBy.add(currentUserId);
+    } catch (e) {
+      debugPrint('Erreur lors de l\'incrémentation des vues: $e');
+    } finally {
+      _isLoading = false;
+      onStateChanged();
+    }
+  }
+
+  void dispose() {
+    _postSubscription?.cancel();
+  }
+}
+
+// Widget principal de la carte
+class _PostCard extends StatelessWidget {
+  final Post post;
+  final PostStateManager stateManager;
+  final CompanyData companyData;
+  final Map<String, dynamic>? sharedByUserData;
+  final String currentUserId;
+  final String currentProfileUserId;
+  final VoidCallback onView;
+
+  const _PostCard({
+    required this.post,
+    required this.stateManager,
+    required this.companyData,
+    required this.currentUserId,
+    required this.currentProfileUserId,
+    required this.onView,
+    this.sharedByUserData,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (post is SharedPost)
+            _SharedPostHeader(
+              post: post as SharedPost,
+              userData: sharedByUserData,
+              currentUserId: currentUserId,
+            )
+          else
+            _CompanyHeader(
+              post: post,
+              companyData: companyData,
+              timestamp: post.timestamp,
+            ),
+          _PostContent(
+            post: post,
+            companyData: companyData,
+            currentUserId: currentUserId,
+          ),
+          _InteractionBar(
+            post: post,
+            currentUserId: currentUserId,
+            companyData: companyData,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Composants individuels
+class _CompanyHeader extends StatelessWidget {
+  final CompanyData companyData;
+  final Post post;
+  final DateTime timestamp;
+
+  const _CompanyHeader({
+    required this.companyData,
+    required this.post,
+    required this.timestamp,
+  });
+
+  String _formatDateTimeStamp(DateTime dateTime) {
+    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
+  }
+
+  String _getPostType() {
+    switch (post.runtimeType) {
+      case Event:
+        return 'Événement';
+      case PromoCodePost:
+        return 'Code Promo';
+      case ProductPost:
+        return 'Produit';
+      case Referral:
+        return 'Parrainage';
+      case JobOffer:
+        return 'Emplois';
+      case Contest:
+        return 'Jeux Concours';
+      case HappyDeal:
+        return 'Happy Deals';
+      case ExpressDeal:
+        return 'Deal Express';
+      case ServicePost:
+        return 'Services';
+      default:
+        return 'Publication';
+    }
+  }
+
+  LinearGradient _getPostTypeGradient() {
+    switch (post.runtimeType) {
+      case Event:
+        return const LinearGradient(
+          colors: [Colors.orange, Colors.pink],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        );
+      case PromoCodePost:
+        return const LinearGradient(
+          colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case ProductPost:
+        return const LinearGradient(
+          colors: [
+            Color.fromARGB(255, 234, 46, 159),
+            Color.fromARGB(255, 237, 23, 109)
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case Referral:
+        return const LinearGradient(
+          colors: [Color(0xFF4CAF50), Color(0xFF8BC34A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case JobOffer:
+        return const LinearGradient(
+          colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case Contest:
+        return const LinearGradient(
+          colors: [Color(0xFFC62828), Color(0xFFEF5350)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case HappyDeal:
+        return const LinearGradient(
+          colors: [Color(0xFF00796B), Color(0xFF009688)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case ExpressDeal:
+        return const LinearGradient(
+          colors: [Color(0xFFE65100), Color(0xFFFF9800)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case ServicePost:
+        return const LinearGradient(
+          colors: [Color(0xFF6B48FF), Color(0xFF8466FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      default:
+        return const LinearGradient(
+          colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+    }
+  }
+
+  IconData _getPostTypeIcon() {
+    switch (post.runtimeType) {
+      case Event:
+        return Icons.calendar_today_outlined;
+      case PromoCodePost:
+        return Icons.confirmation_number;
+      case ProductPost:
+        return Icons.shopping_bag_outlined;
+      case Referral:
+        return Icons.people_outline;
+      case JobOffer:
+        return Icons.work_outline;
+      case Contest:
+        return Icons.emoji_events;
+      case HappyDeal:
+        return Icons.local_offer;
+      case ExpressDeal:
+        return Icons.flash_on;
+      case ServicePost:
+        return Icons.calendar_today_outlined;
+      default:
+        return Icons.post_add;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailsEntreprise(
+              entrepriseId: post.companyId,
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: const Color(0xFF3476B2),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundImage: NetworkImage(companyData.logo),
+                  backgroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    companyData.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: _getPostTypeGradient(),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getPostTypeIcon(),
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _getPostType(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatDateTimeStamp(timestamp),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SharedPostHeader extends StatelessWidget {
+  final SharedPost post;
+  final Map<String, dynamic>? userData;
+  final String currentUserId;
+
+  const _SharedPostHeader({
+    required this.post,
+    required this.userData,
+    required this.currentUserId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sharedText = post.comment == "a publié une annonce"
         ? '${userData?['firstName'] ?? ''} ${userData?['lastName'] ?? ''} a publié une annonce'
         : '${userData?['firstName'] ?? ''} ${userData?['lastName'] ?? ''} a partagé';
 
@@ -173,47 +509,49 @@ class _PostWidgetState extends State<PostWidget>
       children: [
         ListTile(
           leading: GestureDetector(
-            onTap: () => _navigateToUserProfile(sharedPost.sharedBy),
+            onTap: () => _navigateToUserProfile(context, post.sharedBy),
             child: CircleAvatar(
               backgroundImage:
                   NetworkImage(userData?['userProfilePicture'] ?? ''),
-              backgroundColor: Colors.grey, // Couleur par défaut si pas d'image
+              backgroundColor: Colors.grey,
               onBackgroundImageError: (exception, stackTrace) {
-                print('Erreur de chargement image: $exception');
-                print('userData: $userData');
+                debugPrint('Erreur de chargement image: $exception');
               },
             ),
           ),
           title: GestureDetector(
-            onTap: () => _navigateToUserProfile(sharedPost.sharedBy),
+            onTap: () => _navigateToUserProfile(context, post.sharedBy),
             child: Text(
               sharedText,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          subtitle: Text(timeago.format(sharedPost.sharedAt, locale: 'fr')),
-          trailing: sharedPost.sharedBy == currentUserId
+          subtitle: Text(timeago.format(post.sharedAt, locale: 'fr')),
+          trailing: post.sharedBy == currentUserId
               ? IconButton(
                   icon: const Icon(Icons.more_vert),
-                  onPressed: () => _showOptionsBottomSheet(context, sharedPost),
+                  onPressed: () => _showOptionsBottomSheet(context, post),
                 )
               : null,
         ),
-        // Affichez le commentaire uniquement si ce n'est pas "a publié une annonce"
-        if (sharedPost.comment != "a publié une annonce" &&
-            sharedPost.comment != null &&
-            sharedPost.comment!.isNotEmpty)
+        if (post.comment != "a publié une annonce" &&
+            post.comment != null &&
+            post.comment!.isNotEmpty)
           Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Text(
-              sharedPost.comment!,
-              style: const TextStyle(fontStyle: FontStyle.normal),
-            ),
+            child: Text(post.comment!),
           ),
       ],
+    );
+  }
+
+  void _navigateToUserProfile(BuildContext context, String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Profile(userId: userId),
+      ),
     );
   }
 
@@ -223,7 +561,6 @@ class _PostWidgetState extends State<PostWidget>
       builder: (BuildContext bc) {
         return Wrap(
           children: <Widget>[
-            // Afficher l'option de modification seulement si le commentaire n'est pas "a publié une annonce"
             if (post.comment != "a publié une annonce")
               ListTile(
                 leading: const Icon(Icons.edit),
@@ -270,7 +607,7 @@ class _PostWidgetState extends State<PostWidget>
               child: const Text('Enregistrer'),
               onPressed: () {
                 Navigator.of(context).pop();
-                _updatePostComment(post, controller.text);
+                _updatePostComment(post, controller.text, context);
               },
             ),
           ],
@@ -296,7 +633,7 @@ class _PostWidgetState extends State<PostWidget>
               child: const Text('Supprimer'),
               onPressed: () {
                 Navigator.of(context).pop();
-                _deleteSharedPost(post);
+                _deleteSharedPost(post, context);
               },
             ),
           ],
@@ -305,108 +642,117 @@ class _PostWidgetState extends State<PostWidget>
     );
   }
 
-  void _updatePostComment(SharedPost post, String newComment) {
-    Provider.of<UserModel>(context, listen: false)
-        .updateSharedPostComment(post.id, newComment)
-        .then((_) {
-      _showSnackBar('Commentaire mis à jour avec succès');
-    }).catchError((error) {
-      _showSnackBar('Erreur lors de la mise à jour du commentaire');
-    });
-  }
-
-  void _deleteSharedPost(SharedPost post) {
-    Provider.of<UserModel>(context, listen: false)
-        .deleteSharedPost(post.id)
-        .then((_) {
-      _showSnackBar('Partage supprimé avec succès');
-    }).catchError((error) {
-      _showSnackBar('Erreur lors de la suppression du partage');
-    });
-  }
-
-  void _navigateToUserProfile(String userId) {
-    if (userId != widget.currentProfileUserId) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => Profile(userId: userId),
-        ),
+  Future<void> _updatePostComment(
+      SharedPost post, String newComment, BuildContext context) async {
+    try {
+      await Provider.of<UserModel>(context, listen: false)
+          .updateSharedPostComment(post.id, newComment);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Commentaire mis à jour avec succès')),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Erreur lors de la mise à jour du commentaire')),
       );
     }
   }
 
-  Widget _buildPostContent() {
-    if (widget.post is SharedPost) {
-      final sharedPost = widget.post as SharedPost;
-
-      return FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance
-            .collection(sharedPost.comment == "a publié une annonce"
-                ? 'ads' // Charge depuis la collection 'ads' pour les annonces
-                : 'posts') // Sinon, charge depuis la collection 'posts'
-            .doc(sharedPost.originalPostId)
-            .get(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError ||
-              !snapshot.hasData ||
-              !snapshot.data!.exists) {
-            return const Text('Erreur de chargement du post original');
-          }
-
-          // Vérifie si le post original est une annonce
-          if (sharedPost.comment == "a publié une annonce") {
-            return FutureBuilder<Ad>(
-              future:
-                  Ad.fromFirestore(snapshot.data!), // Obtention de l'objet Ad
-              builder: (context, adSnapshot) {
-                if (adSnapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (adSnapshot.hasError || !adSnapshot.hasData) {
-                  return const Text('Erreur de chargement de l\'annonce');
-                }
-
-                final ad = adSnapshot.data!;
-                return SizedBox(
-                  width: 250,
-                  child: AdCard(
-                      ad: ad,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AdDetailPage(ad: ad),
-                          ),
-                        );
-                      },
-                      onSaveTap: () => _toggleSaveAd(ad)),
-                );
-              },
-            );
-          } else {
-            // Sinon, traiter comme un autre type de post
-            final originalPost = Post.fromDocument(snapshot.data!);
-            return _buildPostTypeContent(originalPost);
-          }
-        },
+  Future<void> _deleteSharedPost(SharedPost post, BuildContext context) async {
+    try {
+      await Provider.of<UserModel>(context, listen: false)
+          .deleteSharedPost(post.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Partage supprimé avec succès')),
       );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Erreur lors de la suppression du partage')),
+      );
+    }
+  }
+}
+
+class _PostContent extends StatelessWidget {
+  final Post post;
+  final CompanyData companyData;
+  final String currentUserId;
+
+  const _PostContent({
+    required this.post,
+    required this.companyData,
+    required this.currentUserId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (post is SharedPost) {
+      return _buildSharedPostContent(post as SharedPost);
     } else {
-      return _buildPostTypeContent(widget.post);
+      return _buildPostTypeContent(post);
     }
   }
 
-  Future<void> _toggleSaveAd(Ad ad) async {
+  Widget _buildSharedPostContent(SharedPost sharedPost) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection(
+              sharedPost.comment == "a publié une annonce" ? 'ads' : 'posts')
+          .doc(sharedPost.originalPostId)
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+          return const Text('Erreur de chargement du post');
+        }
+
+        if (sharedPost.comment == "a publié une annonce") {
+          return _buildAdContent(snapshot.data!);
+        } else {
+          final originalPost = Post.fromDocument(snapshot.data!);
+          return _buildPostTypeContent(originalPost);
+        }
+      },
+    );
+  }
+
+  Widget _buildAdContent(DocumentSnapshot snapshot) {
+    return FutureBuilder<Ad>(
+      future: Ad.fromFirestore(snapshot),
+      builder: (context, adSnapshot) {
+        if (adSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (adSnapshot.hasError || !adSnapshot.hasData) {
+          return const Text('Erreur de chargement de l\'annonce');
+        }
+
+        final ad = adSnapshot.data!;
+        return SizedBox(
+          width: 250,
+          child: AdCard(
+            ad: ad,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AdDetailPage(ad: ad)),
+            ),
+            onSaveTap: () => _toggleSaveAd(ad, context),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleSaveAd(Ad ad, BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text('Vous devez être connecté pour sauvegarder une annonce'),
-        ),
+            content:
+                Text('Vous devez être connecté pour sauvegarder une annonce')),
       );
       return;
     }
@@ -427,72 +773,70 @@ class _PostWidgetState extends State<PostWidget>
       case JobOffer:
         return JobOfferCard(
           post: post as JobOffer,
-          companyName: widget.companyName,
-          companyLogo: widget.companyLogo,
+          companyName: companyData.name,
+          companyLogo: companyData.logo,
         );
       case Contest:
         return ConcoursCard(
           contest: post as Contest,
-          currentUserId: widget.currentUserId,
-          companyName: widget.companyName,
-          companyLogo: widget.companyLogo,
+          currentUserId: currentUserId,
         );
       case HappyDeal:
         return HappyDealsCard(
           post: post as HappyDeal,
-          companyName: widget.companyName,
-          companyCover: widget.companyCover,
-          companyCategorie: widget.companyCategorie,
-          companyLogo: widget.companyLogo,
-        );
-      case ExpressDeal:
-        return DealsExpressCard(
-          currentUserId: widget.currentUserId,
-          post: post as ExpressDeal,
-          companyName: widget.companyName,
-          companyLogo: widget.companyLogo,
-        );
-      case Referral:
-        return ParrainageCard(
-          companyName: widget.companyName,
-          currentUserId: widget.currentUserId,
-          post: post as Referral,
-          companyLogo: widget.companyLogo,
-        );
-      case Event:
-        return EvenementCard(
-          companyName: widget.companyName,
-          companyLogo: widget.companyLogo,
-          event: post as Event,
-          currentUserId: widget.currentUserId,
-        );
-      case ProductPost:
-        return ProductCards(
-          post: post as ProductPost,
-          companyName: widget.companyName,
-          companyLogo: widget.companyLogo,
-        );
-      case PromoCodePost:
-        return PromoCodeCard(
-          post: post as PromoCodePost,
-          companyName: widget.companyName,
-          companyLogo: widget.companyLogo,
-          currentUserId: widget.currentUserId,
+          companyName: companyData.name,
+          companyCover: companyData.cover,
+          companyCategorie: companyData.category,
+          companyLogo: companyData.logo,
         );
       case News:
         return NewsCard(
           news: post as News,
-          companyLogo: widget.companyLogo,
-          companyName: widget.companyName,
+          companyName: companyData.name,
+          companyLogo: companyData.logo,
         );
-
+      case Referral:
+        return ParrainageCard(
+          post: post as Referral,
+          currentUserId: currentUserId,
+          companyName: companyData.name,
+          companyLogo: companyData.logo,
+        );
+      case ExpressDeal:
+        return DealsExpressCard(
+          currentUserId: currentUserId,
+          post: post as ExpressDeal,
+          companyName: companyData.name,
+          companyLogo: companyData.logo,
+        );
+      case ProductPost:
+        return ProductCards(
+          post: post as ProductPost,
+          companyName: companyData.name,
+          companyLogo: companyData.logo,
+        );
       case ServicePost:
         return ServiceCards(
           post: post as ServicePost,
-          companyName: widget.companyName,
-          companyLogo: widget.companyLogo,
+          companyName: companyData.name,
+          companyLogo: companyData.logo,
+        );
+      case Event:
+        return EvenementCard(
+          event: post as Event,
+          currentUserId: currentUserId,
+          companyName: companyData.name,
+          companyLogo: companyData.logo,
+        );
+      case PromoCodePost:
+        return PromoCodeCard(
+          post: post as PromoCodePost,
+          companyName: companyData.name,
+          companyLogo: companyData.logo,
+          currentUserId: currentUserId,
         );
 
+      // ... autres cas similaires ...
       default:
         return Card(
           child: Padding(
@@ -502,20 +846,33 @@ class _PostWidgetState extends State<PostWidget>
               children: [
                 Text('Type de post non supporté: ${post.runtimeType}'),
                 Text('ID du post: ${post.id}'),
-                Text('Entreprise: ${widget.companyName}'),
-                Text('Catégorie: ${widget.companyCategorie}'),
+                Text('Entreprise: ${companyData.name}'),
+                Text('Catégorie: ${companyData.category}'),
               ],
             ),
           ),
         );
     }
   }
+}
 
-  Widget _buildInteractionBar() {
+class _InteractionBar extends StatelessWidget {
+  final Post post;
+  final String currentUserId;
+  final CompanyData companyData;
+
+  const _InteractionBar({
+    required this.post,
+    required this.currentUserId,
+    required this.companyData,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('posts')
-          .doc(widget.post.id)
+          .doc(post.id)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -531,9 +888,9 @@ class _PostWidgetState extends State<PostWidget>
 
         return Consumer<UserModel>(
           builder: (context, userModel, _) {
-            final isLiked = likedBy.contains(widget.currentUserId);
-            final isCurrentUser = widget.post is SharedPost &&
-                (widget.post as SharedPost).sharedBy == widget.currentUserId;
+            final isLiked = likedBy.contains(currentUserId);
+            final isCurrentUser = post is SharedPost &&
+                (post as SharedPost).sharedBy == currentUserId;
 
             return Column(
               children: [
@@ -563,17 +920,7 @@ class _PostWidgetState extends State<PostWidget>
                               isLiked ? Icons.favorite : Icons.favorite_border,
                               color: isLiked ? Colors.red : null,
                             ),
-                            onPressed: () async {
-                              try {
-                                await Provider.of<UserModel>(context,
-                                        listen: false)
-                                    .handleLike(widget.post);
-                              } catch (e) {
-                                if (kDebugMode) {
-                                  print('Erreur lors du like: $e');
-                                }
-                              }
-                            },
+                            onPressed: () => _handleLike(userModel),
                           ),
                           Text('$likes'),
                           const SizedBox(width: 20),
@@ -596,12 +943,31 @@ class _PostWidgetState extends State<PostWidget>
                     ],
                   ),
                 ),
-                Divider(height: 20, color: Colors.grey[300]),
               ],
             );
           },
         );
       },
+    );
+  }
+
+  Future<void> _handleLike(UserModel userModel) async {
+    try {
+      await userModel.handleLike(post);
+    } catch (e) {
+      debugPrint('Erreur lors du like: $e');
+    }
+  }
+
+  void _navigateToComments(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CommentScreen(
+          post: post,
+          currentUserId: currentUserId,
+        ),
+      ),
     );
   }
 
@@ -639,76 +1005,69 @@ class _PostWidgetState extends State<PostWidget>
               ListTile(
                 leading: const Icon(Icons.share_outlined),
                 title: const Text('Partager sur mon profil'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Stockons le BuildContext actuel
-                  final scaffoldContext = context;
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext dialogContext) {
-                      return ShareConfirmationDialog(
-                        post: widget.post,
-                        onConfirm: (String comment) async {
-                          try {
-                            // Fermer d'abord le dialogue
-                            Navigator.of(dialogContext).pop();
-
-                            await FirebaseFirestore.instance
-                                .collection('posts')
-                                .doc(widget.post.id)
-                                .update({
-                              'sharesCount': FieldValue.increment(1),
-                            });
-
-                            await users.sharePost(
-                              widget.post.id,
-                              users.userId,
-                              comment: comment,
-                            );
-
-                            // Utiliser le contexte stocké
-                            if (scaffoldContext.mounted) {
-                              ScaffoldMessenger.of(scaffoldContext)
-                                  .showSnackBar(
-                                const SnackBar(
-                                  content:
-                                      Text('Publication partagée avec succès!'),
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            // Utiliser le contexte stocké
-                            if (scaffoldContext.mounted) {
-                              ScaffoldMessenger.of(scaffoldContext)
-                                  .showSnackBar(
-                                SnackBar(
-                                  content: Text('Erreur lors du partage: $e'),
-                                  behavior: SnackBarBehavior.floating,
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                      );
-                    },
-                  );
-                },
+                onTap: () => _handleProfileShare(context, users),
               ),
               ListTile(
                 leading: const Icon(Icons.message_outlined),
                 title: const Text('Envoyer en message'),
                 onTap: () {
-                  Navigator.pop(context); // Ferme le bottom sheet
-                  // Ouvre la liste des conversations pour partager
+                  Navigator.pop(context);
                   _showConversationsList(context, users);
                 },
               ),
               const SizedBox(height: 8),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _handleProfileShare(BuildContext context, UserModel users) {
+    final scaffoldContext = context;
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return ShareConfirmationDialog(
+          post: post,
+          onConfirm: (String comment) async {
+            try {
+              Navigator.of(dialogContext).pop();
+
+              await FirebaseFirestore.instance
+                  .collection('posts')
+                  .doc(post.id)
+                  .update({
+                'sharesCount': FieldValue.increment(1),
+              });
+
+              await users.sharePost(
+                post.id,
+                users.userId,
+                comment: comment,
+              );
+
+              if (scaffoldContext.mounted) {
+                ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Publication partagée avec succès!'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            } catch (e) {
+              if (scaffoldContext.mounted) {
+                ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Erreur lors du partage: $e'),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
         );
       },
     );
@@ -754,86 +1113,8 @@ class _PostWidgetState extends State<PostWidget>
                 ),
                 const Divider(),
                 Expanded(
-                  child: StreamBuilder<List<String>>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(users.userId)
-                        .snapshots()
-                        .map((doc) => List<String>.from(
-                            doc.data()?['followedUsers'] ?? [])),
-                    builder: (context, followedSnapshot) {
-                      if (!followedSnapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      final followedUsers = followedSnapshot.data!;
-
-                      return FutureBuilder<List<DocumentSnapshot>>(
-                        future: FirebaseFirestore.instance
-                            .collection('users')
-                            .where(FieldPath.documentId, whereIn: followedUsers)
-                            .get()
-                            .then((query) => query.docs),
-                        builder: (context, usersSnapshot) {
-                          if (!usersSnapshot.hasData) {
-                            return const Center(
-                                child: CircularProgressIndicator());
-                          }
-
-                          final usersList = usersSnapshot.data!;
-
-                          return ListView.builder(
-                            controller: scrollController,
-                            itemCount: usersList.length,
-                            itemBuilder: (context, index) {
-                              final userData = usersList[index].data()
-                                  as Map<String, dynamic>;
-                              final userId = usersList[index].id;
-
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundImage: userData['image_profile'] !=
-                                          null
-                                      ? NetworkImage(userData['image_profile'])
-                                      : null,
-                                  child: userData['image_profile'] == null
-                                      ? const Icon(Icons.person)
-                                      : null,
-                                ),
-                                title: Text(
-                                    '${userData['firstName']} ${userData['lastName']}'),
-                                onTap: () async {
-                                  try {
-                                    // Incrémenter le compteur de partages
-                                    await FirebaseFirestore.instance
-                                        .collection('posts')
-                                        .doc(widget.post.id)
-                                        .update({
-                                      'sharesCount': FieldValue.increment(1),
-                                    });
-
-                                    await conversationService
-                                        .sharePostInConversation(
-                                      senderId: users.userId,
-                                      receiverId: userId,
-                                      post: widget.post,
-                                    );
-                                    if (!context.mounted) return;
-                                    Navigator.pop(context);
-                                    _showSnackBar('Post partagé avec succès');
-                                  } catch (e) {
-                                    if (!context.mounted) return;
-                                    Navigator.pop(context);
-                                    _showSnackBar('Erreur lors du partage: $e');
-                                  }
-                                },
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
+                  child: _buildConversationsList(
+                      scrollController, users, conversationService),
                 ),
               ],
             );
@@ -843,31 +1124,99 @@ class _PostWidgetState extends State<PostWidget>
     );
   }
 
-  void _showSnackBar(String message) {
-    if (_scaffoldContext != null) {
-      ScaffoldMessenger.of(_scaffoldContext!).showSnackBar(
-        SnackBar(content: Text(message)),
+  Widget _buildConversationsList(
+    ScrollController scrollController,
+    UserModel users,
+    ConversationService conversationService,
+  ) {
+    return StreamBuilder<List<String>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(users.userId)
+          .snapshots()
+          .map((doc) => List<String>.from(doc.data()?['followedUsers'] ?? [])),
+      builder: (context, followedSnapshot) {
+        if (!followedSnapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final followedUsers = followedSnapshot.data!;
+
+        return FutureBuilder<List<DocumentSnapshot>>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .where(FieldPath.documentId, whereIn: followedUsers)
+              .get()
+              .then((query) => query.docs),
+          builder: (context, usersSnapshot) {
+            if (!usersSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final usersList = usersSnapshot.data!;
+
+            return ListView.builder(
+              controller: scrollController,
+              itemCount: usersList.length,
+              itemBuilder: (context, index) {
+                final userData =
+                    usersList[index].data() as Map<String, dynamic>;
+                final userId = usersList[index].id;
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: userData['image_profile'] != null
+                        ? NetworkImage(userData['image_profile'])
+                        : null,
+                    child: userData['image_profile'] == null
+                        ? const Icon(Icons.person)
+                        : null,
+                  ),
+                  title:
+                      Text('${userData['firstName']} ${userData['lastName']}'),
+                  onTap: () => _handleConversationShare(
+                    context,
+                    userId,
+                    users,
+                    conversationService,
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleConversationShare(
+    BuildContext context,
+    String userId,
+    UserModel users,
+    ConversationService conversationService,
+  ) async {
+    try {
+      await FirebaseFirestore.instance.collection('posts').doc(post.id).update({
+        'sharesCount': FieldValue.increment(1),
+      });
+
+      await conversationService.sharePostInConversation(
+        senderId: users.userId,
+        receiverId: userId,
+        post: post,
+      );
+
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post partagé avec succès')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du partage: $e')),
       );
     }
-  }
-
-  @override
-  void dispose() {
-    _scaffoldContext = null;
-    _visibilitySubscription?.cancel();
-
-    super.dispose();
-  }
-
-  void _navigateToComments(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CommentScreen(
-          post: widget.post,
-          currentUserId: widget.currentUserId,
-        ),
-      ),
-    );
   }
 }

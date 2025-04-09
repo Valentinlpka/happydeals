@@ -2,12 +2,13 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart' hide Card;
 import 'package:happy/classes/product.dart';
 import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/services/promo_service.dart';
-import 'package:happy/widgets/custom_app_bar_back.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar_back.dart';
 import 'package:happy/widgets/unified_payment_button.dart';
 import 'package:provider/provider.dart';
 
@@ -41,7 +42,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _cart = widget.cart;
     _generateOrderId();
     _loadPickupAddress();
-    _listenToCartChanges();
   }
 
   @override
@@ -61,31 +61,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _generateOrderId() async {
-    final orderRef = FirebaseFirestore.instance.collection('orders').doc();
+    final orderRef =
+        FirebaseFirestore.instance.collection('pending_orders').doc();
     setState(() {
       _orderId = orderRef.id;
     });
-  }
-
-  void _listenToCartChanges() {
-    _cartSubscription = _firestore
-        .collection('carts')
-        .doc(_cart.id)
-        .snapshots()
-        .listen((snapshot) async {
-      if (!snapshot.exists) {
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-        return;
-      }
-
-      final updatedCart = await Cart.fromFirestore(snapshot);
-      if (updatedCart != null && mounted) {
-        setState(() {
-          _cart = updatedCart;
-        });
-      }
+    await orderRef.set({
+      'userId': FirebaseAuth.instance.currentUser?.uid,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -394,9 +378,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'totalPrice': _cart.finalTotal,
                   'pickupAddress': _pickupAddress,
                 },
-                successUrl: '${Uri.base.origin}/#/payment-success',
-                cancelUrl: '${Uri.base.origin}/#/payment-cancel',
+                successUrl:
+                    '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-success?orderId=$_orderId',
+                cancelUrl:
+                    '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-cancel',
                 onBeforePayment: () => _verifyBeforePayment(),
+                onSuccess: () {
+                  FirebaseFirestore.instance
+                      .collection('carts')
+                      .doc(_cart.id)
+                      .delete();
+                },
               ),
             ),
           ],

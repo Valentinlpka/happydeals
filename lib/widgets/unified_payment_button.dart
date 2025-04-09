@@ -54,6 +54,7 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
       String? pendingId;
       String successUrlWithParams = widget.successUrl;
 
+      // Créer le document en attente selon le type
       switch (widget.type) {
         case 'order':
           pendingId =
@@ -129,6 +130,10 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
           break;
       }
 
+      if (!successUrlWithParams.startsWith('http')) {
+        throw Exception('URL de redirection invalide: $successUrlWithParams');
+      }
+
       final result = await FirebaseFunctions.instance
           .httpsCallable('createUnifiedPayment')
           .call({
@@ -142,25 +147,50 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
 
       if (kIsWeb) {
         final String checkoutUrl = result.data['url'];
+        if (!checkoutUrl.startsWith('http')) {
+          throw Exception('URL de paiement invalide: $checkoutUrl');
+        }
         html.window.location.href = checkoutUrl;
       } else {
-        await Stripe.instance.initPaymentSheet(
-          paymentSheetParameters: SetupPaymentSheetParameters(
-            merchantDisplayName: 'Happy Deals',
-            paymentIntentClientSecret: result.data['clientSecret'],
-          ),
-        );
+        // Version mobile
+        try {
+          // Stocker le contexte actuel
+          final BuildContext currentContext = context;
 
-        await Stripe.instance.presentPaymentSheet();
-
-        if (mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => UnifiedPaymentSuccessScreen(
-                sessionId: result.data['sessionId'],
-              ),
+          await Stripe.instance.initPaymentSheet(
+            paymentSheetParameters: SetupPaymentSheetParameters(
+              merchantDisplayName: 'Happy Deals',
+              paymentIntentClientSecret: result.data['clientSecret'],
             ),
           );
+
+          // Afficher le formulaire de paiement
+          await Stripe.instance.presentPaymentSheet();
+
+          // Attendre un peu que le webhook traite le paiement
+          await Future.delayed(const Duration(seconds: 3));
+
+          if (mounted) {
+            // Redirection vers la page de succès
+            await Navigator.of(currentContext).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => UnifiedPaymentSuccessScreen(
+                  sessionId: result.data['sessionId'],
+                  orderId: widget.metadata['orderId'],
+                  reservationId: widget.metadata['reservationId'],
+                  bookingId: widget.metadata['bookingId'],
+                ),
+              ),
+              (route) => false,
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erreur: $e')),
+            );
+          }
+          rethrow;
         }
       }
     } catch (e) {

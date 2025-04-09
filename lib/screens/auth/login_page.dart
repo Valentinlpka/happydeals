@@ -4,6 +4,7 @@ import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/complete_profile.dart';
 import 'package:happy/screens/auth/register_page.dart';
 import 'package:happy/screens/main_container.dart';
+import 'package:happy/services/analytics_service.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
@@ -17,6 +18,7 @@ class Login extends StatefulWidget {
 }
 
 class _LoginState extends State<Login> {
+  final AnalyticsService _analytics = AnalyticsService();
   bool _passwordVisible = false;
   final AuthService _auth = AuthService();
   final TextEditingController _emailController = TextEditingController();
@@ -51,6 +53,15 @@ class _LoginState extends State<Login> {
       if (!mounted) return;
 
       if (result == 'Success') {
+        await _analytics.logEvent(
+          name: 'login',
+          parameters: {
+            'success': true,
+            'method': 'email',
+            'user_id': userModel.userId,
+          },
+        );
+
         // Initialiser le service de conversation après une connexion réussie
         await conversationService.initializeForUser(userModel.userId);
 
@@ -71,6 +82,13 @@ class _LoginState extends State<Login> {
         );
       }
     } catch (e) {
+      await _analytics.logEvent(
+        name: 'login_error',
+        parameters: {
+          'method': 'email',
+          'error': e.toString(),
+        },
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur de connexion: $e')),
       );

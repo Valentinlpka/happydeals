@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/booking_detail_page.dart';
 import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
@@ -39,74 +39,13 @@ class _UnifiedPaymentSuccessScreenState
   @override
   void initState() {
     super.initState();
-    if (widget.orderId != null) {
-      _paymentDetails = {
-        'type': 'order',
-        'metadata': {'orderId': widget.orderId},
-      };
-    } else if (widget.reservationId != null) {
-      _paymentDetails = {
-        'type': 'express_deal',
-        'metadata': {'reservationId': widget.reservationId},
-      };
-    } else if (widget.bookingId != null) {
-      _paymentDetails = {
-        'type': 'service',
-        'metadata': {'bookingId': widget.bookingId},
-      };
-    }
-    _verifyPayment();
+    _initializePaymentDetails();
   }
 
-  String? _getSessionId() {
-    if (!kIsWeb) return widget.sessionId;
-
+  Future<void> _initializePaymentDetails() async {
     try {
-      final uri = Uri.parse(html.window.location.href);
-      final params = uri.queryParameters;
-
-      print('URL params: $params'); // Debug log
-
-      if (_paymentDetails == null) {
-        if (params['orderId'] != null) {
-          print('Found orderId: ${params['orderId']}'); // Debug log
-          _paymentDetails = {
-            'type': 'order',
-            'metadata': {'orderId': params['orderId']},
-          };
-        } else if (params['reservationId'] != null) {
-          print('Found reservationId: ${params['reservationId']}'); // Debug log
-          _paymentDetails = {
-            'type': 'express_deal',
-            'metadata': {'reservationId': params['reservationId']},
-          };
-        } else if (params['bookingId'] != null) {
-          print('Found bookingId: ${params['bookingId']}'); // Debug log
-          _paymentDetails = {
-            'type': 'service',
-            'metadata': {'bookingId': params['bookingId']},
-          };
-        }
-      }
-
-      print('Final paymentDetails: $_paymentDetails'); // Debug log
-      return params['session_id'];
-    } catch (e) {
-      print('Error parsing URL: $e'); // Debug log
-      return null;
-    }
-  }
-
-  Future<void> _verifyPayment() async {
-    try {
-      print('Début de _verifyPayment');
-
-      if (_auth.currentUser == null) {
-        throw Exception('Utilisateur non authentifié');
-      }
-
-      // Récupérer les paramètres de l'URL si on est sur le web
-      if (kIsWeb && _paymentDetails == null) {
+      // Vérifier d'abord les paramètres d'URL pour le web
+      if (kIsWeb) {
         final uri = Uri.parse(html.window.location.href);
         final params = uri.queryParameters;
 
@@ -128,70 +67,118 @@ class _UnifiedPaymentSuccessScreenState
         }
       }
 
-      // Vérifier et traiter selon le type de paiement
-      if (_paymentDetails != null) {
-        switch (_paymentDetails!['type']) {
-          case 'order':
-            await _handleOrderSuccess(_paymentDetails!['metadata']['orderId']);
-            break;
-          case 'express_deal':
-            await _handleExpressDealSuccess(
-                _paymentDetails!['metadata']['reservationId']);
-            break;
-          case 'service':
-            await _handleServiceSuccess(
-                _paymentDetails!['metadata']['bookingId']);
-            break;
-          default:
-            throw Exception('Type de paiement inconnu');
+      // Pour mobile, vérifier les IDs passés en paramètres
+      if (_paymentDetails == null) {
+        if (widget.orderId != null) {
+          _paymentDetails = {
+            'type': 'order',
+            'metadata': {'orderId': widget.orderId},
+          };
+        } else if (widget.reservationId != null) {
+          _paymentDetails = {
+            'type': 'express_deal',
+            'metadata': {'reservationId': widget.reservationId},
+          };
+        } else if (widget.bookingId != null) {
+          _paymentDetails = {
+            'type': 'service',
+            'metadata': {'bookingId': widget.bookingId},
+          };
         }
-        return;
       }
 
-      throw Exception('Détails du paiement non trouvés');
+      if (_paymentDetails != null) {
+        await _verifyPayment();
+      } else {
+        _handleError('Aucun détail de paiement trouvé');
+      }
     } catch (e) {
-      _handleError('Une erreur est survenue: $e');
+      _handleError('Erreur lors de l\'initialisation: $e');
+    }
+  }
+
+  Future<void> _verifyPayment() async {
+    try {
+      if (_auth.currentUser == null) {
+        throw Exception('Utilisateur non authentifié');
+      }
+
+      if (_paymentDetails == null) {
+        throw Exception('Détails du paiement non trouvés');
+      }
+
+      _paymentType = _paymentDetails!['type'];
+      print('Vérification du paiement de type: $_paymentType');
+
+      switch (_paymentType) {
+        case 'order':
+          await _handleOrderSuccess(_paymentDetails!['metadata']['orderId']);
+          break;
+        case 'express_deal':
+          await _handleExpressDealSuccess(
+              _paymentDetails!['metadata']['reservationId']);
+          break;
+        case 'service':
+          await _handleServiceSuccess(
+              _paymentDetails!['metadata']['bookingId']);
+          break;
+        default:
+          throw Exception('Type de paiement inconnu');
+      }
+    } catch (e) {
+      _handleError('Erreur lors de la vérification: $e');
     }
   }
 
   Future<void> _handleOrderSuccess(String orderId) async {
-    await _waitForOrder(orderId);
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => OrderDetailPage(orderId: orderId),
-        ),
-        (route) => false,
-      );
+    try {
+      await _waitForDocument('orders', orderId);
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => OrderDetailPage(orderId: orderId),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      _handleError('Erreur lors de la redirection: $e');
     }
   }
 
   Future<void> _handleExpressDealSuccess(String reservationId) async {
-    await _waitForDocument('reservations', reservationId);
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) =>
-              ReservationDetailsPage(reservationId: reservationId),
-        ),
-        (route) => false,
-      );
+    try {
+      await _waitForDocument('reservations', reservationId);
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) =>
+                ReservationDetailsPage(reservationId: reservationId),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      _handleError('Erreur lors de la redirection: $e');
     }
   }
 
   Future<void> _handleServiceSuccess(String bookingId) async {
-    await _waitForDocument('bookings', bookingId);
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => BookingDetailPage(bookingId: bookingId),
-        ),
-        (route) => false,
-      );
+    try {
+      await _waitForDocument('bookings', bookingId);
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => BookingDetailPage(bookingId: bookingId),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      _handleError('Erreur lors de la redirection: $e');
     }
   }
 
-  // Méthode générique pour attendre la création d'un document
   Future<void> _waitForDocument(String collection, String documentId) async {
     const maxAttempts = 10;
     const delaySeconds = 2;
@@ -199,59 +186,45 @@ class _UnifiedPaymentSuccessScreenState
 
     while (attempts < maxAttempts) {
       final doc = await _firestore.collection(collection).doc(documentId).get();
-      if (doc.exists) return;
+      if (doc.exists) {
+        setState(() => _isLoading = false);
+        return;
+      }
       await Future.delayed(const Duration(seconds: delaySeconds));
       attempts++;
     }
 
     throw Exception(
-        'Document non créé après ${maxAttempts * delaySeconds} secondes');
+        'Document non trouvé après ${maxAttempts * delaySeconds} secondes');
   }
 
   void _handleError(String message) {
-    print('Erreur dans payment_success: $message');
-    setState(() {
-      _statusMessage = message;
-      _isLoading = false;
-    });
-
+    print('Erreur: $message');
     if (mounted) {
+      setState(() {
+        _statusMessage = message;
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
     }
   }
 
-  void _showSuccessMessage() {
-    String message;
-    switch (_paymentType) {
-      case 'order':
-        message = 'Votre commande a été confirmée !';
-        break;
-      case 'express_deal':
-        message = 'Votre réservation express a été confirmée !';
-        break;
-      case 'service':
-        message = 'Votre réservation de service a été confirmée !';
-        break;
-      default:
-        message = 'Paiement confirmé !';
-    }
-    setState(() => _statusMessage = message);
-  }
-
   Widget _buildLoadingIndicator() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const CircularProgressIndicator(),
-        const SizedBox(height: 20),
-        Text(
-          _statusMessage,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16),
-        ),
-      ],
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 20),
+          Text(
+            _statusMessage,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16),
+          ),
+        ],
+      ),
     );
   }
 
@@ -317,32 +290,6 @@ class _UnifiedPaymentSuccessScreenState
         ],
       ),
     );
-  }
-
-  // Nouvelle fonction pour attendre la création de la commande
-  Future<void> _waitForOrder(String orderId) async {
-    print('Début de _waitForOrder pour orderId: $orderId');
-    const maxAttempts = 10;
-    const delaySeconds = 2;
-    int attempts = 0;
-
-    while (attempts < maxAttempts) {
-      print('Tentative ${attempts + 1}/$maxAttempts');
-      final orderDoc = await _firestore.collection('orders').doc(orderId).get();
-
-      if (orderDoc.exists) {
-        print('Commande trouvée après ${attempts + 1} tentatives');
-        return;
-      }
-
-      print(
-          'Commande non trouvée, nouvelle tentative dans $delaySeconds secondes...');
-      await Future.delayed(const Duration(seconds: delaySeconds));
-      attempts++;
-    }
-
-    throw Exception(
-        'La commande n\'a pas été créée après ${maxAttempts * delaySeconds} secondes');
   }
 
   @override

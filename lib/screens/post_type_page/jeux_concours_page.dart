@@ -3,9 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/utils/location_utils.dart';
-import 'package:happy/widgets/cards/concours_card.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/postwidget.dart';
 
 class JeuxConcoursPage extends StatefulWidget {
   const JeuxConcoursPage({super.key});
@@ -296,11 +296,20 @@ class _JeuxConcoursPageState extends State<JeuxConcoursPage> {
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: ConcoursCard(
-                      contest: contest,
-                      companyName: companyName,
-                      companyLogo: companyLogo,
+                    child: PostWidget(
+                      post: contest,
+                      onView: () {
+                        // TODO: Implémenter la navigation vers la vue détaillée
+                      },
+                      currentProfileUserId: currentUserId,
                       currentUserId: currentUserId,
+                      companyData: CompanyData(
+                        name: companyData['name'] ?? '',
+                        category: companyData['categorie'] ?? '',
+                        logo: companyData['logo'] ?? '',
+                        cover: companyData['cover'] ?? '',
+                        rawData: companyData,
+                      ),
                     ),
                   );
                 },

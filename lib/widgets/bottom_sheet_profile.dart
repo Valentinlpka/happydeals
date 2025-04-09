@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/users_provider.dart';
@@ -7,6 +10,7 @@ import 'package:happy/screens/notifications_page.dart';
 import 'package:happy/screens/settings_page.dart';
 import 'package:happy/services/auth_service.dart';
 import 'package:provider/provider.dart';
+import 'package:universal_html/html.dart' as html;
 
 void showProfileBottomSheet(BuildContext context) {
   final authService = AuthService(); // Instanciation de AuthService
@@ -148,7 +152,84 @@ void showProfileBottomSheet(BuildContext context) {
               );
             },
           ),
+          _buildMenuOption(
+            context: context,
+            icon: Icons.download_outlined,
+            label: 'Exporter les catégories',
+            onTap: () async {
+              try {
+                // Afficher un indicateur de chargement
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  },
+                );
 
+                // Récupérer les catégories
+                final QuerySnapshot snapshot = await FirebaseFirestore.instance
+                    .collection('categories')
+                    .get();
+
+                final List<Map<String, dynamic>> categoriesList =
+                    snapshot.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return {
+                    'id': doc.id,
+                    'name': data['name'],
+                    'level': data['level'],
+                    'hasAttributes': data['hasAttributes'],
+                    'parentId': data['parentId'],
+                    'createdAt': (data['createdAt'] as Timestamp)
+                        .toDate()
+                        .toIso8601String(),
+                    'updatedAt': (data['updatedAt'] as Timestamp)
+                        .toDate()
+                        .toIso8601String(),
+                  };
+                }).toList();
+
+                // Créer le JSON
+                final String jsonString = const JsonEncoder.withIndent('  ')
+                    .convert({'categories': categoriesList});
+
+                // Créer et déclencher le téléchargement
+                final bytes = utf8.encode(jsonString);
+                final blob = html.Blob([bytes]);
+                final url = html.Url.createObjectUrlFromBlob(blob);
+                final anchor = html.AnchorElement(href: url)
+                  ..setAttribute('download', 'categories.json')
+                  ..click();
+
+                html.Url.revokeObjectUrl(url);
+
+                // Fermer l'indicateur de chargement
+                Navigator.pop(context);
+
+                // Afficher un message de succès
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Export des catégories réussi !'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                // Fermer l'indicateur de chargement
+                Navigator.pop(context);
+
+                // Afficher l'erreur
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Erreur lors de l\'export : $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
           const SizedBox(height: 8),
           // Logout Button
           Padding(

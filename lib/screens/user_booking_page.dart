@@ -5,7 +5,7 @@ import 'package:happy/classes/booking.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/screens/booking_detail_page.dart';
 import 'package:happy/services/service_service.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/booking_service.dart';

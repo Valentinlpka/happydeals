@@ -666,7 +666,15 @@ exports.createProduct = functions.https.onCall(async (data, context) => {
       merchantId: stripeAccountId,
       sellerId: context.auth.uid,
       stripeProductId: stripeProduct.id,
+      technicalDetails: data.technicalDetails || [], // Ajout des détails techniques
+      keywords: data.keywords || [], // Ajout des tags
       variants: variantsWithStripeData,
+      pickupType: data.pickupType || "company", // Type de retrait
+      pickupAddress: data.pickupAddress || "", // Adresse de retrait
+      pickupPostalCode: data.pickupPostalCode || "", // Code postal
+      pickupCity: data.pickupCity || "", // Ville
+      pickupLatitude: data.pickupLatitude || 0, // Latitude
+      pickupLongitude: data.pickupLongitude || 0, // Longitude
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -2273,12 +2281,25 @@ exports.handleStripeWebhook = functions.https.onRequest(
           console.log(`Successfully processed ${type} payment:`, result);
 
           // Créer une notification
-          await createPaymentNotification({
-            type,
-            paymentId: paymentData.id,
-            metadata: metadata,
-            result: result,
-          });
+          if (type === "order") {
+            await sendOrderNotifications(result.orderId, {
+              ...pendingOrderData,
+              userId: metadata.userId,
+              amount: pendingOrderData.totalPrice * 100,
+              userData: await admin
+                .firestore()
+                .collection("users")
+                .doc(metadata.userId)
+                .get()
+                .then((doc) => doc.data()),
+              companyData: await admin
+                .firestore()
+                .collection("companys")
+                .doc(pendingOrderData.entrepriseId)
+                .get()
+                .then((doc) => doc.data()),
+            });
+          }
         } catch (error) {
           console.error(`Error processing ${type} payment:`, error);
           // On continue malgré l'erreur pour ne pas retraiter le webhook
@@ -2294,9 +2315,11 @@ exports.handleStripeWebhook = functions.https.onRequest(
 );
 
 // Création commande classique
-async function handleOrderPayment(session) {
-  const metadata = session.metadata;
-  const { orderId, cartId, userId } = metadata;
+async function handleOrderPayment(paymentData) {
+  const metadata = paymentData.metadata;
+  const cartId = metadata.cartId;
+  const orderId = metadata.orderId;
+  const userId = metadata.userId;
 
   try {
     const pendingOrderDoc = await admin
@@ -2306,6 +2329,7 @@ async function handleOrderPayment(session) {
       .get();
 
     if (!pendingOrderDoc.exists) {
+      console.error("Pending order not found for orderId:", orderId);
       throw new Error("Pending order not found");
     }
 
@@ -2343,7 +2367,7 @@ async function handleOrderPayment(session) {
         totalPrice: pendingOrderData.totalPrice,
         pickupAddress: pendingOrderData.pickupAddress,
         status: "paid",
-        paymentId: session.payment_intent,
+        paymentId: paymentData.id, // Utiliser directement l'ID du payment intent
         paidAt: admin.firestore.FieldValue.serverTimestamp(),
         createdAt:
           pendingOrderData.createdAt ||
@@ -2419,7 +2443,7 @@ async function handleOrderPayment(session) {
     await admin.firestore().collection("payment_errors").add({
       orderId,
       error: error.message,
-      paymentId: session.payment_intent,
+      paymentId: paymentData.id,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
     throw error;

@@ -850,11 +850,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
             return PostWidget(
               key: ValueKey(post.id),
               post: post,
-              companyCover: companyData['cover'],
-              companyCategorie: companyData['categorie'] ?? '',
-              companyName: companyData['name'] ?? '',
-              companyLogo: companyData['logo'] ?? '',
-              companyData: companyData,
+              companyData: CompanyData(
+                  category: companyData['categorie'] ?? '',
+                  cover: companyData['cover'] ?? '',
+                  logo: companyData['logo'] ?? '',
+                  name: companyData['name'] ?? '',
+                  rawData: companyData),
               currentUserId: FirebaseAuth.instance.currentUser!.uid,
               currentProfileUserId: FirebaseAuth.instance.currentUser!.uid,
               onView: () {
@@ -965,11 +966,12 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                   return PostWidget(
                     key: ValueKey(post.id),
                     post: post,
-                    companyCover: companyData['cover'],
-                    companyCategorie: companyData['categorie'] ?? '',
-                    companyName: companyData['name'] ?? '',
-                    companyLogo: companyData['logo'] ?? '',
-                    companyData: companyData,
+                    companyData: CompanyData(
+                        category: companyData['categorie'] ?? '',
+                        cover: companyData['cover'] ?? '',
+                        logo: companyData['logo'] ?? '',
+                        name: companyData['name'] ?? '',
+                        rawData: companyData),
                     currentUserId: FirebaseAuth.instance.currentUser!.uid,
                     currentProfileUserId:
                         FirebaseAuth.instance.currentUser!.uid,

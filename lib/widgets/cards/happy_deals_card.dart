@@ -2,8 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/product.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/screens/details_page/details_happydeals.dart';
+import 'package:happy/config/app_router.dart';
 import 'package:intl/intl.dart';
 
 class HappyDealsCard extends StatelessWidget {
@@ -50,121 +49,19 @@ class HappyDealsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // En-tête avec logo et informations
-        InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DetailsEntreprise(
-                  entrepriseId: post.companyId,
-                ),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: const Color(0xFF3476B2),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(companyLogo),
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      companyName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF00796B), Color(0xFF009688)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.local_offer_rounded,
-                                color: Colors.white,
-                                size: 12,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Happy Deal',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatDateTime(post.timestamp),
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-
         // Carte du Happy Deal
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+          margin: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.all(10),
           child: InkWell(
             onTap: () {
-              Navigator.push(
+              Navigator.pushNamed(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => DetailsHappyDeals(
-                    cover: companyCover,
-                    happydeal: post,
-                  ),
-                ),
+                AppRouter.happyDealDetails,
+                arguments: {
+                  'happydeal': post,
+                  'cover': companyCover,
+                },
               );
             },
             child: Row(

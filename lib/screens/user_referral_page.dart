@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/user_referral.dart';
 import 'package:happy/screens/referral_detail_page.dart';
 import 'package:happy/services/referral_services.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar_back.dart';
 import 'package:happy/widgets/company_selector_referral.dart';
-import 'package:happy/widgets/custom_app_bar_back.dart';
 import 'package:intl/intl.dart';
 
 class UserReferralsPage extends StatefulWidget {

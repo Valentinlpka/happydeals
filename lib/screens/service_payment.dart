@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/services/booking_service.dart';
@@ -106,6 +107,12 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // Déterminer les URLs de redirection en fonction de l'environnement
+    final String baseUrl =
+        kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app';
+    final String successUrl = '$baseUrl/#/payment-success';
+    final String cancelUrl = '$baseUrl/#/payment-cancel';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Paiement'),
@@ -122,8 +129,7 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
             else
               SizedBox(
                   width: double.infinity,
-                  child: // Dans ServicePaymentPage
-                      UnifiedPaymentButton(
+                  child: UnifiedPaymentButton(
                     type: 'service',
                     amount: (_finalPrice * 100).round(),
                     metadata: {
@@ -136,9 +142,8 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                       "priceHT": widget.service.price /
                           (1 + (widget.service.tva / 100)),
                       'serviceName': widget.service.name,
-                      'bookingDateTime': widget.bookingDateTime
-                          .toUtc()
-                          .toIso8601String(), // Conversion en UTC
+                      'bookingDateTime':
+                          widget.bookingDateTime.toUtc().toIso8601String(),
                       'professionalId': widget.service.professionalId,
                       if (_promoCode != null) ...<String, dynamic>{
                         'promoCode': _promoCode,
@@ -150,8 +155,8 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                       'adresse':
                           '${_address!['adresse']}, ${_address!['code_postal']} ${_address!['ville']}',
                     },
-                    successUrl: '${Uri.base.origin}/#/payment-success',
-                    cancelUrl: '${Uri.base.origin}/#/payment-cancel',
+                    successUrl: successUrl,
+                    cancelUrl: cancelUrl,
                   )),
             _buildPromoCodeSection(),
           ],

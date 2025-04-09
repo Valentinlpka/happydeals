@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class ServiceModel {
   final String id;
   final String name;
   final String description;
   final double price;
-  final double tva;
+  final int tva;
   final int duration;
   final String professionalId;
   final List<String> images;
@@ -76,13 +77,47 @@ class ServiceModel {
   }
 
   factory ServiceModel.fromMap(Map<String, dynamic> map) {
+    debugPrint('🔍 Création du ServiceModel à partir des données: $map');
+
+    // Conversion des types numériques
+    final price = map['price'] is int
+        ? (map['price'] as int).toDouble()
+        : (map['price'] ?? 0.0).toDouble();
+
+    final tva =
+        map['tva'] is int ? map['tva'] as int : (map['tva'] ?? 0).toInt();
+
+    final duration = map['duration'] is int
+        ? map['duration'] as int
+        : (map['duration'] ?? 30).toInt();
+
+    // Gestion du discount
+    Map<String, dynamic>? discountMap;
+    if (map['discount'] != null) {
+      final discountData = map['discount'] as Map<String, dynamic>;
+      discountMap = {
+        'type': discountData['type'] ?? '',
+        'value': discountData['value'] is int
+            ? (discountData['value'] as int).toDouble()
+            : (discountData['value'] ?? 0.0).toDouble(),
+        'startDate': discountData['startDate'],
+        'endDate': discountData['endDate'],
+        'isActive': discountData['isActive'] ?? true,
+      };
+    }
+
+    debugPrint('💰 Prix converti: $price');
+    debugPrint('📊 TVA convertie: $tva');
+    debugPrint('⏱️ Durée convertie: $duration');
+    debugPrint('🎁 Discount: $discountMap');
+
     return ServiceModel(
       id: map['id'] ?? '',
       name: map['name'] ?? '',
-      tva: map['tva'] ?? 0,
+      tva: tva,
       description: map['description'] ?? '',
-      price: (map['price'] ?? 0).toDouble(),
-      duration: map['duration'] ?? 30,
+      price: price,
+      duration: duration,
       professionalId: map['professionalId'] ?? '',
       images: List<String>.from(map['images'] ?? []),
       isActive: map['isActive'] ?? true,
@@ -90,7 +125,7 @@ class ServiceModel {
       stripePriceId: map['stripePriceId'] ?? '',
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
-      discount: map['discount'] as Map<String, dynamic>?,
+      discount: discountMap,
     );
   }
 

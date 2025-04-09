@@ -23,6 +23,7 @@ import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
 import 'package:happy/screens/troc-et-echange/ad_detail_page.dart';
 import 'package:happy/screens/troc-et-echange/ad_list_page.dart';
+import 'package:happy/services/analytics_service.dart';
 import 'package:happy/widgets/bottom_sheet_profile.dart';
 import 'package:happy/widgets/navigation_item.dart';
 import 'package:happy/widgets/postwidget.dart';
@@ -36,9 +37,10 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
+  final AnalyticsService _analytics = AnalyticsService();
   late String currentUserId;
   final ScrollController _scrollController = ScrollController();
-  bool _isFirstLoad = true;
+  final bool _isFirstLoad = true;
   bool _isInitializing = false;
 
   @override
@@ -107,6 +109,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
     _scrollController.addListener(_onScroll);
+    _logScreenView();
 
     // Initialisation différée optimisée
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -114,43 +117,42 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     });
   }
 
+  Future<void> _logScreenView() async {
+    await _analytics.logScreenView(
+      screenName: 'home_page',
+      screenClass: 'HomePage',
+    );
+
+    // Pour le titre de la page web
+    await _analytics.updateWebPageTitle('Accueil');
+  }
+
   Future<void> _initializeFeed() async {
     if (_isInitializing) return;
-    _isInitializing = true;
 
+    _isInitializing = true;
     try {
       final userProvider = Provider.of<UserModel>(context, listen: false);
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
 
-      // Vérifier si les données sont déjà chargées
-      if (homeProvider.currentFeedItems.isNotEmpty) {
-        setState(() => _isFirstLoad = false);
+      await userProvider.loadUserData();
+
+      if (userProvider.likedCompanies.isEmpty &&
+          userProvider.followedUsers.isEmpty) {
+        homeProvider.notifyListeners();
         return;
       }
 
-      // Charger les données en parallèle avec un timeout
-      await Future.wait([
-        userProvider.loadUserData(),
-        homeProvider.initializeFeed(
-          userProvider.likedCompanies,
-          userProvider.followedUsers,
-        ),
-      ], eagerError: true)
-          .timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          throw TimeoutException('Le chargement initial a pris trop de temps');
-        },
+      await homeProvider.initializeFeed(
+        userProvider.likedCompanies,
+        userProvider.followedUsers,
       );
-
-      if (mounted) {
-        setState(() => _isFirstLoad = false);
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur de chargement: ${e.toString()}'),
+            content: Text('Erreur lors du chargement: $e'),
+            duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: 'Réessayer',
               onPressed: _initializeFeed,
@@ -314,42 +316,82 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         return StreamBuilder<List<CombinedItem>>(
           stream: homeProvider.feedStream,
           builder: (context, snapshot) {
-            // Afficher le skeleton pendant le chargement initial
-            if (_isFirstLoad ||
+            // Afficher le skeleton dans ces cas :
+            // 1. Pendant le chargement initial
+            // 2. Quand il n'y a pas encore de données
+            if (homeProvider.isInitialLoading ||
                 (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData)) {
-              return ListView.builder(
-                padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: 3,
-                itemBuilder: (context, index) => _buildSkeletonPost(),
-              );
+                    !snapshot.hasData &&
+                    homeProvider.currentFeedItems.isEmpty)) {
+              return _buildSkeletonList();
             }
 
             if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text('Erreur: ${snapshot.error}'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _handleRefresh,
-                      child: const Text('Réessayer'),
-                    ),
-                  ],
-                ),
-              );
+              return _buildErrorWidget(snapshot.error);
             }
 
             final items = snapshot.data ?? homeProvider.currentFeedItems;
+
+            if (items.isEmpty) {
+              return _buildEmptyState();
+            }
+
             return _buildContentList(items);
           },
         );
       },
+    );
+  }
+
+  // Nouveau widget pour afficher plusieurs skeletons
+  Widget _buildSkeletonList() {
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 3,
+      itemBuilder: (context, index) => _buildSkeletonPost(),
+    );
+  }
+
+  // Nouveau widget pour l'état d'erreur
+  Widget _buildErrorWidget(dynamic error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Text('Une erreur est survenue: ${error.toString()}'),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _handleRefresh,
+            child: const Text('Réessayer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Nouveau widget pour l'état vide
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.inbox_outlined, size: 48, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text('Aucun contenu à afficher'),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _handleRefresh,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF186dbc),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Actualiser'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -737,76 +779,97 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildItem(CombinedItem item) {
-    if (item.type == 'post') {
-      final postData = item.item;
-      final post = postData['post'] as Post;
+    try {
+      debugPrint('🔄 Construction de l\'item: ${item.type}');
 
-      // Conversion explicite des Maps
-      final companyData = Map<String, dynamic>.from(postData['company'] ?? {});
-      final sharedByUserData = postData['sharedByUser'] != null
-          ? Map<String, dynamic>.from(postData['sharedByUser']!)
-          : null;
-      final isAd = postData['isAd'] as bool? ?? false;
+      if (item.type == 'post') {
+        final postData = item.item;
+        final post = postData['post'] as Post;
+        debugPrint('📝 Post ID: ${post.id}');
 
-      if (post is SharedPost && isAd) {
-        // Gestion des annonces partagées
-        final adData =
-            Map<String, dynamic>.from(postData['originalContent'] ?? {});
+        // Conversion explicite des Maps avec vérification des types
+        final companyData =
+            Map<String, dynamic>.from(postData['company'] ?? {});
+        final sharedByUserData = postData['sharedByUser'] != null
+            ? Map<String, dynamic>.from(postData['sharedByUser']!)
+            : null;
+        final isAd = postData['isAd'] as bool? ?? false;
 
-        try {
-          final ad = Ad.fromMap(adData, adData['id'] ?? post.originalPostId);
+        debugPrint('🏢 Données de l\'entreprise: ${companyData['name']}');
+        debugPrint('📤 Post partagé: ${sharedByUserData != null}');
+        debugPrint('📢 Est une annonce: $isAd');
 
+        if (post is SharedPost && isAd) {
+          debugPrint('📢 Traitement d\'une annonce partagée');
+          final adData =
+              Map<String, dynamic>.from(postData['originalContent'] ?? {});
+
+          try {
+            final ad = Ad.fromMap(adData, adData['id'] ?? post.originalPostId);
+            debugPrint('✅ Annonce créée avec succès: ${ad.id}');
+
+            return Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+              child: PostWidget(
+                key: ValueKey('${post.id}_${post.originalPostId}_ad'),
+                post: post,
+                ad: ad,
+                companyData: const CompanyData(
+                  category: '',
+                  cover: '',
+                  logo: '',
+                  name: '',
+                  rawData: {},
+                ),
+                currentUserId: currentUserId,
+                sharedByUserData: sharedByUserData,
+                currentProfileUserId: currentUserId,
+                onView: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AdDetailPage(ad: ad),
+                    ),
+                  );
+                },
+              ),
+            );
+          } catch (e) {
+            debugPrint('❌ Erreur lors de la création de l\'annonce: $e');
+            debugPrint('Stack trace: ${StackTrace.current}');
+            return const SizedBox.shrink();
+          }
+        } else {
+          debugPrint('📝 Traitement d\'un post normal');
           return Padding(
             padding:
-                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                const EdgeInsets.symmetric(vertical: 0.0, horizontal: 05.0),
             child: PostWidget(
-              key: ValueKey('${post.id}_${post.originalPostId}_ad'),
+              key: ValueKey(post.id),
               post: post,
-              ad: ad,
-              companyCover: '',
-              companyCategorie: '',
-              companyName: '',
-              companyLogo: '',
               currentUserId: currentUserId,
               sharedByUserData: sharedByUserData,
               currentProfileUserId: currentUserId,
               onView: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AdDetailPage(ad: ad),
-                  ),
-                );
+                debugPrint('👁️ Affichage du post: ${post.id}');
               },
-              companyData: const {},
+              companyData: CompanyData(
+                  category: companyData['categorie'] ?? '',
+                  cover: companyData['cover'] ?? '',
+                  logo: companyData['logo'] ?? '',
+                  name: companyData['name'] ?? '',
+                  rawData: companyData),
             ),
           );
-        } catch (e) {
-          return const SizedBox.shrink(); // Widget vide en cas d'erreur
         }
       } else {
-        // Gestion des posts normaux
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 0.0, horizontal: 05.0),
-          child: PostWidget(
-            key: ValueKey(post.id),
-            post: post,
-            companyCover: companyData['cover'],
-            companyCategorie: companyData['categorie'] ?? '',
-            companyName: companyData['name'] ?? '',
-            companyLogo: companyData['logo'] ?? '',
-            currentUserId: currentUserId,
-            sharedByUserData: sharedByUserData,
-            currentProfileUserId: currentUserId,
-            onView: () {
-              // Logique d'affichage du post
-            },
-            companyData: companyData,
-          ),
-        );
+        debugPrint('⚠️ Type d\'item non géré: ${item.type}');
+        return const SizedBox.shrink();
       }
-    } else {
-      // Gestion des autres types
+    } catch (e) {
+      debugPrint('❌ Erreur lors de la construction de l\'item: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       return const SizedBox.shrink();
     }
   }

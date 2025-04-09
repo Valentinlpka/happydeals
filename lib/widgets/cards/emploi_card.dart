@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
-import 'package:intl/intl.dart';
+import 'package:happy/config/app_router.dart';
 
 class JobOfferCard extends StatelessWidget {
   final JobOffer post;
@@ -16,119 +16,16 @@ class JobOfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String formatDateTime(DateTime dateTime) {
-      return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
-    }
-
     return Column(
       children: [
-        // En-tête avec logo et informations
-        InkWell(
-          onTap: () {
-            Navigator.pushNamed(
-              context,
-              '/entreprise/${post.companyId}',
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: const Color(0xFF3476B2),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(companyLogo),
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        companyName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.work_outline_rounded,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Emplois',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            formatDateTime(post.timestamp),
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
         // Carte de l'offre d'emploi
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
           child: InkWell(
             onTap: () {
               Navigator.pushNamed(
                 context,
-                '/emploi/${post.id}',
+                AppRouter.jobDetails,
                 arguments: {
                   'post': post,
                   'individualName': companyName,

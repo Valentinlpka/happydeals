@@ -11,7 +11,7 @@ import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
 import 'package:happy/screens/troc-et-echange/ad_list_page.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/search_result.dart';
 import 'package:provider/provider.dart';
 

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
 class CategoryProductsPage extends StatefulWidget {

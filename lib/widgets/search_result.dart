@@ -364,11 +364,12 @@ class _SearchResultsState extends State<SearchResults> {
     return PostWidget(
       key: Key(document.id),
       post: post,
-      companyCover: companyData['cover'],
-      companyCategorie: companyData['categorie'] ?? '',
-      companyName: companyData['name'] ?? 'Unknown',
-      companyLogo: companyData['logo'] ?? '',
-      companyData: companyData,
+      companyData: CompanyData(
+          category: companyData['categorie'] ?? '',
+          cover: companyData['cover'] ?? '',
+          logo: companyData['logo'] ?? '',
+          name: companyData['name'] ?? 'Unknown',
+          rawData: companyData),
       currentUserId: '',
       currentProfileUserId: '',
       onView: () {},

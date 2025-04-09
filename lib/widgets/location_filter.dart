@@ -36,21 +36,26 @@ class LocationFilterBottomSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Container(
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
           ),
-          child: LocationFilterBottomSheet(
-            onLocationSelected: onLocationSelected,
-            currentLat: currentLat,
-            currentLng: currentLng,
-            currentRadius: currentRadius,
-            currentAddress: currentAddress,
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: LocationFilterBottomSheet(
+              onLocationSelected: onLocationSelected,
+              currentLat: currentLat,
+              currentLng: currentLng,
+              currentRadius: currentRadius,
+              currentAddress: currentAddress,
+            ),
           ),
         ),
       ),
@@ -305,129 +310,126 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
       opacity: _animation,
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Barre de poignée
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            // En-tête
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Filtre de localisation',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Barre de poignée
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                IconButton(
-                  onPressed: _resetFilter,
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Réinitialiser',
-                  style: IconButton.styleFrom(
-                    foregroundColor: const Color(0xFF4B88DA),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // Champ de recherche amélioré
-            Container(
-              constraints: BoxConstraints(
-                maxHeight: _isSearching ? 250 : 60,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              // En-tête
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 10,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
+                  const Text(
+                    'Filtre de localisation',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A1A),
                     ),
-                    child: Focus(
-                      onFocusChange: (hasFocus) {
-                        setState(() {
-                          if (!hasFocus && _predictions.isEmpty) {
-                            _isSearching = false;
-                          }
-                        });
-                      },
-                      child: TextField(
-                        controller: _searchController,
-                        focusNode: _searchFocusNode,
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher une ville...',
-                          hintStyle: TextStyle(color: Colors.grey[400]),
-                          prefixIcon:
-                              Icon(Icons.search, color: Colors.grey[400]),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
+                  ),
+                  IconButton(
+                    onPressed: _resetFilter,
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Réinitialiser',
+                    style: IconButton.styleFrom(
+                      foregroundColor: const Color(0xFF4B88DA),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // Champ de recherche amélioré
+              Container(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 10,
+                            offset: const Offset(0, 1),
                           ),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {
-                                      _predictions = [];
-                                      _selectedAddress = '';
-                                      _selectedLat = null;
-                                      _selectedLng = null;
-                                      _isSearching = false;
-                                    });
-                                  },
-                                )
-                              : null,
-                        ),
-                        onChanged: (value) async {
-                          if (value.length > 2) {
-                            final predictions =
-                                await _getPlacePredictions(value);
-                            setState(() {
-                              _predictions = predictions;
-                              _isSearching = predictions.isNotEmpty;
-                            });
-                          } else {
-                            setState(() {
-                              _predictions = [];
-                              _isSearching = false;
-                            });
-                          }
-                        },
-                        onTap: () {
+                        ],
+                      ),
+                      child: Focus(
+                        onFocusChange: (hasFocus) {
                           setState(() {
-                            _isSearching = _predictions.isNotEmpty;
+                            if (!hasFocus && _predictions.isEmpty) {
+                              _isSearching = false;
+                            }
                           });
                         },
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher une ville...',
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            prefixIcon:
+                                Icon(Icons.search, color: Colors.grey[400]),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 15,
+                            ),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _predictions = [];
+                                        _selectedAddress = '';
+                                        _selectedLat = null;
+                                        _selectedLng = null;
+                                        _isSearching = false;
+                                      });
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (value) async {
+                            if (value.length > 2) {
+                              final predictions =
+                                  await _getPlacePredictions(value);
+                              setState(() {
+                                _predictions = predictions;
+                                _isSearching = predictions.isNotEmpty;
+                              });
+                            } else {
+                              setState(() {
+                                _predictions = [];
+                                _isSearching = false;
+                              });
+                            }
+                          },
+                          onTap: () {
+                            setState(() {
+                              _isSearching = _predictions.isNotEmpty;
+                            });
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                  if (_predictions.isNotEmpty)
-                    Flexible(
-                      child: Container(
+                    if (_predictions.isNotEmpty)
+                      Container(
                         margin: const EdgeInsets.only(top: 8),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -439,6 +441,9 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
                               blurRadius: 5,
                             ),
                           ],
+                        ),
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.3,
                         ),
                         child: ListView.builder(
                           shrinkWrap: true,
@@ -493,98 +498,100 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
                           },
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Rayon de recherche
-            const Text(
-              'Rayon de recherche',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A1A),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 50,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _radiusOptions.length,
-                itemBuilder: (context, index) {
-                  final radius = _radiusOptions[index];
-                  final isSelected = _selectedRadius == radius;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      child: FilterChip(
-                        label: Text('${radius.toInt()} km'),
-                        selected: isSelected,
-                        onSelected: (bool selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedRadius = radius;
-                            });
-                          }
-                        },
-                        backgroundColor: Colors.grey[100],
-                        selectedColor: const Color(0xFF4B88DA),
-                        checkmarkColor: Colors.white,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black87,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Bouton de position actuelle
-            ElevatedButton.icon(
-              onPressed: _currentPosition != null ? _useCurrentLocation : null,
-              icon: const Icon(Icons.my_location),
-              label: const Text('Utiliser ma position'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4B88DA),
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
+                  ],
                 ),
-                elevation: 0,
               ),
-            ),
-            const SizedBox(height: 16),
-            // Bouton d'application
-            ElevatedButton(
-              onPressed: _applyFilter,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4B88DA),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Appliquer le filtre',
+              const SizedBox(height: 24),
+              // Rayon de recherche
+              const Text(
+                'Rayon de recherche',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A1A),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 50,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _radiusOptions.length,
+                  itemBuilder: (context, index) {
+                    final radius = _radiusOptions[index];
+                    final isSelected = _selectedRadius == radius;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        child: FilterChip(
+                          label: Text('${radius.toInt()} km'),
+                          selected: isSelected,
+                          onSelected: (bool selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedRadius = radius;
+                              });
+                            }
+                          },
+                          backgroundColor: Colors.grey[100],
+                          selectedColor: const Color(0xFF4B88DA),
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Bouton de position actuelle
+              ElevatedButton.icon(
+                onPressed:
+                    _currentPosition != null ? _useCurrentLocation : null,
+                icon: const Icon(Icons.my_location),
+                label: const Text('Utiliser ma position'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4B88DA),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Bouton d'application
+              ElevatedButton(
+                onPressed: _applyFilter,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4B88DA),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Appliquer le filtre',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -2,8 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/classes/service_post.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/screens/details_page/details_service_page.dart';
+import 'package:happy/config/app_router.dart';
 import 'package:intl/intl.dart';
 
 class ServiceCards extends StatefulWidget {
@@ -36,7 +35,7 @@ class _ServiceCardsState extends State<ServiceCards> {
         name: widget.post.name,
         description: widget.post.description,
         price: widget.post.price,
-        tva: widget.post.tva.toDouble(),
+        tva: widget.post.tva.toInt(),
         duration: widget.post.duration,
         images: widget.post.images,
         isActive: widget.post.isActive,
@@ -106,242 +105,143 @@ class _ServiceCardsState extends State<ServiceCards> {
 
         final service = snapshot.data!;
 
-        return InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DetailsEntreprise(
-                  entrepriseId: widget.post.companyId,
-                ),
-              ),
-            );
-          },
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
+        return Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.all(10),
+              child: InkWell(
+                onTap: () {
+                  Navigator.pushNamed(
+                    context,
+                    AppRouter.serviceDetails,
+                    arguments: service.id,
+                  );
+                },
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: const Color(0xFF3476B2),
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: CircleAvatar(
-                          radius: 24,
-                          backgroundImage: NetworkImage(widget.companyLogo),
-                          backgroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.companyName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(colors: [
-                                  Color(0xFF6B48FF),
-                                  Color(0xFF8466FF)
-                                ]),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today_outlined,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Service',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _formatDateTime(widget.post.timestamp),
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ServiceDetailPage(serviceId: service.id),
-                      ),
-                    );
-                  },
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Hero(
-                        tag: 'service-${service.id}',
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            service.images.isNotEmpty
-                                ? service.images[0]
-                                : 'placeholder_image_url',
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
+                    Hero(
+                      tag: 'service-${service.id}',
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: service.images.isNotEmpty
+                            ? Image.network(
+                                service.images[0],
                                 width: 120,
                                 height: 120,
-                                color: Colors.grey[100],
-                                child: const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
+                                fit: BoxFit.cover,
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    width: 120,
+                                    height: 120,
+                                    color: Colors.grey[100],
+                                    child: const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                },
+                              )
+                            : const SizedBox.shrink(),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: SizedBox(
-                          height: 120,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    service.name,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.2,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: SizedBox(
+                        height: 120,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  service.name,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2,
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    service.description,
-                                    style: TextStyle(
-                                      fontSize: 14,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  service.description,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                    height: 1.2,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.schedule,
+                                      size: 16,
                                       color: Colors.grey[600],
-                                      height: 1.2,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.schedule,
-                                        size: 16,
-                                        color: Colors.grey[600],
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        _formatDuration(service.duration),
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  if (service.hasActivePromotion) ...[
-                                    Text(
-                                      "${service.finalPrice.toStringAsFixed(2)} €",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.red[800],
-                                      ),
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      "${service.price.toStringAsFixed(2)} €",
+                                      _formatDuration(service.duration),
                                       style: TextStyle(
                                         fontSize: 14,
-                                        decoration: TextDecoration.lineThrough,
-                                        color: Colors.grey[500],
+                                        color: Colors.grey[600],
                                       ),
                                     ),
-                                  ] else
-                                    Text(
-                                      "${service.price.toStringAsFixed(2)} €",
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                if (service.hasActivePromotion) ...[
+                                  Text(
+                                    "${service.finalPrice.toStringAsFixed(2)} €",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red[800],
                                     ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    "${service.price.toStringAsFixed(2)} €",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      decoration: TextDecoration.lineThrough,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
+                                ] else
+                                  Text(
+                                    "${service.price.toStringAsFixed(2)} €",
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+          ],
         );
       },
     );

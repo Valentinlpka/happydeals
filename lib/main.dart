@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:happy/config/app_router.dart';
 import 'package:happy/providers/ads_provider.dart';
@@ -20,52 +21,79 @@ import 'package:happy/widgets/analytics_navigator_observer.dart';
 import 'package:happy/widgets/url_strategy.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:universal_html/html.dart' as html;
 
 void main() async {
-  // Initialiser les widgets Flutter de manière asynchrone
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configuration URL uniquement pour le web
+  // Initialisation de Stripe pour mobile (iOS et Android)
+  if (!kIsWeb) {
+    Stripe.publishableKey =
+        'pk_test_51LTLueEdQ2kxvmjkFjbvo65zeyYFfgfwZJ4yX8msvLiOkHju26pIj77RZ1XaZOoCG6ULyzn95z1irjk18AsNmwZx00OlxLu8Yt';
+    await Stripe.instance.applySettings();
+  }
+
+  // Configuration URL pour le web
   if (kIsWeb) {
     initializeUrlStrategy();
     // ignore: prefer_const_constructors
     setUrlStrategy(PathUrlStrategy());
-  }
 
-  try {
-    // Initialiser Firebase et Analytics en premier
-    await AnalyticsService().initialize();
-
-    // Autres initialisations
-    await Future.wait([
-      initializeDateFormatting('fr_FR', null),
-    ]);
-
-    // Configuration de timeago
-    timeago.setLocaleMessages('fr', timeago.FrMessages());
-
-    // Initialiser FCM pour le web
+    // Configuration spécifique pour PWA
     if (kIsWeb) {
-      await _initializeFirebaseMessagingWeb().catchError((e) {
-        debugPrint('Erreur d\'initialisation FCM: $e');
-      });
+      // Vérifier si l'application est installée comme PWA
+      final isPWA = await _checkIfPWA();
+      if (isPWA) {
+        debugPrint('📱 Application exécutée en mode PWA');
+        // Initialiser Analytics avec des paramètres spécifiques pour PWA
+        final analytics = AnalyticsService();
+        await analytics.initialize();
+        await analytics.logEvent(
+          name: 'pwa_start',
+          parameters: {
+            'platform': 'pwa',
+            'timestamp': DateTime.now().toIso8601String(),
+          },
+        );
+      }
     }
 
-    // Envoyer un événement de test
-    await AnalyticsService().logEvent(
-      name: 'app_start',
-      parameters: {
-        'platform': kIsWeb ? 'web' : 'mobile',
-        'timestamp': DateTime.now().toIso8601String(),
-        'version': '1.0.0',
-      },
-    );
-  } catch (e) {
-    debugPrint('Erreur lors de l\'initialisation: $e');
+    await _initializeFirebaseMessagingWeb().catchError((e) {
+      debugPrint('Erreur d\'initialisation FCM: $e');
+    });
   }
 
+  // Initialisation simple d'Analytics
+  final analytics = AnalyticsService();
+  await analytics.initialize();
+  await Future.wait([
+    initializeDateFormatting('fr_FR', null),
+  ]);
+
+  // Un seul événement de test au démarrage
+  await analytics.logEvent(
+    name: 'application_start',
+    parameters: {
+      'platform': kIsWeb ? 'web' : 'mobile',
+      'timestamp': DateTime.now().toIso8601String(),
+    },
+  );
+
   runApp(const MyApp());
+}
+
+Future<bool> _checkIfPWA() async {
+  if (!kIsWeb) return false;
+
+  try {
+    // Vérifier si l'application est installée comme PWA
+    final window = html.window;
+    return window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches;
+  } catch (e) {
+    debugPrint('Erreur lors de la vérification du mode PWA: $e');
+    return false;
+  }
 }
 
 Future<void> _initializeFirebaseMessagingWeb() async {
@@ -125,8 +153,7 @@ class MyApp extends StatelessWidget {
         navigatorKey: AppRouter.navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        title: 'Up !',
-        home: AppRouter.getHomeScreen(),
+        title: 'up',
         initialRoute: '/',
         routes: AppRouter.routes,
         onGenerateRoute: AppRouter.generateRoute,

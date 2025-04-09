@@ -11,11 +11,15 @@ class AnalyticsService {
   FirebaseAnalytics? _analytics;
   bool _isInitialized = false;
 
+  // Cache pour éviter les doublons de vues
+  String? _lastScreenName;
+  DateTime? _lastScreenViewTime;
+
+  // Initialisation basique
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     try {
-      // Initialiser Firebase avec les options par défaut
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
@@ -30,17 +34,21 @@ class AnalyticsService {
     }
   }
 
+  // Méthode unique pour logger des événements
   Future<void> logEvent({
     required String name,
     Map<String, Object>? parameters,
   }) async {
     try {
+      debugPrint('🔍 Analytics Event: $name');
+      debugPrint('📝 Parameters: $parameters');
+
       await _analytics?.logEvent(
         name: name,
         parameters: parameters,
       );
     } catch (e) {
-      debugPrint('Erreur lors de l\'envoi de l\'événement Analytics: $e');
+      debugPrint('❌ Erreur Analytics: $e');
     }
   }
 
@@ -66,26 +74,73 @@ class AnalyticsService {
     String? screenClass,
   }) async {
     try {
+      // Liste complète des titres à ignorer
+      final titlesToIgnore = [
+        'up',
+        'up!',
+        'up !',
+        'up_',
+        'up_!',
+        'up particulier',
+        'up_particulier'
+      ];
+
+      // Normaliser et vérifier le nom d'écran
+      final normalizedName = screenName.toLowerCase().trim();
+      if (titlesToIgnore.contains(normalizedName)) {
+        debugPrint('�� Vue ignorée (titre par défaut): $screenName');
+        return;
+      }
+
+      // Vérifier si c'est la même vue que la dernière vue enregistrée
+      final now = DateTime.now();
+      if (_lastScreenName == normalizedName &&
+          _lastScreenViewTime != null &&
+          now.difference(_lastScreenViewTime!) < const Duration(seconds: 2)) {
+        debugPrint('🚫 Vue ignorée (doublon): $screenName');
+        return;
+      }
+
       if (kIsWeb) {
-        // Pour le web, on utilise le titre de la page comme nom d'écran
-        final String webScreenName =
-            screenName.replaceAll('/', '_').toLowerCase();
+        final String webScreenName = normalizedName
+            .replaceAll(RegExp(r'[^a-z0-9]'), '_')
+            .replaceAll(RegExp(r'_+'), '_')
+            .trim();
+
+        // Vérification supplémentaire pour le web
+        if (titlesToIgnore.contains(webScreenName)) {
+          debugPrint('🚫 Vue web ignorée (titre par défaut): $webScreenName');
+          return;
+        }
+
+        if (_analytics == null) {
+          debugPrint('⚠️ Analytics non initialisé pour le web');
+          return;
+        }
+
         await _analytics?.logScreenView(
           screenName: webScreenName,
         );
 
-        // Mettre à jour le titre de la page
-        await _analytics?.setCurrentScreen(
+        await _analytics
+            ?.setCurrentScreen(
           screenName: webScreenName,
-        );
+        )
+            .catchError((error) {
+          debugPrint(
+              '❌ Erreur lors de la mise à jour du titre de la page web: $error');
+        });
       } else {
         await _analytics?.logScreenView(
-          screenName: screenName,
+          screenName: normalizedName,
           screenClass: screenClass,
         );
       }
+
+      _lastScreenName = normalizedName;
+      _lastScreenViewTime = now;
     } catch (e) {
-      debugPrint('Erreur lors de l\'envoi de la vue d\'écran: $e');
+      debugPrint('❌ Erreur lors de l\'envoi de la vue d\'écran: $e');
     }
   }
 
@@ -94,12 +149,129 @@ class AnalyticsService {
     if (kIsWeb) {
       try {
         final String screenName = title.toLowerCase().replaceAll(' ', '_');
+        // Vérifier si c'est la même vue que la dernière vue enregistrée
+        if (_lastScreenName == screenName) {
+          return; // Ignorer la mise à jour en double
+        }
         await _analytics?.setCurrentScreen(
           screenName: screenName,
         );
+        _lastScreenName = screenName;
       } catch (e) {
         debugPrint('Erreur lors de la mise à jour du titre de la page: $e');
       }
     }
+  }
+
+  // Méthodes pour suivre les interactions avec les produits
+  Future<void> logProductInteraction({
+    required String productId,
+    required String interactionType,
+    Map<String, Object>? additionalParams,
+  }) async {
+    final params = {
+      'product_id': productId,
+      'interaction_type': interactionType,
+      ...?additionalParams,
+    };
+    await logEvent(name: 'product_interaction', parameters: params);
+  }
+
+  // Méthodes pour suivre les interactions avec les services
+  Future<void> logServiceInteraction({
+    required String serviceId,
+    required String interactionType,
+    Map<String, Object>? additionalParams,
+  }) async {
+    final params = {
+      'service_id': serviceId,
+      'interaction_type': interactionType,
+      ...?additionalParams,
+    };
+    await logEvent(name: 'service_interaction', parameters: params);
+  }
+
+  // Méthodes pour suivre les interactions avec les deals express
+  Future<void> logDealExpressInteraction({
+    required String dealId,
+    required String interactionType,
+    Map<String, Object>? additionalParams,
+  }) async {
+    final params = {
+      'deal_id': dealId,
+      'interaction_type': interactionType,
+      ...?additionalParams,
+    };
+    await logEvent(name: 'deal_express_interaction', parameters: params);
+  }
+
+  // Méthodes pour suivre les interactions avec les jeux concours
+  Future<void> logContestInteraction({
+    required String contestId,
+    required String interactionType,
+    Map<String, Object>? additionalParams,
+  }) async {
+    final params = {
+      'contest_id': contestId,
+      'interaction_type': interactionType,
+      ...?additionalParams,
+    };
+    await logEvent(name: 'contest_interaction', parameters: params);
+  }
+
+  // Méthodes pour suivre les interactions avec les parrainages
+  Future<void> logReferralInteraction({
+    required String referralId,
+    required String interactionType,
+    Map<String, Object>? additionalParams,
+  }) async {
+    final params = {
+      'referral_id': referralId,
+      'interaction_type': interactionType,
+      ...?additionalParams,
+    };
+    await logEvent(name: 'referral_interaction', parameters: params);
+  }
+
+  // Méthodes pour suivre les interactions avec les événements
+  Future<void> logEventInteraction({
+    required String eventId,
+    required String interactionType,
+    Map<String, Object>? additionalParams,
+  }) async {
+    final params = {
+      'event_id': eventId,
+      'interaction_type': interactionType,
+      ...?additionalParams,
+    };
+    await logEvent(name: 'event_interaction', parameters: params);
+  }
+
+  // Méthodes pour suivre les interactions avec les happy deals
+  Future<void> logHappyDealInteraction({
+    required String happyDealId,
+    required String interactionType,
+    Map<String, Object>? additionalParams,
+  }) async {
+    final params = {
+      'happy_deal_id': happyDealId,
+      'interaction_type': interactionType,
+      ...?additionalParams,
+    };
+    await logEvent(name: 'happy_deal_interaction', parameters: params);
+  }
+
+  // Méthodes pour suivre les interactions avec les codes promo
+  Future<void> logPromoCodeInteraction({
+    required String promoCodeId,
+    required String interactionType,
+    Map<String, Object>? additionalParams,
+  }) async {
+    final params = {
+      'promo_code_id': promoCodeId,
+      'interaction_type': interactionType,
+      ...?additionalParams,
+    };
+    await logEvent(name: 'promo_code_interaction', parameters: params);
   }
 }

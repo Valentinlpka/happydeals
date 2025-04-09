@@ -2,31 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
-import 'package:happy/classes/card_promo_code.dart';
-import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/conversation.dart';
-import 'package:happy/classes/dealexpress.dart';
-import 'package:happy/classes/event.dart';
-import 'package:happy/classes/happydeal.dart';
-import 'package:happy/classes/joboffer.dart';
-import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
-import 'package:happy/classes/product_post.dart';
-import 'package:happy/classes/promo_code_post.dart';
-import 'package:happy/classes/referral.dart';
-import 'package:happy/classes/service_post.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/screens/troc-et-echange/ad_card.dart';
 import 'package:happy/screens/troc-et-echange/ad_detail_page.dart';
-import 'package:happy/widgets/cards/concours_card.dart';
-import 'package:happy/widgets/cards/deals_express_card.dart';
-import 'package:happy/widgets/cards/emploi_card.dart';
-import 'package:happy/widgets/cards/evenement_card.dart';
-import 'package:happy/widgets/cards/happy_deals_card.dart';
-import 'package:happy/widgets/cards/news_card.dart';
-import 'package:happy/widgets/cards/parrainage_card.dart';
-import 'package:happy/widgets/cards/product_cards.dart';
-import 'package:happy/widgets/cards/service_cards.dart';
+import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
 
 class SharedPostMessage extends StatelessWidget {
@@ -75,19 +56,19 @@ class SharedPostMessage extends StatelessWidget {
               return const CircularProgressIndicator();
             }
 
-            String companyName = '';
-            String companyLogo = '';
-            String companyCover = '';
-            String companyCategorie = '';
-
-            if (companySnapshot.hasData && companySnapshot.data!.exists) {
-              final companyData =
-                  companySnapshot.data!.data() as Map<String, dynamic>;
-              companyName = companyData['name'] ?? '';
-              companyLogo = companyData['logo'] ?? '';
-              companyCover = companyData['cover'] ?? '';
-              companyCategorie = companyData['categorie'] ?? '';
+            if (!companySnapshot.hasData || !companySnapshot.data!.exists) {
+              return const Text('Entreprise non trouvée');
             }
+
+            final companyData =
+                companySnapshot.data!.data() as Map<String, dynamic>;
+            final company = CompanyData(
+              name: companyData['name'] ?? '',
+              category: companyData['categorie'] ?? '',
+              logo: companyData['logo'] ?? '',
+              cover: companyData['cover'] ?? '',
+              rawData: companyData,
+            );
 
             return Container(
               margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -96,7 +77,7 @@ class SharedPostMessage extends StatelessWidget {
                     isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       color: isMe ? Colors.grey[300] : Colors.grey[300],
                       borderRadius: BorderRadius.circular(12),
@@ -119,10 +100,7 @@ class SharedPostMessage extends StatelessWidget {
                           child: _buildPostContent(
                             post,
                             context,
-                            companyName: companyName,
-                            companyLogo: companyLogo,
-                            companyCover: companyCover,
-                            companyCategorie: companyCategorie,
+                            company: company,
                           ),
                         ),
                       ],
@@ -150,158 +128,50 @@ class SharedPostMessage extends StatelessWidget {
   Widget _buildPostContent(
     Post post,
     BuildContext context, {
-    required String companyName,
-    required String companyLogo,
-    required String companyCover,
-    required String companyCategorie,
+    required CompanyData company,
   }) {
-    switch (post.runtimeType) {
-      case JobOffer:
-        return SizedBox(
-          child: JobOfferCard(
-            post: post as JobOffer,
-            companyName: companyName, // Ces informations doivent venir du post
-            companyLogo: companyLogo,
-          ),
-        );
-
-      case Contest:
-        return SizedBox(
-          child: ConcoursCard(
-            contest: post as Contest,
-            currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-            companyName: companyName,
-            companyLogo: companyLogo,
-          ),
-        );
-
-      case ExpressDeal:
-        return SizedBox(
-          child: DealsExpressCard(
-            currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-            post: post as ExpressDeal,
-            companyName: companyName,
-            companyLogo: companyLogo,
-          ),
-        );
-
-      case Referral:
-        return SizedBox(
-          child: ParrainageCard(
-            companyName: companyName,
-            currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-            post: post as Referral,
-            companyLogo: companyLogo,
-          ),
-        );
-
-      case Event:
-        return SizedBox(
-          child: EvenementCard(
-            companyName: companyName,
-            companyLogo: companyLogo,
-            event: post as Event,
-            currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-          ),
-        );
-
-      case ProductPost:
-        return SizedBox(
-          child: ProductCards(
-            post: post as ProductPost,
-            companyName: companyName,
-            companyLogo: companyLogo,
-          ),
-        );
-
-      case HappyDeal:
-        return SizedBox(
-          child: HappyDealsCard(
-            post: post as HappyDeal,
-            companyName: companyName,
-            companyLogo: companyLogo,
-            companyCover: companyCover,
-            companyCategorie: companyCategorie,
-          ),
-        );
-
-      case PromoCodePost:
-        return SizedBox(
-          width: 600,
-          child: PromoCodeCard(
-            post: post as PromoCodePost,
-            companyName: companyName,
-            companyLogo: companyLogo,
-            currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-          ),
-        );
-
-      case News:
-        return SizedBox(
-          child: NewsCard(
-            news: post as News,
-            companyLogo: companyLogo,
-            companyName: companyName,
-          ),
-        );
-
-      case ServicePost:
-        return SizedBox(
-          child: ServiceCards(
-            post: post as ServicePost,
-            companyName: companyName,
-            companyLogo: companyLogo,
-          ),
-        );
-
-      case Ad:
-        return SizedBox(
-          child: AdCard(
-            ad: post as Ad,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AdDetailPage(ad: post as Ad),
-                ),
-              );
-            },
-            onSaveTap: () async {
-              final user = FirebaseAuth.instance.currentUser;
-              if (user != null) {
-                try {
-                  final savedAdsProvider =
-                      Provider.of<SavedAdsProvider>(context, listen: false);
-                  await savedAdsProvider.toggleSaveAd(user.uid, post.id);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text('Erreur lors de la sauvegarde: $e')),
-                    );
-                  }
+    if (post is Ad) {
+      final ad = post as Ad;
+      return SizedBox(
+        child: AdCard(
+          ad: ad,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AdDetailPage(ad: ad),
+              ),
+            );
+          },
+          onSaveTap: () async {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              try {
+                final savedAdsProvider =
+                    Provider.of<SavedAdsProvider>(context, listen: false);
+                await savedAdsProvider.toggleSaveAd(user.uid, ad.id);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
+                  );
                 }
               }
-            },
-          ),
-        );
-
-      default:
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Type de post non supporté: ${post.runtimeType}'),
-              Text('ID du post: ${post.id}'),
-            ],
-          ),
-        );
+            }
+          },
+        ),
+      );
     }
+
+    return PostWidget(
+      post: post,
+      onView: () {
+        // TODO: Implémenter la navigation vers la vue détaillée
+      },
+      currentProfileUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
+      currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
+      companyData: company,
+    );
   }
 
   String _formatMessageTime(DateTime timestamp) {

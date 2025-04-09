@@ -2,9 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/utils/location_utils.dart';
-import 'package:happy/widgets/cards/emploi_card.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/postwidget.dart';
 
 class JobOffersPage extends StatefulWidget {
   const JobOffersPage({super.key});
@@ -408,8 +408,6 @@ class _JobOffersPageState extends State<JobOffersPage> {
                     return const SizedBox.shrink();
                   }
 
-                  final companyName = companyData['name'] ?? 'Nom inconnu';
-                  final companyLogo = companyData['logo'] ?? '';
                   final companyAddress =
                       companyData['adress'] as Map<String, dynamic>?;
 
@@ -433,10 +431,24 @@ class _JobOffersPageState extends State<JobOffersPage> {
                     }
                   }
 
-                  return JobOfferCard(
+                  // Création de l'objet CompanyData
+                  final companyDataObj = CompanyData(
+                    name: companyData['name'] ?? 'Nom inconnu',
+                    category: companyData['category'] ?? '',
+                    logo: companyData['logo'] ?? '',
+                    cover: companyData['cover'] ?? '',
+                    rawData: companyData,
+                  );
+
+                  // Création du PostWidget
+                  return PostWidget(
                     post: JobOffer.fromDocument(jobOffers[index]),
-                    companyName: companyName,
-                    companyLogo: companyLogo,
+                    currentUserId:
+                        '', // À remplacer par l'ID de l'utilisateur actuel
+                    currentProfileUserId:
+                        '', // À remplacer par l'ID du profil actuel
+                    onView: () {}, // Callback pour la vue
+                    companyData: companyDataObj,
                   );
                 },
               );

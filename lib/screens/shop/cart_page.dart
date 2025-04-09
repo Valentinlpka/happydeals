@@ -6,7 +6,7 @@ import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/screens/shop/checkout_page.dart';
 import 'package:happy/services/cart_service.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
 class CartScreen extends StatelessWidget {
@@ -424,7 +424,7 @@ class CartScreen extends StatelessWidget {
 
   String _validateImageUrl(String url) {
     if (url.isEmpty) {
-      return 'https://via.placeholder.com/50';
+      return '';
     }
 
     try {
@@ -449,30 +449,59 @@ class CartScreen extends StatelessWidget {
       // Encoder l'URL pour gérer les caractères spéciaux
       return uri.toString();
     } catch (e) {
-      print('Erreur de validation d\'URL: $e');
-      return 'https://via.placeholder.com/50';
+      debugPrint('Erreur de validation d\'URL: $e');
+      return '';
     }
   }
 
   Widget _buildProductImage(String imageUrl) {
+    final validatedUrl = _validateImageUrl(imageUrl);
+
+    if (validatedUrl.isEmpty) {
+      return Container(
+        width: 50,
+        height: 50,
+        color: Colors.grey[100],
+        child: const Icon(
+          Icons.shopping_bag_outlined,
+          color: Colors.grey,
+          size: 24,
+        ),
+      );
+    }
+
     return Image.network(
-      _validateImageUrl(imageUrl),
+      validatedUrl,
       width: 50,
       height: 50,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        print('Erreur de chargement d\'image: $error');
-        return const Icon(Icons.image_not_supported);
-      },
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
-        return const Center(
-          child: SizedBox(
-            width: 50,
-            height: 50,
+        return Container(
+          width: 50,
+          height: 50,
+          color: Colors.grey[100],
+          child: Center(
             child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
               strokeWidth: 2,
             ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('Erreur de chargement d\'image: $error');
+        return Container(
+          width: 50,
+          height: 50,
+          color: Colors.grey[100],
+          child: const Icon(
+            Icons.image_not_supported,
+            color: Colors.grey,
+            size: 24,
           ),
         );
       },

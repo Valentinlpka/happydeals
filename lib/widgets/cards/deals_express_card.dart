@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
-import 'package:happy/screens/details_page/details_dealsexpress_page.dart';
+import 'package:happy/config/app_router.dart';
 import 'package:intl/intl.dart';
 
 class DealsExpressCard extends StatelessWidget {
@@ -81,13 +80,12 @@ class DealsExpressCard extends StatelessWidget {
           child: InkWell(
             onTap: isActive
                 ? () {
-                    Navigator.push(
+                    Navigator.pushNamed(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailsDealsExpress(
-                          post: post,
-                        ),
-                      ),
+                      AppRouter.dealExpressDetails,
+                      arguments: {
+                        'post': post,
+                      },
                     );
                   }
                 : null,
@@ -159,58 +157,7 @@ class DealsExpressCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // En-tête avec logo et nom
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundImage: NetworkImage(companyLogo),
-                            backgroundColor: Colors.white,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  companyName,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (companyCity != null) ...[
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.location_on,
-                                        size: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Expanded(
-                                        child: Text(
-                                          distance != null
-                                              ? '$companyCity • $distance'
-                                              : companyCity!,
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 12,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+
                       const SizedBox(height: 8),
 
                       // Titre
@@ -281,144 +228,6 @@ class DealsExpressCard extends StatelessWidget {
     // Version verticale existante
     return Column(
       children: [
-        // En-tête avec logo et informations
-        InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DetailsEntreprise(
-                  entrepriseId: post.companyId,
-                ),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: const Color(0xFF3476B2),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(companyLogo),
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        companyName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Colors.orange, Colors.deepOrange],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.flash_on_rounded,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Deal Express',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatDateTimeStamp(post.timestamp),
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                            ),
-                          ),
-                          if (companyCity?.isNotEmpty ?? false) ...[
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[100],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.location_on,
-                                      size: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Flexible(
-                                      child: Text(
-                                        companyCity!,
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 12,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (distance != null) ...[
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '• $distance',
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
         // Carte du Deal Express avec image
         Stack(
           children: [
@@ -438,13 +247,12 @@ class DealsExpressCard extends StatelessWidget {
               child: InkWell(
                 onTap: isActive
                     ? () {
-                        Navigator.push(
+                        Navigator.pushNamed(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => DetailsDealsExpress(
-                              post: post,
-                            ),
-                          ),
+                          AppRouter.dealExpressDetails,
+                          arguments: {
+                            'post': post,
+                          },
                         );
                       }
                     : null,

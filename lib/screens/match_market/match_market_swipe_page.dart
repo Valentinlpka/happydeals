@@ -9,7 +9,7 @@ import 'package:happy/models/company_location.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/match_market/liked_products_page.dart';
 import 'package:happy/screens/match_market/match_market_intro_page.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
 class MatchMarketSwipePage extends StatefulWidget {

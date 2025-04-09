@@ -62,38 +62,94 @@ class HomeProvider extends ChangeNotifier {
   static DateTime? _lastCacheUpdate;
   static const Duration _cacheValidityDuration = Duration(minutes: 5);
 
-  Future<List<CombinedItem>> loadUnifiedFeed(
-      List<String> likedCompanies, List<String> followedUsers,
-      {bool refresh = false}) async {
-    // Vérifier si on peut utiliser le cache
-    if (!refresh && _initialDataCache != null && _lastCacheUpdate != null) {
-      final timeSinceLastCache = DateTime.now().difference(_lastCacheUpdate!);
-      if (timeSinceLastCache < _cacheValidityDuration) {
-        return _currentFeedItems;
-      }
-    }
+  bool _isInitialLoading = true; // Ajout d'une nouvelle propriété
+  bool get isInitialLoading => _isInitialLoading;
 
-    // Vérifier si le dernier refresh n'est pas trop récent
-    if (refresh && _lastRefreshTime != null) {
-      final timeSinceLastRefresh = DateTime.now().difference(_lastRefreshTime!);
-      if (timeSinceLastRefresh < _minRefreshInterval) {
-        return _currentFeedItems;
-      }
-    }
+  // Ajout d'un cache pour les données des entreprises
+  final Map<String, Map<String, dynamic>> _companyCache = {};
 
-    if (refresh) {
-      _lastDocument = null;
-      _hasMoreData = true;
-      _currentFeedItems.clear();
-      _loadedItemIds.clear();
-      notifyListeners();
+  // Durée de validité du cache
+  static const Duration _companyCacheValidityDuration = Duration(minutes: 30);
+  final Map<String, DateTime> _companyCacheTimestamps = {};
+
+  // Méthode pour obtenir les données d'une entreprise avec cache
+  Future<Map<String, dynamic>?> getCompanyData(String companyId) async {
+    // Vérifier si les données sont dans le cache et toujours valides
+    if (_companyCache.containsKey(companyId)) {
+      final cacheTimestamp = _companyCacheTimestamps[companyId];
+      if (cacheTimestamp != null &&
+          DateTime.now().difference(cacheTimestamp) <
+              _companyCacheValidityDuration) {
+        return _companyCache[companyId];
+      }
     }
 
     try {
-      if (kDebugMode) {
-        print("### Début de loadUnifiedFeed ###");
-        print("Nombre d'entreprises likées : ${likedCompanies.length}");
-        print("Nombre d'utilisateurs suivis : ${followedUsers.length}");
+      final companyDoc =
+          await _firestore.collection('companys').doc(companyId).get();
+      if (!companyDoc.exists) return null;
+
+      final companyData = companyDoc.data() as Map<String, dynamic>;
+
+      // Mettre en cache les données
+      _companyCache[companyId] = companyData;
+      _companyCacheTimestamps[companyId] = DateTime.now();
+
+      return companyData;
+    } catch (e) {
+      debugPrint(
+          'Erreur lors de la récupération des données de l\'entreprise: $e');
+      return null;
+    }
+  }
+
+  Future<List<CombinedItem>> loadUnifiedFeed(
+      List<String> likedCompanies, List<String> followedUsers,
+      {bool refresh = false}) async {
+    try {
+      print('Début de loadUnifiedFeed - refresh: $refresh');
+      _isLoading = true;
+      if (refresh) {
+        _isInitialLoading = true; // Réinitialiser lors d'un refresh
+      }
+      notifyListeners();
+
+      // Vérifier si on peut utiliser le cache
+      if (!refresh && _initialDataCache != null && _lastCacheUpdate != null) {
+        final timeSinceLastCache = DateTime.now().difference(_lastCacheUpdate!);
+        print('Temps depuis dernier cache: ${timeSinceLastCache.inSeconds}s');
+        if (timeSinceLastCache < _cacheValidityDuration) {
+          print('Utilisation du cache');
+          return _currentFeedItems;
+        }
+      }
+
+      // Vérifier si le dernier refresh n'est pas trop récent
+      if (refresh && _lastRefreshTime != null) {
+        final timeSinceLastRefresh =
+            DateTime.now().difference(_lastRefreshTime!);
+        print(
+            'Temps depuis dernier refresh: ${timeSinceLastRefresh.inSeconds}s');
+        if (timeSinceLastRefresh < _minRefreshInterval) {
+          print('Refresh trop récent, utilisation des données existantes');
+          return _currentFeedItems;
+        }
+      }
+
+      if (refresh) {
+        _lastDocument = null;
+        _hasMoreData = true;
+        _currentFeedItems.clear();
+        _loadedItemIds.clear();
+      }
+
+      print('Nombre d\'entreprises likées: ${likedCompanies.length}');
+      print('Nombre d\'utilisateurs suivis: ${followedUsers.length}');
+
+      if (likedCompanies.isEmpty && followedUsers.isEmpty) {
+        print('Aucune entreprise likée ni utilisateur suivi');
+        _hasMoreData = false;
+        return [];
       }
 
       final Set<String> addedPostIds = {};
@@ -137,6 +193,11 @@ class HomeProvider extends ChangeNotifier {
             .get());
       }
 
+      if (queries.isEmpty) {
+        _hasMoreData = false;
+        return [];
+      }
+
       // Exécuter toutes les requêtes en parallèle avec un timeout
       final List<QuerySnapshot> snapshots = await Future.wait(
         queries,
@@ -167,11 +228,18 @@ class HomeProvider extends ChangeNotifier {
 
       _feedController.add(_currentFeedItems);
       _lastRefreshTime = DateTime.now();
+      _isInitialLoading = false; // Important: mettre à false une fois chargé
 
       return _currentFeedItems;
     } catch (e) {
+      _errorMessage = e.toString();
       _feedController.addError(e);
       return [];
+    } finally {
+      _isLoading = false;
+      _isInitialLoading =
+          false; // Important: mettre à false même en cas d'erreur
+      notifyListeners();
     }
   }
 
@@ -282,14 +350,27 @@ class HomeProvider extends ChangeNotifier {
     Set<String> addedPostIds,
     List<CombinedItem> combinedItems,
   ) async {
-    // Créer une liste de futures pour le traitement parallèle
-    final List<Future<void>> futures = [];
+    // Collecter tous les IDs d'entreprises uniques
+    final Set<String> companyIds = {};
+    final List<DocumentSnapshot> validPosts = [];
 
     for (var postDoc in postsSnapshot.docs) {
+      final data = postDoc.data() as Map<String, dynamic>;
+      if (data['companyId'] != null) {
+        companyIds.add(data['companyId'] as String);
+      }
+      validPosts.add(postDoc);
+    }
+
+    // Pré-charger toutes les données d'entreprises en une seule fois
+    await Future.wait(companyIds.map((companyId) => getCompanyData(companyId)));
+
+    // Traiter les posts avec les données d'entreprises en cache
+    final List<Future<void>> futures = [];
+    for (var postDoc in validPosts) {
       futures.add(_processPost(postDoc, addedPostIds, combinedItems));
     }
 
-    // Attendre que tous les posts soient traités
     await Future.wait(futures);
   }
 
@@ -299,13 +380,11 @@ class HomeProvider extends ChangeNotifier {
     List<CombinedItem> combinedItems,
   ) async {
     try {
+      final data = postDoc.data() as Map<String, dynamic>;
       final post = _createPostFromDocument(postDoc);
       if (post == null) return;
 
-      // Créer un ID unique pour ce post
       final uniqueId = '${post.id}_${post.timestamp.millisecondsSinceEpoch}';
-
-      // Vérifier si on a déjà ce post
       if (addedPostIds.contains(uniqueId) ||
           _loadedItemIds.contains(uniqueId)) {
         return;
@@ -328,21 +407,20 @@ class HomeProvider extends ChangeNotifier {
           'uniqueId': uniqueId,
         };
       } else {
-        final entityDoc =
-            await _firestore.collection('companys').doc(post.companyId).get();
-
-        if (!entityDoc.exists) return;
+        // Utiliser le cache pour les données d'entreprise
+        final companyData = await getCompanyData(post.companyId);
+        if (companyData == null) return;
 
         postData = {
           'post': post,
-          'company': entityDoc.data(),
+          'company': companyData,
           'uniqueId': uniqueId,
         };
       }
 
       combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
     } catch (e) {
-      print('Erreur lors du traitement du post: $e');
+      debugPrint('Erreur lors du traitement du post: $e');
     }
   }
 
@@ -536,7 +614,40 @@ class HomeProvider extends ChangeNotifier {
     try {
       final data = doc.data() as Map<String, dynamic>;
       final String type = data['type'] ?? 'unknown';
-      // Ajoutez ce log
+      debugPrint('📝 Création du post de type: $type');
+
+      // Vérification et conversion des types numériques
+      if (data['price'] != null) {
+        data['price'] = (data['price'] is int)
+            ? (data['price'] as int).toDouble()
+            : data['price'];
+      }
+
+      if (data['duration'] != null) {
+        data['duration'] = (data['duration'] is int)
+            ? (data['duration'] as int).toDouble()
+            : data['duration'];
+      }
+
+      // Vérification et conversion des Timestamp
+      if (data['timestamp'] != null) {
+        if (data['timestamp'] is String) {
+          try {
+            data['timestamp'] =
+                Timestamp.fromDate(DateTime.parse(data['timestamp']));
+          } catch (e) {
+            debugPrint('❌ Erreur de conversion du timestamp: $e');
+            return null;
+          }
+        } else if (data['timestamp'] is! Timestamp) {
+          debugPrint(
+              '❌ Type de timestamp invalide: ${data['timestamp'].runtimeType}');
+          return null;
+        }
+      } else {
+        debugPrint('❌ Timestamp manquant');
+        return null;
+      }
 
       switch (type) {
         case 'job_offer':
@@ -562,9 +673,12 @@ class HomeProvider extends ChangeNotifier {
         case 'service':
           return ServicePost.fromDocument(doc);
         default:
+          debugPrint('⚠️ Type de post inconnu: $type');
           return null;
       }
     } catch (e) {
+      debugPrint('❌ Erreur lors de la création du post: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       return null;
     }
   }
@@ -596,12 +710,19 @@ class HomeProvider extends ChangeNotifier {
     }
 
     try {
+      _isLoading = true;
+      notifyListeners();
+
       final items = await loadUnifiedFeed(likedCompanies, followedUsers);
       _currentFeedItems = items;
       _feedController.add(_currentFeedItems);
       _isInitialized = true;
     } catch (e) {
+      _errorMessage = e.toString();
       _feedController.addError(e);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -620,5 +741,17 @@ class HomeProvider extends ChangeNotifier {
       return '${post.id}_${post.timestamp.millisecondsSinceEpoch}';
     }
     return ''; // Pour les autres types si nécessaire
+  }
+
+  // Méthode pour nettoyer le cache périodiquement
+  void cleanCache() {
+    final now = DateTime.now();
+    _companyCacheTimestamps.removeWhere((key, timestamp) {
+      if (now.difference(timestamp) > _companyCacheValidityDuration) {
+        _companyCache.remove(key);
+        return true;
+      }
+      return false;
+    });
   }
 }

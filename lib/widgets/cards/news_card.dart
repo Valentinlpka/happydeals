@@ -1,10 +1,6 @@
-import 'dart:html' as html;
-import 'dart:ui' as ui;
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:happy/classes/news.dart';
-import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/custom_image_viewer.dart';
 import 'package:happy/widgets/video_player_screen.dart';
 import 'package:intl/intl.dart';
@@ -333,48 +329,54 @@ class NewsCard extends StatelessWidget {
   }
 
   Widget _buildWebImage(String url, {BoxFit fit = BoxFit.cover}) {
-    // Créer un ID unique pour l'élément
-    final String viewId = 'image-${DateTime.now().millisecondsSinceEpoch}';
-
-    // Enregistrer l'élément dans la factory
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(viewId, (int viewId) {
-      final img = html.ImageElement()
-        ..src = url
-        ..style.height = '100%'
-        ..style.width = '100%'
-        ..style.objectFit = fit == BoxFit.cover ? 'cover' : 'contain';
-      return img;
-    });
-
-    return Stack(
-      children: [
-        HtmlElementView(viewType: viewId),
-        // Fallback en cas d'erreur
-        _buildImageErrorListener(url),
-      ],
+    return Image.network(
+      url,
+      fit: fit,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey[100],
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('Erreur de chargement de l\'image: $error');
+        return Container(
+          color: Colors.grey[100],
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 40,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Image non disponible',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildImageErrorListener(String url) {
-    return StreamBuilder<html.Event>(
-      stream: html.window.onError,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return Container(
-            color: Colors.grey[100],
-            child: Center(
-              child: Icon(
-                Icons.article_outlined,
-                size: 40,
-                color: Colors.grey[400],
-              ),
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
+    return const SizedBox.shrink();
   }
 
   void _launchURL(String url) async {
@@ -392,99 +394,9 @@ class NewsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // En-tête avec logo et informations
-        InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DetailsEntreprise(
-                  entrepriseId: news.companyId,
-                ),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Logo de l'entreprise
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: const Color(0xFF3476B2),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(companyLogo),
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Nom de l'entreprise
-                    Text(
-                      companyName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Tag Actualité et Date
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.teal[700],
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: const Text(
-                            'Actualité',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatDateTime(news.timestamp),
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-
         // Contenu de l'actualité
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+          margin: const EdgeInsets.symmetric(horizontal: 10),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

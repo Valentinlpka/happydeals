@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/loyalty_card.dart';
 import 'package:happy/classes/loyalty_program.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:intl/intl.dart';
 
 class LoyaltyCardsPage extends StatelessWidget {

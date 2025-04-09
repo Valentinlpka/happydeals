@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:happy/config/app_router.dart';
 import 'package:happy/models/notification_model.dart';
 import 'package:happy/providers/notification_provider.dart';
-import 'package:happy/widgets/custom_app_bar.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -186,13 +187,16 @@ class NotificationTile extends StatelessWidget {
 
     switch (notification.type) {
       case NotificationType.order:
-        Navigator.pushNamed(context, '/orders/${notification.targetId}');
+        AppRouter.navigateTo(context, AppRouter.orderDetails,
+            arguments: notification.targetId);
         break;
       case NotificationType.deal_express:
-        Navigator.pushNamed(context, '/reservations/${notification.targetId}');
+        AppRouter.navigateTo(context, AppRouter.reservationDetails,
+            arguments: notification.targetId);
         break;
       case NotificationType.booking:
-        Navigator.pushNamed(context, '/bookings/${notification.targetId}');
+        AppRouter.navigateTo(context, AppRouter.bookingDetails,
+            arguments: notification.targetId);
         break;
     }
   }
