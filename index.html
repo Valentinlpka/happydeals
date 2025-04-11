@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <!-- Google Tag Manager -->
+  <script>(function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-TLXTK4F6');</script>
+  <!-- End Google Tag Manager -->
+  <style>
+    html,
+    body {
+      overscroll-behavior-y: none;
+      -webkit-overflow-scrolling: auto;
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #FFFFFF;
+    }
+
+    .splash-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #186dbc 0%, #2196f3 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .splash-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+    }
+
+    .splash-logo {
+      width: 140px;
+      height: 140px;
+      margin-bottom: 32px;
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .splash-title {
+      color: white;
+      font-size: 24px;
+      font-weight: 500;
+      margin: 0;
+      opacity: 0;
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    .splash-subtitle {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 16px;
+      margin-top: 8px;
+      opacity: 0;
+      animation: fadeIn 0.5s ease-out 0.2s forwards;
+    }
+
+    .splash-progress {
+      width: 200px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      margin-top: 32px;
+      overflow: hidden;
+      opacity: 0;
+      animation: fadeIn 0.5s ease-out 0.4s forwards;
+    }
+
+    .splash-progress-bar {
+      width: 0%;
+      height: 100%;
+      background: white;
+      border-radius: 2px;
+      transition: width 0.3s ease-out;
+    }
+
+    .splash-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 70%);
+      animation: pulse 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.5;
+      }
+
+      50% {
+        opacity: 0.8;
+      }
+    }
+  </style>
+
+  <base href="/happydeals/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Up - Votre application de shopping">
+  <meta name="theme-color" content="#186dbc">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="google-signin-client_id"
+    content="289031542511-qmck135q90i1crsuk2lkb22rhodieo49.apps.googleusercontent.com">
+
+  <!-- Préchargement des ressources critiques -->
+  <link rel="preload" href="main.dart.js" as="script">
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
+  <link rel="preload" href="icons/Icon-192.png" as="image">
+  <link rel="preload" href="favicon.png" as="image">
+
+  <!-- Polices et styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.css" />
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Up">
+
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png" />
+
+  <title>Up</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Métadonnées Open Graph -->
+  <meta property="og:title" content="Up - Votre application de shopping" />
+  <meta property="og:description" content="Découvrez Up, votre nouvelle expérience de shopping" />
+  <meta property="og:image" content="" />
+  <meta property="og:url" content="" />
+  <meta property="og:type" content="website" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Up - Votre application de shopping">
+  <meta name="twitter:description" content="Découvrez Up, votre nouvelle expérience de shopping">
+  <meta name="twitter:image" content="">
+
+  <!-- Script pour les métadonnées dynamiques -->
+  <script>
+    window.updateMetaTags = function (title, description, image, url) {
+      document.querySelector('meta[property="og:title"]').setAttribute('content', title);
+      document.querySelector('meta[property="og:description"]').setAttribute('content', description);
+      document.querySelector('meta[property="og:image"]').setAttribute('content', image);
+      document.querySelector('meta[property="og:url"]').setAttribute('content', url);
+
+      document.querySelector('meta[name="twitter:title"]').setAttribute('content', title);
+      document.querySelector('meta[name="twitter:description"]').setAttribute('content', description);
+      document.querySelector('meta[name="twitter:image"]').setAttribute('content', image);
+    }
+  </script>
+
+  <!-- Firebase Configuration -->
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-analytics-compat.js" defer></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const firebaseConfig = {
+        apiKey: "AIzaSyAF_EaXi4OI5SEndI-Phe4FfJ6P7M5MaoA",
+        authDomain: "happy-deals-3f03d.firebaseapp.com",
+        projectId: "happy-deals-3f03d",
+        storageBucket: "happy-deals-3f03d.appspot.com",
+        messagingSenderId: "289031542511",
+        appId: "1:289031542511:web:e608b4fb09685d0d8b6d1a",
+        measurementId: "G-XXXXXXXXXX" // Remplacez par votre Measurement ID
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('firebase-messaging-sw.js')
+          .then(function (registration) {
+            console.log('Service Worker registered with scope:', registration.scope);
+          })
+          .catch(function (error) {
+            console.error('Service Worker registration failed:', error);
+          });
+      }
+    });
+  </script>
+
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src * self blob: data: gap:; style-src * self 'unsafe-inline' blob: data: gap:; script-src * 'self' 'unsafe-eval' 'unsafe-inline' blob: data: gap:; object-src * 'self' blob: data: gap:; img-src * self 'unsafe-inline' blob: data: gap:; connect-src self * 'unsafe-inline' blob: data: gap:; frame-src * self blob: data: gap:; geolocation *;">
+
+  <!-- Configuration Flutter -->
+  <script>
+    window.flutterWebRenderer = "canvaskit";
+  </script>
+
+  <!-- Préchargement CanvasKit -->
+  <link rel="preload" href="canvaskit/canvaskit.wasm" as="fetch" type="application/wasm" crossorigin="anonymous">
+  <link rel="preload" href="canvaskit/canvaskit.js" as="script">
+  <link rel="preload" href="fonts/MaterialIcons-Regular.otf" as="font" type="font/otf" crossorigin="anonymous">
+
+  <script>
+    window.addEventListener('load', function (ev) {
+      _flutter.loader.load({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: async function (engineInitializer) {
+          const appRunner = await engineInitializer.initializeEngine({
+            useColorEmoji: true,
+            renderer: "canvaskit",
+            canvasKitBaseUrl: "/canvaskit/",
+            fontFamily: 'Roboto'
+          });
+          await appRunner.runApp();
+        }
+      });
+    });
+  </script>
+</head>
+
+<!-- Scripts externes -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js" defer></script>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+  });
+</script>
+
+<body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLXTK4F6" height="0" width="0"
+      style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+  <!-- Nouveau Splash Screen -->
+  <div id="loading-screen" class="splash-container">
+    <div class="splash-background"></div>
+    <div class="splash-content">
+      <img src="icons/Icon-192.png" class="splash-logo" alt="Logo Up" loading="eager" />
+      <h1 class="splash-title">Up</h1>
+      <p class="splash-subtitle">Votre nouvelle expérience de shopping</p>
+      <div class="splash-progress">
+        <div class="splash-progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts externes -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js" defer></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+    });
+  </script>
+
+  <!-- Scripts principaux -->
+  <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    // Animation de la barre de progression
+    let progress = 0;
+    const progressBar = document.querySelector('.splash-progress-bar');
+    const progressInterval = setInterval(() => {
+      progress += Math.random() * 15;
+      if (progress > 100) progress = 100;
+      progressBar.style.width = progress + '%';
+    }, 200);
+
+    // Masquer le splash screen une fois que Flutter est initialisé
+    window.addEventListener('flutter-first-frame', function () {
+      clearInterval(progressInterval);
+      progressBar.style.width = '100%';
+      setTimeout(() => {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+          loadingScreen.style.opacity = '0';
+          loadingScreen.style.transition = 'opacity 0.5s ease-out';
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 500);
+        }
+      }, 500);
+    });
+
+    // Désactiver le zoom sur double-tap
+    document.addEventListener('touchstart', (startEvent) => {
+      if (startEvent.touches.length > 1) return;
+      startEvent.preventDefault();
+    }, { passive: false });
+  </script>
+</body>
+
+</html>
