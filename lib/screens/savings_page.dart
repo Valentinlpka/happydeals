@@ -74,7 +74,7 @@ class SavingsPage extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.8),
+            Theme.of(context).primaryColor.withAlpha(26),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -82,7 +82,7 @@ class SavingsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withAlpha(26),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -120,7 +120,7 @@ class SavingsPage extends StatelessWidget {
               Container(
                 width: 1,
                 height: 40,
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withAlpha(26 * 3),
               ),
               _buildSavingsStat(
                 'Moyenne/commande',
@@ -140,7 +140,7 @@ class SavingsPage extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: color.withOpacity(0.8),
+            color: color.withAlpha(26 * 8),
             fontSize: 14,
           ),
         ),
@@ -199,7 +199,7 @@ class SavingsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(26),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -301,7 +301,7 @@ class SavingsPage extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: _getTypeColor(transaction.type).withOpacity(0.1),
+                    color: _getTypeColor(transaction.type).withAlpha(26),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -576,7 +576,7 @@ class SavingsPage extends StatelessWidget {
           transactions: transactions,
         );
       } catch (e) {
-        print('Erreur lors de la récupération des économies: $e');
+        debugPrint('Erreur lors de la récupération des économies: $e');
         return SavingsData.empty();
       }
     }());

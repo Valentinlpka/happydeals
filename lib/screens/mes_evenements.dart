@@ -14,19 +14,16 @@ class MyEventsPage extends StatelessWidget {
 
   Future<List<Map<String, dynamic>>> _fetchMyEventsWithCompanyData() async {
     try {
-      print("Début de la requête pour userId: $userId");
       final querySnapshot = await FirebaseFirestore.instance
           .collectionGroup('attendees')
           .where('userId', isEqualTo: userId)
           .get();
 
-      print("Documents trouvés: ${querySnapshot.docs.length}");
       List<Map<String, dynamic>> eventsWithCompany = [];
 
       for (var doc in querySnapshot.docs) {
         try {
           final eventId = doc.reference.parent.parent!.id;
-          print("ID de l'événement parent: $eventId");
 
           // Récupérer l'événement
           final eventDoc = await FirebaseFirestore.instance
@@ -49,19 +46,15 @@ class MyEventsPage extends StatelessWidget {
                 'companyName': companyDoc.data()?['name'] ?? '',
                 'companyLogo': companyDoc.data()?['logo'] ?? '',
               });
-              print("Événement et données entreprise ajoutés: ${eventDoc.id}");
             }
           }
         } catch (e) {
-          print("Erreur lors de la récupération des données: $e");
+          debugPrint(e.toString());
         }
       }
 
-      print("Nombre total d'événements récupérés: ${eventsWithCompany.length}");
       return eventsWithCompany;
-    } catch (e, stackTrace) {
-      print("Erreur globale: $e");
-      print("Stack trace: $stackTrace");
+    } catch (e) {
       rethrow;
     }
   }

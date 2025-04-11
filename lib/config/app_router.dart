@@ -227,8 +227,6 @@ class AppRouter {
         if (args is Map<String, dynamic>) {
           return getRoute(DetailsEmploiPage(
             post: args['post'],
-            individualName: args['individualName'],
-            individualPhoto: args['individualPhoto'],
           ));
         }
         break;

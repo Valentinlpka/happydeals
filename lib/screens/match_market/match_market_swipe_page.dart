@@ -40,10 +40,6 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
   int likesCount = 0;
   Set<String> viewedProducts = {};
   Map<String, CompanyLocation> companyLocations = {};
-  final bool _isProcessingSwipe = false;
-  Product? _currentProduct;
-  final List<Product> _productsToRemove = [];
-  final int _currentIndex = 0;
   bool _allCardsSwipedAway = false;
   final Set<String> _likedProductsIds = {};
 
@@ -87,31 +83,21 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
 
   Future<void> _loadProducts() async {
     try {
-      print('🔍 Début du chargement des produits');
-      print('📍 Position: ${widget.latitude}, ${widget.longitude}');
-      print('🎯 Rayon: ${widget.searchRadius} km');
-      print('🏙️ Ville: ${widget.cityName}');
-      print('📁 Catégorie: ${widget.category.id}');
-
       // 1. Trouver les entreprises dans le rayon
       final companiesSnapshot =
           await FirebaseFirestore.instance.collection('companys').get();
-
-      print('🏢 Nombre total d\'entreprises: ${companiesSnapshot.docs.length}');
 
       // Filtrer les entreprises dans le rayon
       final companiesInRange = companiesSnapshot.docs.where((doc) {
         try {
           final data = doc.data();
           if (!data.containsKey('adress')) {
-            print('⚠️ Entreprise ${doc.id} sans adresse');
             return false;
           }
 
           final adress = data['adress'] as Map<String, dynamic>;
           if (!adress.containsKey('latitude') ||
               !adress.containsKey('longitude')) {
-            print('⚠️ Entreprise ${doc.id} sans coordonnées');
             return false;
           }
 
@@ -127,18 +113,12 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
               1000; // Convertir en km
 
           final isInRange = distance <= widget.searchRadius;
-          if (isInRange) {
-            print(
-                '✅ Entreprise ${doc.id} dans le rayon (${distance.toStringAsFixed(2)} km)');
-          }
+          if (isInRange) {}
           return isInRange;
         } catch (e) {
-          print('❌ Erreur avec l\'entreprise ${doc.id}: $e');
           return false;
         }
       }).toList();
-
-      print('🏢 Entreprises dans le rayon: ${companiesInRange.length}');
 
       if (companiesInRange.isEmpty) {
         setState(() {
@@ -154,14 +134,15 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
           final company = CompanyLocation.fromFirestore(doc);
           companyLocations[company.id] = company;
         } catch (e) {
-          print(
-              '❌ Erreur lors de la conversion de l\'entreprise ${doc.id}: $e');
+          setState(() {
+            error = 'Erreur lors du chargement des entreprises: $e';
+            isLoading = false;
+          });
         }
       }
 
       // 2. Charger les produits des entreprises trouvées
       final companyIds = companiesInRange.map((doc) => doc.id).toList();
-      print('🔍 Recherche de produits pour ${companyIds.length} entreprises');
 
       final productsQuery = FirebaseFirestore.instance
           .collection('products')
@@ -170,7 +151,6 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
           .where('isActive', isEqualTo: true);
 
       final productsSnapshot = await productsQuery.get();
-      print('📦 Produits trouvés: ${productsSnapshot.docs.length}');
 
       // Filtrer les produits déjà vus
       final availableProducts = productsSnapshot.docs
@@ -179,7 +159,6 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
             try {
               return Product.fromFirestore(doc);
             } catch (e) {
-              print('❌ Erreur lors de la conversion du produit ${doc.id}: $e');
               return null;
             }
           })
@@ -187,16 +166,11 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
           .cast<Product>()
           .toList();
 
-      print(
-          '📦 Produits disponibles après filtrage: ${availableProducts.length}');
-
       setState(() {
         products.addAll(availableProducts);
         isLoading = false;
       });
-    } catch (e, stackTrace) {
-      print('❌ Erreur lors du chargement des produits: $e');
-      print('Stack trace: $stackTrace');
+    } catch (e) {
       setState(() {
         error = 'Erreur lors du chargement des produits: $e';
         isLoading = false;
@@ -207,11 +181,8 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
   Future<void> _saveLike(Product product) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
-      print('❌ Impossible de liker: utilisateur non connecté');
       return;
     }
-
-    print('💾 Sauvegarde du like pour le produit: ${product.name}');
 
     try {
       await FirebaseFirestore.instance.collection('likes').add({
@@ -220,8 +191,6 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      print('✅ Like sauvegardé avec succès');
-
       // Ajouter l'ID à l'ensemble des produits likés
       _likedProductsIds.add(product.id);
 
@@ -229,10 +198,11 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
         likesCount = _likedProductsIds
             .length; // Mettre à jour le compteur avec le nombre exact
       });
-
-      print('📊 Nombre total de likes: $likesCount');
     } catch (e) {
-      print('❌ Erreur lors de la sauvegarde du like: $e');
+      setState(() {
+        error = 'Erreur lors du like: $e';
+        isLoading = false;
+      });
     }
   }
 
@@ -464,12 +434,10 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color:
-                              Theme.of(context).primaryColor.withOpacity(0.1),
+                          color: Theme.of(context).primaryColor.withAlpha(26),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color:
-                                Theme.of(context).primaryColor.withOpacity(0.3),
+                            color: Theme.of(context).primaryColor.withAlpha(26),
                           ),
                         ),
                         child: Text(
@@ -529,7 +497,7 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                                         border: Border.all(
                                           color: Theme.of(context)
                                               .primaryColor
-                                              .withOpacity(0.3),
+                                              .withAlpha(36),
                                         ),
                                         image: logo != null && logo.isNotEmpty
                                             ? DecorationImage(
@@ -593,9 +561,9 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                               height: 24,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.blue.withOpacity(0.1),
+                                color: Colors.blue.withAlpha(26),
                                 border: Border.all(
-                                    color: Colors.blue.withOpacity(0.3)),
+                                    color: Colors.blue.withAlpha(76)),
                               ),
                               child: const Icon(
                                 Icons.location_on,
@@ -624,8 +592,6 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                                       final address = data['adress']
                                           as Map<String, dynamic>;
                                       cityName = address['city'] ?? '';
-                                      print(
-                                          'Ville récupérée depuis Firestore: $cityName');
                                     }
                                   }
 
@@ -649,7 +615,7 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
+                                  color: Colors.blue.withAlpha(26),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -699,62 +665,126 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
   }
 
   Widget _buildEndScreen() {
-    print('🏁 Construction de l\'écran de fin avec $likesCount likes');
+    // Couleurs personnalisées
+    const Color primaryColor = Color(0xFF6C63FF);
+    const Color secondaryColor = Color(0xFFFF6584);
+    const Color backgroundColor = Color(0xFFF8F9FF);
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(widget.category.name),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.category.name,
+          style: const TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.check_circle_outline,
-              size: 80,
-              color: Colors.green[400],
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withAlpha(52),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.check_circle_outline,
+                size: 80,
+                color: primaryColor,
+              ),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Vous avez tout vu !',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 32),
+            ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [primaryColor, secondaryColor],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ).createShader(bounds),
+              child: const Text(
+                'Vous avez tout vu !',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               'Vous avez liké $likesCount produits',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
-                color: Colors.grey,
+                color: Colors.grey[600],
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LikedProductsPage(),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [primaryColor, secondaryColor],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withAlpha(26),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.favorite),
-                    label: const Text('Voir mes coups de cœur'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 24,
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LikedProductsPage(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.favorite, color: Colors.white),
+                      label: const Text(
+                        'Voir mes coups de cœur',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 24,
+                        ),
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
                   ),
@@ -768,12 +798,23 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.category),
-                    label: const Text('Choisir une autre catégorie'),
+                    icon: const Icon(Icons.category, color: primaryColor),
+                    label: const Text(
+                      'Choisir une autre catégorie',
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         vertical: 16,
                         horizontal: 24,
+                      ),
+                      side: const BorderSide(color: primaryColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                   ),
@@ -821,7 +862,6 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
     }
 
     if (_allCardsSwipedAway || products.isEmpty) {
-      print('Affichage de l\'écran de fin');
       return _buildEndScreen();
     }
 
@@ -862,36 +902,21 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                   CardSwiperDirection direction) {
                 // Traiter le swipe sans modifier la liste
                 final product = products[previousIndex];
-                print(
-                    '👆 Traitement du swipe pour le produit: ${product.name}');
 
                 // Marquer comme vu
                 _markProductAsViewed(product.id);
 
                 // Gérer les likes avec plus de logs
                 if (direction == CardSwiperDirection.right) {
-                  print('❤️ Like du produit: ${product.name}');
                   _saveLike(product);
-                } else {
-                  print('👎 Pas de like pour le produit: ${product.name}');
-                }
+                } else {}
 
                 // Si c'était le dernier produit, afficher l'écran de fin après un court délai
-                if (currentIndex == null || currentIndex >= products.length) {
-                  print(
-                      'Dernier produit swipé, préparation de l\'écran de fin');
-                }
+                if (currentIndex == null || currentIndex >= products.length) {}
 
                 return true; // Toujours autoriser le swipe
               },
               onEnd: () {
-                print('Fin des cartes');
-
-                print(
-                    '📊 Nombre de produits likés dans cette session: ${_likedProductsIds.length}');
-                print(
-                    '📊 IDs des produits likés: ${_likedProductsIds.join(", ")}');
-
                 setState(() {
                   _allCardsSwipedAway = true;
                   likesCount =
@@ -904,7 +929,6 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
                   return const SizedBox.shrink();
                 }
 
-                _currentProduct = products[index];
                 return _buildCard(products[index]);
               },
             ),
@@ -918,38 +942,5 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
   void dispose() {
     controller.dispose();
     super.dispose();
-  }
-
-  Future<List<CompanyLocation>> _getCompaniesInRange({
-    required double centerLat,
-    required double centerLng,
-    required double radius,
-  }) async {
-    final companiesSnapshot =
-        await FirebaseFirestore.instance.collection('companys').get();
-
-    return companiesSnapshot.docs
-        .where((doc) {
-          try {
-            final data = doc.data();
-            final adress = data['adress'] as Map<String, dynamic>;
-            final lat = adress['latitude'] as double;
-            final lng = adress['longitude'] as double;
-
-            final distance = Geolocator.distanceBetween(
-                  centerLat,
-                  centerLng,
-                  lat,
-                  lng,
-                ) /
-                1000;
-
-            return distance <= radius;
-          } catch (e) {
-            return false;
-          }
-        })
-        .map((doc) => CompanyLocation.fromFirestore(doc))
-        .toList();
   }
 }

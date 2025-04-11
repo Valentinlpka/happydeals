@@ -146,15 +146,4 @@ class SearchProvider extends ChangeNotifier {
     _lastQuery = '';
     notifyListeners();
   }
-
-  // Limiter la taille du cache
-  void _limitCacheSize() {
-    if (_searchCache.length > 20) {
-      // Supprimer les entrées les plus anciennes
-      final keysToRemove = _searchCache.keys.take(_searchCache.length - 20);
-      for (final key in keysToRemove) {
-        _searchCache.remove(key);
-      }
-    }
-  }
 }

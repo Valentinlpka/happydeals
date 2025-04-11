@@ -27,7 +27,7 @@ class CustomImageViewer extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black.withOpacity(0.9),
+        backgroundColor: Colors.black.withAlpha(26 * 9),
         body: Stack(
           children: [
             // Image viewer avec PageView
@@ -42,7 +42,7 @@ class CustomImageViewer extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withAlpha(26 * 3),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -97,7 +97,7 @@ class CustomImageViewer extends StatelessWidget {
               right: 16,
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withAlpha(26 * 7),
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
@@ -122,7 +122,7 @@ class CustomImageViewer extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withAlpha(26 * 7),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(

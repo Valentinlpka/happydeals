@@ -87,14 +87,14 @@ class Orders {
   // Calcul du sous-total (somme des prix originaux)
   double get subtotal => items.fold(
         0,
-        (sum, item) => sum + (item.originalPrice * item.quantity),
+        (total, item) => total + (item.originalPrice * item.quantity),
       );
 
   // Calcul des réductions totales
   double get totalDiscount => items.fold(
         0,
-        (sum, item) =>
-            sum + ((item.originalPrice - item.appliedPrice) * item.quantity),
+        (total, item) =>
+            total + ((item.originalPrice - item.appliedPrice) * item.quantity),
       );
 
   Map<String, dynamic> toMap() {

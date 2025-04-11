@@ -17,17 +17,8 @@ class ConcoursCard extends StatelessWidget {
     return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
   }
 
-  String _getContestStatus() {
-    final now = DateTime.now();
-    if (now.isBefore(contest.startDate)) return 'À venir';
-    if (now.isAfter(contest.endDate)) return 'Terminé';
-    return 'En cours';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final status = _getContestStatus();
-
     return Column(
       children: [
         // Carte principale
@@ -38,7 +29,7 @@ class ConcoursCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(13),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -80,8 +71,8 @@ class ConcoursCard extends StatelessWidget {
                           begin: Alignment.center,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withOpacity(0.6),
-                            Colors.black.withOpacity(0.6),
+                            Colors.black.withAlpha(20),
+                            Colors.black.withAlpha(20),
                           ],
                         ),
                       ),

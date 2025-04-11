@@ -16,7 +16,7 @@ class ReservationScreen extends StatefulWidget {
   });
 
   @override
-  _ReservationScreenState createState() => _ReservationScreenState();
+  State<ReservationScreen> createState() => _ReservationScreenState();
 }
 
 class _ReservationScreenState extends State<ReservationScreen> {
@@ -208,7 +208,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
+        color: Colors.orange.withAlpha(26),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.orange),
       ),

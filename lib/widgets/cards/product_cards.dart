@@ -46,6 +46,7 @@ class ProductCards extends StatelessWidget {
 
         try {
           final product = await _getProduct(post.productId);
+          if (!context.mounted) return;
           Navigator.pop(context);
           if (product != null && context.mounted) {
             Navigator.pushNamed(

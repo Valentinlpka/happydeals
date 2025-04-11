@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:happy/classes/post.dart';
 
 class PromoCodeCondition {
@@ -161,7 +162,7 @@ class PromoCodePost extends Post {
       final maxUsesInt = int.parse(maxUses!);
       return currentUses < maxUsesInt;
     } catch (e) {
-      print('Erreur de conversion maxUses: $e');
+      debugPrint('Erreur de conversion maxUses: $e');
       return false;
     }
   }

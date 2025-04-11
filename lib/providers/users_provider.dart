@@ -656,7 +656,7 @@ class UserModel with ChangeNotifier {
       _followedAssociations.add(associationId);
       notifyListeners();
     } catch (e) {
-      print('Erreur lors du suivi de l\'association: $e');
+      debugPrint('Erreur lors du suivi de l\'association: $e');
       rethrow;
     }
   }
@@ -680,7 +680,7 @@ class UserModel with ChangeNotifier {
       _followedAssociations.remove(associationId);
       notifyListeners();
     } catch (e) {
-      print('Erreur lors du désabonnement de l\'association: $e');
+      debugPrint('Erreur lors du désabonnement de l\'association: $e');
       rethrow;
     }
   }
@@ -695,7 +695,7 @@ class UserModel with ChangeNotifier {
           List<String>.from(userDoc.data()?['followedAssociations'] ?? []);
       return followedAssociations.contains(associationId);
     } catch (e) {
-      print('Erreur lors de la vérification du suivi: $e');
+      debugPrint('Erreur lors de la vérification du suivi: $e');
       return false;
     }
   }

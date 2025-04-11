@@ -11,7 +11,7 @@ class HappyDealsPage extends StatefulWidget {
   const HappyDealsPage({super.key});
 
   @override
-  _HappyDealsPageState createState() => _HappyDealsPageState();
+  State<HappyDealsPage> createState() => _HappyDealsPageState();
 }
 
 class _HappyDealsPageState extends State<HappyDealsPage> {
@@ -99,7 +99,7 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withAlpha(26),
               spreadRadius: 1,
               blurRadius: 10,
               offset: const Offset(0, 1),

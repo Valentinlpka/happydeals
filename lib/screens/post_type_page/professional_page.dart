@@ -41,7 +41,7 @@ class City {
       try {
         return double.parse(value.trim());
       } catch (e) {
-        print('Erreur de conversion pour la coordonnée: $value');
+        debugPrint('Erreur de conversion pour la coordonnée: $value');
         return 0.0;
       }
     }
@@ -60,7 +60,7 @@ class GeneralProfilePage extends StatefulWidget {
   const GeneralProfilePage({super.key});
 
   @override
-  _GeneralProfilePageState createState() => _GeneralProfilePageState();
+  State<GeneralProfilePage> createState() => _GeneralProfilePageState();
 }
 
 class _GeneralProfilePageState extends State<GeneralProfilePage> {
@@ -70,7 +70,6 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
   List<City> _allCities = [];
   List<City> _filteredCities = [];
   final TextEditingController _cityController = TextEditingController();
-  bool _isLoadingCities = false;
   City? _selectedCity;
 
   @override
@@ -95,10 +94,6 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
 
   Future<void> _loadCities() async {
     try {
-      setState(() {
-        _isLoadingCities = true;
-      });
-
       final String jsonString =
           await rootBundle.loadString('assets/french_cities.json');
       final data = json.decode(jsonString);
@@ -106,15 +101,8 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
       _allCities = (data['cities'] as List)
           .map((cityJson) => City.fromJson(cityJson))
           .toList();
-
-      setState(() {
-        _isLoadingCities = false;
-      });
     } catch (e) {
-      print('Erreur lors du chargement des villes: $e');
-      setState(() {
-        _isLoadingCities = false;
-      });
+      debugPrint('Erreur lors du chargement des villes: $e');
     }
   }
 
@@ -380,7 +368,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withAlpha(26),
                     spreadRadius: 1,
                     blurRadius: 4,
                     offset: const Offset(0, 2),
@@ -504,6 +492,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
     if (image != null) {
       if (kIsWeb) {
         // Web platform
+        if (!mounted) return;
         final croppedFile = await ImageCropper().cropImage(
           sourcePath: image.path,
           aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
@@ -522,6 +511,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
         }
       } else {
         // Mobile platforms
+        if (!mounted) return;
         final croppedFile = await ImageCropper().cropImage(
           sourcePath: image.path,
           aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
@@ -571,12 +561,13 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
       await usersProvider.updateUserProfile({
         'image_profile': downloadUrl,
       });
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Photo de profil mise à jour avec succès')),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Erreur lors de la mise à jour de la photo: $e')),
@@ -609,7 +600,7 @@ class _GeneralProfilePageState extends State<GeneralProfilePage> {
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: CupertinoColors.black.withOpacity(0.5),
+            color: CupertinoColors.black.withAlpha(52),
             shape: BoxShape.circle,
           ),
           child: const Icon(

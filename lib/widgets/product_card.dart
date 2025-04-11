@@ -11,7 +11,7 @@ class ProductCard extends StatelessWidget {
   const ProductCard({
     super.key,
     required this.product,
-    this.width = 180,
+    this.width = 200,
   });
 
   @override
@@ -30,34 +30,61 @@ class ProductCard extends StatelessWidget {
         ? activeDiscount.calculateDiscountedPrice(mainVariant.price)
         : mainVariant.price;
 
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ModernProductDetailPage(product: product),
-        ),
-      ),
-      child: Container(
-        width: width,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+    // Couleurs personnalisées
+    const Color primaryColor = Color(0xFF6C63FF);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 360;
+        final cardWidth = isSmallScreen ? constraints.maxWidth : width;
+
+        return Container(
+          width: cardWidth,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withAlpha(18),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ModernProductDetailPage(product: product),
+                ),
+              ),
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildImageSection(
+                    mainVariant,
+                    hasDiscount,
+                    finalPrice,
+                    primaryColor,
+                    isSmallScreen,
+                  ),
+                  _buildInfoSection(
+                    mainVariant,
+                    hasDiscount,
+                    finalPrice,
+                    primaryColor,
+                    isSmallScreen,
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildImageSection(mainVariant, hasDiscount, finalPrice),
-            _buildInfoSection(mainVariant, hasDiscount, finalPrice),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -65,53 +92,58 @@ class ProductCard extends StatelessWidget {
     ProductVariant variant,
     bool hasDiscount,
     double finalPrice,
+    Color primaryColor,
+    bool isSmallScreen,
   ) {
-    return Stack(
-      children: [
-        // Image principale
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: variant.images.isNotEmpty
-                ? Hero(
-                    tag: 'product_${product.id}',
-                    child: Image.network(
-                      variant.images[0],
-                      fit: BoxFit.cover,
+    return AspectRatio(
+      aspectRatio: 1,
+      child: Stack(
+        children: [
+          // Image principale
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: SizedBox.expand(
+              child: variant.images.isNotEmpty
+                  ? Hero(
+                      tag: 'product_${product.id}',
+                      child: Image.network(
+                        variant.images[0],
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[100],
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: isSmallScreen ? 32 : 40,
+                        color: Colors.grey[400],
+                      ),
                     ),
-                  )
-                : Container(
-                    color: Colors.grey[100],
-                    child: const Icon(
-                      Icons.image_outlined,
-                      size: 40,
-                      color: Colors.grey,
-                    ),
-                  ),
+            ),
           ),
-        ),
-        // Badge de réduction
-        if (hasDiscount)
+          // Badge de réduction
+          if (hasDiscount)
+            Positioned(
+              top: 8,
+              left: 8,
+              child:
+                  _buildDiscountBadge(variant.price, finalPrice, isSmallScreen),
+            ),
+          // Bouton favori
           Positioned(
             top: 8,
-            left: 8,
-            child: _buildDiscountBadge(variant.price, finalPrice),
+            right: 8,
+            child: _buildLikeButton(primaryColor, isSmallScreen),
           ),
-        // Bouton favori
-        Positioned(
-          top: 8,
-          right: 8,
-          child: _buildLikeButton(),
-        ),
-        // Badge options multiples
-        if (product.variants.length > 1)
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: _buildOptionsBadge(),
-          ),
-      ],
+          // Badge options multiples
+          if (product.variants.length > 1)
+            Positioned(
+              bottom: 8,
+              left: 8,
+              child: _buildOptionsBadge(isSmallScreen),
+            ),
+        ],
+      ),
     );
   }
 
@@ -119,62 +151,93 @@ class ProductCard extends StatelessWidget {
     ProductVariant variant,
     bool hasDiscount,
     double finalPrice,
+    Color primaryColor,
+    bool isSmallScreen,
   ) {
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
       child: Column(
-        spacing: 5,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPriceRow(variant.price, finalPrice, hasDiscount),
-          const SizedBox(height: 4),
+          _buildPriceRow(variant.price, finalPrice, hasDiscount, isSmallScreen),
+          SizedBox(height: isSmallScreen ? 4 : 6),
           Text(
             product.name,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 13 : 15,
+              fontWeight: FontWeight.w600,
               height: 1.2,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 4),
-          _buildCompanyInfo(),
+          SizedBox(height: isSmallScreen ? 4 : 6),
+          _buildCompanyInfo(isSmallScreen),
         ],
       ),
     );
   }
 
-  Widget _buildDiscountBadge(double originalPrice, double finalPrice) {
+  Widget _buildDiscountBadge(
+    double originalPrice,
+    double finalPrice,
+    bool isSmallScreen,
+  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 8 : 10,
+        vertical: isSmallScreen ? 3 : 4,
+      ),
       decoration: BoxDecoration(
-        color: Colors.red,
-        borderRadius: BorderRadius.circular(4),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFF3B30), Color(0xFFFF2D55)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withAlpha(70),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Text(
         '-${((1 - finalPrice / originalPrice) * 100).toStringAsFixed(0)}%',
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
-          fontSize: 11,
+          fontSize: isSmallScreen ? 12 : 14,
         ),
       ),
     );
   }
 
-  Widget _buildOptionsBadge() {
+  Widget _buildOptionsBadge(bool isSmallScreen) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(4),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 8 : 10,
+        vertical: isSmallScreen ? 3 : 4,
       ),
-      child: const Text(
+      decoration: BoxDecoration(
+        color: Colors.black.withAlpha(26 * 8),
+        borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(26 * 2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
         'Plusieurs options',
         style: TextStyle(
           color: Colors.white,
-          fontSize: 10,
+          fontSize: isSmallScreen ? 11 : 13,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -182,7 +245,11 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildPriceRow(
-      double originalPrice, double finalPrice, bool hasDiscount) {
+    double originalPrice,
+    double finalPrice,
+    bool hasDiscount,
+    bool isSmallScreen,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
@@ -190,9 +257,9 @@ class ProductCard extends StatelessWidget {
         Text(
           '${finalPrice.toStringAsFixed(2)} €',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: isSmallScreen ? 15 : 17,
             fontWeight: FontWeight.bold,
-            color: hasDiscount ? Colors.red : Colors.black,
+            color: hasDiscount ? const Color(0xFFFF3B30) : Colors.black,
           ),
         ),
         if (hasDiscount) ...[
@@ -200,7 +267,7 @@ class ProductCard extends StatelessWidget {
           Text(
             '${originalPrice.toStringAsFixed(2)} €',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: isSmallScreen ? 12 : 14,
               decoration: TextDecoration.lineThrough,
               color: Colors.grey[600],
             ),
@@ -210,7 +277,7 @@ class ProductCard extends StatelessWidget {
     );
   }
 
-  Widget _buildCompanyInfo() {
+  Widget _buildCompanyInfo(bool isSmallScreen) {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('companys')
@@ -225,8 +292,8 @@ class ProductCard extends StatelessWidget {
           children: [
             if (company['logo'] != null)
               Container(
-                width: 16,
-                height: 16,
+                width: isSmallScreen ? 16 : 18,
+                height: isSmallScreen ? 16 : 18,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.grey[200]!),
@@ -236,14 +303,14 @@ class ProductCard extends StatelessWidget {
                   ),
                 ),
               ),
-            const SizedBox(width: 4),
+            SizedBox(width: isSmallScreen ? 6 : 8),
             Expanded(
               child: Text(
                 company['name'] ?? '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 12 : 14,
                   color: Colors.black87,
                   fontWeight: FontWeight.w500,
                 ),
@@ -255,36 +322,29 @@ class ProductCard extends StatelessWidget {
     );
   }
 
-  Widget _buildLikeButton() {
+  Widget _buildLikeButton(Color primaryColor, bool isSmallScreen) {
     return StreamBuilder<bool>(
       stream: LikeService.isLiked(product.id),
       builder: (context, snapshot) {
         final isLiked = snapshot.data ?? false;
 
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => LikeService.toggleLike(product.id, context),
-            borderRadius: BorderRadius.circular(50),
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+        return Container(
+          padding: EdgeInsets.all(isSmallScreen ? 4 : 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(26 * 1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-              child: Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border,
-                size: 18,
-                color: isLiked ? Colors.red : Colors.grey[800],
-              ),
-            ),
+            ],
+          ),
+          child: Icon(
+            isLiked ? Icons.favorite : Icons.favorite_border,
+            size: isSmallScreen ? 16 : 18,
+            color: isLiked ? const Color(0xFFFF3B30) : Colors.grey[800],
           ),
         );
       },

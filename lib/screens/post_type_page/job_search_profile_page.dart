@@ -18,7 +18,7 @@ class JobSearchProfilePage extends StatefulWidget {
   const JobSearchProfilePage({super.key});
 
   @override
-  _JobSearchProfilePageState createState() => _JobSearchProfilePageState();
+  State<JobSearchProfilePage> createState() => _JobSearchProfilePageState();
 }
 
 class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
@@ -157,7 +157,7 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
             _formations = List.from(_tempFormations);
             _competences = List.from(_tempCompetences);
           });
-
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content:
@@ -166,6 +166,7 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
             ),
           );
         } catch (e) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Erreur lors de la sauvegarde: $e'),
@@ -583,11 +584,12 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
         // Modifier l'URL pour obtenir l'URL d'affichage
 
         await userModel.updateUserProfile({'cvUrl': downloadUrl});
-
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('CV téléchargé avec succès')),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors du téléchargement du CV: $e')),
         );
@@ -1744,8 +1746,6 @@ class _JobSearchProfilePageState extends State<JobSearchProfilePage> {
   }
 
   Widget _buildCompetencesList() {
-    final niveaux = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

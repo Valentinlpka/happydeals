@@ -98,7 +98,6 @@ class LoyaltyCardsPage extends StatelessWidget {
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          print(snapshot.error);
           return const Center(
             child: Text('Aucun historique disponible'),
           );
@@ -159,7 +158,7 @@ class LoyaltyCardsPage extends StatelessWidget {
   }
 
   Widget _buildHistoryTransactions(LoyaltyCard card) {
-    print('Recherche historique pour la carte: ${card.id}'); // Debug
+    // Debug
 
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
@@ -170,12 +169,10 @@ class LoyaltyCardsPage extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          print('Erreur: ${snapshot.error}');
           return const Text('Une erreur est survenue');
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          print('Pas de données ou données vides');
           return const SizedBox.shrink();
         }
 
@@ -187,11 +184,8 @@ class LoyaltyCardsPage extends StatelessWidget {
         }).toList();
 
         if (relevantDocs.isEmpty) {
-          print('Aucune transaction trouvée pour la carte ${card.id}');
           return const SizedBox.shrink();
         }
-
-        print('Nombre de transactions trouvées: ${relevantDocs.length}');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,7 +253,6 @@ class LoyaltyCardsPage extends StatelessWidget {
         if (!snapshot.hasData ||
             snapshot.data!.docs.isEmpty ||
             snapshot.hasError) {
-          print(snapshot.error);
           return const SizedBox.shrink();
         }
 
@@ -504,14 +497,6 @@ class LoyaltyCardsPage extends StatelessWidget {
     );
   }
 
-  int _calculateLevel(double points) {
-    if (points < 100) return 1;
-    if (points < 500) return 2;
-    if (points < 1000) return 3;
-    if (points < 2000) return 4;
-    return 5;
-  }
-
   Widget _buildPromoCodesList(String companyId, String loyaltyCardId) {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
@@ -530,12 +515,10 @@ class LoyaltyCardsPage extends StatelessWidget {
         }
 
         if (snapshot.hasError) {
-          print(snapshot.error);
           return Text("Erreur: ${snapshot.error}");
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          print("Aucun code promo disponible");
           return const SizedBox.shrink();
         }
 
@@ -680,356 +663,7 @@ class LoyaltyCardsPage extends StatelessWidget {
     }
   }
 
-  void _showLoyaltyCardDetails(BuildContext context, LoyaltyCard card) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    FutureBuilder<DocumentSnapshot>(
-                      future: _firestore
-                          .collection('LoyaltyPrograms')
-                          .doc(card.loyaltyProgramId)
-                          .get(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-
-                        final program =
-                            LoyaltyProgram.fromFirestore(snapshot.data!);
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // En-tête avec les informations principales
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue[50],
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    _getProgramTypeIcon(program.type),
-                                    color: Colors.blue[700],
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _getProgramTypeString(program.type),
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Valeur actuelle: ${card.currentValue}',
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Barre de progression
-                            _buildProgressBar(context, card),
-                            const SizedBox(height: 24),
-
-                            // Section des récompenses
-                            const Text(
-                              'Récompenses disponibles',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildRewardsInfo(program),
-                            const SizedBox(height: 24),
-
-                            // Historique des transactions
-                            const Text(
-                              'Dernières transactions',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildTransactionHistory(card),
-                            const SizedBox(height: 24),
-
-                            // Codes promo disponibles
-                            _buildPromoCodesList(card.companyId, card.id),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRewardsInfo(LoyaltyProgram program) {
-    switch (program.type) {
-      case LoyaltyProgramType.visits:
-      case LoyaltyProgramType.amount:
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.green[50],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.card_giftcard, color: Colors.green[700]),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Obtenez ${program.rewardValue}${program.isPercentage ? '%' : '€'} '
-                  'après ${program.targetValue}${program.type == LoyaltyProgramType.visits ? ' visites' : '€'}',
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-        );
-      case LoyaltyProgramType.points:
-        if (program.tiers == null) return const SizedBox.shrink();
-        return Column(
-          children: program.tiers!.entries.map((tier) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.stars, color: Colors.green[700]),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '${tier.value.reward}${tier.value.isPercentage ? '%' : '€'} '
-                      'à ${tier.key} points',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        );
-    }
-  }
-
-  IconData _getProgramTypeIcon(LoyaltyProgramType type) {
-    switch (type) {
-      case LoyaltyProgramType.visits:
-        return Icons.local_activity;
-      case LoyaltyProgramType.points:
-        return Icons.stars;
-      case LoyaltyProgramType.amount:
-        return Icons.account_balance_wallet;
-    }
-  }
-
-  Widget _buildTransactionHistory(LoyaltyCard card) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('LoyaltyHistory')
-          .where('cardId', isEqualTo: card.id)
-          .orderBy('timestamp', descending: true)
-          .limit(5)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 100,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.grey),
-                SizedBox(width: 12),
-                Text(
-                  'Aucune transaction récente',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Column(
-          children: snapshot.data!.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            final amount = data['amount'];
-            final amountStr = amount is num ? amount.toString() : '0';
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: data['type'] == 'earn'
-                          ? Colors.green[50]
-                          : Colors.blue[50],
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      data['type'] == 'earn'
-                          ? Icons.add_circle_outline
-                          : Icons.redeem,
-                      color: data['type'] == 'earn'
-                          ? Colors.green[700]
-                          : Colors.blue[700],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data['type'] == 'earn'
-                              ? 'Points gagnés'
-                              : 'Récompense utilisée',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          _formatDate(
-                              (data['timestamp'] as Timestamp).toDate()),
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    '${data['type'] == 'earn' ? '+' : '-'}$amountStr',
-                    style: TextStyle(
-                      color: data['type'] == 'earn'
-                          ? Colors.green[700]
-                          : Colors.blue[700],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
   String _formatDate(DateTime date) {
     return DateFormat('dd/MM/yyyy HH:mm').format(date);
-  }
-
-  String _getProgramTypeString(LoyaltyProgramType type) {
-    switch (type) {
-      case LoyaltyProgramType.visits:
-        return 'Carte de passage';
-      case LoyaltyProgramType.points:
-        return 'Carte à points';
-      case LoyaltyProgramType.amount:
-        return 'Carte à montant';
-    }
-  }
-
-  Widget _buildDetailRow(String label, dynamic value) {
-    // Convertir la valeur en String de manière sûre
-    String displayValue = '';
-    if (value is num) {
-      displayValue = value.toStringAsFixed(0);
-    } else if (value is String) {
-      displayValue = value;
-    } else {
-      displayValue = value?.toString() ?? '';
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[600])),
-          Text(
-            displayValue,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
-    );
   }
 }

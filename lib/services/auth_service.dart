@@ -51,7 +51,7 @@ class AuthService {
         await _auth.signOut();
         return 'Veuillez vérifier votre email avant de vous connecter';
       }
-
+      if (!context.mounted) return 'Erreur lors de la connexion';
       await Provider.of<UserModel>(context, listen: false).loadUserData();
 
       // Initialiser FCM après une connexion réussie
@@ -86,18 +86,23 @@ class AuthService {
       await conversationService.cleanUp();
 
       // Nettoyer les données utilisateur
+      if (!context.mounted) return;
       final userModel = Provider.of<UserModel>(context, listen: false);
       userModel.clearUserData();
 
       // Ensuite se déconnecter de Firebase
       await _auth.signOut();
 
-      // Naviguer vers la page de connexion
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const Login()),
-        (Route<dynamic> route) => false,
-      );
-    } catch (e) {}
+      // Naviguer vers la page de connexion si le contexte est monté
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const Login()),
+          (Route<dynamic> route) => false,
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la déconnexion: $e');
+    }
   }
 
   Future<void> updateFCMToken() async {
@@ -167,7 +172,7 @@ class AuthService {
             'createdAt': FieldValue.serverTimestamp(),
           });
         }
-
+        if (!context.mounted) return 'Erreur lors de la connexion';
         await Provider.of<UserModel>(context, listen: false).loadUserData();
 
         if (kIsWeb) {

@@ -22,6 +22,8 @@ class SavedAdsProvider extends ChangeNotifier {
       _isInitialized = true;
       notifyListeners();
     } catch (e) {
+      debugPrint(
+          'Erreur lors de l\'initialisation des annonces sauvegardées: $e');
     }
   }
 

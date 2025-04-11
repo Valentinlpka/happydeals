@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class AlgoliaService {
@@ -44,11 +45,11 @@ class AlgoliaService {
         final data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data['hits'] ?? []);
       } else {
-        print('Erreur Algolia: ${response.statusCode} - ${response.body}');
+        debugPrint('Erreur Algolia: ${response.statusCode} - ${response.body}');
         return [];
       }
     } catch (e) {
-      print('Erreur lors de la recherche Algolia: $e');
+      debugPrint('Erreur lors de la recherche Algolia: $e');
       return [];
     }
   }
@@ -77,7 +78,7 @@ class AlgoliaService {
         );
         results[indexName] = hits;
       } catch (e) {
-        print('Erreur lors de la recherche dans l\'index $indexName: $e');
+        debugPrint('Erreur lors de la recherche dans l\'index $indexName: $e');
         results[indexName] = [];
       }
     }
@@ -131,11 +132,11 @@ class AlgoliaService {
         final data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data['hits'] ?? []);
       } else {
-        print('Erreur Algolia: ${response.statusCode} - ${response.body}');
+        debugPrint('Erreur Algolia: ${response.statusCode} - ${response.body}');
         return [];
       }
     } catch (e) {
-      print('Erreur lors de la recherche Algolia: $e');
+      debugPrint('Erreur lors de la recherche Algolia: $e');
       return [];
     }
   }
@@ -177,11 +178,11 @@ class AlgoliaService {
         final data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data['hits'] ?? []);
       } else {
-        print('Erreur Algolia: ${response.statusCode} - ${response.body}');
+        debugPrint('Erreur Algolia: ${response.statusCode} - ${response.body}');
         return [];
       }
     } catch (e) {
-      print('Erreur lors de la recherche Algolia: $e');
+      debugPrint('Erreur lors de la recherche Algolia: $e');
       return [];
     }
   }
@@ -255,11 +256,11 @@ class AlgoliaService {
         final data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data['hits'] ?? []);
       } else {
-        print('Erreur Algolia: ${response.statusCode} - ${response.body}');
+        debugPrint('Erreur Algolia: ${response.statusCode} - ${response.body}');
         return [];
       }
     } catch (e) {
-      print('Erreur lors de la recherche de produits: $e');
+      debugPrint('Erreur lors de la recherche de produits: $e');
       return [];
     }
   }

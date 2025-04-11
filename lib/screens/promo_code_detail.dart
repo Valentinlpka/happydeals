@@ -191,7 +191,7 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -288,8 +288,42 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
     );
   }
 
-  Widget _buildDescriptionSection() =>
-      _buildSection('Description', widget.post.description);
+  Widget _buildDescriptionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Description',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(13),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Text(
+            widget.post.description,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[800],
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildDetailsSection() {
     return Column(
@@ -310,7 +344,7 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(13),
                 blurRadius: 10,
               ),
             ],
@@ -514,52 +548,8 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
     );
   }
 
-  Widget _buildSection(String title, String content) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              content,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[800],
-                height: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   void _showShareOptions(BuildContext context) {
     final users = Provider.of<UserModel>(context, listen: false);
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
 
     showModalBottomSheet(
       context: context,

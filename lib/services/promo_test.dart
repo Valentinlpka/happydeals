@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 class PromoCodeService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -93,7 +94,7 @@ class PromoCodeService {
         ...promoData,
       };
     } catch (e) {
-      print('Erreur lors de la validation du code promo: $e');
+      debugPrint('Erreur lors de la validation du code promo: $e');
       rethrow;
     }
   }
@@ -106,7 +107,7 @@ class PromoCodeService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Erreur lors de l\'utilisation du code promo: $e');
+      debugPrint('Erreur lors de l\'utilisation du code promo: $e');
       throw Exception('Erreur lors de l\'application du code promo');
     }
   }

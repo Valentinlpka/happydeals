@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
@@ -149,7 +150,7 @@ class Post {
         }
       });
     } catch (e) {
-      print('Erreur lors de l\'incrémentation des vues: $e');
+      debugPrint('Erreur lors de l\'incrémentation des vues: $e');
       rethrow;
     }
   }
@@ -174,7 +175,7 @@ class Post {
         likedBy.add(userId);
       }
     } catch (e) {
-      print('Erreur lors de la gestion du like: $e');
+      debugPrint('Erreur lors de la gestion du like: $e');
       rethrow;
     }
   }
@@ -187,7 +188,7 @@ class Post {
       });
       commentsCount++;
     } catch (e) {
-      print('Erreur lors de l\'incrémentation des commentaires: $e');
+      debugPrint('Erreur lors de l\'incrémentation des commentaires: $e');
       rethrow;
     }
   }
@@ -200,7 +201,7 @@ class Post {
       });
       commentsCount--;
     } catch (e) {
-      print('Erreur lors de la décrémentation des commentaires: $e');
+      debugPrint('Erreur lors de la décrémentation des commentaires: $e');
       rethrow;
     }
   }

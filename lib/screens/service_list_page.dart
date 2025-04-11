@@ -16,7 +16,7 @@ class ServiceListPage extends StatefulWidget {
   const ServiceListPage({super.key, this.professionalId});
 
   @override
-  _ServiceListPageState createState() => _ServiceListPageState();
+  State<ServiceListPage> createState() => _ServiceListPageState();
 }
 
 class _ServiceListPageState extends State<ServiceListPage>
@@ -30,7 +30,6 @@ class _ServiceListPageState extends State<ServiceListPage>
 
   String _searchQuery = '';
   bool _showScrollToTop = false;
-  final bool _isLoading = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -145,48 +144,6 @@ class _ServiceListPageState extends State<ServiceListPage>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildServicesList(List<ServiceModel> services) {
-    _cachedServices = services;
-
-    if (services.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _searchQuery.isEmpty ? Icons.category_outlined : Icons.search_off,
-              size: 48,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _searchQuery.isEmpty
-                  ? 'Aucun service disponible'
-                  : 'Aucun résultat pour "$_searchQuery"',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[800],
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-
-    final servicesByPro = _groupServicesByProfessional(services);
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.only(bottom: 16),
-      itemCount: servicesByPro.length,
-      itemBuilder: (context, index) {
-        final proId = servicesByPro.keys.elementAt(index);
-        return _buildCompanySection(proId, servicesByPro[proId]!);
-      },
     );
   }
 

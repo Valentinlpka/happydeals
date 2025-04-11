@@ -139,7 +139,7 @@ class ParrainageCard extends StatelessWidget {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: textColor.withOpacity(0.2),
+          color: textColor.withAlpha(26 * 2),
         ),
       ),
       child: Column(

@@ -11,7 +11,7 @@ class CodePromoPage extends StatefulWidget {
   const CodePromoPage({super.key});
 
   @override
-  _CodePromoPageState createState() => _CodePromoPageState();
+  State<CodePromoPage> createState() => _CodePromoPageState();
 }
 
 class _CodePromoPageState extends State<CodePromoPage> {
@@ -101,7 +101,7 @@ class _CodePromoPageState extends State<CodePromoPage> {
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withAlpha(26),
                   spreadRadius: 1,
                   blurRadius: 10,
                   offset: const Offset(0, 1),
@@ -244,7 +244,7 @@ class _CodePromoPageState extends State<CodePromoPage> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          print(snapshot.error);
+          debugPrint(snapshot.error.toString());
           return Center(child: Text('Erreur: ${snapshot.error}'));
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {

@@ -34,7 +34,7 @@ class DetailsEntreprise extends StatefulWidget {
   const DetailsEntreprise({super.key, this.entrepriseId = ''});
 
   @override
-  _DetailsEntrepriseState createState() => _DetailsEntrepriseState();
+  State<DetailsEntreprise> createState() => _DetailsEntrepriseState();
 }
 
 class _DetailsEntrepriseState extends State<DetailsEntreprise>
@@ -47,9 +47,6 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   late Future<LoyaltyCard?> _loyaltyCardFuture;
   late Future<Company> _entrepriseFuture;
   late Future<List<Map<String, dynamic>>> _postsFuture;
-
-  // État de l'onglet courant
-  final String _currentTab = 'Publications';
 
   // Définir les onglets selon le type
   final List<String> _companyTabs = [
@@ -85,7 +82,6 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
 
   // Ajoutez ces variables d'état
   String _selectedFilter = 'Tous';
-  final bool _showFilterMenu = false;
 
   // Cache pour les données company
   final Map<String, Map<String, dynamic>> _companyDataCache = {};
@@ -382,7 +378,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
         entreprise.cover,
         fit: BoxFit.cover,
         colorBlendMode: BlendMode.darken,
-        color: Colors.black.withOpacity(0.2),
+        color: Colors.black.withAlpha(52),
       ),
     );
   }
@@ -1104,7 +1100,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                     boxShadow: [
                       if (!isFollowed)
                         BoxShadow(
-                          color: const Color(0xFF0B7FE9).withOpacity(0.15),
+                          color: const Color(0xFF0B7FE9).withAlpha(24),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -1164,7 +1160,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF0B7FE9).withOpacity(0.15),
+                      color: const Color(0xFF0B7FE9).withAlpha(24),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -1339,7 +1335,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
 
   Widget _buildGalleryTab(Company entreprise) {
     final List<Map<String, dynamic>> gallery =
-        List<Map<String, dynamic>>.from(entreprise.gallery ?? []);
+        List<Map<String, dynamic>>.from(entreprise.gallery);
 
     if (gallery.isEmpty) {
       return Center(

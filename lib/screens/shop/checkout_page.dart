@@ -21,7 +21,7 @@ class CheckoutScreen extends StatefulWidget {
   });
 
   @override
-  _CheckoutScreenState createState() => _CheckoutScreenState();
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
@@ -80,7 +80,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -235,7 +235,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color: Colors.red.withAlpha(26),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -291,6 +291,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'discountAmount': 0,
       });
 
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Code promo supprimé')),
       );
@@ -311,7 +313,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             offset: const Offset(0, -4),
             blurRadius: 12,
           ),
@@ -433,7 +435,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -528,6 +530,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .applyPromoCode(_cart.sellerId, code);
 
       _promoCodeController.clear();
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Code promo appliqué avec succès')),
       );
@@ -607,7 +611,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         if (_isLoading)
           Container(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withAlpha(26 * 3),
             child: const Center(
               child: CircularProgressIndicator(),
             ),
@@ -628,6 +632,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             await _firestore.collection('products').doc(item.product.id).get();
 
         if (!productDoc.exists) {
+          if (!mounted) return false;
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content:
@@ -641,6 +647,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             product.variants.firstWhere((v) => v.id == item.variant.id);
 
         if (!product.isActive) {
+          if (!mounted) return false;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content: Text(
@@ -655,7 +662,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           final updatedItem = item.toMap();
           updatedItem['quantity'] = variant.stock;
           updatedItems.add(updatedItem);
-
+          if (!mounted) return false;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content: Text(
@@ -675,6 +682,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           final updatedItem = item.toMap();
           updatedItem['appliedPrice'] = currentPrice;
           updatedItems.add(updatedItem);
+          if (!mounted) return false;
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -697,6 +705,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           needsUpdate = true;
           updateData['appliedPromoCode'] = null;
           updateData['discountAmount'] = 0;
+          if (!mounted) return false;
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Code promo supprimé car non valide')),
@@ -744,6 +753,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       return true;
     } catch (e) {
+      if (!mounted) return false;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la vérification: $e')),
       );

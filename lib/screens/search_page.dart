@@ -19,7 +19,7 @@ class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
 
   @override
-  _SearchPageState createState() => _SearchPageState();
+  State<SearchPage> createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> {
@@ -107,7 +107,7 @@ class _SearchPageState extends State<SearchPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(26),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -177,7 +177,7 @@ class _SearchPageState extends State<SearchPage> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(26),
                 blurRadius: 5,
                 offset: const Offset(0, 2),
               ),
@@ -239,7 +239,7 @@ class _SearchPageState extends State<SearchPage> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withAlpha(26),
               width: 1,
             ),
           ),

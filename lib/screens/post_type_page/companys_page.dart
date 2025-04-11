@@ -12,14 +12,14 @@ import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/cards/company_card.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:latlong2/latlong.dart' as latlong;
-import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
+import 'package:latlong2/latlong.dart' show Distance;
 import 'package:provider/provider.dart';
 
 class CompaniesPage extends StatefulWidget {
   const CompaniesPage({super.key});
 
   @override
-  _CompaniesPageState createState() => _CompaniesPageState();
+  State<CompaniesPage> createState() => _CompaniesPageState();
 }
 
 class CustomMarker {
@@ -42,16 +42,13 @@ class _CompaniesPageState extends State<CompaniesPage>
     with TickerProviderStateMixin {
   late TabController _tabController;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String _searchQuery = '';
   String _selectedCategory = 'Toutes';
   List<String> _categories = ['Toutes'];
   bool _showMap = false;
   Position? _currentPosition;
-  Company? _selectedCompany;
   Set<CustomMarker> _markers = {};
   MapController? _mapController;
   bool _isBottomSheetOpen = false;
-  List<dynamic> _predictions = [];
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
   static const String mapboxAccessToken =
@@ -72,14 +69,6 @@ class _CompaniesPageState extends State<CompaniesPage>
     });
     _loadCategories();
     _initializeLocation();
-
-    _searchFocusNode.addListener(() {
-      if (!_searchFocusNode.hasFocus) {
-        setState(() {
-          _predictions = [];
-        });
-      }
-    });
   }
 
   @override
@@ -107,7 +96,6 @@ class _CompaniesPageState extends State<CompaniesPage>
         _categories = ['Toutes', ...categories];
       });
     } catch (e) {
-      print('Erreur lors du chargement des catégories: $e');
       // Définir des valeurs par défaut en cas d'erreur
       setState(() {
         _categories = ['Toutes'];
@@ -171,7 +159,6 @@ class _CompaniesPageState extends State<CompaniesPage>
           try {
             return Company.fromDocument(doc);
           } catch (e) {
-            print('Erreur lors de la conversion du document ${doc.id}: $e');
             return null;
           }
         })
@@ -494,7 +481,6 @@ class _CompaniesPageState extends State<CompaniesPage>
               try {
                 return Company.fromDocument(doc);
               } catch (e) {
-                print('Erreur lors de la conversion du document ${doc.id}: $e');
                 return null;
               }
             })
@@ -578,7 +564,7 @@ class _CompaniesPageState extends State<CompaniesPage>
       options: MapOptions(
         initialCenter: center,
         initialZoom: _calculateZoomLevel(_selectedRadius),
-        onTap: (_, point) => setState(() => _selectedCompany = null),
+        onTap: (_, point) => setState(() {}),
         interactionOptions: InteractionOptions(
           flags:
               _isBottomSheetOpen ? InteractiveFlag.none : InteractiveFlag.all,
@@ -636,7 +622,9 @@ class _CompaniesPageState extends State<CompaniesPage>
   void _updateMarkersWithRadius() async {
     if (_selectedLat == null &&
         _selectedLng == null &&
-        _currentPosition == null) return;
+        _currentPosition == null) {
+      return;
+    }
 
     final companies = await _firestore.collection('companys').get();
     Map<String, List<Company>> locationGroups = {};
@@ -709,7 +697,7 @@ class _CompaniesPageState extends State<CompaniesPage>
               border: Border.all(color: const Color(0xFF4B88DA), width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withAlpha(52),
                   blurRadius: 6,
                   offset: const Offset(0, 3),
                 ),
@@ -742,7 +730,6 @@ class _CompaniesPageState extends State<CompaniesPage>
           ),
           onTap: () {
             if (companies.length == 1) {
-              setState(() => _selectedCompany = firstCompany);
               _showCompanyDetails(firstCompany);
             } else {
               _showCompaniesAtLocation(companies);
@@ -754,6 +741,7 @@ class _CompaniesPageState extends State<CompaniesPage>
 
     // Toujours afficher la liste des entreprises filtrées quand une localisation est sélectionnée
     if (filteredCompanies.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Aucune entreprise trouvée dans ce rayon'),
@@ -761,64 +749,6 @@ class _CompaniesPageState extends State<CompaniesPage>
         ),
       );
     }
-  }
-
-  void _showCompaniesInRadiusBottomSheet(
-      List<Company> companies, double radius) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Entreprises dans un rayon de ${radius.toInt()} km (${companies.length})',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: companies.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: CompanyCard(companies[index]),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   void _showLocationFilterBottomSheet() async {

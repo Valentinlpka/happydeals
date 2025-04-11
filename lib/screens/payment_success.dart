@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:happy/screens/booking_detail_page.dart';
 import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
+import 'package:happy/services/cart_service.dart';
+import 'package:provider/provider.dart';
 import 'package:universal_html/html.dart' as html;
 
 class UnifiedPaymentSuccessScreen extends StatefulWidget {
@@ -108,7 +110,6 @@ class _UnifiedPaymentSuccessScreenState
       }
 
       _paymentType = _paymentDetails!['type'];
-      print('Vérification du paiement de type: $_paymentType');
 
       switch (_paymentType) {
         case 'order':
@@ -133,6 +134,17 @@ class _UnifiedPaymentSuccessScreenState
   Future<void> _handleOrderSuccess(String orderId) async {
     try {
       await _waitForDocument('orders', orderId);
+
+      // Supprimer le panier après une commande réussie
+      if (!mounted) return;
+      final cartService = Provider.of<CartService>(context, listen: false);
+      final orderDoc = await _firestore.collection('orders').doc(orderId).get();
+      if (orderDoc.exists) {
+        final orderData = orderDoc.data() as Map<String, dynamic>;
+        final sellerId = orderData['sellerId'] as String;
+        await cartService.deleteCart(sellerId);
+      }
+
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
@@ -199,7 +211,6 @@ class _UnifiedPaymentSuccessScreenState
   }
 
   void _handleError(String message) {
-    print('Erreur: $message');
     if (mounted) {
       setState(() {
         _statusMessage = message;
@@ -294,8 +305,8 @@ class _UnifiedPaymentSuccessScreenState
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
+      canPop: false,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Confirmation'),

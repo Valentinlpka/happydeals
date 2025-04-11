@@ -14,14 +14,10 @@ import 'package:provider/provider.dart';
 
 class DetailsEmploiPage extends StatefulWidget {
   final JobOffer post;
-  final String individualName;
-  final String individualPhoto;
 
   const DetailsEmploiPage({
     super.key,
     required this.post,
-    required this.individualName,
-    required this.individualPhoto,
   });
 
   @override
@@ -98,8 +94,6 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
           jobOfferId: widget.post.id,
           companyId: widget.post.companyId,
           jobTitle: widget.post.title,
-          companyName: widget.individualName,
-          companyLogo: widget.individualPhoto,
           onApplicationSubmitted: _createApplication,
         );
       },
@@ -116,8 +110,6 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
         'companyId': widget.post.companyId,
         'jobOfferId': widget.post.id,
         'jobTitle': widget.post.title,
-        'companyName': widget.individualName,
-        'companyLogo': widget.individualPhoto,
         'status': 'Envoyé',
         'appliedAt': Timestamp.now(),
         'lastUpdate': Timestamp.now(),
@@ -280,6 +272,15 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                               .doc(widget.post.companyId)
                               .get(),
                           builder: (context, snapshot) {
+                            if (_isLoading) {
+                              return const SizedBox(
+                                height: 80,
+                                child: Center(
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              );
+                            }
                             if (!snapshot.hasData) {
                               return const SizedBox(
                                 height: 80,
@@ -475,7 +476,7 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withAlpha(13),
                       blurRadius: 10,
                     ),
                   ],
@@ -561,21 +562,21 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
   Widget _buildInfoChip(IconData icon, String label, Color color) {
     final baseColor = color;
     final backgroundColor = Color.fromRGBO(
-      baseColor.red,
-      baseColor.green,
-      baseColor.blue,
+      baseColor.r.toInt(),
+      baseColor.g.toInt(),
+      baseColor.b.toInt(),
       0.1,
     );
     final borderColor = Color.fromRGBO(
-      baseColor.red,
-      baseColor.green,
-      baseColor.blue,
+      baseColor.r.toInt(),
+      baseColor.g.toInt(),
+      baseColor.b.toInt(),
       0.2,
     );
     final textColor = Color.fromRGBO(
-      baseColor.red,
-      baseColor.green,
-      baseColor.blue,
+      baseColor.r.toInt(),
+      baseColor.g.toInt(),
+      baseColor.b.toInt(),
       0.8,
     );
 
@@ -678,9 +679,6 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
 
   void _showShareOptions(BuildContext context) {
     final users = Provider.of<UserModel>(context, listen: false);
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
-
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(

@@ -172,17 +172,19 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
 
           if (mounted) {
             // Redirection vers la page de succès
-            await Navigator.of(currentContext).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (context) => UnifiedPaymentSuccessScreen(
-                  sessionId: result.data['sessionId'],
-                  orderId: widget.metadata['orderId'],
-                  reservationId: widget.metadata['reservationId'],
-                  bookingId: widget.metadata['bookingId'],
+            if (context.mounted) {
+              await Navigator.of(currentContext).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (context) => UnifiedPaymentSuccessScreen(
+                    sessionId: result.data['sessionId'],
+                    orderId: widget.metadata['orderId'],
+                    reservationId: widget.metadata['reservationId'],
+                    bookingId: widget.metadata['bookingId'],
+                  ),
                 ),
-              ),
-              (route) => false,
-            );
+                (route) => false,
+              );
+            }
           }
         } catch (e) {
           if (mounted) {

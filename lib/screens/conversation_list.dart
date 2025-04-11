@@ -458,10 +458,9 @@ class ConversationTile extends StatelessWidget {
             .doc(conversation.adId)
             .get();
 
-        if (!context.mounted) return;
-
         if (adDoc.exists) {
           final ad = await Ad.fromFirestore(adDoc);
+          if (!context.mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(

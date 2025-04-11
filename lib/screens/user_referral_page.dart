@@ -11,7 +11,7 @@ class UserReferralsPage extends StatefulWidget {
   const UserReferralsPage({super.key});
 
   @override
-  _UserReferralsPageState createState() => _UserReferralsPageState();
+  State<UserReferralsPage> createState() => _UserReferralsPageState();
 }
 
 class _UserReferralsPageState extends State<UserReferralsPage> {
@@ -80,7 +80,6 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
-              print(snapshot.error);
               return Center(
                   child: Text('Une erreur est survenue: ${snapshot.error}'));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -109,7 +108,7 @@ class _UserReferralsPageState extends State<UserReferralsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
+          color: Colors.grey.withAlpha(26 * 2),
           width: 1,
         ),
       ),

@@ -2,6 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Nous avons besoin de votre localisation pour vous montrer les offres près de chez
+			vous</string>
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>Nous avons besoin de votre localisation pour vous montrer les offres près de chez
+			vous</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>Nous avons besoin de votre localisation pour vous montrer les offres près de chez
+			vous</string>
 		<key>FlutterDeepLinkingEnabled</key>
 		<false />
 		<key>CADisableMinimumFrameDurationOnPhone</key>
@@ -9,7 +18,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Happy</string>
+		<string>Up !</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -17,7 +26,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>happy</string>
+		<string>up</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>

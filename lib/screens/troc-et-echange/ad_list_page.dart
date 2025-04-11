@@ -17,7 +17,7 @@ class AdListPage extends StatefulWidget {
   const AdListPage({super.key});
 
   @override
-  _AdListPageState createState() => _AdListPageState();
+  State<AdListPage> createState() => _AdListPageState();
 }
 
 class ActiveFilter {
@@ -121,7 +121,7 @@ class _AdListPageState extends State<AdListPage> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withAlpha(13),
                             blurRadius: 8,
                           ),
                         ],
@@ -316,18 +316,6 @@ class _AdListPageState extends State<AdListPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAdCard(Ad ad) {
-    return AdCard(
-      ad: ad,
-      onTap: () => _navigateToAdDetail(ad),
-      onSaveTap: () => _toggleSaveAd(ad),
-      userLocation: _selectedCityData != null
-          ? GeoPoint(_selectedCityData!['coordinates'][1],
-              _selectedCityData!['coordinates'][0])
-          : null,
     );
   }
 
@@ -582,9 +570,9 @@ class _AdListPageState extends State<AdListPage> {
 
       // Appliquer les filtres
       if (_activeFilters.isNotEmpty) {
-        print('Filtres actifs: $_activeFilters'); // Debug log
+        debugPrint('Filtres actifs: $_activeFilters'); // Debug log
         if (_activeFilters['type'] != null) {
-          print(
+          debugPrint(
               'Application du filtre type: ${_activeFilters['type']}'); // Debug log
           query =
               query.where('exchangeType', isEqualTo: _activeFilters['type']);
@@ -605,7 +593,8 @@ class _AdListPageState extends State<AdListPage> {
       }
 
       final QuerySnapshot querySnapshot = await query.limit(20).get();
-      print('Nombre de résultats: ${querySnapshot.docs.length}'); // Debug log
+      debugPrint(
+          'Nombre de résultats: ${querySnapshot.docs.length}'); // Debug log
 
       if (querySnapshot.docs.isEmpty) {
         setState(() {
@@ -628,7 +617,7 @@ class _AdListPageState extends State<AdListPage> {
         for (var doc in querySnapshot.docs) {
           final ad = await Ad.fromFirestore(doc);
           final adData = ad.additionalData;
-          print(
+          debugPrint(
               'Type d\'échange de l\'annonce: ${adData['exchangeType']}'); // Debug log
 
           if (adData['coordinates'] != null) {
@@ -644,7 +633,7 @@ class _AdListPageState extends State<AdListPage> {
       } else {
         for (var doc in querySnapshot.docs) {
           final ad = await Ad.fromFirestore(doc);
-          print(
+          debugPrint(
               'Type d\'échange de l\'annonce: ${ad.additionalData['exchangeType']}'); // Debug log
           newAds.add(ad);
         }
@@ -659,7 +648,7 @@ class _AdListPageState extends State<AdListPage> {
         });
       }
     } catch (e) {
-      print('Erreur lors du chargement des annonces: $e'); // Debug log
+      debugPrint('Erreur lors du chargement des annonces: $e'); // Debug log
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -711,6 +700,7 @@ class _AdListPageState extends State<AdListPage> {
           Provider.of<SavedAdsProvider>(context, listen: false);
       await savedAdsProvider.toggleSaveAd(user.uid, ad.id);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
       );

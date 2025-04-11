@@ -59,7 +59,7 @@ class CompanyCard extends StatelessWidget {
             }
           }
         } catch (e) {
-          print('Erreur lors du parsing des horaires: $e');
+          debugPrint('Erreur lors du parsing des horaires: $e');
           continue;
         }
       }
@@ -138,7 +138,7 @@ class CompanyCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: Colors.black.withAlpha(20),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -156,7 +156,7 @@ class CompanyCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withAlpha(20),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),

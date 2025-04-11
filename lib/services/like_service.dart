@@ -46,6 +46,7 @@ class LikeService {
         'productId': productId,
         'createdAt': FieldValue.serverTimestamp(),
       });
+      if (!context.mounted) return;
       _showLikeToast(context);
     } else {
       // Supprimer le like

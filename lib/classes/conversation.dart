@@ -57,21 +57,6 @@ class Message {
       'metadata': metadata,
     };
   }
-
-  static MessageType _parseMessageType(String? type) {
-    switch (type) {
-      case 'system':
-        return MessageType.system;
-      case 'shared_post':
-        return MessageType.sharedPost;
-      case 'image':
-        return MessageType.image;
-      case 'file':
-        return MessageType.file;
-      default:
-        return MessageType.text;
-    }
-  }
 }
 
 enum MessageType {

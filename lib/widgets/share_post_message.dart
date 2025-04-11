@@ -165,9 +165,7 @@ class SharedPostMessage extends StatelessWidget {
 
     return PostWidget(
       post: post,
-      onView: () {
-        // TODO: Implémenter la navigation vers la vue détaillée
-      },
+      onView: () {},
       currentProfileUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
       currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
       companyData: company,

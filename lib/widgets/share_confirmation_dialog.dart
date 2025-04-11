@@ -29,7 +29,7 @@ class ContentBox extends StatefulWidget {
   const ContentBox({super.key, required this.post, required this.onConfirm});
 
   @override
-  _ContentBoxState createState() => _ContentBoxState();
+  State<ContentBox> createState() => _ContentBoxState();
 }
 
 class _ContentBoxState extends State<ContentBox> {
@@ -46,7 +46,7 @@ class _ContentBoxState extends State<ContentBox> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withAlpha(26 * 3),
             offset: const Offset(0, 10),
             blurRadius: 10,
           ),

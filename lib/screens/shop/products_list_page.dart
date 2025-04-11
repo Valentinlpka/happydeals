@@ -129,12 +129,26 @@ class _ProductsListPageState extends State<ProductsListPage> {
       final newProducts =
           snapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
 
+      // Appliquer le tri côté client pour prendre en compte les réductions
+      if (_currentSort == SortOption.priceAsc ||
+          _currentSort == SortOption.priceDesc) {
+        newProducts.sort((a, b) {
+          final priceA =
+              a.discount?.isValid() ?? false ? a.finalPrice : a.price;
+          final priceB =
+              b.discount?.isValid() ?? false ? b.finalPrice : b.price;
+          return _currentSort == SortOption.priceAsc
+              ? priceA.compareTo(priceB)
+              : priceB.compareTo(priceA);
+        });
+      }
+
       setState(() {
         _products.addAll(newProducts);
         _isLoading = false;
       });
     } catch (e) {
-      print('Erreur lors du chargement des produits: $e');
+      debugPrint('Erreur lors du chargement des produits: $e');
       setState(() {
         _isLoading = false;
       });
@@ -168,7 +182,7 @@ class _ProductsListPageState extends State<ProductsListPage> {
             .toList();
       });
     } catch (e) {
-      print('Erreur lors du chargement des entreprises: $e');
+      debugPrint('Erreur lors du chargement des entreprises: $e');
     }
   }
 
@@ -206,7 +220,7 @@ class _ProductsListPageState extends State<ProductsListPage> {
         _currentCategories = categoriesByParent['root'] ?? [];
       });
     } catch (e) {
-      print('Erreur lors du chargement des catégories: $e');
+      debugPrint('Erreur lors du chargement des catégories: $e');
     }
   }
 
@@ -580,25 +594,6 @@ class _ProductsListPageState extends State<ProductsListPage> {
     );
   }
 
-  void _sortProducts() {
-    setState(() {
-      switch (_currentSort) {
-        case SortOption.priceAsc:
-          _products.sort((a, b) => a.finalPrice.compareTo(b.finalPrice));
-          break;
-        case SortOption.priceDesc:
-          _products.sort((a, b) => b.finalPrice.compareTo(a.finalPrice));
-          break;
-        case SortOption.newest:
-          // Utiliser directement la requête Firestore pour le tri par date
-          break;
-        case SortOption.distance:
-          // Le tri par distance sera fait après avoir récupéré les informations des entreprises
-          break;
-      }
-    });
-  }
-
   String _formatDistance(double distance) {
     if (distance < 1) {
       return '${(distance * 1000).round()}m';
@@ -843,200 +838,337 @@ class _ProductsListPageState extends State<ProductsListPage> {
   }
 
   Widget _buildProductsGrid(List<Product> products) {
-    return GridView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: products.length,
-      itemBuilder: (context, index) {
-        final product = products[index];
-        return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
-              .collection('companys')
-              .doc(product.sellerId)
-              .get(),
-          builder: (context, companySnapshot) {
-            if (!companySnapshot.hasData) {
-              return const SizedBox.shrink();
-            }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final isSmallScreen = screenWidth < 360;
+        final crossAxisCount = isSmallScreen ? 1 : 2;
+        final spacing = isSmallScreen ? 12.0 : 16.0;
+        const childAspectRatio = 0.60;
 
-            final companyData =
-                companySnapshot.data!.data() as Map<String, dynamic>;
-            final companyName = companyData['name'] as String;
-            final companyLogo = companyData['logo'] as String;
-            final address = companyData['adress'] as Map<String, dynamic>?;
+        return GridView.builder(
+          controller: _scrollController,
+          padding: EdgeInsets.all(spacing),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: childAspectRatio,
+            crossAxisSpacing: spacing,
+            mainAxisSpacing: spacing,
+          ),
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            final product = products[index];
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('companys')
+                  .doc(product.sellerId)
+                  .get(),
+              builder: (context, companySnapshot) {
+                if (!companySnapshot.hasData) {
+                  return const SizedBox.shrink();
+                }
 
-            double? distance;
-            if (widget.showDistance && address != null) {
-              distance = _calculateDistance(address);
-            }
+                final companyData =
+                    companySnapshot.data!.data() as Map<String, dynamic>;
+                final companyName = companyData['name'] as String;
+                final companyLogo = companyData['logo'] as String;
+                final address = companyData['adress'] as Map<String, dynamic>?;
 
-            return InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ModernProductDetailPage(
-                      product: product,
+                double? distance;
+                if (widget.showDistance && address != null) {
+                  distance = _calculateDistance(address);
+                }
+
+                return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ModernProductDetailPage(
+                            product: product,
+                          ),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image et badges
+                        Expanded(
+                          flex: 4,
+                          child: Stack(
+                            children: [
+                              // Image principale
+                              Hero(
+                                tag: 'product_${product.id}',
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(16),
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(16),
+                                    ),
+                                    child: product.images.isNotEmpty
+                                        ? Image.network(
+                                            product.images[0],
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return Container(
+                                                color: Colors.grey[100],
+                                                child: Center(
+                                                  child: Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons
+                                                            .image_not_supported_outlined,
+                                                        size: 32,
+                                                        color: Colors.grey[400],
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        'Image non disponible',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Colors.grey[600],
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            loadingBuilder: (context, child,
+                                                loadingProgress) {
+                                              if (loadingProgress == null) {
+                                                return child;
+                                              }
+                                              return Container(
+                                                color: Colors.grey[100],
+                                                child: Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    value: loadingProgress
+                                                                .expectedTotalBytes !=
+                                                            null
+                                                        ? loadingProgress
+                                                                .cumulativeBytesLoaded /
+                                                            loadingProgress
+                                                                .expectedTotalBytes!
+                                                        : null,
+                                                    color:
+                                                        const Color(0xFF4B88DA),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          )
+                                        : Container(
+                                            color: Colors.grey[100],
+                                            child: Center(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .image_not_supported_outlined,
+                                                    size: 32,
+                                                    color: Colors.grey[400],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    'Pas d\'image',
+                                                    style: TextStyle(
+                                                      color: Colors.grey[600],
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                              // Badge de réduction
+                              if (product.discount?.isValid() ?? false)
+                                Positioned(
+                                  top: 8,
+                                  left: 8,
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: isSmallScreen ? 10 : 12,
+                                      vertical: isSmallScreen ? 4 : 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFFFF3B30),
+                                          Color(0xFFFF2D55)
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.red.withAlpha(26),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      '-${product.discount!.value}${product.discount!.type == 'percentage' ? '%' : '€'}',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: isSmallScreen ? 14 : 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        // Informations produit
+                        Expanded(
+                          flex: 4,
+                          child: Padding(
+                            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Nom du produit
+                                Text(
+                                  product.name,
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 15 : 16,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                // Prix
+                                if (product.discount?.isValid() ?? false) ...[
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '${product.finalPrice.toStringAsFixed(2)}€',
+                                        style: TextStyle(
+                                          color: const Color(0xFFFF3B30),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: isSmallScreen ? 16 : 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${product.price.toStringAsFixed(2)}€',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: isSmallScreen ? 13 : 14,
+                                          decoration:
+                                              TextDecoration.lineThrough,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ] else
+                                  Text(
+                                    '${product.price.toStringAsFixed(2)}€',
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: isSmallScreen ? 16 : 18,
+                                    ),
+                                  ),
+                                const Spacer(),
+                                // Informations vendeur
+                                Row(
+                                  children: [
+                                    if (companyLogo.isNotEmpty)
+                                      Container(
+                                        width: isSmallScreen ? 24 : 28,
+                                        height: isSmallScreen ? 24 : 28,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: Colors.grey[200]!),
+                                          image: DecorationImage(
+                                            image: NetworkImage(companyLogo),
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                    SizedBox(width: isSmallScreen ? 6 : 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            companyName,
+                                            style: TextStyle(
+                                              color: Colors.grey[800],
+                                              fontSize: isSmallScreen ? 13 : 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (distance != null)
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.location_on,
+                                                  size: isSmallScreen ? 12 : 14,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  _formatDistance(distance),
+                                                  style: TextStyle(
+                                                    color: Colors.grey[600],
+                                                    fontSize:
+                                                        isSmallScreen ? 12 : 13,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
               },
-              child: Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey[200]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Stack(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(12),
-                              ),
-                              image: DecorationImage(
-                                image: NetworkImage(
-                                  product.images.isNotEmpty
-                                      ? product.images[0]
-                                      : 'URL_IMAGE_PAR_DEFAUT',
-                                ),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          if (product.discount?.isValid() ?? false)
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red[700],
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '-${product.discount!.value}${product.discount!.type == 'percentage' ? '%' : '€'}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product.name,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            if (product.discount?.isValid() ?? false) ...[
-                              Text(
-                                '${product.price.toStringAsFixed(2)}€',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                  decoration: TextDecoration.lineThrough,
-                                ),
-                              ),
-                              Text(
-                                '${product.finalPrice.toStringAsFixed(2)}€',
-                                style: TextStyle(
-                                  color: Colors.red[700],
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ] else
-                              Text(
-                                '${product.price.toStringAsFixed(2)}€',
-                                style: TextStyle(
-                                  color: Colors.blue[700],
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            const Spacer(),
-                            Row(
-                              children: [
-                                if (companyLogo.isNotEmpty)
-                                  CircleAvatar(
-                                    radius: 12,
-                                    backgroundImage: NetworkImage(companyLogo),
-                                  ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        companyName,
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 12,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      if (distance != null)
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.location_on,
-                                              size: 12,
-                                              color: Colors.grey[600],
-                                            ),
-                                            const SizedBox(width: 2),
-                                            Text(
-                                              _formatDistance(distance),
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             );
           },
         );

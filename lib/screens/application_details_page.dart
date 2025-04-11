@@ -13,7 +13,7 @@ class ApplicationDetailsPage extends StatefulWidget {
   });
 
   @override
-  _ApplicationDetailsPageState createState() => _ApplicationDetailsPageState();
+  State<ApplicationDetailsPage> createState() => _ApplicationDetailsPageState();
 }
 
 class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
@@ -97,7 +97,7 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withAlpha(20),
                         blurRadius: 10,
                       ),
                     ],

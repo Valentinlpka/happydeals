@@ -13,7 +13,7 @@ class DealExpressPage extends StatefulWidget {
   const DealExpressPage({super.key});
 
   @override
-  _DealExpressPageState createState() => _DealExpressPageState();
+  State<DealExpressPage> createState() => _DealExpressPageState();
 }
 
 class _DealExpressPageState extends State<DealExpressPage> {
@@ -136,7 +136,7 @@ class _DealExpressPageState extends State<DealExpressPage> {
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withAlpha(26),
                   spreadRadius: 1,
                   blurRadius: 10,
                   offset: const Offset(0, 1),
@@ -365,7 +365,6 @@ class _DealExpressPageState extends State<DealExpressPage> {
         final companyAddress = companyData['adress'] as Map<String, dynamic>;
         final companyLat = companyAddress['latitude'] as double?;
         final companyLng = companyAddress['longitude'] as double?;
-        final companyCity = companyAddress['ville'] as String? ?? '';
 
         // Filtres
         if (_selectedCategory != 'Toutes' &&
@@ -384,23 +383,11 @@ class _DealExpressPageState extends State<DealExpressPage> {
         }
 
         // Gestion de la distance
-        String? distance;
         bool isInRadius = false;
         if (_selectedLat != null &&
             _selectedLng != null &&
             companyLat != null &&
             companyLng != null) {
-          final distanceKm = LocationUtils.calculateDistance(
-            _selectedLat!,
-            _selectedLng!,
-            companyLat,
-            companyLng,
-          );
-
-          distance = distanceKm < 1
-              ? '${(distanceKm * 1000).round()}m'
-              : '${distanceKm.toStringAsFixed(1)}km';
-
           isInRadius = LocationUtils.isWithinRadius(
             _selectedLat!,
             _selectedLng!,
@@ -442,7 +429,12 @@ class _DealExpressPageState extends State<DealExpressPage> {
 
         processedDeals.add(postWidget);
       } catch (e) {
-        print('Erreur lors du traitement du deal: $e');
+        if (!mounted) return processedDeals;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du traitement du deal: $e'),
+          ),
+        );
       }
     }
 

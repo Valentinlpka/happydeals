@@ -156,7 +156,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
 
   Future<void> _register() async {
     try {
-      print("Début de l'inscription");
+      debugPrint("Début de l'inscription");
 
       final attendee = Attendee(
         userId: widget.userId,
@@ -178,18 +178,18 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
         throw 'L\'événement est terminé';
       }
 
-      print("Ajout du participant");
+      debugPrint("Ajout du participant");
 
       // Ajout simple du participant
       await eventRef.collection('attendees').add(attendee.toMap());
 
-      print("Mise à jour du compteur");
+      debugPrint("Mise à jour du compteur");
 
       // Mise à jour du compteur
       await eventRef
           .update({'attendeeCount': FieldValue.increment(_ticketCount)});
 
-      print("Inscription terminée avec succès");
+      debugPrint("Inscription terminée avec succès");
 
       if (mounted) {
         Navigator.pop(context, true);
@@ -198,7 +198,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
         );
       }
     } catch (e) {
-      print("Erreur lors de l'inscription: $e");
+      debugPrint("Erreur lors de l'inscription: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur: $e')),

@@ -219,11 +219,11 @@ class _SettingsContent extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-              color: Colors.blue.withOpacity(0.2),
+              color: Color.fromARGB(255, 6, 59, 102),
               blurRadius: 12,
-              offset: const Offset(0, 4),
+              offset: Offset(0, 1),
             ),
           ],
         ),
@@ -361,7 +361,7 @@ class _ServiceCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withAlpha(26),
               width: 1,
             ),
           ),
@@ -370,7 +370,7 @@ class _ServiceCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: Colors.blue.withAlpha(26),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(

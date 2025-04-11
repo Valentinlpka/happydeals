@@ -23,10 +23,6 @@ class DealsExpressCard extends StatelessWidget {
     this.isHorizontal = false,
   });
 
-  String _formatDateTimeStamp(DateTime dateTime) {
-    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
-  }
-
   String _formatDateTime(DateTime dateTime) {
     final DateTime now = DateTime.now();
     final DateFormat timeFormat = DateFormat('HH:mm');
@@ -119,7 +115,7 @@ class DealsExpressCard extends StatelessWidget {
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withAlpha(20),
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(12),
                               topRight: Radius.circular(12),
@@ -132,7 +128,7 @@ class DealsExpressCard extends StatelessWidget {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.9),
+                                color: Colors.blue.withAlpha(20),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
@@ -238,7 +234,7 @@ class DealsExpressCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withAlpha(13),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -461,7 +457,7 @@ class DealsExpressCard extends StatelessWidget {
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withAlpha(62),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
@@ -473,11 +469,11 @@ class DealsExpressCard extends StatelessWidget {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.9),
+                          color: Colors.blue.withAlpha(90),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withAlpha(20),
                               blurRadius: 8,
                               offset: const Offset(4, 4),
                             ),

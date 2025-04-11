@@ -10,7 +10,6 @@ class LoyaltyPointsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: '€');
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -23,7 +22,6 @@ class LoyaltyPointsPage extends StatelessWidget {
           }
 
           if (snapshot.hasError) {
-            print(snapshot.error);
             return Center(child: Text('Erreur: ${snapshot.error}'));
           }
 
@@ -85,7 +83,7 @@ class LoyaltyPointsPage extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.8),
+            Theme.of(context).primaryColor.withAlpha(204),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -93,7 +91,7 @@ class LoyaltyPointsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black..withAlpha(26),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -122,7 +120,7 @@ class LoyaltyPointsPage extends StatelessWidget {
           const SizedBox(height: 8),
           LinearProgressIndicator(
             value: _getProgressToNextReward(data.currentPoints),
-            backgroundColor: Colors.white.withOpacity(0.3),
+            backgroundColor: Colors.white.withAlpha(76),
             valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
           ),
           const SizedBox(height: 8),
@@ -209,7 +207,7 @@ class LoyaltyPointsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black..withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -421,8 +419,9 @@ extension LoyaltyPointsPageMethods on LoyaltyPointsPage {
   String _getNextRewardText(int currentPoints) {
     if (currentPoints >= 700) return 'Niveau maximum atteint !';
     if (currentPoints >= 500) return '${700 - currentPoints} points pour 21€';
-    if (currentPoints >= 300)
+    if (currentPoints >= 300) {
       return '${500 - currentPoints} points pour 12,50€';
+    }
     if (currentPoints >= 100) return '${300 - currentPoints} points pour 6€';
     return '${100 - currentPoints} points pour 1€';
   }

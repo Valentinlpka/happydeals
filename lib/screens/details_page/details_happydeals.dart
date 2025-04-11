@@ -111,7 +111,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withAlpha(90),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.arrow_back, color: Colors.black87),
@@ -165,7 +165,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
           end: Alignment.bottomCenter,
           colors: [
             Colors.transparent,
-            Colors.black.withOpacity(0.7),
+            Colors.black.withAlpha(70),
           ],
         ),
       ),
@@ -183,7 +183,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
           borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withAlpha(20),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -222,7 +222,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withAlpha(90),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -245,7 +245,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withAlpha(90),
             shape: BoxShape.circle,
           ),
           child: const Icon(
@@ -261,9 +261,6 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
 
   void _showShareOptions(BuildContext context) {
     final users = Provider.of<UserModel>(context, listen: false);
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
-
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -510,7 +507,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -567,7 +564,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -634,7 +631,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(13),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -716,7 +713,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(13),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),

@@ -19,18 +19,15 @@ class PromoCodeService {
           .get();
 
       if (promoDoc.docs.isEmpty) {
-        print('Code promo non trouvé ou expiré');
         return false;
       }
 
       final data = promoDoc.docs.first.data();
-      print('Document trouvé: ${data.toString()}');
 
       // Vérifier les limites d'utilisation
       final maxUses = int.tryParse(data['maxUses'].toString()) ?? 0;
       final currentUses = data['currentUses'] ?? 0;
       if (maxUses > 0 && currentUses >= maxUses) {
-        print('Code promo a atteint le nombre maximum d\'utilisations');
         throw Exception(
             'Ce code promo a atteint son nombre maximum d\'utilisations');
       }
@@ -38,13 +35,11 @@ class PromoCodeService {
       // Vérifier l'historique d'utilisation
       final usageHistory = List<String>.from(data['usageHistory'] ?? []);
       if (usageHistory.contains(customerId)) {
-        print('L\'utilisateur a déjà utilisé ce code promo');
         throw Exception('Vous avez déjà utilisé ce code promo');
       }
 
       return true;
     } catch (e) {
-      print('Erreur lors de la validation du code promo: $e');
       if (e is Exception) {
         rethrow;
       }
@@ -67,7 +62,6 @@ class PromoCodeService {
         // Convertir en double quelle que soit la forme d'origine
         discountValue = double.parse(data['discountValue'].toString());
       } catch (e) {
-        print('Erreur lors de la conversion de discountValue: $e');
         return null;
       }
 
@@ -117,7 +111,6 @@ class PromoCodeService {
         await promoDoc.docs.first.reference.update(updates);
       }
     } catch (e) {
-      print('Erreur lors de l\'utilisation du code promo: $e');
       throw Exception('Erreur lors de l\'application du code promo');
     }
   }
@@ -131,21 +124,10 @@ class PromoCodeService {
     final details = await getPromoCodeDetails(code);
     if (details == null) return false;
 
-    print('Vérification des conditions du code promo:');
-    print('Type de condition: ${details['conditionType']}');
-    print('Produit requis: ${details['conditionProductId']}');
-    print('Quantité requise: ${details['conditionValue']}');
-
     if (details['conditionType'] == 'quantity' &&
         details['conditionProductId'] != null) {
       final requiredProductId = details['conditionProductId'];
       final requiredQuantity = details['conditionValue'] ?? 0;
-
-      print('Vérification du produit requis:');
-      print('- ID du produit requis: $requiredProductId');
-      print('- Quantité requise: $requiredQuantity');
-      print('- Produits dans le panier: $productIds');
-      print('- Quantités dans le panier: $productQuantities');
 
       // Récupérer les informations du produit requis
       final productDoc =
@@ -160,22 +142,17 @@ class PromoCodeService {
 
       // Vérifier si le produit est dans le panier
       if (!productIds.contains(requiredProductId)) {
-        print('Produit requis non trouvé dans le panier: $productName');
         throw Exception(
             'Ce code promo nécessite l\'achat de $requiredQuantity $productName(s)');
       }
 
       // Vérifier si la quantité requise est atteinte
       final actualQuantity = productQuantities[requiredProductId] ?? 0;
-      print(
-          'Quantité trouvée dans le panier: $actualQuantity/$requiredQuantity');
 
       if (actualQuantity < requiredQuantity) {
         throw Exception(
             'Ce code promo nécessite l\'achat de $requiredQuantity $productName(s). Vous en avez actuellement $actualQuantity dans votre panier.');
       }
-
-      print('Conditions de quantité satisfaites pour le produit: $productName');
     }
 
     return true;

@@ -115,7 +115,6 @@ class CartService extends ChangeNotifier {
       if (promoDetails == null) {
         throw Exception('Code promo introuvable');
       }
-      print('Détails du code promo: ${promoDetails.toString()}');
 
       // 2. Vérifier les conditions de quantité d'abord
       final productQuantities = <String, int>{};
@@ -123,9 +122,6 @@ class CartService extends ChangeNotifier {
         productQuantities[item.product.id] = item.quantity;
       }
       final productIds = cart.items.map((item) => item.product.id).toList();
-      print('Vérification des conditions de quantité:');
-      print('Produits dans le panier: $productIds');
-      print('Quantités dans le panier: $productQuantities');
 
       await _promoService.isPromoCodeApplicableToProducts(
         code,
@@ -163,10 +159,7 @@ class CartService extends ChangeNotifier {
       cart.appliedPromoCode = code;
       cart.discountAmount = discountAmount;
       await _saveCart(cart);
-
-      print('Code promo appliqué avec succès');
     } catch (e) {
-      print('Erreur lors de l\'application du code promo: $e');
       rethrow;
     }
   }
@@ -335,7 +328,7 @@ class CartService extends ChangeNotifier {
             }
           }
         } catch (e) {
-          print('Error processing cart document: $e');
+          debugPrint('Erreur lors de la récupération du panier: $e');
         }
       }
       notifyListeners();

@@ -141,7 +141,7 @@ class _AdDetailPageState extends State<AdDetailPage> {
                     shape: BoxShape.circle,
                     color: _currentPhotoIndex == entry.key
                         ? Colors.white
-                        : Colors.white.withOpacity(0.5),
+                        : Colors.white.withAlpha(26 * 5),
                   ),
                 );
               }).toList(),

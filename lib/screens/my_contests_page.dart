@@ -73,7 +73,6 @@ class _ContestsList extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: _getContestsStream(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) print(snapshot.error);
         if (snapshot.hasError) {
           return Center(child: Text('Erreur: ${snapshot.error}'));
         }
@@ -106,8 +105,6 @@ class _ContestsList extends StatelessWidget {
                       height: 200,
                       child: Center(child: CircularProgressIndicator()));
                 }
-
-                final companyInfo = snapshot.data ?? {'name': '', 'logo': ''};
 
                 return ConcoursCard(
                   contest: contest,

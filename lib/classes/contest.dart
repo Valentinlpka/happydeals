@@ -64,8 +64,6 @@ class Contest extends Post {
   final int maxParticipants;
   final int participantsCount;
   final bool isActive;
-  @override
-  final List<String> viewedBy;
   final List<Participant>? participants;
   final Map<String, dynamic>? winner;
 
@@ -86,7 +84,6 @@ class Contest extends Post {
     required this.maxParticipants,
     required this.participantsCount,
     required this.isActive,
-    required this.viewedBy,
     this.participants,
     this.winner,
     super.views,
@@ -94,9 +91,7 @@ class Contest extends Post {
     super.likedBy,
     super.commentsCount,
     super.comments,
-  }) : super(
-          type: 'contest',
-        );
+  }) : super(type: 'contest');
 
   factory Contest.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -121,7 +116,6 @@ class Contest extends Post {
       maxParticipants: data['maxParticipants'] ?? 0,
       participantsCount: data['participantsCount'] ?? 0,
       isActive: data['isActive'] ?? false,
-      viewedBy: List<String>.from(data['viewedBy'] ?? []),
       participants: (data['participants'] as List<dynamic>?)
               ?.map((participantData) =>
                   Participant.fromMap(participantData as Map<String, dynamic>))
@@ -156,7 +150,6 @@ class Contest extends Post {
       'maxParticipants': maxParticipants,
       'participantsCount': participantsCount,
       'isActive': isActive,
-      'viewedBy': viewedBy,
       'winner': winner,
     });
     return map;

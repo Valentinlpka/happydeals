@@ -1,5 +1,5 @@
-// lib/models/availability_rule_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 class TimeRange {
   final int hours;
@@ -19,8 +19,8 @@ class TimeRange {
         map['minutes'] as int? ?? 0,
       );
     } catch (e) {
-      print('Erreur dans TimeRange.fromMap: $e');
-      print('Données: $map');
+      debugPrint('Erreur dans TimeRange.fromMap: $e');
+      debugPrint('Données: $map');
       rethrow;
     }
   }
@@ -53,7 +53,7 @@ class AvailabilityRuleModel {
 
   factory AvailabilityRuleModel.fromMap(Map<String, dynamic> map) {
     try {
-      print('Données reçues: $map'); // Debug
+      debugPrint('Données reçues: $map'); // Debug
       return AvailabilityRuleModel(
         id: map['id'] ?? '',
         professionalId: map['professionalId'] ?? '',
@@ -78,9 +78,9 @@ class AvailabilityRuleModel {
         isActive: map['isActive'] ?? true,
       );
     } catch (e, stackTrace) {
-      print('Erreur dans fromMap: $e');
-      print('Stack trace: $stackTrace');
-      print('Données problématiques: $map');
+      debugPrint('Erreur dans fromMap: $e');
+      debugPrint('Stack trace: $stackTrace');
+      debugPrint('Données problématiques: $map');
       rethrow;
     }
   }
@@ -115,8 +115,8 @@ class BreakTime {
         end: TimeRange.fromMap(map['end'] ?? {}),
       );
     } catch (e) {
-      print('Erreur dans BreakTime.fromMap: $e');
-      print('Données: $map');
+      debugPrint('Erreur dans BreakTime.fromMap: $e');
+      debugPrint('Données: $map');
       rethrow;
     }
   }

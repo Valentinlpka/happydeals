@@ -1,3 +1,5 @@
+// ignore_for_file: type_literal_in_constant_pattern
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -83,11 +85,6 @@ class CompanyData {
 
 class _PostWidgetState extends State<PostWidget>
     with AutomaticKeepAliveClientMixin {
-  // Constants
-  static const double _avatarRadius = 26.0;
-  static const double _innerAvatarRadius = 24.0;
-  static const EdgeInsets _standardPadding = EdgeInsets.all(12.0);
-
   // State variables
   late final PostStateManager _stateManager;
   bool _isDisposed = false;
@@ -509,7 +506,7 @@ class _SharedPostHeader extends StatelessWidget {
       children: [
         ListTile(
           leading: GestureDetector(
-            onTap: () => _navigateToUserProfile(context, post.sharedBy),
+            onTap: () => _navigateToUserProfile(context, post.sharedBy!),
             child: CircleAvatar(
               backgroundImage:
                   NetworkImage(userData?['userProfilePicture'] ?? ''),
@@ -520,13 +517,13 @@ class _SharedPostHeader extends StatelessWidget {
             ),
           ),
           title: GestureDetector(
-            onTap: () => _navigateToUserProfile(context, post.sharedBy),
+            onTap: () => _navigateToUserProfile(context, post.sharedBy!),
             child: Text(
               sharedText,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          subtitle: Text(timeago.format(post.sharedAt, locale: 'fr')),
+          subtitle: Text(timeago.format(post.sharedAt!, locale: 'fr')),
           trailing: post.sharedBy == currentUserId
               ? IconButton(
                   icon: const Icon(Icons.more_vert),
@@ -647,6 +644,7 @@ class _SharedPostHeader extends StatelessWidget {
     try {
       await Provider.of<UserModel>(context, listen: false)
           .updateSharedPostComment(post.id, newComment);
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Commentaire mis à jour avec succès')),
       );
@@ -662,6 +660,7 @@ class _SharedPostHeader extends StatelessWidget {
     try {
       await Provider.of<UserModel>(context, listen: false)
           .deleteSharedPost(post.id);
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Partage supprimé avec succès')),
       );
@@ -762,6 +761,7 @@ class _PostContent extends StatelessWidget {
           Provider.of<SavedAdsProvider>(context, listen: false);
       await savedAdsProvider.toggleSaveAd(user.uid, ad.id);
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
       );
@@ -773,8 +773,6 @@ class _PostContent extends StatelessWidget {
       case JobOffer:
         return JobOfferCard(
           post: post as JobOffer,
-          companyName: companyData.name,
-          companyLogo: companyData.logo,
         );
       case Contest:
         return ConcoursCard(

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/widgets/custom_image_viewer.dart';
 import 'package:happy/widgets/video_player_screen.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NewsCard extends StatelessWidget {
@@ -17,24 +16,6 @@ class NewsCard extends StatelessWidget {
     required this.companyLogo,
     required this.companyName,
   });
-
-  String _formatDateTime(DateTime dateTime) {
-    final DateTime now = DateTime.now();
-    final DateFormat timeFormat = DateFormat('HH:mm');
-    final DateFormat dateFormat = DateFormat('d MMMM yyyy', 'fr_FR');
-
-    if (dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day) {
-      return 'aujourd\'hui à ${timeFormat.format(dateTime)}';
-    } else if (dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day + 1) {
-      return 'demain à ${timeFormat.format(dateTime)}';
-    } else {
-      return dateFormat.format(dateTime);
-    }
-  }
 
   Widget _buildMediaGallery(BuildContext context) {
     final List<String> allMedia = [...news.photos, ...news.videos];
@@ -188,7 +169,7 @@ class NewsCard extends StatelessWidget {
         color: Colors.grey[50],
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withAlpha(6),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -227,7 +208,7 @@ class NewsCard extends StatelessWidget {
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            Colors.black.withOpacity(0.7),
+                            Colors.black.withAlpha(20),
                           ],
                         ),
                       ),
@@ -243,7 +224,7 @@ class NewsCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withAlpha(90),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -373,10 +354,6 @@ class NewsCard extends StatelessWidget {
         );
       },
     );
-  }
-
-  Widget _buildImageErrorListener(String url) {
-    return const SizedBox.shrink();
   }
 
   void _launchURL(String url) async {

@@ -37,7 +37,6 @@ class OrderService {
         return snapshot.docs.map((doc) => Orders.fromFirestore(doc)).toList();
       });
     } catch (e) {
-      print('Erreur dans getUserOrders: $e');
       // Retourner un stream vide en cas d'erreur
       return Stream.value([]);
     }

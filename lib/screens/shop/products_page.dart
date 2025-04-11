@@ -109,7 +109,7 @@ class _ProductsPageState extends State<ProductsPage> {
         _isSearching = false;
       });
     } catch (e) {
-      print('Erreur lors de la recherche Algolia: $e');
+      debugPrint('Erreur lors de la recherche Algolia: $e');
       setState(() {
         _algoliaResults = [];
         _isSearching = false;
@@ -131,7 +131,7 @@ class _ProductsPageState extends State<ProductsPage> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Erreur lors du chargement des catégories: $e');
+      debugPrint('Erreur lors du chargement des catégories: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -483,11 +483,15 @@ class _ProductsPageState extends State<ProductsPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               TextButton(
@@ -514,7 +518,6 @@ class _ProductsPageState extends State<ProductsPage> {
               }
 
               if (snapshot.hasError) {
-                print('Erreur: ${snapshot.error}');
                 return Center(child: Text('Erreur: ${snapshot.error}'));
               }
 
@@ -524,9 +527,8 @@ class _ProductsPageState extends State<ProductsPage> {
                           _searchQuery.isEmpty ||
                           product.name.toLowerCase().contains(_searchQuery) ||
                           (product.description
-                                  .toLowerCase()
-                                  .contains(_searchQuery) ??
-                              false))
+                              .toLowerCase()
+                              .contains(_searchQuery)))
                       .toList() ??
                   [];
 
@@ -542,68 +544,68 @@ class _ProductsPageState extends State<ProductsPage> {
                 itemCount: products.length,
                 itemBuilder: (context, index) {
                   final product = products[index];
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ModernProductDetailPage(
-                            product: product,
+                  return Container(
+                    width: 200,
+                    margin: const EdgeInsets.only(right: 16),
+                    child: FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('companys')
+                          .doc(product.sellerId)
+                          .get(),
+                      builder: (context, companySnapshot) {
+                        if (!companySnapshot.hasData) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final companyData = companySnapshot.data!.data()
+                            as Map<String, dynamic>;
+                        final companyName = companyData['name'] as String;
+                        final companyLogo = companyData['logo'] as String;
+                        final address =
+                            companyData['adress'] as Map<String, dynamic>?;
+
+                        double? distance;
+                        if (_selectedLat != null &&
+                            _selectedLng != null &&
+                            address != null &&
+                            address['latitude'] != null &&
+                            address['longitude'] != null) {
+                          final companyLat = address['latitude'] as double;
+                          final companyLng = address['longitude'] as double;
+
+                          final latDiff =
+                              _degreesToRadians(companyLat - _selectedLat!);
+                          final lngDiff =
+                              _degreesToRadians(companyLng - _selectedLng!);
+
+                          const double earthRadius = 6371;
+                          final a = sin(latDiff / 2) * sin(latDiff / 2) +
+                              cos(_degreesToRadians(_selectedLat!)) *
+                                  cos(_degreesToRadians(companyLat)) *
+                                  sin(lngDiff / 2) *
+                                  sin(lngDiff / 2);
+
+                          final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+                          distance = earthRadius * c;
+                        }
+
+                        return Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[200]!),
                           ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      width: 200,
-                      margin: const EdgeInsets.only(right: 16),
-                      child: FutureBuilder<DocumentSnapshot>(
-                        future: FirebaseFirestore.instance
-                            .collection('companys')
-                            .doc(product.sellerId)
-                            .get(),
-                        builder: (context, companySnapshot) {
-                          if (!companySnapshot.hasData) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final companyData = companySnapshot.data!.data()
-                              as Map<String, dynamic>;
-                          final companyName = companyData['name'] as String;
-                          final companyLogo = companyData['logo'] as String;
-                          final address =
-                              companyData['adress'] as Map<String, dynamic>?;
-
-                          double? distance;
-                          if (_selectedLat != null &&
-                              _selectedLng != null &&
-                              address != null &&
-                              address['latitude'] != null &&
-                              address['longitude'] != null) {
-                            final companyLat = address['latitude'] as double;
-                            final companyLng = address['longitude'] as double;
-
-                            final latDiff =
-                                _degreesToRadians(companyLat - _selectedLat!);
-                            final lngDiff =
-                                _degreesToRadians(companyLng - _selectedLng!);
-
-                            const double earthRadius = 6371;
-                            final a = sin(latDiff / 2) * sin(latDiff / 2) +
-                                cos(_degreesToRadians(_selectedLat!)) *
-                                    cos(_degreesToRadians(companyLat)) *
-                                    sin(lngDiff / 2) *
-                                    sin(lngDiff / 2);
-
-                            final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-                            distance = earthRadius * c;
-                          }
-
-                          return Card(
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey[200]!),
-                            ),
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ModernProductDetailPage(
+                                    product: product,
+                                  ),
+                                ),
+                              );
+                            },
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -612,19 +614,109 @@ class _ProductsPageState extends State<ProductsPage> {
                                   child: Stack(
                                     children: [
                                       Container(
-                                        decoration: BoxDecoration(
+                                        decoration: const BoxDecoration(
+                                          borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(12),
+                                          ),
+                                        ),
+                                        child: ClipRRect(
                                           borderRadius:
                                               const BorderRadius.vertical(
                                             top: Radius.circular(12),
                                           ),
-                                          image: DecorationImage(
-                                            image: NetworkImage(
-                                              product.images.isNotEmpty
-                                                  ? product.images[0]
-                                                  : 'URL_IMAGE_PAR_DEFAUT',
-                                            ),
-                                            fit: BoxFit.cover,
-                                          ),
+                                          child: product.images.isNotEmpty
+                                              ? Image.network(
+                                                  product.images[0],
+                                                  fit: BoxFit.cover,
+                                                  width: double.infinity,
+                                                  height: double.infinity,
+                                                  errorBuilder: (context, error,
+                                                      stackTrace) {
+                                                    return Container(
+                                                      color: Colors.grey[100],
+                                                      child: Center(
+                                                        child: Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .image_not_supported_outlined,
+                                                              size: 32,
+                                                              color: Colors
+                                                                  .grey[400],
+                                                            ),
+                                                            const SizedBox(
+                                                                height: 8),
+                                                            Text(
+                                                              'Image non disponible',
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .grey[600],
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                  loadingBuilder: (context,
+                                                      child, loadingProgress) {
+                                                    if (loadingProgress ==
+                                                        null) {
+                                                      return child;
+                                                    }
+                                                    return Container(
+                                                      color: Colors.grey[100],
+                                                      child: Center(
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          value: loadingProgress
+                                                                      .expectedTotalBytes !=
+                                                                  null
+                                                              ? loadingProgress
+                                                                      .cumulativeBytesLoaded /
+                                                                  loadingProgress
+                                                                      .expectedTotalBytes!
+                                                              : null,
+                                                          color: const Color(
+                                                              0xFF4B88DA),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                )
+                                              : Container(
+                                                  color: Colors.grey[100],
+                                                  child: Center(
+                                                    child: Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .image_not_supported_outlined,
+                                                          size: 32,
+                                                          color:
+                                                              Colors.grey[400],
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 8),
+                                                        Text(
+                                                          'Pas d\'image',
+                                                          style: TextStyle(
+                                                            color: Colors
+                                                                .grey[600],
+                                                            fontSize: 12,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
                                         ),
                                       ),
                                       if (product.discount?.isValid() ?? false)
@@ -675,9 +767,6 @@ class _ProductsPageState extends State<ProductsPage> {
                                         if (product.discount?.isValid() ??
                                             false) ...[
                                           Row(
-                                            spacing: 5,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
                                             children: [
                                               Text(
                                                 '${product.finalPrice.toStringAsFixed(2)}€',
@@ -687,6 +776,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                                   fontSize: 14,
                                                 ),
                                               ),
+                                              const SizedBox(width: 4),
                                               Text(
                                                 '${product.price.toStringAsFixed(2)}€',
                                                 style: TextStyle(
@@ -765,9 +855,9 @@ class _ProductsPageState extends State<ProductsPage> {
                                 ),
                               ],
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
@@ -819,7 +909,8 @@ class _ProductsPageState extends State<ProductsPage> {
 
       return nearbyCompanies;
     } catch (e) {
-      print('Erreur lors de la récupération des entreprises à proximité: $e');
+      debugPrint(
+          'Erreur lors de la récupération des entreprises à proximité: $e');
       return [];
     }
   }
@@ -857,7 +948,7 @@ class _ProductsPageState extends State<ProductsPage> {
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.7,
+        childAspectRatio: 0.55,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
@@ -909,18 +1000,97 @@ class _ProductsPageState extends State<ProductsPage> {
                       child: Stack(
                         children: [
                           Container(
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(12),
+                              ),
+                            ),
+                            child: ClipRRect(
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(12),
                               ),
-                              image: DecorationImage(
-                                image: NetworkImage(
-                                  product.images.isNotEmpty
-                                      ? product.images[0]
-                                      : 'URL_IMAGE_PAR_DEFAUT',
-                                ),
-                                fit: BoxFit.cover,
-                              ),
+                              child: product.images.isNotEmpty
+                                  ? Image.network(
+                                      product.images[0],
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return Container(
+                                          color: Colors.grey[100],
+                                          child: Center(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons
+                                                      .image_not_supported_outlined,
+                                                  size: 32,
+                                                  color: Colors.grey[400],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  'Image non disponible',
+                                                  style: TextStyle(
+                                                    color: Colors.grey[600],
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      loadingBuilder:
+                                          (context, child, loadingProgress) {
+                                        if (loadingProgress == null) {
+                                          return child;
+                                        }
+                                        return Container(
+                                          color: Colors.grey[100],
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              value: loadingProgress
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? loadingProgress
+                                                          .cumulativeBytesLoaded /
+                                                      loadingProgress
+                                                          .expectedTotalBytes!
+                                                  : null,
+                                              color: const Color(0xFF4B88DA),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : Container(
+                                      color: Colors.grey[100],
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons
+                                                  .image_not_supported_outlined,
+                                              size: 32,
+                                              color: Colors.grey[400],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Pas d\'image',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                             ),
                           ),
                           if (product.discount?.isValid() ?? false)

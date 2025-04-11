@@ -123,7 +123,7 @@ class AnalyticsService {
         );
 
         await _analytics
-            ?.setCurrentScreen(
+            ?.logScreenView(
           screenName: webScreenName,
         )
             .catchError((error) {
@@ -153,7 +153,7 @@ class AnalyticsService {
         if (_lastScreenName == screenName) {
           return; // Ignorer la mise à jour en double
         }
-        await _analytics?.setCurrentScreen(
+        await _analytics?.logScreenView(
           screenName: screenName,
         );
         _lastScreenName = screenName;

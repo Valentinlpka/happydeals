@@ -19,7 +19,7 @@ class ProfileCompletionPage extends StatefulWidget {
   const ProfileCompletionPage({super.key});
 
   @override
-  _ProfileCompletionPageState createState() => _ProfileCompletionPageState();
+  State<ProfileCompletionPage> createState() => _ProfileCompletionPageState();
 }
 
 class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
@@ -278,7 +278,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withAlpha(26),
                   spreadRadius: 1,
                   blurRadius: 4,
                   offset: const Offset(0, 2),
@@ -329,8 +329,8 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
         child: Container(
           decoration: BoxDecoration(
             color: _isImageUploaded
-                ? Colors.green.withOpacity(0.7)
-                : Colors.black.withOpacity(0.5),
+                ? Colors.green.withAlpha(70)
+                : Colors.black.withAlpha(50),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -347,10 +347,12 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     if (_firstNameController.text.isEmpty ||
         _lastNameController.text.isEmpty ||
         _emailController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Veuillez remplir tous les champs obligatoires')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Veuillez remplir tous les champs obligatoires')),
+        );
+      }
       return;
     }
 
@@ -375,18 +377,23 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
         'uniqueCode': uniqueCode,
       });
 
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainContainer()),
-      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainContainer()),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la mise à jour du profil: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Erreur lors de la mise à jour du profil: $e')),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -409,8 +416,6 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
         return code;
       }
     }
-
-    throw Exception('Impossible de générer un code unique');
   }
 
   Future<void> _pickImage() async {
@@ -419,6 +424,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
 
     if (image != null) {
       if (kIsWeb) {
+        if (!mounted) return;
         final croppedFile = await ImageCropper().cropImage(
           sourcePath: image.path,
           aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
@@ -430,6 +436,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
         );
         if (croppedFile != null) {
           final bytes = await croppedFile.readAsBytes();
+          if (!mounted) return;
           setState(() {
             _imageFile = bytes;
             _isImageUploaded = false;
@@ -437,6 +444,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
           await _uploadImage();
         }
       } else {
+        if (!mounted) return;
         final croppedFile = await ImageCropper().cropImage(
           sourcePath: image.path,
           aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
@@ -456,6 +464,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
           ],
         );
         if (croppedFile != null) {
+          if (!mounted) return;
           setState(() {
             _imageFile = File(croppedFile.path);
             _isImageUploaded = false;
@@ -490,24 +499,30 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
         'image_profile': downloadUrl,
       });
 
-      setState(() => _isImageUploaded = true);
+      if (mounted) {
+        setState(() => _isImageUploaded = true);
+      }
     } catch (e) {
-      showCupertinoDialog(
-        context: context,
-        builder: (BuildContext context) => CupertinoAlertDialog(
-          title: const Text('Erreur'),
-          content: const Text(
-              'Une erreur est survenue lors du téléchargement de l\'image. Veuillez réessayer.'),
-          actions: <CupertinoDialogAction>[
-            CupertinoDialogAction(
-              child: const Text('OK'),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      );
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (BuildContext context) => CupertinoAlertDialog(
+            title: const Text('Erreur'),
+            content: const Text(
+                'Une erreur est survenue lors du téléchargement de l\'image. Veuillez réessayer.'),
+            actions: <CupertinoDialogAction>[
+              CupertinoDialogAction(
+                child: const Text('OK'),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 }

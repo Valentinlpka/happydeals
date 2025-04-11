@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/classes/service_post.dart';
 import 'package:happy/config/app_router.dart';
-import 'package:intl/intl.dart';
 
 class ServiceCards extends StatefulWidget {
   final ServicePost post;
@@ -28,7 +27,7 @@ class _ServiceCardsState extends State<ServiceCards> {
   void initState() {
     super.initState();
     if (widget.post.serviceId.isEmpty) {
-      print('ERREUR: serviceId est vide pour le post ${widget.post.id}');
+      debugPrint('ERREUR: serviceId est vide pour le post ${widget.post.id}');
       serviceFuture = Future.value(ServiceModel(
         id: '',
         professionalId: widget.post.professionalId,
@@ -52,7 +51,8 @@ class _ServiceCardsState extends State<ServiceCards> {
 
   Future<ServiceModel?> _getService(String serviceId) async {
     if (serviceId.isEmpty) {
-      print('ERREUR: Tentative de récupération d\'un service avec un ID vide');
+      debugPrint(
+          'ERREUR: Tentative de récupération d\'un service avec un ID vide');
       return null;
     }
 
@@ -65,16 +65,12 @@ class _ServiceCardsState extends State<ServiceCards> {
       if (serviceDoc.exists) {
         return ServiceModel.fromMap(serviceDoc.data()!);
       }
-      print('Service not found');
+      debugPrint('Service not found');
       return null;
     } catch (e) {
-      print('Error fetching service: $e');
+      debugPrint('Error fetching service: $e');
       return null;
     }
-  }
-
-  String _formatDateTime(DateTime dateTime) {
-    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
   }
 
   String _formatDuration(int minutes) {

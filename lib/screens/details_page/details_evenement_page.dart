@@ -177,7 +177,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.7),
+                    Colors.black.withAlpha(100),
                   ],
                 ),
               ),
@@ -272,7 +272,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withAlpha(13),
               blurRadius: 10,
             ),
           ],
@@ -450,7 +450,7 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
           ),
         ],
@@ -483,8 +483,6 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
 
   void _showShareOptions(BuildContext context) {
     final users = Provider.of<UserModel>(context, listen: false);
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
 
     showModalBottomSheet(
       context: context,

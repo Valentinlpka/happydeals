@@ -28,7 +28,7 @@ class ConversationDetailScreen extends StatefulWidget {
   });
 
   @override
-  _ConversationDetailScreenState createState() =>
+  State<ConversationDetailScreen> createState() =>
       _ConversationDetailScreenState();
 }
 
@@ -358,8 +358,6 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
 
     // Vérifie si l'utilisateur est le vendeur ou l'acheteur
     final bool isUserSeller = currentUserId == widget.ad!.userId;
-    final bool hasRated =
-        isUserSeller ? widget.ad!.sellerHasRated : widget.ad!.buyerHasRated;
 
     return StreamBuilder<List<Rating>>(
       stream: Provider.of<ConversationService>(context, listen: false)
@@ -584,7 +582,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
                 await Provider.of<ConversationService>(context, listen: false)
                     .editMessage(_actualConversationId!, message.id,
                         editController.text);
-                if (!mounted) return;
+                if (!context.mounted) return;
                 Navigator.pop(context);
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -615,7 +613,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
               try {
                 await Provider.of<ConversationService>(context, listen: false)
                     .deleteMessage(_actualConversationId!, message.id);
-                if (!mounted) return;
+                if (!context.mounted) return;
                 Navigator.pop(context);
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -745,7 +743,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
             BoxShadow(
               offset: const Offset(0, -2),
               blurRadius: 6.0,
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withAlpha(26),
             ),
           ],
         ),

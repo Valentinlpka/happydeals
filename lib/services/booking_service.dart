@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/availibility_rule.dart';
 import 'package:happy/classes/booking.dart';
 import 'package:happy/services/promo_test.dart';
-import 'package:intl/intl.dart';
 
 class BookingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -11,14 +10,12 @@ class BookingService {
   // Récupérer les créneaux disponibles pour un service
   Stream<List<AvailabilityRuleModel>> getServiceAvailabilityRules(
       String serviceId) {
-    print('Recherche des règles pour le service: $serviceId');
     return _firestore
         .collection('availabilityRules')
         .where('serviceId', isEqualTo: serviceId)
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-      print('Règles trouvées: ${snapshot.docs.length}');
       return snapshot.docs
           .map((doc) => AvailabilityRuleModel.fromMap(doc.data()))
           .toList();
@@ -166,9 +163,6 @@ class BookingService {
     int serviceDuration,
   ) async {
     try {
-      print(
-          'Génération des créneaux pour le service $serviceId de cette societe $businessId à la date $date');
-
       // 1. Récupérer le planning de l'entreprise
       final scheduleDoc = await _firestore
           .collection('businessSchedules')
@@ -176,7 +170,6 @@ class BookingService {
           .get();
 
       if (scheduleDoc.docs.isEmpty) {
-        print('Aucun planning trouvé pour l\'entreprise');
         return {};
       }
 
@@ -201,41 +194,29 @@ class BookingService {
             schedule['dailySchedules'] as Map<String, dynamic>;
         final dailySchedule = dailySchedules[weekDay.toString()];
         if (dailySchedule == null) {
-          print('Pas de planning trouvé pour ce jour: $weekDay');
           return {};
         }
         openTime = dailySchedule['openTime'] as String;
         closeTime = dailySchedule['closeTime'] as String;
         isOpen = dailySchedule['isOpen'] as bool;
-        print(
-            'Planning du jour $weekDay: ouvert=$isOpen, de $openTime à $closeTime');
       }
 
       if (!isOpen) {
-        print('Jour non travaillé');
         return {};
       }
 
       // 4. Vérifier les exceptions
       if (_isExceptionDay(date, schedule['exceptions'] ?? [])) {
-        print('Jour d\'exception');
         return {};
       }
 
       final simultaneousSlots = schedule['simultaneousSlots'] as int;
       final breaks = schedule['breaks'] as List<dynamic>? ?? [];
-      print('Pauses configurées: ${breaks.length}');
-      for (var breakTime in breaks) {
-        print('Pause de ${breakTime['start']} à ${breakTime['end']}');
-      }
 
       Map<DateTime, int> availableSlots = {};
 
       final parsedOpenTime = _parseTimeString(openTime);
       final parsedCloseTime = _parseTimeString(closeTime);
-
-      print(
-          'Horaires parsés - Ouverture: ${parsedOpenTime.hour}:${parsedOpenTime.minute}, Fermeture: ${parsedCloseTime.hour}:${parsedCloseTime.minute}');
 
       DateTime currentSlot = DateTime(
         date.year,
@@ -253,9 +234,6 @@ class BookingService {
         parsedCloseTime.minute,
       );
 
-      print(
-          'Génération des créneaux de ${DateFormat('HH:mm').format(currentSlot)} à ${DateFormat('HH:mm').format(endTime)}');
-
       // 5. Vérifier chaque créneau
       while (currentSlot
               .add(Duration(minutes: serviceDuration))
@@ -263,9 +241,6 @@ class BookingService {
           currentSlot
               .add(Duration(minutes: serviceDuration))
               .isAtSameMomentAs(endTime)) {
-        print(
-            'Vérification du créneau: ${DateFormat('HH:mm').format(currentSlot)}');
-
         // Ignorer les créneaux passés pour aujourd'hui
         if (date.day == DateTime.now().day &&
             currentSlot.isBefore(DateTime.now())) {
@@ -280,18 +255,14 @@ class BookingService {
 
           if (availableCount > 0) {
             availableSlots[currentSlot] = availableCount;
-            print(
-                'Ajout du créneau: ${DateFormat('HH:mm').format(currentSlot)}');
           }
         }
 
         currentSlot = currentSlot.add(Duration(minutes: serviceDuration));
       }
 
-      print('Créneaux générés: ${availableSlots.length}');
       return availableSlots;
     } catch (e) {
-      print('Erreur lors de la génération des créneaux: $e');
       return {};
     }
   }
@@ -327,9 +298,6 @@ class BookingService {
       final breakStart = _parseTimeString(breakTime['start']);
       final breakEnd = _parseTimeString(breakTime['end']);
 
-      print(
-          'Vérification pause: créneau ${DateFormat('HH:mm').format(slot)} - ${DateFormat('HH:mm').format(slot.add(Duration(minutes: duration)))} avec pause ${DateFormat('HH:mm').format(breakStart)} - ${DateFormat('HH:mm').format(breakEnd)}');
-
       // Un créneau est pendant une pause si :
       // 1. Le début du créneau est pendant la pause
       // 2. La fin du créneau est pendant la pause
@@ -350,15 +318,9 @@ class BookingService {
           .where('bookingDateTime', isEqualTo: Timestamp.fromDate(slot))
           .where('status', whereIn: ['confirmed', 'pending']).get();
 
-      print(
-          'Réservations trouvées pour le créneau ${DateFormat('HH:mm').format(slot)}: ${bookings.docs.length}');
-
       return bookings.docs.length;
     } catch (e) {
-      print('Erreur lors de la vérification des réservations existantes: $e');
-      if (e is AssertionError) {
-        print('Détails de l\'erreur d\'assertion: ${e.message}');
-      }
+      if (e is AssertionError) {}
       return 0;
     }
   }
@@ -401,7 +363,6 @@ class BookingService {
 
       return null;
     } catch (e) {
-      print('Erreur lors de la recherche d\'un employé disponible: $e');
       return null;
     }
   }
@@ -436,7 +397,6 @@ class BookingService {
 
       return finalPrice;
     } catch (e) {
-      print('Erreur lors de l\'application du code promo: $e');
       rethrow;
     }
   }
@@ -472,7 +432,6 @@ class BookingService {
 
       await bookingRef.set(bookingData);
     } catch (e) {
-      print('Erreur lors de la création de la réservation: $e');
       rethrow;
     }
   }

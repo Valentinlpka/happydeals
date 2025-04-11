@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:happy/classes/promo_code_post.dart';
-import 'package:intl/intl.dart';
+import 'package:happy/config/app_router.dart';
 
 class PromoCodeCard extends StatelessWidget {
   final PromoCodePost post;
@@ -16,10 +16,6 @@ class PromoCodeCard extends StatelessWidget {
     required this.companyLogo,
     required this.currentUserId,
   });
-
-  String _formatDateTime(DateTime dateTime) {
-    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
-  }
 
   Future<void> _copyToClipboard(BuildContext context, String code) async {
     await Clipboard.setData(ClipboardData(text: code));
@@ -51,7 +47,7 @@ class PromoCodeCard extends StatelessWidget {
           child: InkWell(
             onTap: () => Navigator.pushNamed(
               context,
-              '/code_promo/${post.id}',
+              AppRouter.promoCodeDetails,
               arguments: {
                 'post': post,
                 'companyName': companyName,

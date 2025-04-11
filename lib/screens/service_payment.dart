@@ -18,7 +18,7 @@ class ServicePaymentPage extends StatefulWidget {
   });
 
   @override
-  _ServicePaymentPageState createState() => _ServicePaymentPageState();
+  State<ServicePaymentPage> createState() => _ServicePaymentPageState();
 }
 
 class _ServicePaymentPageState extends State<ServicePaymentPage> {
@@ -79,13 +79,17 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
         _finalPrice = finalPrice;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Code promo appliqué avec succès')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Code promo appliqué avec succès')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -96,9 +100,11 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
       _promoCode = null;
       _finalPrice = widget.service.price;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Code promo supprimé')),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code promo supprimé')),
+      );
+    }
   }
 
   @override
@@ -242,7 +248,7 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
+                            color: Colors.red.withAlpha(26),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(

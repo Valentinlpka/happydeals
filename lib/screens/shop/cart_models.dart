@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
 
 class CartItem {
@@ -104,7 +105,7 @@ class Cart {
   // Prix total sans réductions de code promo
   double get total => items.fold(
         0,
-        (sum, item) => sum + (item.appliedPrice * item.quantity),
+        (total, item) => total + (item.appliedPrice * item.quantity),
       );
 
   // Prix final après toutes les réductions (codes promo)
@@ -168,7 +169,7 @@ class Cart {
 
       return cart;
     } catch (e) {
-      print('Error creating Cart from Firestore: $e');
+      debugPrint('Error creating Cart from Firestore: $e');
       return null;
     }
   }

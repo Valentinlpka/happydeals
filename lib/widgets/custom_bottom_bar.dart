@@ -100,7 +100,7 @@ class CustomBottomNavBar extends StatelessWidget {
           ),
           decoration: isSelected
               ? BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withAlpha(30),
                   borderRadius: BorderRadius.circular(20),
                 )
               : null,
@@ -148,7 +148,7 @@ class CustomBottomNavBar extends StatelessWidget {
           ),
           decoration: isSelected
               ? BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withAlpha(30),
                   borderRadius: BorderRadius.circular(20),
                 )
               : null,

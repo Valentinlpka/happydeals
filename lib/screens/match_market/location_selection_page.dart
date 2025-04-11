@@ -6,7 +6,6 @@ import 'package:happy/classes/category_product.dart';
 import 'package:happy/models/french_city.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/match_market/match_market_swipe_page.dart';
-import 'package:happy/widgets/app_bar/custom_app_bar_back.dart';
 import 'package:provider/provider.dart';
 
 class LocationSelectionPage extends StatefulWidget {
@@ -27,6 +26,12 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   double _selectedRadius = 15.0;
   bool _isLoading = true;
 
+  // Couleurs personnalisées
+  final Color primaryColor = const Color(0xFF6C63FF);
+  final Color secondaryColor = const Color(0xFFFF6584);
+  final Color accentColor = const Color(0xFF00D1FF);
+  final Color backgroundColor = const Color(0xFFF8F9FF);
+
   @override
   void initState() {
     super.initState();
@@ -35,7 +40,6 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
 
   Future<void> _loadCities() async {
     try {
-      // Charger les villes depuis le JSON
       final String jsonString =
           await rootBundle.loadString('assets/french_cities.json');
       final Map<String, dynamic> data = json.decode(jsonString);
@@ -50,30 +54,24 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         }
       }
 
-      // Récupérer la ville de l'utilisateur depuis le provider
+      if (!mounted) return;
       final userProvider = Provider.of<UserModel>(context, listen: false);
       FrenchCity? userCity;
 
-      if (userProvider.city != null &&
-          userProvider.latitude != null &&
-          userProvider.longitude != null) {
-        // Chercher la ville dans la liste ou créer une ville personnalisée
-        userCity = cities.firstWhere(
-          (city) =>
-              city.label.toLowerCase() == userProvider.city!.toLowerCase(),
-          orElse: () => FrenchCity(
-            inseeCode: '0',
-            cityCode: userProvider.city!,
-            zipCode: '00000',
-            label: userProvider.city!,
-            latitude: userProvider.latitude!,
-            longitude: userProvider.longitude!,
-            departmentName: '',
-            departmentNumber: '',
-            regionName: '',
-          ),
-        );
-      }
+      userCity = cities.firstWhere(
+        (city) => city.label.toLowerCase() == userProvider.city.toLowerCase(),
+        orElse: () => FrenchCity(
+          inseeCode: '0',
+          cityCode: userProvider.city,
+          zipCode: '00000',
+          label: userProvider.city,
+          latitude: userProvider.latitude,
+          longitude: userProvider.longitude,
+          departmentName: '',
+          departmentNumber: '',
+          regionName: '',
+        ),
+      );
 
       setState(() {
         _allCities.clear();
@@ -106,135 +104,168 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBarBack(
-        title: 'Localisation',
-      ),
+      backgroundColor: backgroundColor,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  // En-tête avec image de fond
-                  Container(
-                    height: 180,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Theme.of(context).primaryColor,
-                          Theme.of(context).primaryColor.withOpacity(0.7),
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(30),
-                        bottomRight: Radius.circular(30),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
+          ? Center(
+              child: CircularProgressIndicator(
+                color: primaryColor,
+              ),
+            )
+          : Stack(
+              children: [
+                // Fond animé
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        primaryColor..withAlpha(26),
+                        secondaryColor..withAlpha(26),
                       ],
                     ),
-                    child: SafeArea(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.location_on_rounded,
-                            size: 50,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Où chercher des produits ?',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Définissez votre zone de recherche',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
+                ),
 
-                  // Contenu principal
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Bouton de recherche de ville
-                        InkWell(
-                          onTap: _showCitySearchScreen,
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(15),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                // Contenu principal
+                SafeArea(
+                  child: Column(
+                    children: [
+                      // En-tête personnalisé
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back),
+                              onPressed: () => Navigator.pop(context),
+                              color: Colors.black87,
                             ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.search,
-                                  color: Theme.of(context).primaryColor,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    _selectedCity?.label ??
-                                        'Rechercher une ville...',
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Localisation',
                                     style: TextStyle(
-                                      fontSize: 16,
-                                      color: _selectedCity != null
-                                          ? Colors.black
-                                          : Colors.grey[600],
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor,
                                     ),
                                   ),
+                                  Text(
+                                    'Définissez votre zone de recherche',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Carte de sélection de ville
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _showCitySearchScreen,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    primaryColor..withAlpha(26),
+                                    secondaryColor..withAlpha(26),
+                                  ],
                                 ),
-                                Icon(
-                                  Icons.arrow_forward_ios,
-                                  size: 16,
-                                  color: Colors.grey[400],
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: primaryColor.withAlpha(52),
+                                  width: 2,
                                 ),
-                              ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withAlpha(26),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.location_on,
+                                      color: primaryColor,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Ville de recherche',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _selectedCity?.label ??
+                                              'Sélectionner une ville',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: _selectedCity != null
+                                                ? primaryColor
+                                                : Colors.grey[400],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: primaryColor,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
+                      ),
 
-                        const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                        // Affichage de la ville sélectionnée
-                        if (_selectedCity != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(16),
+                      // Carte de la ville sélectionnée
+                      if (_selectedCity != null) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
+                                  color: primaryColor.withAlpha(26),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
                                 ),
                               ],
                             ),
@@ -243,12 +274,19 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                               children: [
                                 Row(
                                   children: [
-                                    Icon(
-                                      Icons.location_city,
-                                      color: Theme.of(context).primaryColor,
-                                      size: 22,
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withAlpha(26),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.location_city,
+                                        color: primaryColor,
+                                        size: 24,
+                                      ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 16),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
@@ -264,9 +302,10 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                                           const SizedBox(height: 4),
                                           Text(
                                             _selectedCity!.label.toUpperCase(),
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 18,
                                               fontWeight: FontWeight.bold,
+                                              color: primaryColor,
                                             ),
                                           ),
                                         ],
@@ -275,21 +314,26 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                                   ],
                                 ),
                                 if (_selectedCity!.zipCode.isNotEmpty) ...[
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 16),
                                   Row(
                                     children: [
-                                      Icon(
-                                        Icons.map,
-                                        color: Theme.of(context)
-                                            .primaryColor
-                                            .withOpacity(0.7),
-                                        size: 20,
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: primaryColor.withAlpha(26),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.map,
+                                          color: primaryColor,
+                                          size: 20,
+                                        ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 16),
                                       Text(
                                         '${_selectedCity!.zipCode} - ${_selectedCity!.departmentName.toUpperCase()}',
                                         style: TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 16,
                                           color: Colors.grey[700],
                                         ),
                                       ),
@@ -299,20 +343,23 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                               ],
                             ),
                           ),
+                        ),
 
-                          const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                          // Rayon de recherche
-                          Container(
-                            padding: const EdgeInsets.all(16),
+                        // Carte du rayon de recherche
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
+                                  color: primaryColor.withAlpha(26),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
                                 ),
                               ],
                             ),
@@ -321,23 +368,30 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                               children: [
                                 Row(
                                   children: [
-                                    Icon(
-                                      Icons.radar,
-                                      color: Theme.of(context).primaryColor,
-                                      size: 22,
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withAlpha(26),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.radar,
+                                        color: primaryColor,
+                                        size: 24,
+                                      ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 16),
                                     Text(
                                       'Rayon de recherche',
                                       style: TextStyle(
                                         fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[800],
+                                        fontWeight: FontWeight.bold,
+                                        color: primaryColor,
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 20),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -351,21 +405,26 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
+                                        horizontal: 16,
+                                        vertical: 8,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .primaryColor
-                                            .withOpacity(0.1),
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            primaryColor,
+                                            secondaryColor
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
                                         '${_selectedRadius.round()} km',
-                                        style: TextStyle(
-                                          fontSize: 15,
+                                        style: const TextStyle(
+                                          fontSize: 16,
                                           fontWeight: FontWeight.bold,
-                                          color: Theme.of(context).primaryColor,
+                                          color: Colors.white,
                                         ),
                                       ),
                                     ),
@@ -378,15 +437,21 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 16),
                                 SliderTheme(
                                   data: SliderTheme.of(context).copyWith(
-                                    activeTrackColor:
-                                        Theme.of(context).primaryColor,
-                                    thumbColor: Theme.of(context).primaryColor,
-                                    overlayColor: Theme.of(context)
-                                        .primaryColor
-                                        .withOpacity(0.2),
-                                    trackHeight: 4,
+                                    activeTrackColor: primaryColor,
+                                    inactiveTrackColor: primaryColor
+                                      ..withAlpha(20),
+                                    thumbColor: primaryColor,
+                                    overlayColor: primaryColor.withAlpha(22),
+                                    trackHeight: 6,
+                                    thumbShape: const RoundSliderThumbShape(
+                                      enabledThumbRadius: 12,
+                                    ),
+                                    overlayShape: const RoundSliderOverlayShape(
+                                      overlayRadius: 24,
+                                    ),
                                   ),
                                   child: Slider(
                                     value: _selectedRadius,
@@ -401,58 +466,77 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                               ],
                             ),
                           ),
+                        ),
 
-                          const SizedBox(height: 40),
+                        const Spacer(),
 
-                          // Bouton de validation
-                          ElevatedButton(
-                            onPressed: _selectedCity == null
-                                ? null
-                                : () {
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            MatchMarketSwipePage(
-                                          category: widget.category,
-                                          latitude: _selectedCity!.latitude,
-                                          longitude: _selectedCity!.longitude,
-                                          searchRadius: _selectedRadius,
-                                          cityName: _selectedCity!.label,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
+                        // Bouton de validation
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [primaryColor, secondaryColor],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              elevation: 2,
-                              backgroundColor: Theme.of(context).primaryColor,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.search),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Commencer la recherche',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: primaryColor.withAlpha(76),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
                                 ),
                               ],
                             ),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MatchMarketSwipePage(
+                                      category: widget.category,
+                                      latitude: _selectedCity!.latitude,
+                                      longitude: _selectedCity!.longitude,
+                                      searchRadius: _selectedRadius,
+                                      cityName: _selectedCity!.label,
+                                    ),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 18,
+                                ),
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.search, color: Colors.white),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Commencer la recherche',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
     );
   }
@@ -471,6 +555,11 @@ class CitySearchScreen extends StatefulWidget {
 class _CitySearchScreenState extends State<CitySearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<FrenchCity> _filteredCities = [];
+
+  // Couleurs personnalisées
+  final Color primaryColor = const Color(0xFF6C63FF);
+  final Color secondaryColor = const Color(0xFFFF6584);
+  final Color backgroundColor = const Color(0xFFF8F9FF);
 
   @override
   void initState() {
@@ -527,141 +616,248 @@ class _CitySearchScreenState extends State<CitySearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rechercher une ville'),
-        elevation: 0,
-      ),
-      body: Column(
+      backgroundColor: backgroundColor,
+      body: Stack(
         children: [
-          // Barre de recherche
+          // Fond animé
           Container(
-            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Entrez le nom d\'une ville ou un code postal',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Theme.of(context).primaryColor),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  primaryColor.withAlpha(26),
+                  secondaryColor.withAlpha(26),
+                ],
               ),
             ),
           ),
 
-          // Message d'aide
-          if (_searchController.text.length < 2)
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.search,
-                      size: 64,
-                      color: Colors.grey[300],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Entrez au moins 2 caractères\npour rechercher une ville',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
+          // Contenu principal
+          SafeArea(
+            child: Column(
+              children: [
+                // En-tête personnalisé
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.pop(context),
+                        color: Colors.black87,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Rechercher une ville',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                              ),
+                            ),
+                            Text(
+                              'Entrez le nom d\'une ville ou un code postal',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
 
-          // Résultats de recherche
-          if (_searchController.text.length >= 2)
-            Expanded(
-              child: _filteredCities.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.location_off,
-                            size: 64,
-                            color: Colors.grey[300],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Aucune ville trouvée',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.only(top: 8),
-                      itemCount: _filteredCities.length,
-                      separatorBuilder: (context, index) => Divider(
-                        height: 1,
-                        color: Colors.grey[200],
-                      ),
-                      itemBuilder: (context, index) {
-                        final city = _filteredCities[index];
-                        return ListTile(
-                          title: Text(
-                            city.label.toUpperCase(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          subtitle: Text(
-                            '${city.zipCode} - ${city.departmentName.toUpperCase()}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context, city);
-                          },
-                        );
-                      },
+                // Barre de recherche
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withAlpha(26),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
+                    child: TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Ex: Paris, 75000, Île-de-France',
+                        prefixIcon: Icon(Icons.search, color: primaryColor),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Message d'aide ou résultats
+                Expanded(
+                  child: _searchController.text.length < 2
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withAlpha(26),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.search,
+                                  size: 48,
+                                  color: primaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                'Entrez au moins 2 caractères\npour rechercher une ville',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _filteredCities.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(24),
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withAlpha(20),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.location_off,
+                                      size: 48,
+                                      color: primaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    'Aucune ville trouvée',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              itemCount: _filteredCities.length,
+                              separatorBuilder: (context, index) => Divider(
+                                height: 1,
+                                color: Colors.grey[200],
+                              ),
+                              itemBuilder: (context, index) {
+                                final city = _filteredCities[index];
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.pop(context, city);
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: primaryColor.withAlpha(26),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              Icons.location_city,
+                                              color: primaryColor,
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  city.label.toUpperCase(),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: primaryColor,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '${city.zipCode} - ${city.departmentName.toUpperCase()}',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.arrow_forward_ios,
+                                            size: 16,
+                                            color: primaryColor,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );

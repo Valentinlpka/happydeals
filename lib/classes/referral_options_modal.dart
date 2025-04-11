@@ -344,6 +344,7 @@ class _ReferralModalState extends State<ReferralModal> {
               'isRead': false,
             });
           });
+          if (!mounted) return;
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Parrainage enregistré avec succès!')),
@@ -375,7 +376,7 @@ class SponsorshipRequestModal extends StatefulWidget {
       {super.key, required this.companyId, required this.referralId});
 
   @override
-  _SponsorshipRequestModalState createState() =>
+  State<SponsorshipRequestModal> createState() =>
       _SponsorshipRequestModalState();
 }
 
@@ -583,6 +584,7 @@ class _SponsorshipRequestModalState extends State<SponsorshipRequestModal> {
               'isRead': false,
             });
           });
+          if (!mounted) return;
 
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(

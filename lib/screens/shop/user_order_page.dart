@@ -9,7 +9,7 @@ class UserOrdersPages extends StatefulWidget {
   const UserOrdersPages({super.key});
 
   @override
-  _UserOrdersPagesState createState() => _UserOrdersPagesState();
+  State<UserOrdersPages> createState() => _UserOrdersPagesState();
 }
 
 class _UserOrdersPagesState extends State<UserOrdersPages> {
@@ -99,7 +99,7 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
+          color: Colors.grey.withAlpha(26),
           width: 1,
         ),
       ),

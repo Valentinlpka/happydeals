@@ -122,7 +122,7 @@ class KeepAliveWrapper extends StatefulWidget {
   });
 
   @override
-  _KeepAliveWrapperState createState() => _KeepAliveWrapperState();
+  State<KeepAliveWrapper> createState() => _KeepAliveWrapperState();
 }
 
 class _KeepAliveWrapperState extends State<KeepAliveWrapper>

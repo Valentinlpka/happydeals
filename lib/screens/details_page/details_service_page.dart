@@ -15,7 +15,7 @@ class ServiceDetailPage extends StatefulWidget {
   const ServiceDetailPage({super.key, required this.serviceId});
 
   @override
-  _ServiceDetailPageState createState() => _ServiceDetailPageState();
+  State<ServiceDetailPage> createState() => _ServiceDetailPageState();
 }
 
 class _ServiceDetailPageState extends State<ServiceDetailPage> {
@@ -157,7 +157,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
+                    color: Colors.grey.withAlpha(20),
                     spreadRadius: 1,
                     blurRadius: 5,
                     offset: const Offset(0, -2),

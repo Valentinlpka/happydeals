@@ -36,7 +36,6 @@ class ConversationService extends ChangeNotifier {
 
       throw Exception('Utilisateur non trouvé');
     } catch (e) {
-      print('Erreur dans _getUserType: $e');
       rethrow;
     }
   }
@@ -99,25 +98,6 @@ class ConversationService extends ChangeNotifier {
     }
   }
 
-  Future<dynamic> _determineUnreadBy(
-      String conversationId, String senderId) async {
-    final conversationDoc =
-        await _firestore.collection('conversations').doc(conversationId).get();
-    final data = conversationDoc.data()!;
-
-    if (data['isGroup'] == true) {
-      final members = List<Map<String, dynamic>>.from(data['members'] ?? []);
-      return members
-          .where((m) => m['id'] != senderId)
-          .map((m) => m['id'])
-          .toList();
-    } else {
-      return data['particulierId'] == senderId
-          ? data['entrepriseId'] ?? data['otherUserId']
-          : data['particulierId'];
-    }
-  }
-
   Future<String> createAdConversation({
     required String buyerId,
     required String sellerId,
@@ -176,7 +156,6 @@ class ConversationService extends ChangeNotifier {
     required String userId2,
     String? adId,
   }) async {
-    print('Début de check');
     if (adId != null) {
       final adQuery = await _firestore
           .collection('conversations')
@@ -207,7 +186,6 @@ class ConversationService extends ChangeNotifier {
           (data['particulierId'] == userId2 && data['otherUserId'] == userId1));
 
       if (isMatch) {
-        print('Ca marche on a trouvé une conversation');
         return doc.id;
       }
     }
@@ -272,7 +250,6 @@ class ConversationService extends ChangeNotifier {
         receiverType: receiverType,
       );
     } catch (e) {
-      print('Erreur dans sendFirstMessage: $e');
       rethrow;
     }
   }
@@ -310,7 +287,6 @@ class ConversationService extends ChangeNotifier {
       if (!adDoc.exists) {
         throw Exception('Annonce introuvable');
       }
-      final adData = adDoc.data()!;
 
       conversationData = {
         'particulierId': senderId,
@@ -361,7 +337,6 @@ class ConversationService extends ChangeNotifier {
 
       return docRef.id;
     } catch (e) {
-      print('Erreur dans createNewConversation: $e');
       rethrow;
     }
   }
@@ -582,8 +557,6 @@ class ConversationService extends ChangeNotifier {
                   try {
                     return Conversation.fromFirestore(doc);
                   } catch (e) {
-                    print(
-                        'Erreur lors de la conversion de la conversation: $e');
                     return null;
                   }
                 })
@@ -594,9 +567,7 @@ class ConversationService extends ChangeNotifier {
             _conversationsController?.add(conversations);
           }
         },
-        onError: (error) {
-          print('Erreur dans le stream des conversations: $error');
-        },
+        onError: (error) {},
       );
 
       _subscriptions.add(conversationsSubscription);
@@ -673,7 +644,6 @@ class ConversationService extends ChangeNotifier {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
-      print('Messages récupérés pour $conversationId: ${snapshot.docs.length}');
       return snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList();
     });
   }
@@ -855,7 +825,6 @@ class ConversationService extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Erreur lors du marquage de l\'annonce comme vendue: $e');
       rethrow;
     }
   }
@@ -869,7 +838,6 @@ class ConversationService extends ChangeNotifier {
       await _updateUserRating(rating.toUserId);
       notifyListeners();
     } catch (e) {
-      print('Erreur lors de la mise à jour de l\'évaluation: $e');
       rethrow;
     }
   }
@@ -885,7 +853,6 @@ class ConversationService extends ChangeNotifier {
       await _updateUserRating(toUserId);
       notifyListeners();
     } catch (e) {
-      print('Erreur lors de la suppression de l\'évaluation: $e');
       rethrow;
     }
   }
@@ -906,10 +873,6 @@ class ConversationService extends ChangeNotifier {
         throw Exception('Vous avez déjà évalué cette transaction');
       }
 
-      // Ajouter la nouvelle évaluation
-      final docRef =
-          await _firestore.collection('ratings').add(rating.toFirestore());
-
       // Mettre à jour le statut dans la conversation
       await _firestore
           .collection('conversations')
@@ -921,7 +884,6 @@ class ConversationService extends ChangeNotifier {
       await _updateUserRating(rating.toUserId);
       notifyListeners();
     } catch (e) {
-      print('Erreur lors de la soumission de l\'évaluation: $e');
       rethrow;
     }
   }

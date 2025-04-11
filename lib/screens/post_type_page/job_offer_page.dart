@@ -10,7 +10,7 @@ class JobOffersPage extends StatefulWidget {
   const JobOffersPage({super.key});
 
   @override
-  _JobOffersPageState createState() => _JobOffersPageState();
+  State<JobOffersPage> createState() => _JobOffersPageState();
 }
 
 class _JobOffersPageState extends State<JobOffersPage> {
@@ -55,7 +55,9 @@ class _JobOffersPageState extends State<JobOffersPage> {
         _locations = locationsSet.toList()..sort();
         _sectors = sectorsSet.toList()..sort();
       });
-    } catch (e) {}
+    } catch (e) {
+      debugPrint(e.toString());
+    }
   }
 
   void _showLocationFilterBottomSheet() async {
@@ -118,7 +120,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withAlpha(26),
                   spreadRadius: 1,
                   blurRadius: 10,
                   offset: const Offset(0, 1),

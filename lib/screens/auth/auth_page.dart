@@ -40,9 +40,8 @@ class _AuthPageState extends State<AuthPage> {
                         bool isComplete =
                             await Provider.of<UserModel>(context, listen: false)
                                 .isProfileComplete();
-                        if (!mounted) return;
 
-                        if (isComplete) {
+                        if (isComplete && context.mounted) {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
@@ -50,6 +49,7 @@ class _AuthPageState extends State<AuthPage> {
                             ),
                           );
                         } else {
+                          if (!context.mounted) return;
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(

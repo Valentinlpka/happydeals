@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/classes/service_discount.dart';
@@ -97,7 +98,7 @@ class ServicePost extends Post {
 
     final serviceId = data['id'] ?? '';
     if (serviceId.isEmpty) {
-      print('ATTENTION: serviceId est vide pour le post ${doc.id}');
+      debugPrint('ATTENTION: serviceId est vide pour le post ${doc.id}');
     }
 
     final post = ServicePost(

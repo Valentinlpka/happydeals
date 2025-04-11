@@ -21,10 +21,6 @@ class EvenementCard extends StatelessWidget {
     return DateFormat('d MMMM yyyy à HH:mm', 'fr_FR').format(dateTime);
   }
 
-  String _formatDateTimeStamp(DateTime dateTime) {
-    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -75,7 +71,7 @@ class EvenementCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withAlpha(13),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),

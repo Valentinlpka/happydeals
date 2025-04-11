@@ -65,7 +65,7 @@ class _ReviewListWidgetState extends State<ReviewListWidget>
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withAlpha(26 * 1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -312,6 +312,7 @@ class _ReviewListWidgetState extends State<ReviewListWidget>
               final reviewService =
                   Provider.of<ReviewService>(context, listen: false);
               await reviewService.deleteReview(review.id);
+              if (!context.mounted) return;
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -342,7 +343,7 @@ class AddReviewDialog extends StatefulWidget {
   });
 
   @override
-  _AddReviewDialogState createState() => _AddReviewDialogState();
+  State<AddReviewDialog> createState() => _AddReviewDialogState();
 }
 
 class _AddReviewDialogState extends State<AddReviewDialog> {
@@ -441,6 +442,8 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
     final userModel = Provider.of<UserModel>(context, listen: false);
     await userModel.loadUserData();
 
+    if (!context.mounted) return;
+
     final reviewService = Provider.of<ReviewService>(context, listen: false);
     try {
       if (widget.existingReview != null) {
@@ -462,6 +465,7 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
         );
         await reviewService.addReview(review);
       }
+      if (!context.mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
       _showErrorDialog(context, e.toString());

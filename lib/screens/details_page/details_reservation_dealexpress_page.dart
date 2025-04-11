@@ -94,7 +94,7 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
-        color: _getStatusColor(reservation['status']).withOpacity(0.1),
+        color: _getStatusColor(reservation['status']).withAlpha(10),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -102,7 +102,7 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _getStatusColor(reservation['status']).withOpacity(0.2),
+              color: _getStatusColor(reservation['status']).withAlpha(20),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -228,7 +228,7 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),

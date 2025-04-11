@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 
 class ServiceModel {
   final String id;
@@ -77,8 +76,6 @@ class ServiceModel {
   }
 
   factory ServiceModel.fromMap(Map<String, dynamic> map) {
-    debugPrint('🔍 Création du ServiceModel à partir des données: $map');
-
     // Conversion des types numériques
     final price = map['price'] is int
         ? (map['price'] as int).toDouble()
@@ -105,11 +102,6 @@ class ServiceModel {
         'isActive': discountData['isActive'] ?? true,
       };
     }
-
-    debugPrint('💰 Prix converti: $price');
-    debugPrint('📊 TVA convertie: $tva');
-    debugPrint('⏱️ Durée convertie: $duration');
-    debugPrint('🎁 Discount: $discountMap');
 
     return ServiceModel(
       id: map['id'] ?? '',

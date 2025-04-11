@@ -11,7 +11,7 @@ class ParraiangePage extends StatefulWidget {
   const ParraiangePage({super.key});
 
   @override
-  _ParraiangePageState createState() => _ParraiangePageState();
+  State<ParraiangePage> createState() => _ParraiangePageState();
 }
 
 class _ParraiangePageState extends State<ParraiangePage> {
@@ -99,7 +99,7 @@ class _ParraiangePageState extends State<ParraiangePage> {
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withAlpha(26),
               spreadRadius: 1,
               blurRadius: 10,
               offset: const Offset(0, 1),
@@ -262,9 +262,7 @@ class _ParraiangePageState extends State<ParraiangePage> {
 
                   final companyData =
                       companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyName = companyData['name'] as String;
                   final companyCategorie = companyData['categorie'] as String;
-                  final companyLogo = companyData['logo'] as String;
                   final companyAddress =
                       companyData['adress'] as Map<String, dynamic>;
                   final companyLat = companyAddress['latitude'] as double;
@@ -300,9 +298,7 @@ class _ParraiangePageState extends State<ParraiangePage> {
                       post: referral,
                       currentUserId: currentUserId,
                       currentProfileUserId: currentUserId,
-                      onView: () {
-                        // TODO: Implémenter la navigation vers la vue détaillée
-                      },
+                      onView: () {},
                       companyData: CompanyData(
                         name: companyData['name'] ?? '',
                         category: companyData['categorie'] ?? '',

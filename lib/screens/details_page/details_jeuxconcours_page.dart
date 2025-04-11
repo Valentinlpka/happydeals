@@ -44,6 +44,7 @@ class _ParticipationDialogState extends State<ParticipationDialog> {
           .get();
 
       if (participantSnapshot.docs.isNotEmpty) {
+        if (!mounted) return;
         // On ferme d'abord le dialog même en cas d'erreur "déjà participé"
         Navigator.of(context).pop(false);
         throw 'Vous avez déjà participé à ce concours';
@@ -78,6 +79,7 @@ class _ParticipationDialogState extends State<ParticipationDialog> {
         });
       });
 
+      if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
       if (context.mounted) {
@@ -165,7 +167,7 @@ class DetailsJeuxConcoursPage extends StatefulWidget {
   });
 
   @override
-  _DetailsJeuxConcoursPageState createState() =>
+  State<DetailsJeuxConcoursPage> createState() =>
       _DetailsJeuxConcoursPageState();
 }
 
@@ -315,7 +317,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.7),
+                    Colors.black.withAlpha(70),
                   ],
                 ),
               ),
@@ -407,7 +409,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withAlpha(13),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -434,7 +436,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                               begin: Alignment.bottomCenter,
                               end: Alignment.topCenter,
                               colors: [
-                                Colors.black.withOpacity(0.8),
+                                Colors.black.withAlpha(80),
                                 Colors.transparent,
                               ],
                             ),
@@ -475,7 +477,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withAlpha(10),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -592,7 +594,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(13),
                   blurRadius: 10,
                 ),
               ],
@@ -639,7 +641,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
           ),
         ],
@@ -676,8 +678,6 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
 
   void _showShareOptions(BuildContext context) {
     final users = Provider.of<UserModel>(context, listen: false);
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
 
     showModalBottomSheet(
       context: context,

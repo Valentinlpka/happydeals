@@ -22,7 +22,7 @@ class DetailsParrainagePage extends StatefulWidget {
   });
 
   @override
-  _DetailsParrainagePageState createState() => _DetailsParrainagePageState();
+  State<DetailsParrainagePage> createState() => _DetailsParrainagePageState();
 }
 
 class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
@@ -340,8 +340,6 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
 
   void _showShareOptions(BuildContext context) {
     final users = Provider.of<UserModel>(context, listen: false);
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
 
     showModalBottomSheet(
       context: context,

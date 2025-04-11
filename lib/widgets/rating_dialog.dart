@@ -23,7 +23,7 @@ class RatingDialog extends StatefulWidget {
   });
 
   @override
-  _RatingDialogState createState() => _RatingDialogState();
+  State<RatingDialog> createState() => _RatingDialogState();
 }
 
 class _RatingDialogState extends State<RatingDialog> {
@@ -144,7 +144,7 @@ class _RatingDialogState extends State<RatingDialog> {
         await conversationService.submitRating(rating);
       }
 
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -184,18 +184,22 @@ class _RatingDialogState extends State<RatingDialog> {
     if (confirm != true || !mounted) return;
 
     try {
-      await Provider.of<ConversationService>(context, listen: false)
-          .deleteRating(widget.existingRating!.id);
+      if (context.mounted) {
+        await Provider.of<ConversationService>(context, listen: false)
+            .deleteRating(widget.existingRating!.id);
+      }
 
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Évaluation supprimée avec succès')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la suppression: $e')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la suppression: $e')),
+        );
+      }
     }
   }
 

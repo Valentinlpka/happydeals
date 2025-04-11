@@ -13,7 +13,7 @@ class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  _ProfilePageState createState() => _ProfilePageState();
+  State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
@@ -38,13 +38,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadUserData() async {
     final usersProvider = Provider.of<UserModel>(context, listen: false);
     await usersProvider.loadUserData();
-    if (mounted) {
-      setState(() {
-        _firstNameController.text = usersProvider.firstName;
-        _lastNameController.text = usersProvider.lastName;
-        _isLoading = false;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _firstNameController.text = usersProvider.firstName;
+      _lastNameController.text = usersProvider.lastName;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -131,7 +130,7 @@ class _ProfilePageState extends State<ProfilePage> {
         child: _isEditing
             ? Container(
                 decoration: BoxDecoration(
-                  color: CupertinoColors.black.withOpacity(0.5),
+                  color: CupertinoColors.black.withAlpha(26 * 5),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -260,17 +259,21 @@ class _ProfilePageState extends State<ProfilePage> {
         'image_profile': downloadUrl,
       });
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Photo de profil mise à jour avec succès')),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Erreur lors de la mise à jour de la photo: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -283,16 +286,20 @@ class _ProfilePageState extends State<ProfilePage> {
         'lastName': _lastNameController.text,
       });
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profil mis à jour avec succès')),
       );
       setState(() => _isEditing = false);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la mise à jour: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -306,12 +313,16 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _signOut() async {
     try {
       await _auth.signOut();
-      Provider.of<UserModel>(context, listen: false).clearUserData();
-      Navigator.of(context).pushReplacementNamed('/login');
+      if (mounted) {
+        Provider.of<UserModel>(context, listen: false).clearUserData();
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la déconnexion: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la déconnexion: $e')),
+        );
+      }
     }
   }
 }
@@ -348,17 +359,21 @@ class _ChangePasswordDialog extends StatelessWidget {
             try {
               await FirebaseAuth.instance.currentUser
                   ?.updatePassword(_passwordController.text);
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Mot de passe mis à jour avec succès')),
-              );
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Mot de passe mis à jour avec succès')),
+                );
+              }
             } catch (e) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(
-                        'Erreur lors de la mise à jour du mot de passe: $e')),
-              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                          'Erreur lors de la mise à jour du mot de passe: $e')),
+                );
+              }
             }
           },
         ),

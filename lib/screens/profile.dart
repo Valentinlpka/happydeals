@@ -17,7 +17,7 @@ class Profile extends StatefulWidget {
   const Profile({super.key, required this.userId});
 
   @override
-  _ProfileState createState() => _ProfileState();
+  State<Profile> createState() => _ProfileState();
 }
 
 class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
@@ -144,8 +144,8 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.black.withOpacity(0.3),
-            Colors.black.withOpacity(0.5),
+            Colors.black.withAlpha(30),
+            Colors.black.withAlpha(50),
           ],
         ),
       ),
@@ -165,14 +165,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
   Widget _buildProfileHeader(Map<String, dynamic> userData) {
     return Consumer<UserModel>(
       builder: (context, userModel, _) {
-        final bool isCurrentUser = userModel.userId == widget.userId;
-        final bool isIndividual = userData['firstName'] != null;
-        final List<String> userFollowedUsers =
-            List<String>.from(userData['followedUsers'] ?? []);
-        final bool isMutualFollow = !isCurrentUser &&
-            isIndividual &&
-            userModel.followedUsers.contains(widget.userId) &&
-            userFollowedUsers.contains(userModel.userId);
         final userName =
             '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
                 .trim();
@@ -590,7 +582,7 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
       setState(() {
         ad.isSaved = !ad.isSaved;
       });
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(ad.isSaved

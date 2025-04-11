@@ -9,7 +9,7 @@ class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key, this.onTap});
 
   @override
-  _SignUpPageState createState() => _SignUpPageState();
+  State<SignUpPage> createState() => _SignUpPageState();
 }
 
 class _SignUpPageState extends State<SignUpPage> {
@@ -20,6 +20,9 @@ class _SignUpPageState extends State<SignUpPage> {
   bool _isLoading = false;
 
   void _signUp() async {
+    if (!mounted) return;
+    final scaffoldContext = context;
+
     setState(() => _isLoading = true);
 
     String? result = await _auth.signUp(
@@ -27,21 +30,24 @@ class _SignUpPageState extends State<SignUpPage> {
       password: _passwordController.text,
     );
 
-    setState(() => _isLoading = false);
     if (!mounted) return;
+    setState(() => _isLoading = false);
 
     if (result == 'Success') {
       _showVerificationDialog();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
         SnackBar(content: Text(result ?? "Erreur lors de l'inscription")),
       );
     }
   }
 
   void _showVerificationDialog() {
+    if (!mounted) return;
+    final dialogContext = context;
     showDialog(
-      context: context,
+      context: dialogContext,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -57,7 +63,7 @@ class _SignUpPageState extends State<SignUpPage> {
               TextButton(
                 onPressed: () async {
                   await _auth.currentUser?.sendEmailVerification();
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                         content: Text('Email de vérification renvoyé')),
@@ -72,15 +78,15 @@ class _SignUpPageState extends State<SignUpPage> {
               onPressed: () {
                 if (_auth.currentUser!.emailVerified) {
                   Navigator.pushReplacement(
-                    context,
+                    dialogContext,
                     MaterialPageRoute(
                       builder: (context) => const ProfileCompletionPage(),
                     ),
                   );
                 } else {
-                  _auth.signOut(context);
+                  _auth.signOut(dialogContext);
                   Navigator.pushReplacement(
-                    context,
+                    dialogContext,
                     MaterialPageRoute(
                       builder: (context) => const Login(),
                     ),
@@ -165,12 +171,14 @@ class _SignUpPageState extends State<SignUpPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: _signUp,
-                    child: const Text(
-                      'S\'inscrire',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                    ),
+                    onPressed: _isLoading ? null : _signUp,
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            'S\'inscrire',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w500),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 20),

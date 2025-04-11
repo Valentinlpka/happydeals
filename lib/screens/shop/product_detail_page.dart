@@ -105,9 +105,6 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   }
 
   Widget _buildAppBar() {
-    bool isFavorite =
-        context.watch<UserModel>().likedPosts.contains(widget.product.id);
-
     return SliverAppBar(
       expandedHeight: 0,
       floating: true,
@@ -203,8 +200,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: selectedVariant!.stock > 0
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.red.withOpacity(0.1),
+                              ? Colors.green.withAlpha(13)
+                              : Colors.red.withAlpha(13),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -335,7 +332,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withAlpha(8),
             spreadRadius: 0,
             blurRadius: 10,
             offset: const Offset(0, 2),
@@ -362,7 +359,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withAlpha(8),
             spreadRadius: 0,
             blurRadius: 10,
             offset: const Offset(0, 2),
@@ -407,7 +404,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withAlpha(8),
             spreadRadius: 0,
             blurRadius: 10,
             offset: const Offset(0, 2),
@@ -420,7 +417,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withAlpha(13),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -447,8 +444,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${widget.product.pickupAddress},${widget.product.pickupPostalCode}, ${widget.product.pickupCity}' ??
-                      'Adresse non spécifiée',
+                  '${widget.product.pickupAddress},${widget.product.pickupPostalCode}, ${widget.product.pickupCity}',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 14,
@@ -555,7 +551,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                     shape: BoxShape.circle,
                     color: current == entry.key
                         ? Colors.blue
-                        : Colors.grey.withOpacity(0.5),
+                        : Colors.grey.withAlpha(62),
                   ),
                 );
               }).toList(),
@@ -694,11 +690,6 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
     if (selectedVariant == null) return const SizedBox();
 
     final hasDiscount = selectedVariant!.discount?.isValid() ?? false;
-    final price = hasDiscount
-        ? selectedVariant!.discount!
-            .calculateDiscountedPrice(selectedVariant!.price)
-        : selectedVariant!.price;
-
     return Row(
       spacing: 10,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -846,7 +837,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withAlpha(39),
             spreadRadius: 2,
             blurRadius: 15,
             offset: const Offset(0, -3),
@@ -1259,9 +1250,9 @@ class ProductBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(13),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withAlpha(62)),
       ),
       child: Text(
         text,

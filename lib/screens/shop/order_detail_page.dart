@@ -47,8 +47,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         child: FutureBuilder<Orders>(
           future: _orderFuture,
           builder: (context, snapshot) {
-            if (!snapshot.hasData)
+            if (!snapshot.hasData) {
               return const CustomAppBar(title: '', align: Alignment.centerLeft);
+            }
             final order = snapshot.data!;
 
             return CustomAppBar(
@@ -111,7 +112,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
-        color: _getStatusColor(order.status).withOpacity(0.1),
+        color: _getStatusColor(order.status).withAlpha(26),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -119,7 +120,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _getStatusColor(order.status).withOpacity(0.2),
+              color: _getStatusColor(order.status).withAlpha(26),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -165,7 +166,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -487,6 +488,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         .get();
 
     if (!entrepriseDoc.exists) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
@@ -511,7 +513,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         }
       }
     } catch (e) {
-      print('Erreur lors du chargement du logo: $e');
+      debugPrint('Erreur lors du chargement du logo: $e');
     }
 
     // Informations de l'entreprise
@@ -866,9 +868,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   double _calculateTotalHT(List<OrderItem> items) {
     return items.fold(
       0,
-      (sum, item) {
+      (total, item) {
         double priceHT = item.originalPrice / (1 + (item.tva / 100));
-        return sum + (priceHT * item.quantity);
+        return total + (priceHT * item.quantity);
       },
     );
   }
@@ -876,10 +878,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   double _calculateTotalVAT(List<OrderItem> items) {
     return items.fold(
       0,
-      (sum, item) {
+      (total, item) {
         double priceHT = item.originalPrice / (1 + (item.tva / 100));
         double priceTTC = item.originalPrice;
-        return sum + ((priceTTC - priceHT) * item.quantity);
+        return total + ((priceTTC - priceHT) * item.quantity);
       },
     );
   }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class Company {
   final String id;
@@ -186,7 +187,7 @@ class OpeningHours {
           return true;
         }
       } catch (e) {
-        print('Erreur lors du parsing des horaires: $e');
+        debugPrint('Erreur lors du parsing des horaires: $e');
         continue;
       }
     }

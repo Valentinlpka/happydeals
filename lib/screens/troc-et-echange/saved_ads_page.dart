@@ -10,7 +10,7 @@ class SavedAdsPage extends StatefulWidget {
   const SavedAdsPage({super.key});
 
   @override
-  _SavedAdsPageState createState() => _SavedAdsPageState();
+  State<SavedAdsPage> createState() => _SavedAdsPageState();
 }
 
 class _SavedAdsPageState extends State<SavedAdsPage> {
@@ -91,6 +91,7 @@ class _SavedAdsPageState extends State<SavedAdsPage> {
         _savedAds.removeWhere((savedAd) => savedAd.id == ad.id);
       });
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la mise à jour: $e')),
       );

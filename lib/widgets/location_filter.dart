@@ -63,7 +63,7 @@ class LocationFilterBottomSheet extends StatefulWidget {
   }
 
   @override
-  _LocationFilterBottomSheetState createState() =>
+  State<LocationFilterBottomSheet> createState() =>
       _LocationFilterBottomSheetState();
 }
 
@@ -81,7 +81,6 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
   final FocusNode _searchFocusNode = FocusNode();
   double? _selectedLat;
   double? _selectedLng;
-  bool _isSearching = false;
   List<Map<String, dynamic>> _cities = [];
 
   @override
@@ -294,7 +293,6 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
               '${_capitalizeWords(nearestCity['label'])} (${nearestCity['zip_code']})';
           _searchController.text = _selectedAddress;
           _predictions = [];
-          _isSearching = false;
         });
       } else {
         debugPrint('Aucune ville proche trouvée');
@@ -351,155 +349,147 @@ class _LocationFilterBottomSheetState extends State<LocationFilterBottomSheet>
               ),
               const SizedBox(height: 24),
               // Champ de recherche amélioré
-              Container(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withAlpha(13),
+                          spreadRadius: 1,
+                          blurRadius: 10,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Focus(
+                      onFocusChange: (hasFocus) {
+                        setState(() {
+                          if (!hasFocus && _predictions.isEmpty) {
+                            _predictions = [];
+                          }
+                        });
+                      },
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher une ville...',
+                          hintStyle: TextStyle(color: Colors.grey[400]),
+                          prefixIcon:
+                              Icon(Icons.search, color: Colors.grey[400]),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 15,
+                          ),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _predictions = [];
+                                      _selectedAddress = '';
+                                      _selectedLat = null;
+                                      _selectedLng = null;
+                                    });
+                                  },
+                                )
+                              : null,
+                        ),
+                        onChanged: (value) async {
+                          if (value.length > 2) {
+                            final predictions =
+                                await _getPlacePredictions(value);
+                            setState(() {
+                              _predictions = predictions;
+                            });
+                          } else {
+                            setState(() {
+                              _predictions = [];
+                            });
+                          }
+                        },
+                        onTap: () {
+                          setState(() {
+                            _predictions = [];
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  if (_predictions.isNotEmpty)
                     Container(
+                      margin: const EdgeInsets.only(top: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(15),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
+                            color: Colors.grey.withAlpha(13),
                             spreadRadius: 1,
-                            blurRadius: 10,
-                            offset: const Offset(0, 1),
+                            blurRadius: 5,
                           ),
                         ],
                       ),
-                      child: Focus(
-                        onFocusChange: (hasFocus) {
-                          setState(() {
-                            if (!hasFocus && _predictions.isEmpty) {
-                              _isSearching = false;
-                            }
-                          });
-                        },
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          decoration: InputDecoration(
-                            hintText: 'Rechercher une ville...',
-                            hintStyle: TextStyle(color: Colors.grey[400]),
-                            prefixIcon:
-                                Icon(Icons.search, color: Colors.grey[400]),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 15,
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.3,
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        itemCount: _predictions.length,
+                        itemBuilder: (context, index) {
+                          final prediction = _predictions[index];
+                          return InkWell(
+                            onTap: () {
+                              final coordinates = prediction['coordinates'];
+                              _handleLocationSelection(
+                                coordinates[1],
+                                coordinates[0],
+                                prediction['description'],
+                              );
+                              _searchFocusNode.unfocus();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                border: index != _predictions.length - 1
+                                    ? Border(
+                                        bottom: BorderSide(
+                                          color: Colors.grey.withAlpha(13),
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.location_on_outlined,
+                                      color: Color(0xFF4B88DA)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      prediction['description'],
+                                      style: const TextStyle(fontSize: 16),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            suffixIcon: _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _predictions = [];
-                                        _selectedAddress = '';
-                                        _selectedLat = null;
-                                        _selectedLng = null;
-                                        _isSearching = false;
-                                      });
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (value) async {
-                            if (value.length > 2) {
-                              final predictions =
-                                  await _getPlacePredictions(value);
-                              setState(() {
-                                _predictions = predictions;
-                                _isSearching = predictions.isNotEmpty;
-                              });
-                            } else {
-                              setState(() {
-                                _predictions = [];
-                                _isSearching = false;
-                              });
-                            }
-                          },
-                          onTap: () {
-                            setState(() {
-                              _isSearching = _predictions.isNotEmpty;
-                            });
-                          },
-                        ),
+                          );
+                        },
                       ),
                     ),
-                    if (_predictions.isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 5,
-                            ),
-                          ],
-                        ),
-                        constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height * 0.3,
-                        ),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          padding: EdgeInsets.zero,
-                          itemCount: _predictions.length,
-                          itemBuilder: (context, index) {
-                            final prediction = _predictions[index];
-                            return InkWell(
-                              onTap: () {
-                                final coordinates = prediction['coordinates'];
-                                _handleLocationSelection(
-                                  coordinates[1],
-                                  coordinates[0],
-                                  prediction['description'],
-                                );
-                                _searchFocusNode.unfocus();
-                                setState(() {
-                                  _isSearching = false;
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: index != _predictions.length - 1
-                                      ? Border(
-                                          bottom: BorderSide(
-                                            color: Colors.grey.withOpacity(0.1),
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.location_on_outlined,
-                                        color: Color(0xFF4B88DA)),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        prediction['description'],
-                                        style: const TextStyle(fontSize: 16),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
               const SizedBox(height: 24),
               // Rayon de recherche

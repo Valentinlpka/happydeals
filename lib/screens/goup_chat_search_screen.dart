@@ -112,7 +112,9 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                 [companies, users],
           );
         });
-      } catch (e) {}
+      } catch (e) {
+        debugPrint(e.toString());
+      }
     });
   }
 
@@ -152,8 +154,9 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
 
   void _toggleMemberSelection(
       String id, Map<String, dynamic> data, String type) {
-    if (widget.preselectedCompany?.id == id)
+    if (widget.preselectedCompany?.id == id) {
       return; // Ne rien faire si c'est l'entreprise présélectionnée
+    }
     setState(() {
       if (_selectedMembers.contains(id)) {
         _selectedMembers.remove(id);
@@ -310,7 +313,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 3,
             offset: const Offset(0, 2),
           ),
@@ -391,7 +394,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withAlpha(26),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
@@ -449,7 +452,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
         _groupNameController.text.trim(),
       );
 
-      if (!context.mounted) return;
+      if (!mounted) return;
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -461,7 +464,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
         ),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: ${e.toString()}')),
       );

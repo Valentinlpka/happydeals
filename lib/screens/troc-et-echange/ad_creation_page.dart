@@ -17,7 +17,7 @@ class AdCreationScreen extends StatefulWidget {
   const AdCreationScreen({super.key, this.existingAd});
 
   @override
-  _AdCreationScreenState createState() => _AdCreationScreenState();
+  State<AdCreationScreen> createState() => _AdCreationScreenState();
 }
 
 class _AdCreationScreenState extends State<AdCreationScreen> {
@@ -65,7 +65,7 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withAlpha(13),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),

@@ -82,8 +82,8 @@ class PhotoSectionState extends State<PhotoSection> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.2),
-                        Colors.black.withOpacity(0.4),
+                        Colors.black.withAlpha(26 * 2),
+                        Colors.black.withAlpha(26 * 4),
                       ],
                     ),
                   ),
@@ -94,7 +94,7 @@ class PhotoSectionState extends State<PhotoSection> {
                         right: 8,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withAlpha(26 * 5),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: IconButton(
@@ -115,7 +115,7 @@ class PhotoSectionState extends State<PhotoSection> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withAlpha(26 * 5),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

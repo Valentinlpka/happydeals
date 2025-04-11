@@ -11,6 +11,9 @@ class NotificationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Initialisation de timeago en français
+    timeago.setLocaleMessages('fr', timeago.FrMessages());
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: CustomAppBar(
@@ -59,103 +62,144 @@ class NotificationsPage extends StatelessWidget {
             itemCount: notificationProvider.notifications.length,
             itemBuilder: (context, index) {
               final notification = notificationProvider.notifications[index];
-              return NotificationTile(notification: notification);
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class NotificationTile extends StatelessWidget {
-  final NotificationModel notification;
-
-  const NotificationTile({super.key, required this.notification});
-
-  @override
-  Widget build(BuildContext context) {
-    return Dismissible(
-      key: Key(notification.id),
-      background: Container(
-        color: Colors.red[50],
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: Icon(Icons.delete_outline, color: Colors.red[400]),
-      ),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) {
-        // Implémenter la suppression de la notification
-      },
-      child: InkWell(
-        onTap: () {
-          context.read<NotificationProvider>().markAsRead(notification.id);
-          _handleNotificationTap(context);
-        },
-        child: Container(
-          color: notification.isRead ? Colors.transparent : Colors.blue[50],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _getNotificationColor(notification.type),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _getNotificationIcon(notification.type),
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              return Dismissible(
+                key: Key(notification.id),
+                background: Container(
+                  color: Colors.red[50],
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      Icon(Icons.delete_outline, color: Colors.red[400]),
+                      const SizedBox(width: 8),
                       Text(
-                        notification.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        notification.message,
+                        'Supprimer',
                         style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        timeago.format(notification.createdAt, locale: 'fr'),
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 12,
+                          color: Colors.red[400],
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (!notification.isRead)
-                  Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.only(top: 8, left: 8),
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
+                direction: DismissDirection.endToStart,
+                confirmDismiss: (direction) async {
+                  final result = await showDialog<bool>(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Supprimer la notification'),
+                        content: const Text(
+                            'Êtes-vous sûr de vouloir supprimer cette notification ?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Annuler'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                            child: const Text('Supprimer'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                  return result ?? false;
+                },
+                onDismissed: (direction) {
+                  notificationProvider.deleteNotification(notification.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Notification supprimée'),
+                      action: SnackBarAction(
+                        label: 'Annuler',
+                        onPressed: () {},
+                      ),
+                    ),
+                  );
+                },
+                child: InkWell(
+                  onTap: () {
+                    notificationProvider.markAsRead(notification.id);
+                    _handleNotificationTap(context, notification);
+                  },
+                  child: Container(
+                    color: notification.isRead
+                        ? Colors.transparent
+                        : Colors.blue[50],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _getNotificationColor(notification.type),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              _getNotificationIcon(notification.type),
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  notification.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  notification.message,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  timeago.format(notification.createdAt,
+                                      locale: 'fr'),
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!notification.isRead)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(top: 8, left: 8),
+                              decoration: const BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-              ],
-            ),
-          ),
-        ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -164,7 +208,7 @@ class NotificationTile extends StatelessWidget {
     switch (type) {
       case NotificationType.order:
         return Colors.orange;
-      case NotificationType.deal_express:
+      case NotificationType.dealExpress:
         return Colors.green;
       case NotificationType.booking:
         return Colors.blue;
@@ -175,14 +219,15 @@ class NotificationTile extends StatelessWidget {
     switch (type) {
       case NotificationType.order:
         return Icons.shopping_bag_outlined;
-      case NotificationType.deal_express:
+      case NotificationType.dealExpress:
         return Icons.eco_outlined;
       case NotificationType.booking:
         return Icons.event_outlined;
     }
   }
 
-  void _handleNotificationTap(BuildContext context) {
+  void _handleNotificationTap(
+      BuildContext context, NotificationModel notification) {
     if (notification.targetId == null) return;
 
     switch (notification.type) {
@@ -190,7 +235,7 @@ class NotificationTile extends StatelessWidget {
         AppRouter.navigateTo(context, AppRouter.orderDetails,
             arguments: notification.targetId);
         break;
-      case NotificationType.deal_express:
+      case NotificationType.dealExpress:
         AppRouter.navigateTo(context, AppRouter.reservationDetails,
             arguments: notification.targetId);
         break;

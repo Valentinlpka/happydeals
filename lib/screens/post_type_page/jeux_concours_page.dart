@@ -11,7 +11,7 @@ class JeuxConcoursPage extends StatefulWidget {
   const JeuxConcoursPage({super.key});
 
   @override
-  _JeuxConcoursPageState createState() => _JeuxConcoursPageState();
+  State<JeuxConcoursPage> createState() => _JeuxConcoursPageState();
 }
 
 class _JeuxConcoursPageState extends State<JeuxConcoursPage> {
@@ -99,7 +99,7 @@ class _JeuxConcoursPageState extends State<JeuxConcoursPage> {
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withAlpha(26),
               spreadRadius: 1,
               blurRadius: 10,
               offset: const Offset(0, 1),
@@ -262,9 +262,7 @@ class _JeuxConcoursPageState extends State<JeuxConcoursPage> {
 
                   final companyData =
                       companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyName = companyData['name'] as String;
                   final companyCategorie = companyData['categorie'] as String;
-                  final companyLogo = companyData['logo'] as String;
                   final companyAddress =
                       companyData['adress'] as Map<String, dynamic>;
                   final companyLat = companyAddress['latitude'] as double;
@@ -298,9 +296,7 @@ class _JeuxConcoursPageState extends State<JeuxConcoursPage> {
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: PostWidget(
                       post: contest,
-                      onView: () {
-                        // TODO: Implémenter la navigation vers la vue détaillée
-                      },
+                      onView: () {},
                       currentProfileUserId: currentUserId,
                       currentUserId: currentUserId,
                       companyData: CompanyData(

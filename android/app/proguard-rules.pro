@@ -8,3 +8,7 @@
 # Gardez ces règles à la fin du fichier
 -keep class com.stripe.android.** { *; }
 -dontwarn com.stripe.android.**
+
+-keep class androidx.window.** { *; }
+-dontwarn androidx.window.**
+-keep class com.google.android.** { *; }

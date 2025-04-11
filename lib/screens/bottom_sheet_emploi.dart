@@ -1,12 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/post_type_page/job_search_profile_page.dart';
 
-class ApplicationBottomSheet extends StatelessWidget {
+class ApplicationBottomSheet extends StatefulWidget {
   final String jobOfferId;
   final String companyId;
   final String jobTitle;
-  final String companyName;
-  final String companyLogo;
   final Function onApplicationSubmitted;
 
   const ApplicationBottomSheet({
@@ -14,10 +13,49 @@ class ApplicationBottomSheet extends StatelessWidget {
     required this.jobOfferId,
     required this.companyId,
     required this.jobTitle,
-    required this.companyName,
-    required this.companyLogo,
     required this.onApplicationSubmitted,
   });
+
+  @override
+  State<ApplicationBottomSheet> createState() => _ApplicationBottomSheetState();
+}
+
+class _ApplicationBottomSheetState extends State<ApplicationBottomSheet> {
+  String? companyName;
+  String? companyLogo;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCompanyData();
+  }
+
+  Future<void> _loadCompanyData() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('companys')
+          .doc(widget.companyId)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          companyName = data['name'] as String?;
+          companyLogo = data['logo'] as String?;
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,44 +69,51 @@ class ApplicationBottomSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: Colors.blue[700],
-                child: CircleAvatar(
-                  radius: 23,
-                  backgroundImage: NetworkImage(companyLogo),
+          if (isLoading)
+            const Center(child: CircularProgressIndicator())
+          else
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 25,
+                  backgroundColor: Colors.blue[700],
+                  child: CircleAvatar(
+                    radius: 23,
+                    backgroundImage:
+                        companyLogo != null ? NetworkImage(companyLogo!) : null,
+                    child: companyLogo == null
+                        ? const Icon(Icons.business, color: Colors.white)
+                        : null,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      jobTitle,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.jobTitle,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      companyName,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
+                      Text(
+                        companyName ?? 'Entreprise non trouvée',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () {
-              onApplicationSubmitted();
+              widget.onApplicationSubmitted();
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(

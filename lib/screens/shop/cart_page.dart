@@ -9,9 +9,14 @@ import 'package:happy/services/cart_service.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
 
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
   double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     const double earthRadius = 6371; // Rayon de la Terre en kilomètres
 
@@ -152,9 +157,11 @@ class CartScreen extends StatelessWidget {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors du passage à la caisse: $e')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du passage à la caisse: $e')),
+        );
+      }
     }
   }
 
@@ -178,9 +185,6 @@ class CartScreen extends StatelessWidget {
             itemCount: activeCarts.length,
             itemBuilder: (context, cartIndex) {
               final cart = activeCarts[cartIndex];
-              final remainingHours =
-                  24 - DateTime.now().difference(cart.createdAt).inHours;
-
               return FutureBuilder<DocumentSnapshot>(
                 future: FirebaseFirestore.instance
                     .collection('companys')
@@ -372,10 +376,13 @@ class CartScreen extends StatelessWidget {
                                           variantId: item.variant.id,
                                         );
                                       } catch (e) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(content: Text(e.toString())),
-                                        );
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                                content: Text(e.toString())),
+                                          );
+                                        }
                                       }
                                     },
                                   ),

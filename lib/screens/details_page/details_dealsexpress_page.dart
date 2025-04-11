@@ -168,7 +168,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
+        color: Colors.blue.withAlpha(26),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -313,7 +313,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(13),
                   blurRadius: 10,
                 ),
               ],
@@ -407,7 +407,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(13),
                   blurRadius: 10,
                 ),
               ],
@@ -453,7 +453,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
           ),
         ],

@@ -212,10 +212,14 @@ class MyAdsPage extends StatelessWidget {
       // Supprimer l'annonce de Firestore
       await FirebaseFirestore.instance.collection('ads').doc(ad.id).delete();
 
+      if (!context.mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Annonce supprimée avec succès')),
       );
     } catch (e) {
+      if (!context.mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la suppression: $e')),
       );

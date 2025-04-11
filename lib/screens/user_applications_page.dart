@@ -12,7 +12,7 @@ class UserApplicationsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    print('Current user ID: ${user?.uid}');
+    debugPrint('Current user ID: ${user?.uid}');
 
     return Scaffold(
       appBar: const CustomAppBarBack(
@@ -32,7 +32,7 @@ class UserApplicationsPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
+                    color: Colors.blue.withAlpha(26 * 3),
                     spreadRadius: 1,
                     blurRadius: 4,
                     offset: const Offset(0, 2),
@@ -64,7 +64,7 @@ class UserApplicationsPage extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.person_outline,
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withAlpha(26 * 9),
                     ),
                     const SizedBox(width: 12),
                     const Text(
@@ -88,17 +88,17 @@ class UserApplicationsPage extends StatelessWidget {
                   .orderBy('lastUpdate', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
-                print('Connection State: ${snapshot.connectionState}');
-                print('Has Error: ${snapshot.hasError}');
+                debugPrint('Connection State: ${snapshot.connectionState}');
+                debugPrint('Has Error: ${snapshot.hasError}');
                 if (snapshot.hasError) {
-                  print('Error: ${snapshot.error}');
+                  debugPrint('Error: ${snapshot.error}');
                 }
-                print('Has Data: ${snapshot.hasData}');
+                debugPrint('Has Data: ${snapshot.hasData}');
                 if (snapshot.hasData) {
-                  print('Number of docs: ${snapshot.data?.docs.length}');
+                  debugPrint('Number of docs: ${snapshot.data?.docs.length}');
                   snapshot.data?.docs.forEach((doc) {
-                    print('Application ID: ${doc.id}');
-                    print('Application Data: ${doc.data()}');
+                    debugPrint('Application ID: ${doc.id}');
+                    debugPrint('Application Data: ${doc.data()}');
                   });
                 }
 
@@ -137,7 +137,7 @@ class UserApplicationsPage extends StatelessWidget {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.grey.withOpacity(0.2),
+                          color: Colors.grey.withAlpha(26 * 2),
                           width: 1,
                         ),
                       ),
@@ -202,7 +202,8 @@ class UserApplicationsPage extends StatelessWidget {
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
                                           border: Border.all(
-                                            color: Colors.blue.withOpacity(0.2),
+                                            color:
+                                                Colors.blue.withAlpha(26 * 2),
                                             width: 2,
                                           ),
                                           image: DecorationImage(

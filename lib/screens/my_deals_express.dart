@@ -53,7 +53,7 @@ class ReservationListDealExpress extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
+          color: Colors.grey.withAlpha(26),
           width: 1,
         ),
       ),

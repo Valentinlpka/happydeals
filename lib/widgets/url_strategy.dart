@@ -13,12 +13,10 @@ void initializeUrlStrategy() {
 // qui ne sera jamais appelée sur mobile
 void _initializeForWeb() {
   if (kIsWeb) {
-    // Ceci ne sera exécuté que sur le web
-    dynamic web;
     try {
-      web = Uri.base;
+      Uri.base;
     } catch (e) {
-      print('Error initializing URL strategy: $e');
+      debugPrint('Error initializing URL strategy: $e');
     }
   }
 }

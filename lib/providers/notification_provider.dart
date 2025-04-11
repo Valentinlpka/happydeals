@@ -84,6 +84,20 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteNotification(String notificationId) async {
+    try {
+      await _db.collection('notifications').doc(notificationId).delete();
+
+      // Mettre à jour la liste locale
+      _notifications.removeWhere((n) => n.id == notificationId);
+      _updateUnreadStatus();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Erreur lors de la suppression de la notification: $e');
+      rethrow;
+    }
+  }
+
   Future<void> addNotification({
     required String title,
     required String message,

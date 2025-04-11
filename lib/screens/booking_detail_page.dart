@@ -45,8 +45,9 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         child: FutureBuilder<List<DocumentSnapshot>>(
           future: Future.wait([_bookingFuture, _serviceFuture]),
           builder: (context, snapshot) {
-            if (!snapshot.hasData)
+            if (!snapshot.hasData) {
               return const CustomAppBar(title: '', align: Alignment.centerLeft);
+            }
 
             return CustomAppBar(
               title: 'Réservation #${widget.bookingId.substring(0, 8)}',
@@ -115,7 +116,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
-        color: _getStatusColor(status).withOpacity(0.1),
+        color: _getStatusColor(status).withAlpha(26),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -123,7 +124,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _getStatusColor(status).withOpacity(0.2),
+              color: _getStatusColor(status).withAlpha(52),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -240,7 +241,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),

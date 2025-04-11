@@ -13,7 +13,7 @@ class ReferralDetailPage extends StatefulWidget {
   const ReferralDetailPage({super.key, this.referralId});
 
   @override
-  _ReferralDetailPageState createState() => _ReferralDetailPageState();
+  State<ReferralDetailPage> createState() => _ReferralDetailPageState();
 }
 
 class _ReferralDetailPageState extends State<ReferralDetailPage>
@@ -91,7 +91,7 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
         'postId': postId,
       };
     } catch (e) {
-      print('Erreur lors du chargement des données: $e');
+      debugPrint('Erreur lors du chargement des données: $e');
       return null;
     }
   }
@@ -101,22 +101,22 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
       'Envoyé': {
         'color': Colors.blue[700],
         'icon': Icons.send_rounded,
-        'background': Colors.blue.withOpacity(0.1),
+        'background': Colors.blue.withAlpha(26),
       },
       'En cours': {
         'color': Colors.orange[700],
         'icon': Icons.timeline_rounded,
-        'background': Colors.orange.withOpacity(0.1),
+        'background': Colors.orange.withAlpha(26),
       },
       'Terminé': {
         'color': Colors.green[700],
         'icon': Icons.check_circle_rounded,
-        'background': Colors.green.withOpacity(0.1),
+        'background': Colors.green.withAlpha(26),
       },
       'Archivé': {
         'color': Colors.grey[700],
         'icon': Icons.archive_rounded,
-        'background': Colors.grey.withOpacity(0.1),
+        'background': Colors.grey.withAlpha(26),
       },
     };
 
@@ -163,7 +163,7 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(26),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -180,7 +180,7 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (iconColor ?? Colors.blue[700])!.withOpacity(0.1),
+                color: (iconColor ?? Colors.blue[700])!.withAlpha(26),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -297,12 +297,14 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de l\'envoi du message: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'envoi du message: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -466,7 +468,7 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withAlpha(26),
                       blurRadius: 5,
                       offset: const Offset(0, -2),
                     ),
@@ -715,7 +717,7 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(26),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),

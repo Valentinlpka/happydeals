@@ -67,6 +67,7 @@ class _LoginState extends State<Login> {
 
         bool isComplete = await userModel.isProfileComplete();
         if (isComplete) {
+          if (!mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -89,6 +90,7 @@ class _LoginState extends State<Login> {
           'error': e.toString(),
         },
       );
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur de connexion: $e')),
       );
@@ -285,6 +287,7 @@ class _LoginState extends State<Login> {
                         if (!mounted) return;
 
                         if (result == 'Success') {
+                          if (!context.mounted) return;
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
@@ -292,6 +295,7 @@ class _LoginState extends State<Login> {
                             ),
                           );
                         } else if (result == 'NewUser') {
+                          if (!context.mounted) return;
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
@@ -300,6 +304,7 @@ class _LoginState extends State<Login> {
                             ),
                           );
                         } else {
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                                 content:

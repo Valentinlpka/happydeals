@@ -68,7 +68,7 @@ class InvoiceViewerPage extends StatelessWidget {
           text: 'Facture #$invoiceId',
         );
       }
-
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Facture partagée avec succès')),
       );

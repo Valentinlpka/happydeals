@@ -48,7 +48,7 @@ class AppTheme {
   // Ombres
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.05),
+      color: Colors.black.withAlpha(26 * 5),
       blurRadius: 10,
       offset: const Offset(0, 4),
     ),
@@ -129,7 +129,7 @@ class AppTheme {
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withAlpha(26 * 1),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -155,7 +155,7 @@ class AppTheme {
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withAlpha(26 * 1),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),

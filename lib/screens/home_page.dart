@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/combined_item.dart';
@@ -18,6 +17,7 @@ import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
+import 'package:happy/screens/post_type_page/publications_page.dart';
 import 'package:happy/screens/search_page.dart';
 import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
@@ -33,14 +33,13 @@ class Home extends StatefulWidget {
   const Home({super.key});
 
   @override
-  _HomeState createState() => _HomeState();
+  State<Home> createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   final AnalyticsService _analytics = AnalyticsService();
   late String currentUserId;
   final ScrollController _scrollController = ScrollController();
-  final bool _isFirstLoad = true;
   bool _isInitializing = false;
 
   @override
@@ -51,6 +50,11 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       title: 'Annuaire',
       icon: Icons.business_center, // Icône d'entreprise/business
       page: const CompaniesPage(),
+    ),
+    NavigationItem(
+      title: 'Publications',
+      icon: Icons.article_outlined,
+      page: const PublicationsPage(),
     ),
     NavigationItem(
       title: 'Produit',
@@ -139,13 +143,13 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
 
       if (userProvider.likedCompanies.isEmpty &&
           userProvider.followedUsers.isEmpty) {
-        homeProvider.notifyListeners();
         return;
       }
 
-      await homeProvider.initializeFeed(
+      await homeProvider.loadUnifiedFeed(
         userProvider.likedCompanies,
         userProvider.followedUsers,
+        refresh: true,
       );
     } catch (e) {
       if (mounted) {
@@ -426,6 +430,11 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   Widget _buildNavigationButtons() {
     // Map des dégradés pour chaque type
     final Map<String, LinearGradient> gradients = {
+      'Publications': const LinearGradient(
+        colors: [Color(0xFF1976D2), Color(0xFF2196F3)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
       'Annuaire': const LinearGradient(
         colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
         begin: Alignment.topLeft,
@@ -489,64 +498,72 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       ),
     };
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 10,
-      ),
-      child: Container(
-        height: 35,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: ListView.separated(
-          cacheExtent: 500,
-          scrollDirection: Axis.horizontal,
-          itemCount: _navigationItems.length,
-          separatorBuilder: (context, index) => const SizedBox(width: 12),
-          itemBuilder: (context, index) {
-            final item = _navigationItems[index];
-            return Container(
-              decoration: BoxDecoration(
-                gradient: gradients[item.title],
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => item.page),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                  elevation: 1,
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: _navigationItems.map((item) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: gradients[item.title],
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(20),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      item.icon,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      item.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => item.page),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      elevation: 0,
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          item.icon,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          item.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
@@ -556,112 +573,143 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     return Consumer2<UserModel, NotificationProvider>(
       builder: (context, usersProvider, notificationProvider, _) {
         return Container(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Stack(
-                children: [
-                  GestureDetector(
-                    onTap: () => showProfileBottomSheet(context),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
+          padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.of(context).size.width * 0.04,
+            vertical: 16,
+          ),
+          child: SafeArea(
+            child: Row(
+              children: [
+                Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: () => showProfileBottomSheet(context),
+                      child: Container(
+                        width: MediaQuery.of(context).size.width * 0.12,
+                        height: MediaQuery.of(context).size.width * 0.12,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          child: CircleAvatar(
-                            radius: 25,
-                            backgroundImage:
-                                NetworkImage(usersProvider.profileUrl),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withAlpha(22),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                            ),
+                            child: CircleAvatar(
+                              radius: MediaQuery.of(context).size.width * 0.06,
+                              backgroundImage:
+                                  NetworkImage(usersProvider.profileUrl),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  if (notificationProvider.hasUnreadNotifications)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 2,
+                    if (notificationProvider.hasUnreadNotifications)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2,
+                            ),
                           ),
+                          child: Text(
+                            notificationProvider.notifications
+                                .where((n) => !n.isRead)
+                                .length
+                                .toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Salut ${usersProvider.firstName} !",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: MediaQuery.of(context).size.width * 0.045,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: MediaQuery.of(context).size.width * 0.08,
                         ),
                         child: Text(
-                          notificationProvider.notifications
-                              .where((n) => !n.isRead)
-                              .length
-                              .toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                          usersProvider.dailyQuote,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: MediaQuery.of(context).size.width * 0.035,
+                            height: 1.2,
                           ),
+                          maxLines: null,
+                          overflow: TextOverflow.visible,
                         ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Salut ${usersProvider.firstName} !",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                    ],
+                  ),
+                ),
+                Container(
+                  width: MediaQuery.of(context).size.width * 0.12,
+                  height: MediaQuery.of(context).size.width * 0.12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey..withAlpha(20),
+                        spreadRadius: 1,
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.search,
+                      color: Colors.grey[800],
+                      size: MediaQuery.of(context).size.width * 0.06,
                     ),
-                    Text(
-                      usersProvider.dailyQuote,
-                      style: const TextStyle(color: Colors.grey),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const SearchPage()),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey[50]!.withOpacity(0.5),
-                      spreadRadius: 2,
-                      blurRadius: 2,
-                    ),
-                  ],
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.search, color: Colors.black87),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const SearchPage()),
-                    );
-                  },
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -674,8 +722,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     if (homeProvider.isLoading && items.isEmpty) {
       return ListView.builder(
         padding: EdgeInsets.zero,
-        physics:
-            const NeverScrollableScrollPhysics(), // Empêche le défilement pendant le chargement
+        physics: const NeverScrollableScrollPhysics(),
         itemCount: 3,
         itemBuilder: (context, index) => _buildSkeletonPost(),
       );
@@ -702,8 +749,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     } else {
       return ListView.builder(
         key: const PageStorageKey('feed-list'),
-        cacheExtent:
-            2000, // Augmentation du cache pour une meilleure performance
+        cacheExtent: 2000,
         padding: EdgeInsets.zero,
         addRepaintBoundaries: true,
         addAutomaticKeepAlives: true,
@@ -731,15 +777,12 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
 
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.offset;
-    const threshold = 0.7; // Déclencher le chargement plus tôt
+    const threshold = 0.7;
 
     if (currentScroll >= (maxScroll * threshold)) {
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
 
       if (!homeProvider.isLoading && homeProvider.hasMoreData) {
-        if (kDebugMode) {
-          print("Déclenchement du chargement de plus de posts...");
-        }
         _loadMoreData();
       }
     }
@@ -762,7 +805,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         lastItem,
       );
     } catch (e) {
-      // Gestion silencieuse des erreurs de chargement
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -780,14 +822,10 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
 
   Widget _buildItem(CombinedItem item) {
     try {
-      debugPrint('🔄 Construction de l\'item: ${item.type}');
-
       if (item.type == 'post') {
         final postData = item.item;
         final post = postData['post'] as Post;
-        debugPrint('📝 Post ID: ${post.id}');
 
-        // Conversion explicite des Maps avec vérification des types
         final companyData =
             Map<String, dynamic>.from(postData['company'] ?? {});
         final sharedByUserData = postData['sharedByUser'] != null
@@ -795,18 +833,12 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
             : null;
         final isAd = postData['isAd'] as bool? ?? false;
 
-        debugPrint('🏢 Données de l\'entreprise: ${companyData['name']}');
-        debugPrint('📤 Post partagé: ${sharedByUserData != null}');
-        debugPrint('📢 Est une annonce: $isAd');
-
         if (post is SharedPost && isAd) {
-          debugPrint('📢 Traitement d\'une annonce partagée');
           final adData =
               Map<String, dynamic>.from(postData['originalContent'] ?? {});
 
           try {
             final ad = Ad.fromMap(adData, adData['id'] ?? post.originalPostId);
-            debugPrint('✅ Annonce créée avec succès: ${ad.id}');
 
             return Padding(
               padding:
@@ -836,12 +868,9 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
               ),
             );
           } catch (e) {
-            debugPrint('❌ Erreur lors de la création de l\'annonce: $e');
-            debugPrint('Stack trace: ${StackTrace.current}');
             return const SizedBox.shrink();
           }
         } else {
-          debugPrint('📝 Traitement d\'un post normal');
           return Padding(
             padding:
                 const EdgeInsets.symmetric(vertical: 0.0, horizontal: 05.0),
@@ -851,9 +880,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
               currentUserId: currentUserId,
               sharedByUserData: sharedByUserData,
               currentProfileUserId: currentUserId,
-              onView: () {
-                debugPrint('👁️ Affichage du post: ${post.id}');
-              },
+              onView: () {},
               companyData: CompanyData(
                   category: companyData['categorie'] ?? '',
                   cover: companyData['cover'] ?? '',
@@ -864,12 +891,9 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
           );
         }
       } else {
-        debugPrint('⚠️ Type d\'item non géré: ${item.type}');
         return const SizedBox.shrink();
       }
     } catch (e) {
-      debugPrint('❌ Erreur lors de la construction de l\'item: $e');
-      debugPrint('Stack trace: ${StackTrace.current}');
       return const SizedBox.shrink();
     }
   }
