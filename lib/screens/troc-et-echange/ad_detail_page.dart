@@ -365,7 +365,6 @@ class _AdDetailPageState extends State<AdDetailPage> {
           builder: (context) => ConversationDetailScreen(
             conversationId: conversationId,
             otherUserName: widget.ad.userName,
-            ad: widget.ad,
           ),
         ),
       );

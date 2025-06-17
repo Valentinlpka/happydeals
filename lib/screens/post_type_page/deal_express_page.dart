@@ -27,6 +27,7 @@ class _DealExpressPageState extends State<DealExpressPage> {
   double _selectedRadius = 15.0;
   String _selectedAddress = '';
   bool _isLocationFilterActive = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -126,69 +127,44 @@ class _DealExpressPageState extends State<DealExpressPage> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withAlpha(26),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Rechercher un deal...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Rechercher un deal...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    setState(() {
+                      _searchController.clear();
+                      _searchQuery = '';
+                    });
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey[300]!),
           ),
-          if (_selectedCategory != 'Toutes')
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(_selectedCategory),
-                      onSelected: (_) {},
-                      onDeleted: () {
-                        setState(() {
-                          _selectedCategory = 'Toutes';
-                        });
-                      },
-                      selected: true,
-                      deleteIcon: const Icon(Icons.close,
-                          size: 18, color: Colors.white),
-                      backgroundColor: const Color(0xFF4B88DA),
-                      selectedColor: const Color(0xFF4B88DA),
-                      labelStyle: const TextStyle(color: Colors.white),
-                      showCheckmark: false,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF4B88DA)),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+        },
       ),
     );
   }

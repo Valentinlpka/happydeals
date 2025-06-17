@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:happy/config/app_router.dart';
@@ -78,6 +79,25 @@ void main() async {
       'timestamp': DateTime.now().toIso8601String(),
     },
   );
+
+  // Ajouter un écouteur pour la déconnexion
+  FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    if (user == null && AppRouter.navigatorKey.currentContext != null) {
+      // Utiliser addPostFrameCallback pour éviter les problèmes de build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = AppRouter.navigatorKey.currentContext!;
+        try {
+          // Réinitialiser les providers de manière sécurisée
+          Provider.of<HomeProvider>(context, listen: false).reset();
+          Provider.of<UserModel>(context, listen: false).clearUserData();
+          Provider.of<ConversationService>(context, listen: false).cleanUp();
+          Provider.of<SavedAdsProvider>(context, listen: false).reset();
+        } catch (e) {
+          debugPrint('Erreur lors de la réinitialisation des providers: $e');
+        }
+      });
+    }
+  });
 
   runApp(const MyApp());
 }
@@ -167,6 +187,15 @@ class MyApp extends StatelessWidget {
           Locale('fr', 'FR'),
         ],
         locale: const Locale('fr', 'FR'),
+        builder: (context, child) {
+          ScreenUtil.init(
+            context,
+            designSize: const Size(375, 812),
+            minTextAdapt: true,
+            splitScreenMode: true,
+          );
+          return child!;
+        },
       ),
     );
   }

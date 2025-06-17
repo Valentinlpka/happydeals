@@ -71,8 +71,8 @@ class ConcoursCard extends StatelessWidget {
                           begin: Alignment.center,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withAlpha(20),
-                            Colors.black.withAlpha(20),
+                            Colors.black.withAlpha(120),
+                            Colors.black.withAlpha(120),
                           ],
                         ),
                       ),
@@ -111,19 +111,6 @@ class ConcoursCard extends StatelessWidget {
                                 ),
                               ),
                               const Spacer(),
-                              const Icon(
-                                Icons.people_outline,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                "${contest.participantsCount}/${contest.maxParticipants}",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
                             ],
                           ),
                         ],

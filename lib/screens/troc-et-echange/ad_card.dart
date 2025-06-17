@@ -35,184 +35,187 @@ class AdCard extends StatelessWidget {
         final isSaved = savedAdsProvider.isAdSaved(ad.id);
 
         return Card(
-          clipBehavior: Clip.antiAlias,
-          elevation: 2,
+          elevation: 0,
+          margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: InkWell(
             onTap: onTap,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SizedBox(
-                  height: 380, // Hauteur fixe pour la carte
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Section Image - Hauteur fixe
-                      SizedBox(
-                        height: 180, // Hauteur fixe pour l'image
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: ad.photos.isNotEmpty
-                                  ? Image.network(
-                                      ad.photos[0],
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Container(
-                                      color: Colors.grey[200],
-                                      child: Icon(
-                                        Icons.image_not_supported,
-                                        size: 40,
-                                        color: Colors.grey[400],
-                                      ),
-                                    ),
-                            ),
-                            // Badge Type d'échange
-                            Positioned(
-                              top: 12,
-                              left: 12,
-                              child: Container(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: 140,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
+                    ),
+                    child: SizedBox(
+                      width: 120,
+                      child: Hero(
+                        tag: 'ad_image_${ad.id}',
+                        child: Image.network(
+                          ad.photos.first,
+                          fit: BoxFit.cover,
+                          height: double.infinity,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes !=
+                                        null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                                strokeWidth: 2,
+                                color: Colors.blue[700],
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Icon(
+                                Icons.error_outline,
+                                color: Colors.grey[400],
+                                size: 32,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
+                                  horizontal: 6,
+                                  vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue[700],
-                                  borderRadius: BorderRadius.circular(20),
+                                  color: Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   ad.additionalData['exchangeType'] ??
                                       'Échange',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: Colors.blue[700],
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
-                            ),
-                            // Bouton Sauvegarder
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: IconButton(
-                                onPressed: onSaveTap,
-                                icon: Icon(
-                                  isSaved
-                                      ? Icons.bookmark
-                                      : Icons.bookmark_border,
-                                  color:
-                                      isSaved ? Colors.blue[700] : Colors.white,
-                                ),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.black26,
-                                  padding: const EdgeInsets.all(8),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Section Informations - Reste de l'espace disponible
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                ad.title,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 8),
-                              // Catégorie et Localisation
-                              Row(
-                                children: [
-                                  Icon(Icons.category_outlined,
-                                      size: 16, color: Colors.grey[600]),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      ad.additionalData['category'] ??
-                                          'Non catégorisé',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                              const Spacer(),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: onSaveTap,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      isSaved
+                                          ? Icons.bookmark
+                                          : Icons.bookmark_border,
+                                      size: 20,
+                                      color: isSaved
+                                          ? Colors.blue[700]
+                                          : Colors.grey[600],
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              // Localisation
-                              _buildLocationInfo(),
-                              const SizedBox(height: 8),
-                              // Informations spécifiques selon le type
-                              if (ad.additionalData['exchangeType'] ==
-                                  'Article') ...[
-                                _buildInfoRow(
-                                  'État',
-                                  ad.additionalData['condition'] ??
-                                      'Non spécifié',
-                                ),
-                                if (ad.additionalData['brand']?.isNotEmpty ??
-                                    false)
-                                  _buildInfoRow(
-                                    'Marque',
-                                    ad.additionalData['brand'],
-                                  ),
-                              ] else if (ad.additionalData['exchangeType'] ==
-                                  'Temps et Compétences') ...[
-                                _buildInfoRow(
-                                  'Disponibilité',
-                                  ad.additionalData['availability'] ??
-                                      'Non spécifié',
-                                ),
-                              ],
-                              const SizedBox(height: 8),
-                              // Souhaits d'échange
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.swap_horiz,
-                                        size: 16, color: Colors.blue[700]),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        ad.additionalData['wishInReturn'] ??
-                                            'Ouvert aux propositions',
-                                        style: TextStyle(
-                                          color: Colors.blue[700],
-                                          fontSize: 14,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  ad.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        _getLocationText(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.swap_horiz,
+                                        size: 14,
+                                        color: Colors.blue[700],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          ad.additionalData['wishInReturn'] ??
+                                              'Ouvert aux propositions',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[800],
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                );
-              },
+                ],
+              ),
             ),
           ),
         );
@@ -220,31 +223,7 @@ class AdCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLocationInfo() {
+  String _getLocationText() {
     String locationText = ad.additionalData['cityName'] ?? 'Non spécifié';
 
     if (userLocation != null && ad.additionalData['coordinates'] != null) {
@@ -254,21 +233,6 @@ class AdCard extends StatelessWidget {
       locationText += ' • ${_formatDistance(distance)}';
     }
 
-    return Row(
-      children: [
-        Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            locationText,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
+    return locationText;
   }
 }

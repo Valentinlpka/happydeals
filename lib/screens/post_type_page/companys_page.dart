@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/providers/users_provider.dart';
@@ -61,7 +62,6 @@ class _CompaniesPageState extends State<CompaniesPage>
   @override
   void initState() {
     super.initState();
-    _mapController = MapController();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       _updateMarkers();
@@ -106,24 +106,60 @@ class _CompaniesPageState extends State<CompaniesPage>
   Future<void> _initializeLocation() async {
     final userModel = Provider.of<UserModel>(context, listen: false);
 
-    // Si l'utilisateur a une localisation enregistrée, l'utiliser
-    if (userModel.latitude != 0.0 && userModel.longitude != 0.0) {
-      setState(() {
-        _selectedLat = userModel.latitude;
-        _selectedLng = userModel.longitude;
-        _selectedAddress = '${userModel.city}, ${userModel.zipCode}';
-      });
-      _updateMarkersWithRadius();
-    } else {
-      // Sinon, essayer d'obtenir la localisation actuelle
-      await _getCurrentLocation();
-    }
-  }
-
-  Future<void> _getCurrentLocation() async {
     try {
+      // Vérifier si la localisation du profil est en France
+      bool isInFrance = userModel.latitude >= 41.0 &&
+          userModel.latitude <= 51.0 &&
+          userModel.longitude >= -5.0 &&
+          userModel.longitude <= 9.0;
+
+      // Si l'utilisateur a une localisation enregistrée en France, l'utiliser
+      if (userModel.latitude != 0.0 &&
+          userModel.longitude != 0.0 &&
+          isInFrance) {
+        setState(() {
+          _selectedLat = userModel.latitude;
+          _selectedLng = userModel.longitude;
+          _selectedAddress = '${userModel.city}, ${userModel.zipCode}';
+        });
+        debugPrint(
+            'Utilisation de la localisation du profil: ${userModel.latitude}, ${userModel.longitude}');
+        _updateMarkersWithRadius();
+        return;
+      }
+
+      // Si l'utilisateur a une ville et un code postal, essayer de géocoder
+      if (userModel.city.isNotEmpty && userModel.zipCode.isNotEmpty) {
+        try {
+          final addresses = await geocoding
+              .locationFromAddress('${userModel.city}, ${userModel.zipCode}');
+
+          if (addresses.isNotEmpty) {
+            setState(() {
+              _selectedLat = addresses.first.latitude;
+              _selectedLng = addresses.first.longitude;
+              _selectedAddress = '${userModel.city}, ${userModel.zipCode}';
+            });
+            debugPrint(
+                'Géocodage réussi: ${addresses.first.latitude}, ${addresses.first.longitude}');
+            _updateMarkersWithRadius();
+            return;
+          }
+        } catch (e) {
+          debugPrint('Erreur de géocodage: $e');
+        }
+      }
+
+      // Sinon, essayer d'obtenir la localisation actuelle
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez activer les services de localisation'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         return;
       }
 
@@ -131,6 +167,13 @@ class _CompaniesPageState extends State<CompaniesPage>
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Les permissions de localisation sont requises'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
           return;
         }
       }
@@ -138,10 +181,22 @@ class _CompaniesPageState extends State<CompaniesPage>
       Position position = await Geolocator.getCurrentPosition();
       setState(() {
         _currentPosition = position;
+        _selectedLat = position.latitude;
+        _selectedLng = position.longitude;
       });
-      _updateMarkers();
+      debugPrint(
+          'Utilisation de la localisation actuelle: ${position.latitude}, ${position.longitude}');
+      _updateMarkersWithRadius();
     } catch (e) {
       debugPrint('Erreur de localisation: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('Erreur lors de la récupération de la localisation: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -560,7 +615,7 @@ class _CompaniesPageState extends State<CompaniesPage>
     final center = latlong.LatLng(_selectedLat!, _selectedLng!);
 
     return FlutterMap(
-      mapController: _mapController,
+      mapController: _mapController!,
       options: MapOptions(
         initialCenter: center,
         initialZoom: _calculateZoomLevel(_selectedRadius),
@@ -620,9 +675,7 @@ class _CompaniesPageState extends State<CompaniesPage>
   }
 
   void _updateMarkersWithRadius() async {
-    if (_selectedLat == null &&
-        _selectedLng == null &&
-        _currentPosition == null) {
+    if (_selectedLat == null && _selectedLng == null) {
       return;
     }
 
@@ -630,18 +683,20 @@ class _CompaniesPageState extends State<CompaniesPage>
     Map<String, List<Company>> locationGroups = {};
     List<Company> filteredCompanies = [];
 
-    final center = latlong.LatLng(
-      _selectedLat ?? _currentPosition!.latitude,
-      _selectedLng ?? _currentPosition!.longitude,
-    );
+    final center = latlong.LatLng(_selectedLat!, _selectedLng!);
 
-    // Ajuster le zoom en fonction du rayon seulement si la carte est initialisée
-    if (_mapController != null && _showMap) {
-      _mapController!.move(center, _calculateZoomLevel(_selectedRadius));
+    // Ajuster le zoom en fonction du rayon seulement si la carte est initialisée et affichée
+    if (_showMap && _mapController != null && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_mapController != null) {
+          _mapController!.move(center, _calculateZoomLevel(_selectedRadius));
+        }
+      });
     }
 
     for (var doc in companies.docs) {
       try {
+        final data = doc.data();
         final company = Company.fromDocument(doc);
 
         // Vérifier si l'entreprise correspond au type sélectionné (company/association)
@@ -656,12 +711,20 @@ class _CompaniesPageState extends State<CompaniesPage>
           continue;
         }
 
+        // Vérifier que les coordonnées sont valides
+        if (company.adress.latitude == null ||
+            company.adress.longitude == null) {
+          debugPrint('Entreprise sans coordonnées valides: ${company.name}');
+          continue;
+        }
+
         final companyLatLng = latlong.LatLng(
-          company.adress.latitude ?? 0.0,
-          company.adress.longitude ?? 0.0,
+          company.adress.latitude!,
+          company.adress.longitude!,
         );
 
         final distance = calculateDistance(center, companyLatLng);
+        debugPrint('Distance pour ${company.name}: $distance km');
 
         if (distance <= _selectedRadius) {
           final locationKey =
@@ -670,78 +733,83 @@ class _CompaniesPageState extends State<CompaniesPage>
           filteredCompanies.add(company);
         }
       } catch (e) {
-        debugPrint('Erreur lors du groupement: $e');
+        debugPrint('Erreur lors du traitement de l\'entreprise: $e');
+        debugPrint('Données de l\'entreprise: ${doc.data()}');
+        continue;
       }
     }
 
-    // Mettre à jour les marqueurs
-    setState(() {
-      _markers = locationGroups.entries.map((entry) {
-        final companies = entry.value;
-        final firstCompany = companies.first;
-        final position = latlong.LatLng(
-          firstCompany.adress.latitude ?? 0.0,
-          firstCompany.adress.longitude ?? 0.0,
-        );
+    debugPrint('Nombre d\'entreprises trouvées: ${filteredCompanies.length}');
 
-        return CustomMarker(
-          position: position,
-          id: entry.key,
-          company: companies.length == 1 ? firstCompany : null,
-          icon: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF4B88DA), width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(52),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Center(
-              child: companies.length == 1
-                  ? ClipOval(
-                      child: Image.network(
-                        firstCompany.logo,
-                        width: 35,
-                        height: 35,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                          Icons.business,
+    // Mettre à jour les marqueurs
+    if (mounted) {
+      setState(() {
+        _markers = locationGroups.entries.map((entry) {
+          final companies = entry.value;
+          final firstCompany = companies.first;
+          final position = latlong.LatLng(
+            firstCompany.adress.latitude!,
+            firstCompany.adress.longitude!,
+          );
+
+          return CustomMarker(
+            position: position,
+            id: entry.key,
+            company: companies.length == 1 ? firstCompany : null,
+            icon: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF4B88DA), width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(52),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: companies.length == 1
+                    ? ClipOval(
+                        child: Image.network(
+                          firstCompany.logo,
+                          width: 35,
+                          height: 35,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                            Icons.business,
+                            color: Color(0xFF4B88DA),
+                            size: 20,
+                          ),
+                        ),
+                      )
+                    : Text(
+                        '${companies.length}',
+                        style: const TextStyle(
                           color: Color(0xFF4B88DA),
-                          size: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    )
-                  : Text(
-                      '${companies.length}',
-                      style: const TextStyle(
-                        color: Color(0xFF4B88DA),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              ),
             ),
-          ),
-          onTap: () {
-            if (companies.length == 1) {
-              _showCompanyDetails(firstCompany);
-            } else {
-              _showCompaniesAtLocation(companies);
-            }
-          },
-        );
-      }).toSet();
-    });
+            onTap: () {
+              if (companies.length == 1) {
+                _showCompanyDetails(firstCompany);
+              } else {
+                _showCompaniesAtLocation(companies);
+              }
+            },
+          );
+        }).toSet();
+      });
+    }
 
     // Toujours afficher la liste des entreprises filtrées quand une localisation est sélectionnée
-    if (filteredCompanies.isEmpty) {
-      if (!mounted) return;
+    if (filteredCompanies.isEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Aucune entreprise trouvée dans ce rayon'),

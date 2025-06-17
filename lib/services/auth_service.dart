@@ -140,10 +140,10 @@ class AuthService {
     }
   }
 
-  Future<String?> signInWithGoogle(BuildContext context) async {
+  Future<String> signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return 'Connexion Google annulée';
+      if (googleUser == null) return 'error';
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
@@ -152,39 +152,34 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential result =
+      final UserCredential userCredential =
           await _auth.signInWithCredential(credential);
-      final User? user = result.user;
+      final User? user = userCredential.user;
 
       if (user != null) {
+        // Vérifier si l'utilisateur existe déjà dans Firestore
         final userDoc =
             await _firestore.collection('users').doc(user.uid).get();
-        bool isNewUser = !userDoc.exists;
 
-        if (isNewUser) {
+        if (!userDoc.exists) {
+          // Créer un nouveau document utilisateur
           await _firestore.collection('users').doc(user.uid).set({
             'email': user.email,
-            'firstName': user.displayName?.split(' ').first ?? '',
-            'lastName': user.displayName?.split(' ').last ?? '',
-            'image_profile': user.photoURL ?? '',
-            'phone': user.phoneNumber ?? '',
-            'isProfileComplete': false,
+            'name': user.displayName,
+            'photoUrl': user.photoURL,
             'createdAt': FieldValue.serverTimestamp(),
+            'profileCompleted': false,
           });
-        }
-        if (!context.mounted) return 'Erreur lors de la connexion';
-        await Provider.of<UserModel>(context, listen: false).loadUserData();
-
-        if (kIsWeb) {
-          await updateFCMToken();
+          return 'new_user';
         }
 
-        return isNewUser ? 'NewUser' : 'Success';
+        return 'success';
       }
-      return 'Erreur lors de la connexion avec Google';
+
+      return 'error';
     } catch (e) {
-      debugPrint('Erreur de connexion Google: $e');
-      return e.toString();
+      print('Erreur lors de la connexion Google: $e');
+      return 'error';
     }
   }
 

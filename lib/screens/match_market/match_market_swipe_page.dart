@@ -56,12 +56,12 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
       if (userId == null) return;
 
       final likesSnapshot = await FirebaseFirestore.instance
-          .collection('likes')
+          .collection('liked_match_market')
           .where('userId', isEqualTo: userId)
           .get();
 
       final viewedSnapshot = await FirebaseFirestore.instance
-          .collection('viewed_products')
+          .collection('viewed_match_market')
           .where('userId', isEqualTo: userId)
           .get();
 
@@ -185,7 +185,7 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
     }
 
     try {
-      await FirebaseFirestore.instance.collection('likes').add({
+      await FirebaseFirestore.instance.collection('liked_match_market').add({
         'userId': userId,
         'productId': product.id,
         'createdAt': FieldValue.serverTimestamp(),
@@ -210,7 +210,7 @@ class _MatchMarketSwipePageState extends State<MatchMarketSwipePage> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
 
-    await FirebaseFirestore.instance.collection('viewed_products').add({
+    await FirebaseFirestore.instance.collection('viewed_match_market').add({
       'userId': userId,
       'productId': productId,
       'createdAt': FieldValue.serverTimestamp(),

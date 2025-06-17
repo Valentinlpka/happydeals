@@ -110,11 +110,18 @@ class LikedProductsPage extends StatelessWidget {
                 Expanded(
                   child: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collection('likes')
+                        .collection('liked_match_market')
                         .where('userId', isEqualTo: userId)
                         .orderBy('createdAt', descending: true)
                         .snapshots(),
                     builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        debugPrint(
+                            'Erreur lors du chargement des produits: ${snapshot.error}');
+                        return const Center(
+                          child: Text('Erreur lors du chargement des produits'),
+                        );
+                      }
                       if (!snapshot.hasData) {
                         return const Center(
                           child: CircularProgressIndicator(
@@ -234,7 +241,7 @@ class LikedProductsPage extends StatelessWidget {
 
                                   if (!productSnapshot.data!.exists) {
                                     FirebaseFirestore.instance
-                                        .collection('likes')
+                                        .collection('liked_match_market')
                                         .doc(like.id)
                                         .delete();
                                     return const SizedBox();

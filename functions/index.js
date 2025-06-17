@@ -21,6 +21,26 @@ console.log("Email configuration:", {
 
 admin.initializeApp();
 
+
+exports.setCompanyCreatedClaim = functions.https.onCall(async (data, context) => {
+  // Vérifier que l'utilisateur est authentifié
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'L\'utilisateur doit être authentifié');
+  }
+
+  const { uid } = data;
+  
+  try {
+    // Définir le custom claim
+    await admin.auth().setCustomUserClaims(uid, { companyCreated: true });
+    
+    return { success: true, message: 'Custom claim companyCreated défini avec succès' };
+  } catch (error) {
+    console.error('Erreur lors de la définition du custom claim:', error);
+    throw new functions.https.HttpsError('internal', 'Erreur lors de la définition du custom claim');
+  }
+});
+
 exports.createStripeCheckoutSession = functions.firestore
   .document("users/{userId}/checkout_sessions/{docId}")
   .onCreate(async (snap, context) => {
@@ -100,7 +120,7 @@ exports.createPortalSession = functions.https.onCall(async (data, context) => {
     }
 
     // Utiliser l'URL de retour fournie par le client ou une URL par défaut
-    const returnUrl = data.returnUrl || "https://up-pro.vercel.app/dashboard";
+    const returnUrl = data.returnUrl || "https://up-app.fr/dashboard";
 
     const session = await stripe.billingPortal.sessions.create({
       customer: userData.stripeCustomerId,
@@ -133,7 +153,7 @@ exports.createCheckoutSession = functions.https.onCall(
       const baseUrl =
         process.env.NODE_ENV === "development"
           ? "http://localhost:3000"
-          : "https://up-pro.vercel.app";
+          : "https://up-app.fr";
 
       // Récupérer ou créer le client Stripe
       const userDoc = await admin
@@ -170,6 +190,7 @@ exports.createCheckoutSession = functions.https.onCall(
         metadata: {
           firebaseUID: userId,
           planName: planName,
+          type : "subscription"
         },
         allow_promotion_codes: true,
       };
@@ -236,6 +257,8 @@ async function handleCheckoutSessionCompleted(session) {
   const { firebaseUID, planName } = session.metadata;
   const subscriptionId = session.subscription;
 
+  console.log(planName.planName)
+
   try {
     // Récupérer les détails de l'abonnement
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -266,6 +289,21 @@ async function handleCheckoutSessionCompleted(session) {
       ),
       subscriptionRenewal: true,
     });
+
+    const user = await admin.auth().getUser(firebaseUID);
+    const updatedClaims = {
+      companyCreated: true,
+      stripeRole: planName,
+      subscriptionActive: subscription.status === 'active',
+      subscriptionId: subscriptionId
+    };
+
+    await admin.auth().setCustomUserClaims(firebaseUID, updatedClaims);
+
+    // Forcer le rafraîchissement du token
+    await admin.auth().revokeRefreshTokens(firebaseUID);
+
+    console.log(`Custom claims mis à jour pour l'utilisateur ${firebaseUID}:`, customClaims);
   } catch (error) {
     console.error(
       "Erreur lors du traitement de checkout.session.completed:",
@@ -315,18 +353,38 @@ async function handleInvoicePaymentFailed(invoice) {
 
 async function handleSubscriptionDeleted(subscription) {
   const customer = await stripe.customers.retrieve(subscription.customer);
+  const firebaseUID = customer.metadata.firebaseUID;
 
-  await admin
-    .firestore()
-    .collection("users")
-    .doc(customer.metadata.firebaseUID)
-    .update({
-      subscriptionId: admin.firestore.FieldValue.delete(),
-      subscriptionStatus: "canceled",
-      planName: admin.firestore.FieldValue.delete(),
-      priceId: admin.firestore.FieldValue.delete(),
-      subscriptionPeriodEnd: admin.firestore.FieldValue.delete(),
-    });
+  try {
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(firebaseUID)
+      .update({
+        subscriptionId: admin.firestore.FieldValue.delete(),
+        subscriptionStatus: "canceled",
+        planName: admin.firestore.FieldValue.delete(),
+        priceId: admin.firestore.FieldValue.delete(),
+        subscriptionPeriodEnd: admin.firestore.FieldValue.delete(),
+      });
+
+    // Supprimer les custom claims liés à l'abonnement
+    const user = await admin.auth().getUser(firebaseUID);
+    const updatedClaims = {
+      companyCreated: true,
+      stripeRole: null,
+      subscriptionActive: false,
+      subscriptionId: null
+    };
+
+    await admin.auth().setCustomUserClaims(firebaseUID, updatedClaims);
+    await admin.auth().revokeRefreshTokens(firebaseUID);
+
+    console.log(`Custom claims supprimés pour l'utilisateur ${firebaseUID}`);
+  } catch (error) {
+    console.error("Erreur lors de la suppression de l'abonnement:", error);
+    throw error;
+  }
 }
 
 async function handleSubscriptionUpdated(subscription) {
@@ -334,42 +392,64 @@ async function handleSubscriptionUpdated(subscription) {
     const customer = await stripe.customers.retrieve(subscription.customer);
     const firebaseUID = customer.metadata.firebaseUID;
 
-    // Récupérer le planName depuis les métadonnées
-    const planName = subscription.metadata.planName;
-
     if (!firebaseUID) {
       console.error("No Firebase UID found for customer:", customer.id);
       return;
     }
 
+    // Récupérer les données utilisateur de Firestore
+    const userDoc = await admin.firestore().collection("users").doc(firebaseUID).get();
+    const userData = userDoc.data();
+
+    // Récupérer le planName depuis les métadonnées ou garder celui existant dans Firestore
+    const planName = subscription.metadata?.planName || userData?.planName || 'default';
     const subscriptionRenewal = subscription.cancel_at_period_end === false;
 
+    // Préparer l'objet de mise à jour avec uniquement des valeurs définies
+    const updateData = {
+      subscriptionId: subscription.id,
+      subscriptionStatus: subscription.status,
+      priceId: subscription.items.data[0].price.id,
+      planName: planName,
+      subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
+        subscription.current_period_end * 1000
+      ),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      subscriptionRenewal: subscriptionRenewal,
+      cancelAt: subscription.cancel_at
+        ? admin.firestore.Timestamp.fromMillis(subscription.cancel_at * 1000)
+        : null,
+    };
+
+    // Ajouter les informations du plan si disponibles
+    if (subscription.items.data[0].price.recurring) {
+      updateData.subscriptionPlan = {
+        interval: subscription.items.data[0].price.recurring.interval,
+        amount: subscription.items.data[0].price.unit_amount / 100,
+        currency: subscription.items.data[0].price.currency,
+      };
+    }
+
+    // Mettre à jour Firestore
     await admin
       .firestore()
       .collection("users")
       .doc(firebaseUID)
-      .update({
-        subscriptionId: subscription.id,
-        subscriptionStatus: subscription.status,
-        priceId: subscription.items.data[0].price.id,
-        planName: planName, // Ajouter le planName
-        subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
-          subscription.current_period_end * 1000
-        ),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        // Ajout du statut de renouvellement automatique
-        subscriptionRenewal: subscriptionRenewal,
-        // Ajout de la date de fin si le renouvellement est désactivé
-        cancelAt: subscription.cancel_at
-          ? admin.firestore.Timestamp.fromMillis(subscription.cancel_at * 1000)
-          : null,
-        subscriptionPlan: {
-          interval: subscription.items.data[0].price.recurring.interval,
-          amount: subscription.items.data[0].price.unit_amount / 100,
-          currency: subscription.items.data[0].price.currency,
-        },
-      });
+      .update(updateData);
 
+    // Mettre à jour les custom claims
+    const user = await admin.auth().getUser(firebaseUID);
+    const updatedClaims = {
+      companyCreated: true,
+      stripeRole: planName,
+      subscriptionActive: subscription.status === 'active',
+      subscriptionId: subscription.id
+    };
+
+    await admin.auth().setCustomUserClaims(firebaseUID, updatedClaims);
+    await admin.auth().revokeRefreshTokens(firebaseUID);
+
+    console.log(`Custom claims mis à jour pour l'utilisateur ${firebaseUID}:`, customClaims);
     console.log(`Updated subscription for user ${firebaseUID}`, {
       subscriptionRenewal,
       cancelAt: subscription.cancel_at || "Not cancelled",
@@ -456,8 +536,8 @@ exports.createConnectAccount = functions.https.onCall(async (data, context) => {
     // Créer le lien d'onboarding
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `https://up-pro.vercel.app/dashboard`,
-      return_url: `https://up-pro.vercel.app/dashboard`,
+      refresh_url: `https://up-app.fr/login`,
+      return_url: `https://up-app.fr/dashboard`,
       type: "account_onboarding",
     });
 
@@ -486,13 +566,47 @@ exports.createAccountLink = functions.https.onCall(async (data, context) => {
 
   const accountLink = await stripe.accountLinks.create({
     account: accountId,
-    refresh_url: `https://up-pro.vercel.app/login`,
-    return_url: `https://up-pro.vercel.app/dashboard`,
+    refresh_url: `https://up-app.fr/login`,
+    return_url: `https://up-app.fr/dashboard`,
     type: "account_onboarding",
   });
 
   return { url: accountLink.url };
 });
+
+exports.createDashboardLink = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+      throw new functions.https.HttpsError(
+          "unauthenticated",
+          "User must be authenticated."
+      );
+  }
+
+  try {
+      const user = await admin
+          .firestore()
+          .collection("users")
+          .doc(context.auth.uid)
+          .get();
+
+      const accountId = user.data()?.stripeAccountId;
+      if (!accountId) {
+          throw new functions.https.HttpsError(
+              "not-found",
+              "No Stripe account found for this user."
+          );
+      }
+
+      const loginLink = await stripe.accounts.createLoginLink(accountId);
+      return { url: loginLink.url };
+  } catch (error) {
+      console.error("Error creating login link:", error);
+      throw new functions.https.HttpsError(
+          "internal",
+          "An error occurred while creating the login link."
+      );
+  }
+}); 
 
 // Demande d'un paiement de la part d'un pro
 exports.requestPayout = functions.https.onCall(async (data, context) => {
@@ -661,6 +775,7 @@ exports.createProduct = functions.https.onCall(async (data, context) => {
       basePrice: data.basePrice, //Prix TTC
       categoryId: data.categoryId,
       categoryPath: data.categoryPath,
+      additionalInfo: data.additionalInfo || [],
       tva: data.tva,
       isActive: true,
       merchantId: stripeAccountId,
@@ -3026,9 +3141,9 @@ function getBaseEmailTemplate(content) {
           <div class="footer">
             <p>© ${new Date().getFullYear()} Up !. Tous droits réservés.</p>
             <p>
-              <a href="https://votre-site.com/contact">Contact</a> |
-              <a href="https://votre-site.com/conditions">Conditions</a> |
-              <a href="https://votre-site.com/confidentialite">Confidentialité</a>
+              <a href="https://up-app.fr/contact">Contact</a> |
+              <a href="https://up-app.fr/conditions">Conditions</a> |
+              <a href="https://up-app.fr/confidentialite">Confidentialité</a>
             </p>
           </div>
         </div>
@@ -3072,10 +3187,6 @@ function generateOrderCustomerEmail(orderData, customer, orderId) {
     <div class="highlight">
       <p>⏰ N'oubliez pas : Vous pouvez retirer votre commande aux horaires d'ouverture du commerce.</p>
     </div>
-
-    <a href="https://up-anti-gaspi.web.app/orders/${orderId}" class="button">
-      Voir ma commande
-    </a>
   `;
 
   return getBaseEmailTemplate(content);
@@ -3118,7 +3229,7 @@ function generateOrderProfessionalEmail(orderData, customer, orderId) {
       </div>
     </div>
 
-    <a href="https://up-pro.vercel.app/dashboard/orders/${orderId}" class="button">
+    <a href="https://up-app.fr/dashboard/orders/${orderId}" class="button">
       Gérer la commande
     </a>
   `;
@@ -3174,11 +3285,6 @@ function generateDealCustomerEmail(orderData, customer, id) {
       <p>⏰ N'oubliez pas : Récupérez votre panier à l'heure indiquée.</p>
     </div>
 
-    <a href="https://up-anti-gaspi.web.app/reservations/${
-      orderData.id
-    }" class="button">
-      Voir ma réservation
-    </a>
   `;
 
   return getBaseEmailTemplate(content);
@@ -3226,9 +3332,7 @@ function generateDealProfessionalEmail(orderData, customer) {
       </div>
     </div>
 
-    <a href="https://votre-site.com/pro/reservations/${
-      orderData.id
-    }" class="button">
+    <a href="https://www.up-app.fr/dashboard/all-orders/" class="button">
       Gérer la réservation
     </a>
   `;
@@ -3301,9 +3405,6 @@ function generateServiceBookingCustomerEmail(bookingData, customer, bookingId) {
       <p>⏰ N'oubliez pas : Merci d'arriver quelques minutes avant votre rendez-vous.</p>
     </div>
 
-    <a href="https://up-anti-gaspi.web.app/bookings/${bookingId}" class="button">
-      Voir ma réservation
-    </a>
   `;
 
   return getBaseEmailTemplate(content);
@@ -3353,7 +3454,7 @@ function generateServiceBookingProfessionalEmail(
       </div>
     </div>
 
-    <a href="https://up-pro.vercel.app/dashboard/bookings/${bookingId}" class="button">
+    <a href="https://up-app.fr/dashboard/bookings/${bookingId}" class="button">
       Gérer la réservation
     </a>
   `;

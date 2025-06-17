@@ -10,7 +10,7 @@ import 'package:happy/screens/troc-et-echange/ad_detail_page.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:provider/provider.dart';
 
-class SharedPostMessage extends StatelessWidget {
+class SharedPostMessage extends StatefulWidget {
   final Message message;
   final bool isMe;
 
@@ -21,13 +21,25 @@ class SharedPostMessage extends StatelessWidget {
   });
 
   @override
+  State<SharedPostMessage> createState() => _SharedPostMessageState();
+}
+
+class _SharedPostMessageState extends State<SharedPostMessage>
+    with AutomaticKeepAliveClientMixin {
+  static final Map<String, Post> _postCache = {};
+  static final Map<String, CompanyData> _companyCache = {};
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
-    final postData = message.postData as Map<String, dynamic>;
+    final messagePostData = widget.message.postData as Map<String, dynamic>;
 
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('posts')
-          .doc(postData['postId'])
+          .doc(messagePostData['postId'])
           .get(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -35,15 +47,18 @@ class SharedPostMessage extends StatelessWidget {
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return const Text('Post non trouvé');
         }
 
-        final post = Post.fromDocument(snapshot.data!);
         final postData = snapshot.data!.data() as Map<String, dynamic>;
+        final post = _postCache[messagePostData['postId']] ??
+            Post.fromDocument(snapshot.data!);
+        _postCache[messagePostData['postId']] = post;
+
         final companyId = postData['companyId'] ?? '';
 
         return FutureBuilder<DocumentSnapshot>(
@@ -52,51 +67,72 @@ class SharedPostMessage extends StatelessWidget {
               .doc(companyId)
               .get(),
           builder: (context, companySnapshot) {
+            if (companySnapshot.hasError) {
+              return const Text(
+                  'Erreur de chargement des données de l\'entreprise');
+            }
+
             if (companySnapshot.connectionState == ConnectionState.waiting) {
-              return const CircularProgressIndicator();
+              return const Center(child: CircularProgressIndicator());
             }
 
             if (!companySnapshot.hasData || !companySnapshot.data!.exists) {
-              return const Text('Entreprise non trouvée');
+              return const Text('Données de l\'entreprise non trouvées');
             }
 
             final companyData =
                 companySnapshot.data!.data() as Map<String, dynamic>;
-            final company = CompanyData(
-              name: companyData['name'] ?? '',
-              category: companyData['categorie'] ?? '',
-              logo: companyData['logo'] ?? '',
-              cover: companyData['cover'] ?? '',
-              rawData: companyData,
-            );
+            final company = _companyCache[companyId] ??
+                CompanyData(
+                  name: companyData['name'] ?? '',
+                  category: companyData['categorie'] ?? '',
+                  logo: companyData['logo'] ?? '',
+                  cover: companyData['cover'] ?? '',
+                  rawData: companyData,
+                );
+            _companyCache[companyId] = company;
 
             return Container(
-              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              margin: EdgeInsets.only(
+                left: widget.isMe ? 50.0 : 8.0,
+                right: widget.isMe ? 8.0 : 50.0,
+                top: 8.0,
+                bottom: 8.0,
+              ),
               child: Column(
-                crossAxisAlignment:
-                    isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment: widget.isMe
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(2),
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isMe ? Colors.grey[300] : Colors.grey[300],
+                      color: widget.isMe ? Colors.blue[100] : Colors.grey[200],
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (postData['comment'] != null)
+                        if (widget.message.postData != null &&
+                            widget.message.postData!['comment'] != null &&
+                            widget.message.postData!['comment']
+                                .toString()
+                                .isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Text(
-                              postData['comment'],
+                              widget.message.postData!['comment'].toString(),
                               style: TextStyle(
-                                color: isMe ? Colors.white : Colors.black87,
+                                color: widget.isMe
+                                    ? Colors.black87
+                                    : Colors.black87,
+                                fontSize: 14,
                               ),
                             ),
                           ),
-                        SizedBox(
-                          width: 400,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
                           child: _buildPostContent(
                             post,
                             context,
@@ -109,7 +145,7 @@ class SharedPostMessage extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      _formatMessageTime(message.timestamp),
+                      _formatMessageTime(widget.message.timestamp),
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 12,
@@ -133,42 +169,53 @@ class SharedPostMessage extends StatelessWidget {
     if (post is Ad) {
       final ad = post as Ad;
       return SizedBox(
-        child: AdCard(
-          ad: ad,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AdDetailPage(ad: ad),
-              ),
-            );
-          },
-          onSaveTap: () async {
-            final user = FirebaseAuth.instance.currentUser;
-            if (user != null) {
-              try {
-                final savedAdsProvider =
-                    Provider.of<SavedAdsProvider>(context, listen: false);
-                await savedAdsProvider.toggleSaveAd(user.uid, ad.id);
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
-                  );
+        width: double.infinity,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(),
+          child: AdCard(
+            ad: ad,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AdDetailPage(ad: ad),
+                ),
+              );
+            },
+            onSaveTap: () async {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user != null) {
+                try {
+                  final savedAdsProvider =
+                      Provider.of<SavedAdsProvider>(context, listen: false);
+                  await savedAdsProvider.toggleSaveAd(user.uid, ad.id);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('Erreur lors de la sauvegarde: $e')),
+                    );
+                  }
                 }
               }
-            }
-          },
+            },
+          ),
         ),
       );
     }
 
-    return PostWidget(
-      post: post,
-      onView: () {},
-      currentProfileUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-      currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-      companyData: company,
+    return SizedBox(
+      width: double.infinity,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(),
+        child: PostWidget(
+          post: post,
+          onView: () {},
+          currentProfileUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
+          currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
+          companyData: company,
+        ),
+      ),
     );
   }
 

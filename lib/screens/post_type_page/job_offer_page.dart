@@ -5,6 +5,7 @@ import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:happy/widgets/postwidget.dart';
+import 'package:happy/widgets/search_bar.dart';
 
 class JobOffersPage extends StatefulWidget {
   const JobOffersPage({super.key});
@@ -110,118 +111,37 @@ class _JobOffersPageState extends State<JobOffersPage> {
   }
 
   Widget _buildSearchAndFilters() {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        children: [
+    return Column(
+      children: [
+        CustomSearchBar(
+          controller: _searchController,
+          hintText: 'Rechercher une offre d\'emploi...',
+          onChanged: (value) {
+            setState(() {});
+          },
+          onClear: () {
+            setState(() {});
+          },
+        ),
+        if (_selectedLocation != 'Tous' ||
+            _selectedSector != 'Tous' ||
+            _selectedAddress.isNotEmpty)
           Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withAlpha(26),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Rechercher une offre d\'emploi...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: Colors.grey[400]),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                          });
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              ),
-              onChanged: (value) {
-                setState(() {});
-              },
-            ),
-          ),
-
-          // Filtres sélectionnés
-          if (_selectedLocation != 'Tous' ||
-              _selectedSector != 'Tous' ||
-              _selectedAddress.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  if (_selectedLocation != 'Tous')
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(_selectedLocation),
-                        onSelected: (_) {},
-                        selected: true,
-                        onDeleted: () {
-                          setState(() {
-                            _selectedLocation = 'Tous';
-                          });
-                        },
-                        deleteIcon: const Icon(Icons.close,
-                            size: 18, color: Colors.white),
-                        backgroundColor: const Color(0xFF4B88DA),
-                        selectedColor: const Color(0xFF4B88DA),
-                        labelStyle: const TextStyle(color: Colors.white),
-                        showCheckmark: false,
-                      ),
-                    ),
-                  if (_selectedSector != 'Tous')
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(_selectedSector),
-                        onSelected: (_) {},
-                        selected: true,
-                        onDeleted: () {
-                          setState(() {
-                            _selectedSector = 'Tous';
-                          });
-                        },
-                        deleteIcon: const Icon(Icons.close,
-                            size: 18, color: Colors.white),
-                        backgroundColor: const Color(0xFF4B88DA),
-                        selectedColor: const Color(0xFF4B88DA),
-                        labelStyle: const TextStyle(color: Colors.white),
-                        showCheckmark: false,
-                      ),
-                    ),
-                  if (_selectedAddress.isNotEmpty)
-                    FilterChip(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.location_on,
-                              size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                              '${_selectedRadius.toInt()} km - $_selectedAddress'),
-                        ],
-                      ),
+            margin: const EdgeInsets.only(top: 12),
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                if (_selectedLocation != 'Tous')
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(_selectedLocation),
                       onSelected: (_) {},
                       selected: true,
                       onDeleted: () {
                         setState(() {
-                          _selectedLat = null;
-                          _selectedLng = null;
-                          _selectedAddress = '';
+                          _selectedLocation = 'Tous';
                         });
                       },
                       deleteIcon: const Icon(Icons.close,
@@ -231,11 +151,59 @@ class _JobOffersPageState extends State<JobOffersPage> {
                       labelStyle: const TextStyle(color: Colors.white),
                       showCheckmark: false,
                     ),
-                ],
-              ),
+                  ),
+                if (_selectedSector != 'Tous')
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(_selectedSector),
+                      onSelected: (_) {},
+                      selected: true,
+                      onDeleted: () {
+                        setState(() {
+                          _selectedSector = 'Tous';
+                        });
+                      },
+                      deleteIcon: const Icon(Icons.close,
+                          size: 18, color: Colors.white),
+                      backgroundColor: const Color(0xFF4B88DA),
+                      selectedColor: const Color(0xFF4B88DA),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      showCheckmark: false,
+                    ),
+                  ),
+                if (_selectedAddress.isNotEmpty)
+                  FilterChip(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.location_on,
+                            size: 16, color: Colors.white),
+                        const SizedBox(width: 4),
+                        Text(
+                            '${_selectedRadius.toInt()} km - $_selectedAddress'),
+                      ],
+                    ),
+                    onSelected: (_) {},
+                    selected: true,
+                    onDeleted: () {
+                      setState(() {
+                        _selectedLat = null;
+                        _selectedLng = null;
+                        _selectedAddress = '';
+                      });
+                    },
+                    deleteIcon:
+                        const Icon(Icons.close, size: 18, color: Colors.white),
+                    backgroundColor: const Color(0xFF4B88DA),
+                    selectedColor: const Color(0xFF4B88DA),
+                    labelStyle: const TextStyle(color: Colors.white),
+                    showCheckmark: false,
+                  ),
+              ],
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 

@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:happy/widgets/postwidget.dart';
+import 'package:happy/widgets/search_bar.dart';
 
 import '../../classes/promo_code_post.dart';
 
@@ -16,6 +18,8 @@ class CodePromoPage extends StatefulWidget {
 
 class _CodePromoPageState extends State<CodePromoPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedCompany = 'Toutes';
   List<String> _companies = ['Toutes'];
@@ -23,11 +27,13 @@ class _CodePromoPageState extends State<CodePromoPage> {
   double? _selectedLng;
   double _selectedRadius = 5.0;
   String _selectedAddress = '';
+  late String _currentUserId;
 
   @override
   void initState() {
     super.initState();
     _loadCompanies();
+    _currentUserId = _auth.currentUser?.uid ?? '';
   }
 
   Future<void> _loadCompanies() async {
@@ -90,70 +96,49 @@ class _CodePromoPageState extends State<CodePromoPage> {
   }
 
   Widget _buildSearchAndFilters() {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        children: [
-          // Barre de recherche moderne
+    return Column(
+      children: [
+        CustomSearchBar(
+          controller: _searchController,
+          hintText: 'Rechercher un code promo...',
+          onChanged: (value) {
+            setState(() {
+              _searchQuery = value;
+            });
+          },
+          onClear: () {
+            setState(() {
+              _searchQuery = '';
+            });
+          },
+        ),
+        if (_selectedCompany != 'Toutes')
           Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withAlpha(26),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                  offset: const Offset(0, 1),
+            margin: const EdgeInsets.only(top: 12),
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                FilterChip(
+                  label: Text(_selectedCompany),
+                  onSelected: (_) {},
+                  selected: true,
+                  onDeleted: () {
+                    setState(() {
+                      _selectedCompany = 'Toutes';
+                    });
+                  },
+                  deleteIcon:
+                      const Icon(Icons.close, size: 18, color: Colors.white),
+                  backgroundColor: const Color(0xFF4B88DA),
+                  selectedColor: const Color(0xFF4B88DA),
+                  labelStyle: const TextStyle(color: Colors.white),
+                  showCheckmark: false,
                 ),
               ],
             ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Rechercher un code promo...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
           ),
-
-          // Filtres sélectionnés
-          if (_selectedCompany != 'Toutes')
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  FilterChip(
-                    label: Text(_selectedCompany),
-                    onSelected: (_) {},
-                    selected: true,
-                    onDeleted: () {
-                      setState(() {
-                        _selectedCompany = 'Toutes';
-                      });
-                    },
-                    deleteIcon:
-                        const Icon(Icons.close, size: 18, color: Colors.white),
-                    backgroundColor: const Color(0xFF4B88DA),
-                    selectedColor: const Color(0xFF4B88DA),
-                    labelStyle: const TextStyle(color: Colors.white),
-                    showCheckmark: false,
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -310,8 +295,8 @@ class _CodePromoPageState extends State<CodePromoPage> {
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: PostWidget(
                       post: promoCodePost,
-                      currentUserId: '',
-                      currentProfileUserId: '',
+                      currentUserId: _currentUserId,
+                      currentProfileUserId: _currentUserId,
                       onView: () {},
                       companyData: CompanyData(
                         name: companyData['name'],

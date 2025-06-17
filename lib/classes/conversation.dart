@@ -10,10 +10,13 @@ class Message {
   final bool isDeleted;
   final bool isEdited;
   final DateTime? editedAt;
-  final Map<String, dynamic>? postData; // Ajout du champ postData
-
+  final Map<String, dynamic>? postData;
   final String type;
-  final Map<String, dynamic>? metadata; // Pour les données spécifiques au type
+  final Map<String, dynamic>? metadata;
+  final List<String>? mediaUrls;
+  final List<String>? seenBy;
+  final String? emoji;
+  final bool isRead;
 
   Message({
     required this.id,
@@ -23,10 +26,13 @@ class Message {
     this.isDeleted = false,
     this.isEdited = false,
     this.editedAt,
-    this.postData, // Ajout du paramètre dans le constructeur
-
+    this.postData,
     required this.type,
     this.metadata,
+    this.mediaUrls,
+    this.seenBy,
+    this.emoji,
+    this.isRead = false,
   });
 
   factory Message.fromFirestore(DocumentSnapshot doc) {
@@ -44,6 +50,10 @@ class Message {
       editedAt: data['editedAt'] != null
           ? (data['editedAt'] as Timestamp).toDate()
           : null,
+      mediaUrls: List<String>.from(data['mediaUrls'] ?? []),
+      seenBy: List<String>.from(data['seenBy'] ?? []),
+      emoji: data['emoji'],
+      isRead: data['isRead'] ?? false,
     );
   }
 
@@ -52,9 +62,13 @@ class Message {
       'senderId': senderId,
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
-      'type': type, // Inclusion du type dans les données Firestore
-      'postData': postData, // Inclusion du postData
+      'type': type,
+      'postData': postData,
       'metadata': metadata,
+      'mediaUrls': mediaUrls,
+      'seenBy': seenBy,
+      'emoji': emoji,
+      'isRead': isRead,
     };
   }
 }
@@ -64,7 +78,9 @@ enum MessageType {
   system,
   sharedPost,
   image,
+  video,
   file,
+  emoji,
 }
 
 // Dans classes/conversation.dart
@@ -86,6 +102,15 @@ class Conversation {
   final bool isGroup;
   final String? groupName;
   final List<Map<String, dynamic>>? members;
+  final String? groupType; // 'private', 'business', 'mixed'
+  final String? groupDescription;
+  final String? groupImage;
+  final String? creatorId;
+  final List<String>? adminIds;
+  final bool isMuted;
+  final Map<String, dynamic>? lastMessageData;
+  final bool isArchived;
+  final bool isPinned;
 
   Conversation({
     required this.id,
@@ -105,6 +130,15 @@ class Conversation {
     this.isGroup = false,
     this.groupName,
     this.members,
+    this.groupType,
+    this.groupDescription,
+    this.groupImage,
+    this.creatorId,
+    this.adminIds,
+    this.isMuted = false,
+    this.lastMessageData,
+    this.isArchived = false,
+    this.isPinned = false,
   });
 
   factory Conversation.fromFirestore(DocumentSnapshot doc) {
@@ -132,6 +166,16 @@ class Conversation {
       members: data['members'] != null
           ? List<Map<String, dynamic>>.from(data['members'])
           : null,
+      groupType: data['groupType'],
+      groupDescription: data['groupDescription'],
+      groupImage: data['groupImage'],
+      creatorId: data['creatorId'],
+      adminIds:
+          data['adminIds'] != null ? List<String>.from(data['adminIds']) : null,
+      isMuted: data['isMuted'] ?? false,
+      lastMessageData: data['lastMessageData'],
+      isArchived: data['isArchived'] ?? false,
+      isPinned: data['isPinned'] ?? false,
     );
   }
 
@@ -149,9 +193,12 @@ class Conversation {
       'sellerHasRated': sellerHasRated,
       'buyerHasRated': buyerHasRated,
       'isGroup': isGroup,
+      'isMuted': isMuted,
+      'lastMessageData': lastMessageData,
+      'isArchived': isArchived,
+      'isPinned': isPinned,
     };
 
-    // Ajouter les champs conditionnels
     if (adId != null) {
       data['sellerId'] = sellerId;
       data['isAdSold'] = isAdSold;
@@ -160,11 +207,22 @@ class Conversation {
     if (isGroup) {
       data['groupName'] = groupName;
       data['members'] = members;
+      data['groupType'] = groupType;
+      data['groupDescription'] = groupDescription;
+      data['groupImage'] = groupImage;
+      data['creatorId'] = creatorId;
+      data['adminIds'] = adminIds;
     }
 
-    // Supprimer les valeurs nulles
     data.removeWhere((key, value) => value == null);
 
     return data;
   }
+}
+
+enum ConversationType {
+  private,
+  business,
+  group,
+  ad,
 }

@@ -110,27 +110,24 @@ class _SavedAdsPageState extends State<SavedAdsPage> {
               ? const Center(child: Text('Aucune annonce sauvegardée'))
               : RefreshIndicator(
                   onRefresh: _loadSavedAds,
-                  child: GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.72,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                    ),
-                    padding: const EdgeInsets.all(10),
+                  child: ListView.builder(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: _savedAds.length,
                     itemBuilder: (context, index) {
-                      return AdCard(
-                        ad: _savedAds[index],
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                AdDetailPage(ad: _savedAds[index]),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: AdCard(
+                          ad: _savedAds[index],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  AdDetailPage(ad: _savedAds[index]),
+                            ),
                           ),
+                          onSaveTap: () => _toggleSaveAd(_savedAds[index]),
                         ),
-                        onSaveTap: () => _toggleSaveAd(_savedAds[index]),
                       );
                     },
                   ),

@@ -38,6 +38,7 @@ class HomeProvider extends ChangeNotifier {
   final _feedController = StreamController<List<CombinedItem>>.broadcast();
 
   // État
+  bool _disposed = false;
   DateTime? _lastRefreshTime;
   bool _hasMoreData = true;
   bool _isLoading = false;
@@ -106,6 +107,11 @@ class HomeProvider extends ChangeNotifier {
 
       if (likedCompanies.isEmpty && followedUsers.isEmpty) {
         _hasMoreData = false;
+        _currentFeedItems.clear();
+        if (!_disposed) {
+          _feedController.add(_currentFeedItems);
+          notifyListeners();
+        }
         return [];
       }
 
@@ -289,9 +295,12 @@ class HomeProvider extends ChangeNotifier {
     };
     _lastCacheUpdate = DateTime.now();
 
-    _feedController.add(_currentFeedItems);
-    _lastRefreshTime = DateTime.now();
-    _isInitialLoading = false;
+    if (!_disposed) {
+      _feedController.add(_currentFeedItems);
+      _lastRefreshTime = DateTime.now();
+      _isInitialLoading = false;
+      notifyListeners();
+    }
   }
 
   void _handleError(dynamic error) {
@@ -302,7 +311,7 @@ class HomeProvider extends ChangeNotifier {
   void _finishLoading() {
     _isLoading = false;
     _isInitialLoading = false;
-    notifyListeners();
+    notifyIfNotDisposed();
   }
 
   void _updateCompanyCache(String companyId, Map<String, dynamic> data) {
@@ -598,9 +607,37 @@ class HomeProvider extends ChangeNotifier {
     };
   }
 
+  void reset() {
+    // Éviter les notifications multiples en regroupant les changements
+    _lastRefreshTime = null;
+    _hasMoreData = true;
+    _isLoading = false;
+    _isInitialLoading = true;
+    _errorMessage = null;
+    _initialDataCache = null;
+    _lastCacheUpdate = null;
+    _loadedItemIds.clear();
+    _currentFeedItems.clear();
+    _cacheQueue.clear();
+    _companyCache.clear();
+    _companyCacheTimestamps.clear();
+
+    // Une seule notification à la fin
+    if (!_disposed) {
+      notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
+    _disposed = true;
     _feedController.close();
     super.dispose();
+  }
+
+  void notifyIfNotDisposed() {
+    if (!_disposed) {
+      notifyListeners();
+    }
   }
 }

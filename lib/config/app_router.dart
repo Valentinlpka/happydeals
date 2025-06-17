@@ -16,6 +16,7 @@ import 'package:happy/screens/details_page/details_reservation_dealexpress_page.
 import 'package:happy/screens/details_page/details_service_page.dart';
 import 'package:happy/screens/payment_cancel.dart';
 import 'package:happy/screens/payment_success.dart';
+import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/promo_code_detail.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
@@ -50,6 +51,7 @@ class AppRouter {
   static const String happyDealDetails = '/happy-deal';
   static const String promoCodeDetails = '/promo-code';
   static const String jobDetails = '/job';
+  static const String userProfile = '/user-profile';
 
   /// Routes nommées statiques
   static Map<String, WidgetBuilder> get routes => {
@@ -230,6 +232,16 @@ class AppRouter {
           ));
         }
         break;
+
+      // Profil utilisateur
+      case userProfile:
+        final String userId;
+        if (kIsWeb) {
+          userId = uri.pathSegments.last;
+        } else {
+          userId = args as String;
+        }
+        return getRoute(Profile(userId: userId));
     }
 
     // Route par défaut si aucune correspondance n'est trouvée

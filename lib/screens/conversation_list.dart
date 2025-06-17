@@ -55,40 +55,49 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
           ),
         ],
       ),
-      body: Consumer<ConversationService>(
-        builder: (context, service, _) {
-          return StreamBuilder<List<Conversation>>(
-            stream: service.getUserConversationsStream(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Erreur lors du chargement des conversations'),
-                      TextButton(
-                        onPressed: _initializeService,
-                        child: const Text('Réessayer'),
-                      ),
-                    ],
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('conversations')
+            .where(Filter.or(
+              Filter('particulierId', isEqualTo: widget.userId),
+              Filter('otherUserId', isEqualTo: widget.userId),
+              Filter('entrepriseId', isEqualTo: widget.userId),
+              Filter('members', arrayContains: widget.userId),
+            ))
+            .orderBy('lastMessageTimestamp', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            print(snapshot.error);
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Erreur lors du chargement des conversations'),
+                  TextButton(
+                    onPressed: _initializeService,
+                    child: const Text('Réessayer'),
                   ),
-                );
-              }
+                ],
+              ),
+            );
+          }
 
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-              final conversations = snapshot.data!;
-              if (conversations.isEmpty) {
-                return const Center(child: Text('Aucune conversation'));
-              }
+          final conversations = snapshot.data!.docs
+              .map((doc) => Conversation.fromFirestore(doc))
+              .toList();
 
-              return ConversationsList(
-                conversations: conversations,
-                userId: widget.userId,
-              );
-            },
+          if (conversations.isEmpty) {
+            return const Center(child: Text('Aucune conversation'));
+          }
+
+          return ConversationsList(
+            conversations: conversations,
+            userId: widget.userId,
           );
         },
       ),
@@ -108,59 +117,100 @@ class ConversationsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: conversations.length,
-      itemBuilder: (context, index) {
-        return ConversationListItem(
-          key: ValueKey(conversations[index].id),
-          conversation: conversations[index],
-          userId: userId,
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('pinnedConversations')
+          .snapshots(),
+      builder: (context, snapshot) {
+        // Trier les conversations : épinglées d'abord, puis par date
+        final sortedConversations = List<Conversation>.from(conversations)
+          ..sort((a, b) {
+            // Vérifier si la conversation est épinglée dans Firestore
+            final isAPinned =
+                snapshot.data?.docs.any((doc) => doc.id == a.id) ?? a.isPinned;
+            final isBPinned =
+                snapshot.data?.docs.any((doc) => doc.id == b.id) ?? b.isPinned;
+
+            if (isAPinned && !isBPinned) return -1;
+            if (!isAPinned && isBPinned) return 1;
+            return b.lastMessageTimestamp.compareTo(a.lastMessageTimestamp);
+          });
+
+        return ListView.builder(
+          itemCount: sortedConversations.length,
+          itemBuilder: (context, index) {
+            final conversation = sortedConversations[index];
+            final isPinned =
+                snapshot.data?.docs.any((doc) => doc.id == conversation.id) ??
+                    conversation.isPinned;
+
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: ConversationListItem(
+                key: ValueKey(conversation.id),
+                conversation: conversation,
+                userId: userId,
+                isPinned: isPinned,
+              ),
+            );
+          },
         );
       },
     );
   }
 }
 
-class ConversationListItem extends StatelessWidget {
+class ConversationListItem extends StatefulWidget {
   final Conversation conversation;
   final String userId;
+  final bool isPinned;
 
   const ConversationListItem({
     super.key,
     required this.conversation,
     required this.userId,
+    required this.isPinned,
   });
 
   @override
+  State<ConversationListItem> createState() => _ConversationListItemState();
+}
+
+class _ConversationListItemState extends State<ConversationListItem> {
+  bool _isDismissed = false;
+
+  @override
   Widget build(BuildContext context) {
-    // Si c'est une conversation de groupe, on utilise directement les données du groupe
-    if (conversation.isGroup) {
-      return ConversationTile(
-        conversation: conversation,
-        userData: {
-          'name': conversation.groupName,
-          'image_profile': null,
-          'isGroup': true,
-          'members': conversation.members,
-        },
-        userId: userId,
-      );
+    if (_isDismissed) {
+      return const SizedBox.shrink();
     }
 
-    // Sinon, on charge les données de l'autre utilisateur
     return FutureBuilder<Map<String, dynamic>>(
-      future: _loadConversationData(conversation, userId),
+      future: _loadConversationData(widget.conversation, widget.userId),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const SizedBox(height: 80);
+          return const SizedBox(
+            height: 80,
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
 
         final data = snapshot.data!;
         return ConversationTile(
-          conversation: conversation,
+          conversation: widget.conversation,
           userData: data['userData'],
           adData: data['adData'],
-          userId: userId,
+          userId: widget.userId,
+          isPinned: widget.isPinned,
+          onDismissed: () {
+            setState(() {
+              _isDismissed = true;
+            });
+          },
         );
       },
     );
@@ -223,7 +273,6 @@ class ConversationListItem extends StatelessWidget {
           .get();
 
       if (companyDoc.exists) {
-        // Logique pour les entreprises
         final companyData = companyDoc.data() as Map<String, dynamic>;
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
@@ -308,16 +357,19 @@ class ConversationTile extends StatelessWidget {
   final Map<String, dynamic> userData;
   final Map<String, dynamic>? adData;
   final String userId;
+  final VoidCallback onDismissed;
+  final bool isPinned;
 
   const ConversationTile({
     super.key,
     required this.conversation,
     required this.userData,
     required this.userId,
+    required this.onDismissed,
+    required this.isPinned,
     this.adData,
   });
 
-  @override
   @override
   Widget build(BuildContext context) {
     final bool isGroup = conversation.isGroup || userData['isGroup'] == true;
@@ -327,40 +379,34 @@ class ConversationTile extends StatelessWidget {
 
     if (isGroup) {
       userName = conversation.groupName ?? 'Groupe';
-      profilePicUrl = '';
+      profilePicUrl = conversation.groupImage ?? '';
     } else {
       String? otherUserId;
       if (conversation.entrepriseId != null) {
-        // Conversation avec une entreprise
         otherUserId = conversation.entrepriseId == userId
             ? conversation.particulierId
             : conversation.entrepriseId;
       } else if (conversation.adId != null) {
-        // Si c'est une annonce, utiliser le sellerId
         otherUserId = conversation.sellerId;
       } else {
-        // Conversation entre particuliers
         otherUserId = conversation.particulierId == userId
             ? conversation.otherUserId
             : conversation.particulierId;
       }
-      // Vérifions si c'est une conversation avec une entreprise
-      final bool isWithCompany = otherUserId == conversation.entrepriseId &&
-          conversation.adId == null; // Ajout de la condition adId
+
+      final bool isWithCompany =
+          otherUserId == conversation.entrepriseId && conversation.adId == null;
       isPro = isWithCompany;
+
       if (isWithCompany) {
-        // Si c'est une entreprise, utiliser companyName ou le logo
         userName = userData['companyName'] ?? 'Entreprise';
         profilePicUrl = userData['logo'] ?? '';
       } else {
-        // Pour une annonce ou un particulier
         if (conversation.adId != null) {
-          // Cas d'une annonce
           userName =
               '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
           profilePicUrl = userData['image_profile'] ?? '';
         } else {
-          // Cas normal d'un particulier
           userName =
               '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
           profilePicUrl = userData['image_profile'] ?? '';
@@ -368,7 +414,6 @@ class ConversationTile extends StatelessWidget {
       }
     }
 
-// Dans ConversationTile
     final isUnread = isGroup
         ? (conversation.unreadBy as List?)?.contains(userId) ?? false
         : conversation.adId != null
@@ -377,50 +422,192 @@ class ConversationTile extends StatelessWidget {
                 conversation.lastMessageSenderId != userId
             : conversation.unreadCount > 0 && conversation.unreadBy == userId;
 
-    return Column(
-      children: [
-        Container(
-          color: isUnread ? Colors.grey[100] : Colors.white,
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            leading: UserAvatar(
-              profilePicUrl: profilePicUrl ??
-                  '', // Utilisation de l'opérateur ?? pour garantir une chaîne vide
-              userName: userName,
-              isAdSold: conversation.isAdSold,
-              isGroup: isGroup,
-              isPro: isPro,
-            ),
-            title: ConversationTitle(
-              userName: userName,
-              adTitle: adData?['title'],
-              isUnread: isUnread,
-              isGroup: isGroup,
-              memberCount: isGroup ? (conversation.members?.length ?? 0) : null,
-            ),
-            subtitle: MessagePreview(
-              message: conversation.lastMessage,
-              adThumbnail: adData?['photos']?.first,
-              adPrice: adData?['price']?.toDouble(),
-              isUnread: isUnread,
-            ),
-            trailing: ConversationTrailing(
-              conversation: conversation,
-              isUnread: isUnread,
-            ),
-            onTap: () => _onTapConversation(context, userName),
-          ),
+    return Dismissible(
+      key: Key(conversation.id),
+      direction: DismissDirection.horizontal,
+      background: Container(
+        color: isPinned ? Colors.orange : Colors.green,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        child: Icon(
+          isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+          color: Colors.white,
         ),
-        Divider(height: 1, color: Colors.grey[300]),
-      ],
+      ),
+      secondaryBackground: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Épingler/Désépingler la conversation
+          try {
+            final conversationService =
+                Provider.of<ConversationService>(context, listen: false);
+            if (isPinned) {
+              await conversationService.unpinConversation(
+                  conversation.id, userId);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Conversation désépinglée'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            } else {
+              await conversationService.pinConversation(
+                  conversation.id, userId);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Conversation épinglée'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+            onDismissed();
+          } catch (e) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Erreur: ${e.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        } else {
+          // Supprimer la conversation
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Confirmer la suppression'),
+              content: const Text(
+                  'Voulez-vous vraiment supprimer cette conversation ?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Annuler'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Supprimer'),
+                ),
+              ],
+            ),
+          );
+
+          if (confirmed == true) {
+            try {
+              final conversationService =
+                  Provider.of<ConversationService>(context, listen: false);
+              await conversationService.deleteConversationForUser(
+                  conversation.id, userId);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Conversation supprimée'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              onDismissed();
+            } catch (e) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Erreur: ${e.toString()}'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
+      },
+      child: Column(
+        children: [
+          Container(
+            color: isUnread ? Colors.grey[100] : Colors.white,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _onTapConversation(context, userName),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 12.0,
+                  ),
+                  child: Row(
+                    children: [
+                      Stack(
+                        children: [
+                          UserAvatar(
+                            profilePicUrl: profilePicUrl ?? '',
+                            userName: userName,
+                            isAdSold: conversation.isAdSold,
+                            isGroup: isGroup,
+                            isPro: isPro,
+                          ),
+                          if (isPinned)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.push_pin,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ConversationTitle(
+                              userName: userName,
+                              adTitle: adData?['title'],
+                              isUnread: isUnread,
+                              isGroup: isGroup,
+                              memberCount: isGroup
+                                  ? (conversation.members?.length ?? 0)
+                                  : null,
+                            ),
+                            const SizedBox(height: 4),
+                            MessagePreview(
+                              message: conversation.lastMessage,
+                              adThumbnail: adData?['photos']?.first,
+                              adPrice: adData?['price']?.toDouble(),
+                              isUnread: isUnread,
+                            ),
+                          ],
+                        ),
+                      ),
+                      ConversationTrailing(
+                        conversation: conversation,
+                        isUnread: isUnread,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Divider(height: 1, color: Colors.grey[300]),
+        ],
+      ),
     );
   }
 
   Future<void> _onTapConversation(BuildContext context, String userName) async {
-    // Cas d'une conversation de groupe
     if (conversation.isGroup) {
       Navigator.push(
         context,
@@ -435,7 +622,6 @@ class ConversationTile extends StatelessWidget {
       return;
     }
 
-    // Cas d'une conversation avec une entreprise
     if (conversation.entrepriseId != null) {
       Navigator.push(
         context,
@@ -443,14 +629,13 @@ class ConversationTile extends StatelessWidget {
           builder: (context) => ConversationDetailScreen(
             conversationId: conversation.id,
             otherUserName: userName,
-            isGroup: false, // Explicitement préciser que ce n'est pas un groupe
+            isGroup: false,
           ),
         ),
       );
       return;
     }
 
-    // Cas d'une conversation liée à une annonce
     if (conversation.adId != null) {
       try {
         final adDoc = await FirebaseFirestore.instance
@@ -467,14 +652,12 @@ class ConversationTile extends StatelessWidget {
               builder: (context) => ConversationDetailScreen(
                 conversationId: conversation.id,
                 otherUserName: userName,
-                ad: ad,
                 isGroup: false,
               ),
             ),
           );
         }
       } catch (e) {
-        // En cas d'erreur, ouvrir quand même la conversation sans l'annonce
         if (!context.mounted) return;
         Navigator.push(
           context,
@@ -490,7 +673,6 @@ class ConversationTile extends StatelessWidget {
       return;
     }
 
-    // Cas d'une conversation normale entre particuliers
     Navigator.push(
       context,
       MaterialPageRoute(

@@ -32,7 +32,8 @@ class ActiveFilter {
   });
 }
 
-class _AdListPageState extends State<AdListPage> {
+class _AdListPageState extends State<AdListPage>
+    with SingleTickerProviderStateMixin {
   final List<ActiveFilter> _activeFiltersList = [];
   final List<String> _exchangeTypes = ['Article', 'Temps et Compétences'];
   final List<Ad> _ads = [];
@@ -49,12 +50,24 @@ class _AdListPageState extends State<AdListPage> {
   String? selectedBrand;
   RangeValues priceRange = const RangeValues(0, 1000);
 
-  final ScrollController _scrollController = ScrollController();
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
     _loadMoreAds();
-    _scrollController.addListener(_onScroll);
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    _animationController.forward();
   }
 
   @override
@@ -71,21 +84,14 @@ class _AdListPageState extends State<AdListPage> {
           return Stack(
             children: [
               CustomScrollView(
-                controller: _scrollController,
                 slivers: [
                   _buildSliverAppBar(),
                   SliverToBoxAdapter(child: _buildQuickActions()),
                   SliverToBoxAdapter(child: _buildFilterChips()),
                   SliverPadding(
-                    padding: const EdgeInsets.all(16),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.55,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                      ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           if (index >= _ads.length) {
@@ -95,11 +101,17 @@ class _AdListPageState extends State<AdListPage> {
                             return null;
                           }
                           final ad = _ads[index];
-                          return AdCard(
-                            ad: ad,
-                            onTap: () => _navigateToAdDetail(ad),
-                            onSaveTap: () => _toggleSaveAd(ad),
-                            userLocation: userLocation,
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: AdCard(
+                                ad: ad,
+                                onTap: () => _navigateToAdDetail(ad),
+                                onSaveTap: () => _toggleSaveAd(ad),
+                                userLocation: userLocation,
+                              ),
+                            ),
                           );
                         },
                         childCount: _ads.length,
@@ -115,18 +127,38 @@ class _AdListPageState extends State<AdListPage> {
                   right: 0,
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withAlpha(13),
+                            color: Colors.black.withOpacity(0.1),
                             blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: const CircularProgressIndicator(),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Chargement...',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -135,15 +167,28 @@ class _AdListPageState extends State<AdListPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                      Icon(
+                        Icons.search_off,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'Aucune annonce trouvée',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey[600],
-                          height: 1.5,
+                          fontWeight: FontWeight.w500,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Modifiez vos filtres ou créez une nouvelle annonce',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
@@ -216,26 +261,39 @@ class _AdListPageState extends State<AdListPage> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
-          _buildActionButton('Créer une annonce', Icons.add, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AdCreationScreen()),
-            );
-          }),
-          const SizedBox(width: 8),
-          _buildActionButton('Mes annonces', Icons.list, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const MyAdsPage()),
-            );
-          }),
-          const SizedBox(width: 8),
-          _buildActionButton('Sauvegardées', Icons.bookmark, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SavedAdsPage()),
-            );
-          }),
+          _buildActionButton(
+            'Créer une annonce',
+            Icons.add_circle_outline,
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const AdCreationScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+          _buildActionButton(
+            'Mes annonces',
+            Icons.list_alt,
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MyAdsPage()),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+          _buildActionButton(
+            'Sauvegardées',
+            Icons.bookmark_border,
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SavedAdsPage()),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -243,24 +301,43 @@ class _AdListPageState extends State<AdListPage> {
 
   Widget _buildActionButton(
       String title, IconData icon, VoidCallback onPressed) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      child: ElevatedButton.icon(
-        icon: Icon(
-          icon,
-          color: Colors.black87,
-          size: 20,
-        ),
-        label: Text(title),
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          foregroundColor: Colors.black87,
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(5),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          elevation: 1,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: Colors.blue[700],
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.blue[700],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -317,15 +394,6 @@ class _AdListPageState extends State<AdListPage> {
         ],
       ),
     );
-  }
-
-  void _onScroll() {
-    // Charger plus tôt, quand on atteint 80% du scroll
-    if (!_isLoading &&
-        _scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent * 0.8) {
-      _loadMoreAds();
-    }
   }
 
   void _showFilterBottomSheet() {
@@ -453,7 +521,6 @@ class _AdListPageState extends State<AdListPage> {
                               });
                             },
                           ),
-                          // ... rest of the existing filters ...
                         ],
                       ),
                     ),
@@ -568,12 +635,8 @@ class _AdListPageState extends State<AdListPage> {
           .orderBy('status')
           .orderBy('createdAt', descending: true);
 
-      // Appliquer les filtres
       if (_activeFilters.isNotEmpty) {
-        debugPrint('Filtres actifs: $_activeFilters'); // Debug log
         if (_activeFilters['type'] != null) {
-          debugPrint(
-              'Application du filtre type: ${_activeFilters['type']}'); // Debug log
           query =
               query.where('exchangeType', isEqualTo: _activeFilters['type']);
         }
@@ -593,8 +656,6 @@ class _AdListPageState extends State<AdListPage> {
       }
 
       final QuerySnapshot querySnapshot = await query.limit(20).get();
-      debugPrint(
-          'Nombre de résultats: ${querySnapshot.docs.length}'); // Debug log
 
       if (querySnapshot.docs.isEmpty) {
         setState(() {
@@ -607,7 +668,6 @@ class _AdListPageState extends State<AdListPage> {
       _lastDocument = querySnapshot.docs.last;
       final List<Ad> newAds = [];
 
-      // Filtrer les annonces par distance si une localisation est sélectionnée
       if (_selectedCityData != null) {
         final userLocation = GeoPoint(
           _selectedCityData!['coordinates'][1],
@@ -617,8 +677,6 @@ class _AdListPageState extends State<AdListPage> {
         for (var doc in querySnapshot.docs) {
           final ad = await Ad.fromFirestore(doc);
           final adData = ad.additionalData;
-          debugPrint(
-              'Type d\'échange de l\'annonce: ${adData['exchangeType']}'); // Debug log
 
           if (adData['coordinates'] != null) {
             final coordinates = adData['coordinates'] as List<dynamic>;
@@ -633,22 +691,18 @@ class _AdListPageState extends State<AdListPage> {
       } else {
         for (var doc in querySnapshot.docs) {
           final ad = await Ad.fromFirestore(doc);
-          debugPrint(
-              'Type d\'échange de l\'annonce: ${ad.additionalData['exchangeType']}'); // Debug log
           newAds.add(ad);
         }
       }
 
       if (mounted) {
         setState(() {
-          _ads.clear();
           _ads.addAll(newAds);
           _isLoading = false;
           _hasMore = querySnapshot.docs.length == 20 && newAds.isNotEmpty;
         });
       }
     } catch (e) {
-      debugPrint('Erreur lors du chargement des annonces: $e'); // Debug log
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -716,7 +770,7 @@ class _AdListPageState extends State<AdListPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 }

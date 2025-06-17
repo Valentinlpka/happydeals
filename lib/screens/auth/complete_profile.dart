@@ -11,7 +11,6 @@ import 'package:flutter/services.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/main_container.dart';
 import 'package:happy/screens/post_type_page/professional_page.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -425,52 +424,19 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     if (image != null) {
       if (kIsWeb) {
         if (!mounted) return;
-        final croppedFile = await ImageCropper().cropImage(
-          sourcePath: image.path,
-          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-          uiSettings: [
-            WebUiSettings(
-              context: context,
-            ),
-          ],
-        );
-        if (croppedFile != null) {
-          final bytes = await croppedFile.readAsBytes();
-          if (!mounted) return;
-          setState(() {
-            _imageFile = bytes;
-            _isImageUploaded = false;
-          });
-          await _uploadImage();
-        }
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _imageFile = bytes;
+          _isImageUploaded = false;
+        });
+        await _uploadImage();
       } else {
         if (!mounted) return;
-        final croppedFile = await ImageCropper().cropImage(
-          sourcePath: image.path,
-          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-          uiSettings: [
-            AndroidUiSettings(
-              toolbarTitle: 'Recadrer la photo',
-              toolbarColor: Theme.of(context).primaryColor,
-              toolbarWidgetColor: Colors.white,
-              initAspectRatio: CropAspectRatioPreset.square,
-              lockAspectRatio: true,
-            ),
-            IOSUiSettings(
-              title: 'Recadrer la photo',
-              cancelButtonTitle: 'Annuler',
-              doneButtonTitle: 'Terminer',
-            ),
-          ],
-        );
-        if (croppedFile != null) {
-          if (!mounted) return;
-          setState(() {
-            _imageFile = File(croppedFile.path);
-            _isImageUploaded = false;
-          });
-          await _uploadImage();
-        }
+        setState(() {
+          _imageFile = File(image.path);
+          _isImageUploaded = false;
+        });
+        await _uploadImage();
       }
     }
   }

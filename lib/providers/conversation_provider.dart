@@ -8,15 +8,17 @@ import 'package:happy/classes/rating.dart';
 import 'package:rxdart/rxdart.dart';
 
 class ConversationService extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+  final FirebaseFirestore _firestore;
+  bool _isInitialized = false;
   String? _currentUserId;
   BehaviorSubject<List<Conversation>>? _conversationsController;
   final List<StreamSubscription> _subscriptions = [];
 
-  // Getters
+  ConversationService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
+
   String? get currentUserId => _currentUserId;
-  bool get isInitialized => _currentUserId != null;
+  bool get isInitialized => _isInitialized;
 
   // Méthode pour vérifier le type d'utilisateur
   Future<String> _getUserType(String userId) async {
@@ -47,27 +49,11 @@ class ConversationService extends ChangeNotifier {
     String? comment,
   }) async {
     try {
-      // Chercher une conversation existante
-      final existingConversationId = await checkExistingConversation(
-        userId1: senderId,
-        userId2: receiverId,
-      );
+      final conversationId =
+          await getOrCreatePrivateConversation(senderId, receiverId);
 
-      final conversationId = existingConversationId ??
-          await _firestore.collection('conversations').add({
-            'particulierId': senderId,
-            'otherUserId': receiverId,
-            'lastMessage': 'A partagé une publication',
-            'lastMessageTimestamp': FieldValue.serverTimestamp(),
-            'lastMessageSenderId': senderId,
-            'unreadCount': 1,
-            'unreadBy': receiverId,
-            'isGroup': false,
-          }).then((doc) => doc.id);
-
-      // Créer le message de partage
-      final systemMessage = {
-        'content': 'A partagé une publication',
+      final message = {
+        'content': comment ?? 'A partagé une publication',
         'senderId': senderId,
         'timestamp': FieldValue.serverTimestamp(),
         'type': 'shared_post',
@@ -76,23 +62,21 @@ class ConversationService extends ChangeNotifier {
           'postType': post.runtimeType.toString(),
           'comment': comment,
         },
+        'seenBy': [senderId],
       };
 
-      // Ajouter le message dans la conversation
       await _firestore
           .collection('conversations')
           .doc(conversationId)
           .collection('messages')
-          .add(systemMessage);
+          .add(message);
 
-      // Mettre à jour la conversation
-      await _firestore.collection('conversations').doc(conversationId).update({
-        'lastMessage': 'A partagé une publication',
-        'lastMessageTimestamp': FieldValue.serverTimestamp(),
-        'lastMessageSenderId': senderId,
-        'unreadCount': FieldValue.increment(1),
-        'unreadBy': receiverId,
-      });
+      await _updateConversationAfterMessage(
+        conversationId,
+        senderId,
+        'A partagé une publication',
+        message,
+      );
     } catch (e) {
       rethrow;
     }
@@ -387,8 +371,8 @@ class ConversationService extends ChangeNotifier {
     return docRef.id;
   }
 
-// Modifiez la méthode sendMessage pour gérer les groupes
-// Méthode mise à jour pour envoyer un message dans une conversation existante
+  // Modifiez la méthode sendMessage pour gérer les groupes
+  // Méthode mise à jour pour envoyer un message dans une conversation existante
   Future<void> sendMessage(
     String conversationId,
     String senderId,
@@ -405,7 +389,7 @@ class ConversationService extends ChangeNotifier {
 
       final data = conversationDoc.data()!;
 
-      // Ajouter d'abord le message dans la sous-collection messages
+      // Ajouter le message dans la sous-collection messages
       await _firestore
           .collection('conversations')
           .doc(conversationId)
@@ -417,7 +401,6 @@ class ConversationService extends ChangeNotifier {
         'type': 'normal',
       });
 
-      // Déterminer qui doit être marqué comme n'ayant pas lu
       dynamic unreadBy;
       if (data['isGroup'] == true) {
         // Pour les groupes, tous les membres sauf l'expéditeur
@@ -446,44 +429,59 @@ class ConversationService extends ChangeNotifier {
             : data['particulierId'];
       }
 
-      // Mettre à jour le document principal de la conversation
+      // Mettre à jour les champs de la conversation
       await _firestore.collection('conversations').doc(conversationId).update({
         'lastMessage': content,
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
         'lastMessageSenderId': senderId,
-        'unreadCount': 1,
-        'unreadBy': unreadBy,
+        'unreadCount': FieldValue.increment(1),
+        'unreadBy': unreadBy
       });
+
+      // Marquer comme lu pour l'expéditeur
+      await markMessageAsRead(conversationId, senderId);
     } catch (e) {
       rethrow;
     }
   }
 
-// Modifiez la méthode markMessageAsRead pour gérer les groupes
+  // Modifiez la méthode markMessageAsRead pour gérer les groupes
   Future<void> markMessageAsRead(String conversationId, String userId) async {
-    if (_currentUserId != userId) return;
+    if (!_isInitialized) {
+      _currentUserId = userId;
+      _isInitialized = true;
+      notifyListeners();
+    }
 
-    final conversationDoc =
-        await _firestore.collection('conversations').doc(conversationId).get();
-    final conversationData = conversationDoc.data() as Map<String, dynamic>;
+    try {
+      final conversationDoc = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
 
-    if (conversationData['isGroup'] == true) {
-      // Pour les groupes, retirer l'utilisateur de la liste unreadBy
-      final List<dynamic> unreadBy =
-          List.from(conversationData['unreadBy'] ?? []);
-      if (unreadBy.contains(userId)) {
-        unreadBy.remove(userId);
-        await _firestore
-            .collection('conversations')
-            .doc(conversationId)
-            .update({
-          'unreadBy': unreadBy,
-          'unreadCount': unreadBy.isEmpty ? 0 : conversationData['unreadCount'],
-        });
+      if (!conversationDoc.exists) {
+        throw Exception('Conversation introuvable');
       }
-    } else {
-      // Logique existante pour les conversations individuelles
-      if (conversationData['unreadBy'] == userId) {
+
+      final data = conversationDoc.data()!;
+
+      // Mettre à jour les messages non lus
+      final messagesSnapshot = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .where('senderId', isNotEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      final batch = _firestore.batch();
+      for (var doc in messagesSnapshot.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+      await batch.commit();
+
+      // Mettre à jour le compteur de messages non lus
+      if (data['unreadBy'] == userId) {
         await _firestore
             .collection('conversations')
             .doc(conversationId)
@@ -491,10 +489,23 @@ class ConversationService extends ChangeNotifier {
           'unreadCount': 0,
           'unreadBy': null,
         });
+      } else if (data['isGroup'] == true) {
+        final List<dynamic> unreadBy = List.from(data['unreadBy'] ?? []);
+        if (unreadBy.contains(userId)) {
+          unreadBy.remove(userId);
+          await _firestore
+              .collection('conversations')
+              .doc(conversationId)
+              .update({
+            'unreadBy': unreadBy,
+            'unreadCount': unreadBy.length,
+          });
+        }
       }
+    } catch (e) {
+      throw Exception(
+          'Erreur lors de la mise à jour de l\'état de lecture: $e');
     }
-
-    notifyListeners();
   }
 
   Future<void> sendSystemMessage(String conversationId, String content) async {
@@ -534,6 +545,17 @@ class ConversationService extends ChangeNotifier {
     _conversationsController = BehaviorSubject<List<Conversation>>();
 
     try {
+      // Récupérer les conversations supprimées
+      final deletedConversationsDoc =
+          await _firestore.collection('deletedConversations').doc(userId).get();
+
+      final List<String> deletedConversationIds = [];
+      if (deletedConversationsDoc.exists) {
+        final data = deletedConversationsDoc.data() as Map<String, dynamic>;
+        deletedConversationIds
+            .addAll(List<String>.from(data['deletedConversations'] ?? []));
+      }
+
       // Query combinée pour tous les types de conversations
       final query = _firestore
           .collection('conversations')
@@ -561,6 +583,7 @@ class ConversationService extends ChangeNotifier {
                   }
                 })
                 .where((conv) => conv != null)
+                .where((conv) => !deletedConversationIds.contains(conv!.id))
                 .cast<Conversation>()
                 .toList();
 
@@ -580,14 +603,21 @@ class ConversationService extends ChangeNotifier {
 
   // Méthode pour nettoyer les ressources
   Future<void> cleanUp() async {
-    for (var subscription in _subscriptions) {
-      await subscription.cancel();
+    try {
+      for (var subscription in _subscriptions) {
+        await subscription.cancel();
+      }
+      _subscriptions.clear();
+      await _conversationsController?.close();
+      _conversationsController = null;
+      _currentUserId = null;
+
+      // Réinitialiser les autres états si nécessaire
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Erreur lors du nettoyage des conversations: $e');
     }
-    _subscriptions.clear();
-    await _conversationsController?.close();
-    _conversationsController = null;
-    _currentUserId = null;
-    notifyListeners();
   }
 
   // Getter pour le stream des conversations
@@ -642,10 +672,34 @@ class ConversationService extends ChangeNotifier {
         .doc(conversationId)
         .collection('messages')
         .orderBy('timestamp', descending: true)
+        .limit(20)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList();
     });
+  }
+
+  Future<List<Message>> loadMoreMessages(
+    String conversationId,
+    DateTime lastMessageTimestamp,
+  ) async {
+    if (_currentUserId == null) return [];
+
+    try {
+      final snapshot = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .startAfter([Timestamp.fromDate(lastMessageTimestamp)])
+          .limit(20)
+          .get();
+
+      return snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList();
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des messages: $e');
+      return [];
+    }
   }
 
   Future<String> getOrCreateConversationForAd(
@@ -1039,5 +1093,274 @@ class ConversationService extends ChangeNotifier {
     }
 
     return conversationId;
+  }
+
+  Future<void> sendMessageWithMedia(
+    String conversationId,
+    String senderId,
+    List<String> mediaUrls,
+    String? caption,
+  ) async {
+    try {
+      final message = {
+        'content': caption ?? '',
+        'senderId': senderId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'type':
+            mediaUrls.every((url) => url.endsWith('.mp4')) ? 'video' : 'image',
+        'mediaUrls': mediaUrls,
+        'seenBy': [senderId],
+      };
+
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .add(message);
+
+      await _updateConversationAfterMessage(
+        conversationId,
+        senderId,
+        caption ?? 'Photo',
+        message,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> sendEmojiMessage(
+    String conversationId,
+    String senderId,
+    String emoji,
+  ) async {
+    try {
+      final message = {
+        'content': '',
+        'senderId': senderId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'emoji',
+        'emoji': emoji,
+        'seenBy': [senderId],
+      };
+
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .add(message);
+
+      await _updateConversationAfterMessage(
+        conversationId,
+        senderId,
+        'Émoji',
+        message,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> markMessageAsSeen(
+    String conversationId,
+    String messageId,
+    String userId,
+  ) async {
+    try {
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'seenBy': FieldValue.arrayUnion([userId]),
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> _updateConversationAfterMessage(
+    String conversationId,
+    String senderId,
+    String lastMessage,
+    Map<String, dynamic> messageData,
+  ) async {
+    final conversationDoc =
+        await _firestore.collection('conversations').doc(conversationId).get();
+    final conversationData = conversationDoc.data() as Map<String, dynamic>;
+
+    dynamic unreadBy;
+    if (conversationData['isGroup'] == true) {
+      final members =
+          List<Map<String, dynamic>>.from(conversationData['members'] ?? []);
+      unreadBy = members
+          .where((m) => m['id'] != senderId)
+          .map((m) => m['id'])
+          .toList();
+    } else {
+      unreadBy = conversationData['particulierId'] == senderId
+          ? conversationData['otherUserId']
+          : conversationData['particulierId'];
+    }
+
+    await _firestore.collection('conversations').doc(conversationId).update({
+      'lastMessage': lastMessage,
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+      'lastMessageSenderId': senderId,
+      'unreadCount': FieldValue.increment(1),
+      'unreadBy': unreadBy,
+      'lastMessageData': messageData,
+    });
+  }
+
+  Future<void> removeMemberFromGroup(
+      String conversationId, String memberId) async {
+    if (_currentUserId == null) throw Exception('Service not initialized');
+
+    final conversationRef =
+        _firestore.collection('conversations').doc(conversationId);
+    final conversationDoc = await conversationRef.get();
+    final conversationData = conversationDoc.data() as Map<String, dynamic>;
+
+    if (!conversationData['isGroup']) {
+      throw Exception('Cette conversation n\'est pas un groupe');
+    }
+
+    final members =
+        List<Map<String, dynamic>>.from(conversationData['members'] ?? []);
+    final memberIds = List<String>.from(conversationData['memberIds'] ?? []);
+
+    // Vérifier si le membre existe dans le groupe
+    if (!memberIds.contains(memberId)) {
+      throw Exception('Ce membre n\'existe pas dans le groupe');
+    }
+
+    // Mettre à jour les listes de membres
+    final updatedMembers = members.where((m) => m['id'] != memberId).toList();
+    final updatedMemberIds = memberIds.where((id) => id != memberId).toList();
+
+    // Si c'est le créateur qui quitte, transférer la propriété au premier membre restant
+    if (conversationData['creatorId'] == memberId &&
+        updatedMembers.isNotEmpty) {
+      await conversationRef.update({
+        'members': updatedMembers,
+        'memberIds': updatedMemberIds,
+        'creatorId': updatedMembers[0]['id'],
+      });
+    } else {
+      await conversationRef.update({
+        'members': updatedMembers,
+        'memberIds': updatedMemberIds,
+      });
+    }
+
+    // Envoyer un message système
+    await sendSystemMessage(
+      conversationId,
+      '${await _getUserName(memberId)} a quitté le groupe',
+    );
+  }
+
+  Future<void> deleteConversationForUser(
+      String conversationId, String userId) async {
+    if (_currentUserId == null) throw Exception('Service not initialized');
+
+    try {
+      // Récupérer la conversation
+      final conversationDoc = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
+
+      if (!conversationDoc.exists) {
+        throw Exception('Conversation non trouvée');
+      }
+
+      final conversationData = conversationDoc.data() as Map<String, dynamic>;
+
+      // Vérifier si l'utilisateur est bien dans la conversation
+      bool isUserInConversation = false;
+      if (conversationData['isGroup'] == true) {
+        final members =
+            List<Map<String, dynamic>>.from(conversationData['members'] ?? []);
+        isUserInConversation = members.any((member) => member['id'] == userId);
+      } else {
+        isUserInConversation = conversationData['particulierId'] == userId ||
+            conversationData['otherUserId'] == userId ||
+            conversationData['entrepriseId'] == userId;
+      }
+
+      if (!isUserInConversation) {
+        throw Exception('Vous n\'êtes pas membre de cette conversation');
+      }
+
+      // Créer ou mettre à jour la collection deletedConversations
+      await _firestore.collection('deletedConversations').doc(userId).set({
+        'deletedConversations': FieldValue.arrayUnion([conversationId]),
+      }, SetOptions(merge: true));
+
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> pinConversation(String conversationId, String userId) async {
+    if (!isInitialized) {
+      throw Exception('Service non initialisé');
+    }
+
+    try {
+      // Mettre à jour la collection pinnedConversations
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('pinnedConversations')
+          .doc(conversationId)
+          .set({
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // Mettre à jour l'état isPinned de la conversation
+      await FirebaseFirestore.instance
+          .collection('conversations')
+          .doc(conversationId)
+          .update({
+        'isPinned': true,
+      });
+
+      notifyListeners();
+    } catch (e) {
+      throw Exception('Erreur lors de l\'épinglage de la conversation: $e');
+    }
+  }
+
+  Future<void> unpinConversation(String conversationId, String userId) async {
+    if (!isInitialized) {
+      throw Exception('Service non initialisé');
+    }
+
+    try {
+      // Supprimer de la collection pinnedConversations
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('pinnedConversations')
+          .doc(conversationId)
+          .delete();
+
+      // Mettre à jour l'état isPinned de la conversation
+      await FirebaseFirestore.instance
+          .collection('conversations')
+          .doc(conversationId)
+          .update({
+        'isPinned': false,
+      });
+
+      notifyListeners();
+    } catch (e) {
+      throw Exception('Erreur lors du désépinglage de la conversation: $e');
+    }
   }
 }

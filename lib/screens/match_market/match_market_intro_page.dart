@@ -207,19 +207,6 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withAlpha(26),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.category_outlined,
-                                  size: 48,
-                                  color: primaryColor,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
                               Text(
                                 'Aucune sous-catégorie disponible',
                                 style: TextStyle(
@@ -278,19 +265,6 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withAlpha(13),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.category_outlined,
-                    size: 24,
-                    color: primaryColor,
-                  ),
-                ),
-                const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     category.name,
@@ -392,6 +366,9 @@ class _MatchMarketIntroPageState extends State<MatchMarketIntroPage> {
               ),
             ),
           ),
+          const SizedBox(
+            height: 20,
+          )
         ],
       ),
     );

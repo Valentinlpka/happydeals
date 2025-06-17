@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/match_market/liked_products_page.dart';
 
-class LikeService {
+class LikeMatchMarketService {
   static final _firestore = FirebaseFirestore.instance;
   static final _auth = FirebaseAuth.instance;
 
@@ -34,14 +34,14 @@ class LikeService {
     if (userId == null) return;
 
     final likeQuery = await _firestore
-        .collection('likes')
+        .collection('liked_match_market')
         .where('userId', isEqualTo: userId)
         .where('productId', isEqualTo: productId)
         .get();
 
     if (likeQuery.docs.isEmpty) {
       // Ajouter le like
-      await _firestore.collection('likes').add({
+      await _firestore.collection('liked_match_market').add({
         'userId': userId,
         'productId': productId,
         'createdAt': FieldValue.serverTimestamp(),
@@ -51,7 +51,7 @@ class LikeService {
     } else {
       // Supprimer le like
       await _firestore
-          .collection('likes')
+          .collection('liked_match_market')
           .doc(likeQuery.docs.first.id)
           .delete();
     }
@@ -62,7 +62,7 @@ class LikeService {
     if (userId == null) return Stream.value(false);
 
     return _firestore
-        .collection('likes')
+        .collection('liked_match_market')
         .where('userId', isEqualTo: userId)
         .where('productId', isEqualTo: productId)
         .snapshots()

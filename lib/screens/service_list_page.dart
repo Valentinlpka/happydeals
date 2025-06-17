@@ -9,6 +9,7 @@ import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/services/service_service.dart';
 import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/search_bar.dart';
 import 'package:provider/provider.dart';
 
 class ServiceListPage extends StatefulWidget {
@@ -19,21 +20,12 @@ class ServiceListPage extends StatefulWidget {
   State<ServiceListPage> createState() => _ServiceListPageState();
 }
 
-class _ServiceListPageState extends State<ServiceListPage>
-    with AutomaticKeepAliveClientMixin {
+class _ServiceListPageState extends State<ServiceListPage> {
   final ServiceClientService _serviceService = ServiceClientService();
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-
   final Map<String, Map<String, dynamic>> _companyCache = {};
-  List<ServiceModel>? _cachedServices;
 
   String _searchQuery = '';
-  bool _showScrollToTop = false;
-
-  @override
-  bool get wantKeepAlive => true;
-
   double? _selectedLat;
   double? _selectedLng;
   double _selectedRadius = 20.0;
@@ -42,8 +34,13 @@ class _ServiceListPageState extends State<ServiceListPage>
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _initializeLocation();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeLocation() async {
@@ -57,103 +54,35 @@ class _ServiceListPageState extends State<ServiceListPage>
     }
   }
 
-  void _onScroll() {
-    setState(() {
-      _showScrollToTop = _scrollController.offset >= 400;
-    });
-  }
-
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  double _calculateDistance(
-      double lat1, double lon1, double lat2, double lon2) {
-    const double earthRadius = 6371;
-    final dLat = _toRadians(lat2 - lat1);
-    final dLon = _toRadians(lon2 - lon1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_toRadians(lat1)) *
-            math.cos(_toRadians(lat2)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadius * c;
-  }
-
-  double _toRadians(double degree) => degree * math.pi / 180;
-
   Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: [
-          if (_selectedAddress.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      _selectedAddress,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+    return Column(
+      children: [
+        if (_selectedAddress.isNotEmpty)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  _selectedAddress,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
                   ),
-                ],
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Rechercher un service...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          _searchQuery = '';
-                        });
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-            ),
-            onChanged: (value) => setState(() => _searchQuery = value),
+            ],
           ),
-        ],
-      ),
+        CustomSearchBar(
+          controller: _searchController,
+          hintText: 'Rechercher un service...',
+          onChanged: (value) => setState(() => _searchQuery = value),
+          onClear: () => setState(() => _searchQuery = ''),
+        ),
+      ],
     );
-  }
-
-  Map<String, List<ServiceModel>> _groupServicesByProfessional(
-      List<ServiceModel> services) {
-    final Map<String, List<ServiceModel>> grouped = {};
-    for (final service in services) {
-      grouped.putIfAbsent(service.professionalId, () => []).add(service);
-    }
-    return grouped;
   }
 
   Widget _buildCompanySection(String proId, List<ServiceModel> services) {
@@ -201,19 +130,6 @@ class _ServiceListPageState extends State<ServiceListPage>
         ],
       ),
     );
-  }
-
-  double? _getCompanyDistance(Map<String, dynamic> companyData) {
-    if (_selectedLat == null || _selectedLng == null) return null;
-
-    final address = companyData['adress'] as Map<String, dynamic>?;
-    if (address == null) return null;
-
-    final lat = address['latitude'] as double?;
-    final lng = address['longitude'] as double?;
-    if (lat == null || lng == null) return null;
-
-    return _calculateDistance(_selectedLat!, _selectedLng!, lat, lng);
   }
 
   Widget _buildCompanyHeader(
@@ -292,6 +208,10 @@ class _ServiceListPageState extends State<ServiceListPage>
     final rating = (companyData['averageRating'] ?? 0.0).toDouble();
     final reviews = companyData['numberOfReviews'] ?? 0;
 
+    if (reviews == 0) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -337,14 +257,6 @@ class _ServiceListPageState extends State<ServiceListPage>
           );
         },
       ),
-    );
-  }
-
-  void _navigateToServiceDetail(ServiceModel service) {
-    Navigator.pushNamed(
-      context,
-      AppRouter.serviceDetails,
-      arguments: service.id,
     );
   }
 
@@ -498,10 +410,54 @@ class _ServiceListPageState extends State<ServiceListPage>
     );
   }
 
+  void _navigateToServiceDetail(ServiceModel service) {
+    Navigator.pushNamed(
+      context,
+      AppRouter.serviceDetails,
+      arguments: service.id,
+    );
+  }
+
+  double? _getCompanyDistance(Map<String, dynamic> companyData) {
+    if (_selectedLat == null || _selectedLng == null) return null;
+
+    final address = companyData['adress'] as Map<String, dynamic>?;
+    if (address == null) return null;
+
+    final lat = address['latitude'] as double?;
+    final lng = address['longitude'] as double?;
+    if (lat == null || lng == null) return null;
+
+    return _calculateDistance(_selectedLat!, _selectedLng!, lat, lng);
+  }
+
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371;
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRadians(lat1)) *
+            math.cos(_toRadians(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _toRadians(double degree) => degree * math.pi / 180;
+
+  Map<String, List<ServiceModel>> _groupServicesByProfessional(
+      List<ServiceModel> services) {
+    final Map<String, List<ServiceModel>> grouped = {};
+    for (final service in services) {
+      grouped.putIfAbsent(service.professionalId, () => []).add(service);
+    }
+    return grouped;
+  }
+
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -536,93 +492,110 @@ class _ServiceListPageState extends State<ServiceListPage>
           ),
         ],
       ),
-      body: StreamBuilder<List<ServiceModel>>(
-        stream: _getServicesStream(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return _buildErrorWidget(snapshot.error.toString());
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final services = snapshot.data ?? [];
-          return CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              SliverToBoxAdapter(
-                child: _buildSearchBar(),
-              ),
-              if (services.isEmpty)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _searchQuery.isEmpty
-                              ? Icons.category_outlined
-                              : Icons.search_off,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isEmpty
-                              ? 'Aucun service disponible'
-                              : 'Aucun résultat pour "$_searchQuery"',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[800],
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final servicesByPro =
-                          _groupServicesByProfessional(services);
-                      final proId = servicesByPro.keys.elementAt(index);
-                      return _buildCompanySection(proId, servicesByPro[proId]!);
-                    },
-                    childCount: _groupServicesByProfessional(services).length,
-                  ),
-                ),
-            ],
-          );
-        },
+      body: _ServicesList(
+        searchQuery: _searchQuery,
+        professionalId: widget.professionalId,
+        serviceService: _serviceService,
+        onRefresh: () {},
+        buildSearchBar: _buildSearchBar,
+        buildCompanySection: _buildCompanySection,
+        groupServicesByProfessional: _groupServicesByProfessional,
       ),
-      floatingActionButton: _showScrollToTop
-          ? FloatingActionButton(
-              onPressed: _scrollToTop,
-              mini: true,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.keyboard_arrow_up, color: Colors.grey[900]),
-            )
-          : null,
     );
   }
+}
+
+class _ServicesList extends StatelessWidget {
+  final String searchQuery;
+  final String? professionalId;
+  final ServiceClientService serviceService;
+  final VoidCallback onRefresh;
+  final Widget Function() buildSearchBar;
+  final Widget Function(String, List<ServiceModel>) buildCompanySection;
+  final Map<String, List<ServiceModel>> Function(List<ServiceModel>)
+      groupServicesByProfessional;
+
+  const _ServicesList({
+    required this.searchQuery,
+    required this.professionalId,
+    required this.serviceService,
+    required this.onRefresh,
+    required this.buildSearchBar,
+    required this.buildCompanySection,
+    required this.groupServicesByProfessional,
+  });
 
   Stream<List<ServiceModel>> _getServicesStream() {
-    if (_cachedServices != null &&
-        _searchQuery.isEmpty &&
-        widget.professionalId == null) {
-      return Stream.value(_cachedServices!);
+    if (professionalId != null) {
+      return serviceService.getServicesByProfessional(professionalId!);
     }
 
-    if (widget.professionalId != null) {
-      return _serviceService.getServicesByProfessional(widget.professionalId!);
-    }
-    return _searchQuery.isEmpty
-        ? _serviceService.getActiveServices()
-        : _serviceService.searchServices(_searchQuery);
+    return searchQuery.isEmpty
+        ? serviceService.getActiveServices()
+        : serviceService.searchServices(searchQuery);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ServiceModel>>(
+      stream: _getServicesStream(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildErrorWidget(snapshot.error.toString());
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final services = snapshot.data ?? [];
+
+        if (services.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  searchQuery.isEmpty
+                      ? Icons.category_outlined
+                      : Icons.search_off,
+                  size: 48,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  searchQuery.isEmpty
+                      ? 'Aucun service disponible'
+                      : 'Aucun résultat pour "$searchQuery"',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[800],
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            onRefresh();
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              buildSearchBar(),
+              ...groupServicesByProfessional(services).entries.map((entry) {
+                return buildCompanySection(entry.key, entry.value);
+              }),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildErrorWidget(String error) {
@@ -655,12 +628,5 @@ class _ServiceListPageState extends State<ServiceListPage>
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _scrollController.dispose();
-    super.dispose();
   }
 }

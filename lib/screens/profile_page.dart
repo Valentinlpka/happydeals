@@ -5,7 +5,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users_provider.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -222,23 +221,10 @@ class _ProfilePageState extends State<ProfilePage> {
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
     if (image != null) {
-      CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: image.path,
-        uiSettings: [
-          IOSUiSettings(
-            title: 'Recadrer la photo',
-            cancelButtonTitle: 'Annuler',
-            doneButtonTitle: 'Terminer',
-          ),
-        ],
-      );
-
-      if (croppedFile != null) {
-        setState(() {
-          _imageFile = File(croppedFile.path);
-        });
-        await _uploadImage();
-      }
+      setState(() {
+        _imageFile = File(image.path);
+      });
+      await _uploadImage();
     }
   }
 

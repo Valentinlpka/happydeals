@@ -152,15 +152,19 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           valueListenable: _selectedTimeNotifier,
           builder: (context, selectedTime, _) {
             return Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 16,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
+              ),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withAlpha(20),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, -2),
+                    color: Colors.black.withOpacity(0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
                   ),
                 ],
               ),
@@ -171,29 +175,53 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Total',
-                            style: TextStyle(color: Colors.grey)),
+                        Text(
+                          'Total',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
                         if (service.hasActivePromotion) ...[
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Text(
                                 '${service.finalPrice.toStringAsFixed(2)} €',
                                 style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
+                                  color: Colors.black,
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red[50],
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                                 child: Text(
-                                  '${service.price.toStringAsFixed(2)} €',
+                                  '-${service.discount!['value']}${service.discount!['type'] == 'percentage' ? '%' : '€'}',
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                    decoration: TextDecoration.lineThrough,
+                                    color: Colors.red[700],
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                   ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${service.price.toStringAsFixed(2)} €',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                  decoration: TextDecoration.lineThrough,
+                                  decorationColor: Colors.grey[400],
                                 ),
                               ),
                             ],
@@ -204,23 +232,58 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
+                              color: Colors.black,
                             ),
                           ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 16),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: selectedTime == null
-                          ? null
-                          : () => _proceedToPayment(service),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      child: ElevatedButton(
+                        onPressed: selectedTime == null
+                            ? null
+                            : () => _proceedToPayment(service),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: selectedTime == null
+                              ? Colors.grey[300]
+                              : Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: selectedTime == null ? 0 : 2,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 24,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Réserver',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: selectedTime == null
+                                    ? Colors.grey[600]
+                                    : Colors.white,
+                              ),
+                            ),
+                            if (selectedTime != null) ...[
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      child: const Text('Réserver'),
                     ),
                   ),
                 ],
@@ -493,6 +556,26 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           );
         }
 
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: Colors.red[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'Erreur lors du chargement des créneaux\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Center(
             child: Column(
@@ -513,6 +596,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
         }
 
         final slots = snapshot.data!;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -569,7 +653,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                         _selectedTime = selected ? time : null;
                       },
                       backgroundColor: Colors.white,
-                      selectedColor: Colors.blue[100],
+                      selectedColor: Colors.blue[700],
                       checkmarkColor: Colors.blue[700],
                       showCheckmark: false,
                     );

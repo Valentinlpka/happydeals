@@ -126,7 +126,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
       ),
       actions: [
         StreamBuilder<bool>(
-          stream: LikeService.isLiked(widget.product.id),
+          stream: LikeMatchMarketService.isLiked(widget.product.id),
           builder: (context, snapshot) {
             final isLiked = snapshot.data ?? false;
             return IconButton(
@@ -135,7 +135,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                 color: isLiked ? Colors.red : Colors.black,
               ),
               onPressed: () =>
-                  LikeService.toggleLike(widget.product.id, context),
+                  LikeMatchMarketService.toggleLike(widget.product.id, context),
             );
           },
         ),

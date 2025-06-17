@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/classes/company.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/screens/conversation_detail.dart';
@@ -22,7 +23,8 @@ class GroupChatSearchScreen extends StatefulWidget {
   State<GroupChatSearchScreen> createState() => _GroupChatSearchScreenState();
 }
 
-class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
+class _GroupChatSearchScreenState extends State<GroupChatSearchScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _groupNameController = TextEditingController();
   Stream<List<QuerySnapshot>>? _searchResults;
@@ -31,10 +33,23 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
   final Map<String, Map<String, dynamic>> _selectedMembersData = {};
   final Map<String, String> _memberTypes = {}; // 'company' ou 'user'
   List<String> _followedUsers = [];
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    _animationController.forward();
     _loadFollowedUsers();
     if (widget.preselectedCompany != null) {
       _selectedMembers.add(widget.preselectedCompany!.id);
@@ -51,10 +66,9 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
     _searchController.dispose();
     _groupNameController.dispose();
     _debounce?.cancel();
+    _animationController.dispose();
     super.dispose();
   }
-
-// Dans _GroupChatSearchScreenState
 
   Future<void> _loadFollowedUsers() async {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -119,35 +133,38 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
   }
 
   Widget _buildEmptySearchState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.group_add,
-            size: 64,
-            color: Colors.grey.shade300,
-          ),
-          const SizedBox(height: 16),
-          if (_followedUsers.isEmpty)
-            Text(
-              'Vous ne suivez aucun utilisateur\nCommencez par suivre des personnes',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 16,
-              ),
-            )
-          else
-            Text(
-              'Recherchez parmi vos contacts\npour créer un groupe',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 16,
-              ),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.group_add,
+              size: 64.sp,
+              color: Colors.grey.shade300,
             ),
-        ],
+            SizedBox(height: 16.h),
+            if (_followedUsers.isEmpty)
+              Text(
+                'Vous ne suivez aucun utilisateur\nCommencez par suivre des personnes',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 16.sp,
+                ),
+              )
+            else
+              Text(
+                'Recherchez parmi vos contacts\npour créer un groupe',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 16.sp,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -173,20 +190,34 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          onChanged: _onSearchChanged,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Rechercher entreprises ou particuliers...',
-            border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.grey.shade400),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        title: Container(
+          height: 40.h,
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(20.r),
           ),
-          style: const TextStyle(fontSize: 16),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Rechercher entreprises ou particuliers...',
+              border: InputBorder.none,
+              hintStyle:
+                  TextStyle(color: Colors.grey.shade400, fontSize: 14.sp),
+              prefixIcon:
+                  Icon(Icons.search, color: Colors.grey.shade400, size: 20.sp),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16.w),
+            ),
+            style: TextStyle(fontSize: 14.sp),
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -202,27 +233,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                 }
 
                 if (!snapshot.hasData && _searchController.text.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.group_add,
-                          size: 64,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Recherchez des membres\npour créer un groupe',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                  return _buildEmptySearchState();
                 }
 
                 if (!snapshot.hasData) {
@@ -232,22 +243,18 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                 final companies = snapshot.data![0].docs;
                 final users = snapshot.data![1].docs;
 
-                if (!snapshot.hasData && _searchController.text.isEmpty) {
-                  return _buildEmptySearchState();
-                }
-
                 return ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
                   children: [
                     if (companies.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 12.h),
                         child: Text(
                           'Entreprises',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey,
+                            color: Colors.grey[600],
                           ),
                         ),
                       ),
@@ -269,13 +276,17 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                     if (users.isNotEmpty) ...[
                       Padding(
                         padding: EdgeInsets.fromLTRB(
-                            20, companies.isEmpty ? 8 : 20, 20, 12),
-                        child: const Text(
+                          20.w,
+                          companies.isEmpty ? 8.h : 20.h,
+                          20.w,
+                          12.h,
+                        ),
+                        child: Text(
                           'Particuliers',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey,
+                            color: Colors.grey[600],
                           ),
                         ),
                       ),
@@ -308,7 +319,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
 
   Widget _buildSelectedMembers() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -324,24 +335,38 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
         children: [
           TextField(
             controller: _groupNameController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Nom du groupe',
-              border: OutlineInputBorder(),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(color: Theme.of(context).primaryColor),
+              ),
               contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              prefixIcon:
+                  Icon(Icons.group, color: Colors.grey[400], size: 20.sp),
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
+          SizedBox(height: 12.h),
+          Text(
             'Membres sélectionnés',
             style: TextStyle(
               fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontSize: 14.sp,
+              color: Colors.grey[800],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.h),
           SizedBox(
-            height: 60,
+            height: 60.h,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _selectedMembers.length,
@@ -363,20 +388,26 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
                 }
 
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: EdgeInsets.only(right: 8.w),
                   child: Chip(
                     avatar: CircleAvatar(
                       backgroundImage:
                           imageUrl != null ? NetworkImage(imageUrl) : null,
                       child: imageUrl == null ? Text(name[0]) : null,
                     ),
-                    label: Text(name),
-                    deleteIcon: isPreselected
-                        ? null
-                        : const Icon(Icons.close, size: 18),
+                    label: Text(
+                      name,
+                      style: TextStyle(fontSize: 12.sp),
+                    ),
+                    deleteIcon:
+                        isPreselected ? null : Icon(Icons.close, size: 16.sp),
                     onDeleted: isPreselected
                         ? null
                         : () => _toggleMemberSelection(id, data, type),
+                    backgroundColor: Colors.grey[100],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
                   ),
                 );
               },
@@ -389,7 +420,7 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
 
   Widget _buildCreateGroupButton() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -403,16 +434,18 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
       child: ElevatedButton(
         onPressed: _createGroup,
         style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: EdgeInsets.symmetric(vertical: 12.h),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12.r),
           ),
+          backgroundColor: Theme.of(context).primaryColor,
         ),
         child: Text(
           'Créer le groupe (${_selectedMembers.length})',
-          style: const TextStyle(
-            fontSize: 16,
+          style: TextStyle(
+            fontSize: 16.sp,
             fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
       ),
@@ -422,9 +455,15 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
   Future<void> _createGroup() async {
     if (_selectedMembers.isEmpty || _groupNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-              'Veuillez sélectionner au moins un membre et donner un nom au groupe'),
+            'Veuillez sélectionner au moins un membre et donner un nom au groupe',
+            style: TextStyle(fontSize: 14.sp),
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
+          ),
         ),
       );
       return;
@@ -466,12 +505,19 @@ class _GroupChatSearchScreenState extends State<GroupChatSearchScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
+        SnackBar(
+          content: Text(
+            'Erreur: ${e.toString()}',
+            style: TextStyle(fontSize: 14.sp),
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+        ),
       );
     }
   }
-
-  // ... Le reste du code reste le même (buildCreateGroupButton, etc.)
 }
 
 class _MemberListItem extends StatelessWidget {
@@ -502,52 +548,78 @@ class _MemberListItem extends StatelessWidget {
       imageUrl = data['image_profile'];
     }
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Stack(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-            child: imageUrl == null
-                ? Text(
-                    name[0],
-                    style: const TextStyle(fontSize: 16),
-                  )
-                : null,
-          ),
-          if (isSelected)
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12.r),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 24.r,
+                    backgroundImage:
+                        imageUrl != null ? NetworkImage(imageUrl) : null,
+                    child: imageUrl == null
+                        ? Text(
+                            name[0],
+                            style: TextStyle(fontSize: 16.sp),
+                          )
+                        : null,
                   ),
-                ),
-                child: const Icon(
-                  Icons.check,
-                  size: 12,
-                  color: Colors.white,
+                  if (isSelected)
+                    Positioned(
+                      right: -2.w,
+                      bottom: -2.h,
+                      child: Container(
+                        padding: EdgeInsets.all(2.w),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).primaryColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2.w,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.check,
+                          size: 12.sp,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16.sp,
+                      ),
+                    ),
+                    if (type == 'company')
+                      Text(
+                        'Entreprise',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12.sp,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-        ],
-      ),
-      title: Text(
-        name,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
+            ],
+          ),
         ),
       ),
-      subtitle: type == 'company' ? const Text('Entreprise') : null,
-      onTap: onTap,
     );
   }
 }

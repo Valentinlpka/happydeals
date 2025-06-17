@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product.dart';
@@ -29,6 +30,19 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   late Future<Product?> _productFuture;
   late Future<DocumentSnapshot?> _companyFuture;
   final ScrollController _scrollController = ScrollController();
+  bool _isInitialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      ScreenUtil.init(
+        context,
+        designSize: const Size(375, 812),
+      );
+      _isInitialized = true;
+    }
+  }
 
   @override
   void initState() {
@@ -100,29 +114,18 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 300,
+      expandedHeight: 300.h,
       pinned: true,
       stretch: true,
       backgroundColor: Colors.white,
-      leadingWidth: 200,
+      leadingWidth: 200.w,
       leading: Row(
         children: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(90),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.arrow_back, color: Colors.black87),
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+          _buildBackButton(),
           _buildLikeButton(),
           _buildShareButton(),
         ],
       ),
-      actions: const [],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
           fit: StackFit.expand,
@@ -133,6 +136,27 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBackButton() {
+    return IconButton(
+      icon: Container(
+        padding: EdgeInsets.all(8.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8.r,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(Icons.arrow_back, color: Colors.black87, size: 20.w),
+      ),
+      onPressed: () => Navigator.pop(context),
     );
   }
 
@@ -174,17 +198,17 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
 
   Widget _buildDealBadge() {
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 16,
-      right: 16,
+      top: MediaQuery.of(context).padding.top + 16.h,
+      right: 16.w,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
         decoration: BoxDecoration(
           color: Colors.red[600],
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(25.r),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(20),
-              blurRadius: 8,
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8.r,
               offset: const Offset(0, 2),
             ),
           ],
@@ -192,18 +216,14 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.local_offer,
-              color: Colors.white,
-              size: 18,
-            ),
-            const SizedBox(width: 4),
+            Icon(Icons.local_offer, color: Colors.white, size: 18.w),
+            SizedBox(width: 4.w),
             Text(
               '-${widget.happydeal.discountPercentage.toStringAsFixed(0)}%',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
+                fontSize: 18.sp,
               ),
             ),
           ],
@@ -217,18 +237,25 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
       builder: (context, userModel, _) {
         final isLiked = userModel.likedPosts.contains(widget.happydeal.id);
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
+          margin: EdgeInsets.symmetric(horizontal: 4.w),
           child: IconButton(
             icon: Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(8.w),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(90),
+                color: isLiked ? Colors.red[50] : Colors.white,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8.r,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border,
                 color: isLiked ? Colors.red : Colors.black87,
-                size: 20,
+                size: 20.w,
               ),
             ),
             onPressed: () async => await userModel.handleLike(widget.happydeal),
@@ -240,19 +267,22 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
 
   Widget _buildShareButton() {
     return Container(
-      margin: const EdgeInsets.only(right: 4),
+      margin: EdgeInsets.only(right: 4.w),
       child: IconButton(
         icon: Container(
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(8.w),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(90),
+            color: Colors.white,
             shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8.r,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: const Icon(
-            Icons.share,
-            color: Colors.black87,
-            size: 20,
-          ),
+          child: Icon(Icons.share, color: Colors.blue[800], size: 20.w),
         ),
         onPressed: () => _showShareOptions(context),
       ),
@@ -467,20 +497,20 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   Widget _buildContent() {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildTitle(),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.h),
             _buildPriceSection(),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.h),
             _buildTimeSection(),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.h),
             _buildDescription(),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.h),
             _buildProductSection(),
-            const SizedBox(height: 32),
+            SizedBox(height: 32.h),
             _buildCompanySection(),
           ],
         ),
@@ -491,8 +521,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   Widget _buildTitle() {
     return Text(
       widget.happydeal.title,
-      style: const TextStyle(
-        fontSize: 24,
+      style: TextStyle(
+        fontSize: 24.sp,
         fontWeight: FontWeight.bold,
         color: Colors.black87,
       ),
@@ -501,14 +531,14 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
 
   Widget _buildPriceSection() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(13),
-            blurRadius: 10,
+            blurRadius: 10.r,
             offset: const Offset(0, 4),
           ),
         ],
@@ -522,15 +552,15 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
               Text(
                 '${widget.happydeal.newPrice.toStringAsFixed(2)} €',
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 28.sp,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue[800],
                 ),
               ),
               Text(
                 '${widget.happydeal.oldPrice.toStringAsFixed(2)} €',
-                style: const TextStyle(
-                  fontSize: 16,
+                style: TextStyle(
+                  fontSize: 16.sp,
                   decoration: TextDecoration.lineThrough,
                   color: Colors.grey,
                 ),
@@ -538,16 +568,17 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
             ],
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             decoration: BoxDecoration(
               color: Colors.red[50],
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(20.r),
             ),
             child: Text(
               'Économisez ${(widget.happydeal.oldPrice - widget.happydeal.newPrice).toStringAsFixed(2)} €',
               style: TextStyle(
                 color: Colors.red[700],
                 fontWeight: FontWeight.bold,
+                fontSize: 14.sp,
               ),
             ),
           ),
@@ -558,38 +589,38 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
 
   Widget _buildTimeSection() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(13),
-            blurRadius: 10,
+            blurRadius: 10.r,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
-          Icon(Icons.timer_outlined, color: Colors.blue[800], size: 24),
-          const SizedBox(width: 12),
+          Icon(Icons.timer_outlined, color: Colors.blue[800], size: 24.w),
+          SizedBox(width: 12.w),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _getRemainingTime(),
-                style: const TextStyle(
-                  fontSize: 16,
+                style: TextStyle(
+                  fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
               ),
               Text(
                 'Du ${_formatDateTime(widget.happydeal.startDate)} au ${_formatDateTime(widget.happydeal.endDate)}',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.grey,
-                  fontSize: 14,
+                  fontSize: 14.sp,
                 ),
               ),
             ],
@@ -602,8 +633,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   Widget _buildDescription() {
     return Text(
       widget.happydeal.description,
-      style: const TextStyle(
-        fontSize: 16,
+      style: TextStyle(
+        fontSize: 16.sp,
         color: Colors.black87,
         height: 1.5,
       ),
@@ -625,14 +656,14 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
             ),
           ),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.r),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withAlpha(13),
-                  blurRadius: 10,
+                  blurRadius: 10.r,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -642,38 +673,40 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                 if (product.variants.isNotEmpty &&
                     product.variants.first.images.isNotEmpty)
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(8.r),
                     child: Image.network(
                       product.variants.first.images.first,
-                      width: 80,
-                      height: 80,
+                      width: 80.w,
+                      height: 80.h,
                       fit: BoxFit.cover,
                     ),
                   ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         product.name,
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: TextStyle(
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       Text(
                         'Voir le produit',
                         style: TextStyle(
                           color: Colors.blue[800],
                           fontWeight: FontWeight.w500,
+                          fontSize: 14.sp,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios, color: Colors.blue[800]),
+                Icon(Icons.arrow_forward_ios,
+                    color: Colors.blue[800], size: 16.w),
               ],
             ),
           ),
@@ -686,9 +719,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
     return FutureBuilder<DocumentSnapshot?>(
       future: _companyFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
+        if (!snapshot.hasData) return const SizedBox.shrink();
 
         final companyData = snapshot.data!.data() as Map<String, dynamic>?;
         if (companyData == null) return const SizedBox.shrink();
@@ -707,14 +738,14 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
             ),
           ),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.r),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withAlpha(13),
-                  blurRadius: 10,
+                  blurRadius: 10.r,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -722,67 +753,61 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 24,
+                  radius: 24.r,
                   backgroundColor: Colors.blue[700],
                   child: CircleAvatar(
-                    radius: 22,
+                    radius: 22.r,
                     backgroundImage: companyLogo.isNotEmpty
                         ? NetworkImage(companyLogo)
                         : null,
                     backgroundColor: Colors.white,
                     child: companyLogo.isEmpty
-                        ? Icon(Icons.business, color: Colors.blue[700])
+                        ? Icon(Icons.business,
+                            color: Colors.blue[700], size: 20.w)
                         : null,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         companyName,
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: TextStyle(
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4.h),
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8.w,
+                              vertical: 2.h,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.blue[50],
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(4.r),
                             ),
                             child: Text(
                               companyCategorie,
                               style: TextStyle(
                                 color: Colors.blue[800],
-                                fontSize: 12,
+                                fontSize: 12.sp,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Voir le profil',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
+                          SizedBox(height: 28.w),
                         ],
                       ),
                     ],
                   ),
                 ),
                 Icon(Icons.arrow_forward_ios,
-                    color: Colors.grey[400], size: 20),
+                    color: Colors.grey[400], size: 16.w),
               ],
             ),
           ),

@@ -699,6 +699,25 @@ class UserModel with ChangeNotifier {
       return false;
     }
   }
+
+  Future<void> updateLocation({
+    required double latitude,
+    required double longitude,
+  }) async {
+    _latitude = latitude;
+    _longitude = longitude;
+
+    // Mettre à jour la position dans Firestore
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'latitude': latitude,
+        'longitude': longitude,
+      });
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Erreur lors de la mise à jour de la position: $e');
+    }
+  }
 }
 
 extension ListExtension<T> on List<T> {

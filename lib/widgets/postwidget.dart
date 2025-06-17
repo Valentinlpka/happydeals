@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/ad.dart';
-import 'package:happy/classes/card_promo_code.dart';
 import 'package:happy/classes/contest.dart';
 import 'package:happy/classes/dealexpress.dart';
 import 'package:happy/classes/event.dart';
@@ -20,9 +19,7 @@ import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/service_post.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/ads_provider.dart';
-import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users_provider.dart';
-import 'package:happy/screens/comments_page.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/troc-et-echange/ad_card.dart';
@@ -35,9 +32,9 @@ import 'package:happy/widgets/cards/happy_deals_card.dart';
 import 'package:happy/widgets/cards/news_card.dart';
 import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:happy/widgets/cards/product_cards.dart';
+import 'package:happy/widgets/cards/promo_code_card.dart';
 import 'package:happy/widgets/cards/service_cards.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:visibility_detector/visibility_detector.dart';
@@ -88,6 +85,7 @@ class _PostWidgetState extends State<PostWidget>
   // State variables
   late final PostStateManager _stateManager;
   bool _isDisposed = false;
+  static final Map<String, Post> _postCache = {};
 
   @override
   bool get wantKeepAlive => true;
@@ -95,6 +93,7 @@ class _PostWidgetState extends State<PostWidget>
   @override
   void initState() {
     super.initState();
+    timeago.setLocaleMessages('fr', timeago.FrMessages());
     _stateManager = PostStateManager(
       postId: widget.post.id,
       currentUserId: widget.currentUserId,
@@ -103,6 +102,7 @@ class _PostWidgetState extends State<PostWidget>
       },
     );
     _stateManager.initialize();
+    _postCache[widget.post.id] = widget.post;
   }
 
   @override
@@ -113,7 +113,7 @@ class _PostWidgetState extends State<PostWidget>
       onVisibilityChanged: _handleVisibilityChanged,
       child: RepaintBoundary(
         child: _PostCard(
-          post: widget.post,
+          post: _postCache[widget.post.id] ?? widget.post,
           stateManager: _stateManager,
           companyData: widget.companyData,
           sharedByUserData: widget.sharedByUserData,
@@ -268,10 +268,6 @@ class _CompanyHeader extends StatelessWidget {
     required this.post,
     required this.timestamp,
   });
-
-  String _formatDateTimeStamp(DateTime dateTime) {
-    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
-  }
 
   String _getPostType() {
     switch (post.runtimeType) {
@@ -463,15 +459,15 @@ class _CompanyHeader extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatDateTimeStamp(timestamp),
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
-                        ),
-                      ),
                     ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    timeago.format(timestamp, locale: 'fr'),
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -712,7 +708,9 @@ class _PostContent extends StatelessWidget {
           return _buildAdContent(snapshot.data!);
         } else {
           final originalPost = Post.fromDocument(snapshot.data!);
-          return _buildPostTypeContent(originalPost);
+          return Container(
+            child: _buildPostTypeContent(originalPost),
+          );
         }
       },
     );
@@ -730,16 +728,13 @@ class _PostContent extends StatelessWidget {
         }
 
         final ad = adSnapshot.data!;
-        return SizedBox(
-          width: 250,
-          child: AdCard(
-            ad: ad,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => AdDetailPage(ad: ad)),
-            ),
-            onSaveTap: () => _toggleSaveAd(ad, context),
+        return AdCard(
+          ad: ad,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AdDetailPage(ad: ad)),
           ),
+          onSaveTap: () => _toggleSaveAd(ad, context),
         );
       },
     );
@@ -883,10 +878,10 @@ class _InteractionBar extends StatelessWidget {
         final views = postData['views'] ?? 0;
         final shares = postData['sharesCount'] ?? 0;
         final likedBy = List<String>.from(postData['likedBy'] ?? []);
+        final isLiked = likedBy.contains(currentUserId);
 
         return Consumer<UserModel>(
           builder: (context, userModel, _) {
-            final isLiked = likedBy.contains(currentUserId);
             final isCurrentUser = post is SharedPost &&
                 (post as SharedPost).sharedBy == currentUserId;
 
@@ -913,14 +908,14 @@ class _InteractionBar extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          IconButton(
-                            icon: Icon(
-                              isLiked ? Icons.favorite : Icons.favorite_border,
-                              color: isLiked ? Colors.red : null,
-                            ),
-                            onPressed: () => _handleLike(userModel),
+                          LikeButton(
+                            isLiked: isLiked,
+                            onTap: () async {
+                              await _handleLike(userModel);
+                              return !isLiked;
+                            },
+                            likeCount: likes,
                           ),
-                          Text('$likes'),
                           const SizedBox(width: 20),
                           IconButton(
                             icon: const Icon(Icons.comment_outlined),
@@ -958,70 +953,301 @@ class _InteractionBar extends StatelessWidget {
   }
 
   void _navigateToComments(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CommentScreen(
-          post: post,
-          currentUserId: currentUserId,
-        ),
-      ),
-    );
+    final TextEditingController commentController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            Future<void> sendComment() async {
+              if (commentController.text.trim().isEmpty) return;
+
+              try {
+                final comment = {
+                  'userId': currentUserId,
+                  'text': commentController.text.trim(),
+                  'timestamp': Timestamp.now(),
+                };
+
+                await FirebaseFirestore.instance
+                    .collection('posts')
+                    .doc(post.id)
+                    .update({
+                  'comments': FieldValue.arrayUnion([comment]),
+                  'commentsCount': FieldValue.increment(1),
+                });
+
+                commentController.clear();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Commentaire ajouté'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              } catch (e) {
+                debugPrint('Erreur lors de l\'envoi du commentaire: $e');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Erreur lors de l\'envoi du commentaire'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.9,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Commentaires',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(),
+                    Expanded(
+                      child: StreamBuilder<DocumentSnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('posts')
+                            .doc(post.id)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+
+                          final comments = (snapshot.data!.data()
+                                  as Map<String, dynamic>)['comments'] ??
+                              [];
+
+                          if (comments.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.chat_bubble_outline,
+                                      size: 48, color: Colors.grey[400]),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Aucun commentaire pour le moment',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Soyez le premier à commenter !',
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: comments.length,
+                            itemBuilder: (context, index) {
+                              final comment = comments[index];
+                              return FutureBuilder<DocumentSnapshot>(
+                                future: FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(comment['userId'])
+                                    .get(),
+                                builder: (context, userSnapshot) {
+                                  if (!userSnapshot.hasData) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  final userData = userSnapshot.data!.data()
+                                      as Map<String, dynamic>;
+                                  final timestamp =
+                                      comment['timestamp'] is Timestamp
+                                          ? (comment['timestamp'] as Timestamp)
+                                              .toDate()
+                                          : DateTime.now();
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 16),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundImage: NetworkImage(
+                                            userData['image_profile'] ?? '',
+                                          ),
+                                          backgroundColor: Colors.grey[200],
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    '${userData['firstName']} ${userData['lastName']}',
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    timeago.format(timestamp,
+                                                        locale: 'fr'),
+                                                    style: TextStyle(
+                                                      color: Colors.grey[600],
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(comment['text']),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            offset: const Offset(0, -4),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                      child: SafeArea(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: commentController,
+                                decoration: InputDecoration(
+                                  hintText: 'Ajouter un commentaire...',
+                                  hintStyle: TextStyle(color: Colors.grey[500]),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                    borderSide:
+                                        BorderSide(color: Colors.blue[700]!),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.blue[700]!,
+                                    Colors.blue[400]!
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                icon: const Icon(Icons.send_rounded),
+                                color: Colors.white,
+                                onPressed: sendComment,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      commentController.dispose();
+    });
   }
 
   void _showShareConfirmation(BuildContext context, UserModel users) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const ListTile(
-                title: Text(
-                  "Partager",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.share_outlined),
-                title: const Text('Partager sur mon profil'),
-                onTap: () => _handleProfileShare(context, users),
-              ),
-              ListTile(
-                leading: const Icon(Icons.message_outlined),
-                title: const Text('Envoyer en message'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showConversationsList(context, users);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _handleProfileShare(BuildContext context, UserModel users) {
     final scaffoldContext = context;
     showDialog(
       context: context,
@@ -1070,151 +1296,81 @@ class _InteractionBar extends StatelessWidget {
       },
     );
   }
+}
 
-  void _showConversationsList(BuildContext context, UserModel users) {
-    final conversationService =
-        Provider.of<ConversationService>(context, listen: false);
+class LikeButton extends StatefulWidget {
+  final bool isLiked;
+  final Future<bool> Function() onTap;
+  final int likeCount;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.9,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (_, scrollController) {
-            return Column(
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    "Envoyer à...",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-                const Divider(),
-                Expanded(
-                  child: _buildConversationsList(
-                      scrollController, users, conversationService),
-                ),
-              ],
-            );
-          },
-        );
-      },
+  const LikeButton({
+    super.key,
+    required this.isLiked,
+    required this.onTap,
+    required this.likeCount,
+  });
+
+  @override
+  State<LikeButton> createState() => _LikeButtonState();
+}
+
+class _LikeButtonState extends State<LikeButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isLiked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLiked = widget.isLiked;
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
 
-  Widget _buildConversationsList(
-    ScrollController scrollController,
-    UserModel users,
-    ConversationService conversationService,
-  ) {
-    return StreamBuilder<List<String>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(users.userId)
-          .snapshots()
-          .map((doc) => List<String>.from(doc.data()?['followedUsers'] ?? [])),
-      builder: (context, followedSnapshot) {
-        if (!followedSnapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final followedUsers = followedSnapshot.data!;
-
-        return FutureBuilder<List<DocumentSnapshot>>(
-          future: FirebaseFirestore.instance
-              .collection('users')
-              .where(FieldPath.documentId, whereIn: followedUsers)
-              .get()
-              .then((query) => query.docs),
-          builder: (context, usersSnapshot) {
-            if (!usersSnapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final usersList = usersSnapshot.data!;
-
-            return ListView.builder(
-              controller: scrollController,
-              itemCount: usersList.length,
-              itemBuilder: (context, index) {
-                final userData =
-                    usersList[index].data() as Map<String, dynamic>;
-                final userId = usersList[index].id;
-
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: userData['image_profile'] != null
-                        ? NetworkImage(userData['image_profile'])
-                        : null,
-                    child: userData['image_profile'] == null
-                        ? const Icon(Icons.person)
-                        : null,
-                  ),
-                  title:
-                      Text('${userData['firstName']} ${userData['lastName']}'),
-                  onTap: () => _handleConversationShare(
-                    context,
-                    userId,
-                    users,
-                    conversationService,
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
+  @override
+  void didUpdateWidget(LikeButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _isLiked = widget.isLiked;
   }
 
-  Future<void> _handleConversationShare(
-    BuildContext context,
-    String userId,
-    UserModel users,
-    ConversationService conversationService,
-  ) async {
-    try {
-      await FirebaseFirestore.instance.collection('posts').doc(post.id).update({
-        'sharesCount': FieldValue.increment(1),
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleTap() async {
+    _controller.forward().then((_) => _controller.reverse());
+    final newIsLiked = await widget.onTap();
+    if (mounted) {
+      setState(() {
+        _isLiked = newIsLiked;
       });
-
-      await conversationService.sharePostInConversation(
-        senderId: users.userId,
-        receiverId: userId,
-        post: post,
-      );
-
-      if (!context.mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post partagé avec succès')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors du partage: $e')),
-      );
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ScaleTransition(
+          scale: _scaleAnimation,
+          child: IconButton(
+            icon: Icon(
+              _isLiked ? Icons.favorite : Icons.favorite_border,
+              color: _isLiked ? Colors.red : null,
+            ),
+            onPressed: _handleTap,
+          ),
+        ),
+        Text('${widget.likeCount}'),
+      ],
+    );
   }
 }

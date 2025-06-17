@@ -324,7 +324,7 @@ class ProductCard extends StatelessWidget {
 
   Widget _buildLikeButton(Color primaryColor, bool isSmallScreen) {
     return StreamBuilder<bool>(
-      stream: LikeService.isLiked(product.id),
+      stream: LikeMatchMarketService.isLiked(product.id),
       builder: (context, snapshot) {
         final isLiked = snapshot.data ?? false;
 

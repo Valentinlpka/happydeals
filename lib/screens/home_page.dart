@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/combined_item.dart';
 import 'package:happy/classes/post.dart';
@@ -115,6 +117,9 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     _scrollController.addListener(_onScroll);
     _logScreenView();
 
+    // Demander la permission de localisation
+    _requestLocationPermission();
+
     // Initialisation différée optimisée
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeFeed();
@@ -131,6 +136,62 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     await _analytics.updateWebPageTitle('Accueil');
   }
 
+  Future<void> _requestLocationPermission() async {
+    try {
+      // Vérifier si le service de localisation est activé
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Veuillez activer la localisation pour voir les entreprises proches'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Vérifier les permissions
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Les permissions de localisation sont nécessaires pour voir les entreprises proches'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Les permissions de localisation sont définitivement refusées. Veuillez les activer dans les paramètres.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Récupérer la position actuelle
+      Position position = await Geolocator.getCurrentPosition();
+
+      // Mettre à jour la position dans le UserModel
+      final userProvider = Provider.of<UserModel>(context, listen: false);
+      userProvider.updateLocation(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+    } catch (e) {
+      debugPrint('Erreur lors de la récupération de la position: $e');
+    }
+  }
+
   Future<void> _initializeFeed() async {
     if (_isInitializing) return;
 
@@ -139,13 +200,20 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       final userProvider = Provider.of<UserModel>(context, listen: false);
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
 
+      // Réinitialiser l'état du provider
+      homeProvider.reset();
+
+      // Attendre que les données utilisateur soient chargées
       await userProvider.loadUserData();
 
       if (userProvider.likedCompanies.isEmpty &&
           userProvider.followedUsers.isEmpty) {
+        // Afficher les entreprises proches
+        _showNearbyCompanies();
         return;
       }
 
+      // Charger le feed avec les données utilisateur
       await homeProvider.loadUnifiedFeed(
         userProvider.likedCompanies,
         userProvider.followedUsers,
@@ -166,6 +234,92 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       }
     } finally {
       _isInitializing = false;
+    }
+  }
+
+  Future<void> _showNearbyCompanies() async {
+    try {
+      final userProvider = Provider.of<UserModel>(context, listen: false);
+
+      // Vérifier si nous avons la localisation de l'utilisateur
+      if (userProvider.latitude == 0.0 || userProvider.longitude == 0.0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Activez la géolocalisation pour voir les entreprises proches'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Récupérer les entreprises proches
+      final companiesSnapshot = await FirebaseFirestore.instance
+          .collection('companys')
+          .orderBy('name')
+          .limit(10)
+          .get();
+
+      if (companiesSnapshot.docs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Aucune entreprise trouvée près de chez vous'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Afficher une boîte de dialogue avec les entreprises proches
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Entreprises proches de chez vous'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: companiesSnapshot.docs.length,
+              itemBuilder: (context, index) {
+                final company = companiesSnapshot.docs[index].data();
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: NetworkImage(company['logo'] ?? ''),
+                  ),
+                  title: Text(company['name'] ?? ''),
+                  subtitle: Text(company['categorie'] ?? ''),
+                  trailing: ElevatedButton(
+                    onPressed: () {
+                      userProvider.handleCompanyFollow(
+                          companiesSnapshot.docs[index].id);
+                      Navigator.pop(context);
+                      _initializeFeed();
+                    },
+                    child: const Text('Suivre'),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fermer'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        print('Erreur: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -320,13 +474,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         return StreamBuilder<List<CombinedItem>>(
           stream: homeProvider.feedStream,
           builder: (context, snapshot) {
-            // Afficher le skeleton dans ces cas :
-            // 1. Pendant le chargement initial
-            // 2. Quand il n'y a pas encore de données
-            if (homeProvider.isInitialLoading ||
-                (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData &&
-                    homeProvider.currentFeedItems.isEmpty)) {
+            if (homeProvider.isInitialLoading) {
               return _buildSkeletonList();
             }
 
@@ -342,6 +490,33 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
 
             return _buildContentList(items);
           },
+        );
+      },
+    );
+  }
+
+  Widget _buildContentList(List<CombinedItem> items) {
+    return ListView.builder(
+      key: const PageStorageKey('feed-list'),
+      cacheExtent: 2000,
+      padding: EdgeInsets.zero,
+      addRepaintBoundaries: true,
+      addAutomaticKeepAlives: true,
+      controller: _scrollController,
+      itemCount: items.length + 1,
+      itemBuilder: (context, index) {
+        if (index == items.length) {
+          final homeProvider =
+              Provider.of<HomeProvider>(context, listen: false);
+          if (homeProvider.isLoading) {
+            return _buildLoaderItem();
+          } else if (!homeProvider.hasMoreData) {
+            return _buildEndOfListIndicator();
+          }
+          return const SizedBox.shrink();
+        }
+        return RepaintBoundary(
+          child: _buildItem(items[index]),
         );
       },
     );
@@ -499,7 +674,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      height: 60, // Hauteur fixe pour le conteneur
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Padding(
@@ -510,6 +686,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Container(
+                  height: 42, // Hauteur fixe pour les boutons
                   decoration: BoxDecoration(
                     gradient: gradients[item.title],
                     borderRadius: BorderRadius.circular(8),
@@ -531,8 +708,9 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 8,
+                        vertical: 0,
                       ),
+                      minimumSize: const Size(0, 32), // Hauteur minimale
                       elevation: 0,
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
@@ -683,10 +861,14 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                   height: MediaQuery.of(context).size.width * 0.12,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.pink, Colors.blue],
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey..withAlpha(20),
+                        color: Colors.grey.withAlpha(5),
                         spreadRadius: 1,
                         blurRadius: 4,
                         offset: const Offset(0, 2),
@@ -696,8 +878,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                   child: IconButton(
                     icon: Icon(
                       Icons.search,
-                      color: Colors.grey[800],
-                      size: MediaQuery.of(context).size.width * 0.06,
+                      color: Colors.white,
+                      size: MediaQuery.of(context).size.width * 0.07,
                     ),
                     onPressed: () {
                       Navigator.push(
@@ -714,62 +896,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         );
       },
     );
-  }
-
-  Widget _buildContentList(List<CombinedItem> items) {
-    final homeProvider = Provider.of<HomeProvider>(context);
-
-    if (homeProvider.isLoading && items.isEmpty) {
-      return ListView.builder(
-        padding: EdgeInsets.zero,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: 3,
-        itemBuilder: (context, index) => _buildSkeletonPost(),
-      );
-    } else if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.inbox_outlined, size: 48, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text('Aucun contenu trouvé'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _handleRefresh,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF186dbc),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Actualiser'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      return ListView.builder(
-        key: const PageStorageKey('feed-list'),
-        cacheExtent: 2000,
-        padding: EdgeInsets.zero,
-        addRepaintBoundaries: true,
-        addAutomaticKeepAlives: true,
-        controller: _scrollController,
-        itemCount: items.length + 1,
-        itemBuilder: (context, index) {
-          if (index == items.length) {
-            if (homeProvider.isLoading) {
-              return _buildLoaderItem();
-            } else if (!homeProvider.hasMoreData) {
-              return _buildEndOfListIndicator();
-            }
-            return const SizedBox.shrink();
-          }
-          return RepaintBoundary(
-            child: _buildItem(items[index]),
-          );
-        },
-      );
-    }
   }
 
   void _onScroll() {

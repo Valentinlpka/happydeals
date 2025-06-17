@@ -6,6 +6,7 @@ import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:happy/widgets/postwidget.dart';
+import 'package:happy/widgets/search_bar.dart';
 
 class JeuxConcoursPage extends StatefulWidget {
   const JeuxConcoursPage({super.key});
@@ -17,6 +18,7 @@ class JeuxConcoursPage extends StatefulWidget {
 class _JeuxConcoursPageState extends State<JeuxConcoursPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedCategory = 'Toutes';
   List<String> _categories = ['Toutes'];
@@ -91,37 +93,19 @@ class _JeuxConcoursPageState extends State<JeuxConcoursPage> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withAlpha(26),
-              spreadRadius: 1,
-              blurRadius: 10,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: TextField(
-          decoration: InputDecoration(
-            hintText: 'Rechercher un concours...',
-            hintStyle: TextStyle(color: Colors.grey[400]),
-            prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-            border: InputBorder.none,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          ),
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value;
-            });
-          },
-        ),
-      ),
+    return CustomSearchBar(
+      controller: _searchController,
+      hintText: 'Rechercher un concours...',
+      onChanged: (value) {
+        setState(() {
+          _searchQuery = value;
+        });
+      },
+      onClear: () {
+        setState(() {
+          _searchQuery = '';
+        });
+      },
     );
   }
 

@@ -71,7 +71,7 @@ class ProductCards extends StatelessWidget {
           // Image du produit
           if (post.variants.isNotEmpty && post.variants[0].images.isNotEmpty)
             Hero(
-              tag: 'product-${post.productId}',
+              tag: 'product-card-${post.productId}',
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(

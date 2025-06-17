@@ -1,5 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/providers/ads_provider.dart';
+import 'package:happy/providers/conversation_provider.dart';
+import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/auth_page.dart';
 import 'package:happy/screens/auth/email_verification_page.dart';
@@ -63,8 +66,41 @@ class AuthWrapper extends StatelessWidget {
 
   /// Initialise les données utilisateur après la connexion
   Future<void> _initializeUserData(BuildContext context) async {
-    final userModel = Provider.of<UserModel>(context, listen: false);
-    await userModel.loadUserData();
+    try {
+      final userModel = Provider.of<UserModel>(context, listen: false);
+      final conversationService =
+          Provider.of<ConversationService>(context, listen: false);
+      final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+      final savedAdsProvider =
+          Provider.of<SavedAdsProvider>(context, listen: false);
+
+      // Réinitialiser de manière asynchrone
+      await Future.wait([
+        Future(() => homeProvider.reset()),
+        Future(() => userModel.clearUserData()),
+        conversationService.cleanUp(),
+        Future(() => savedAdsProvider.reset()),
+      ]);
+
+      // Charger les nouvelles données
+      await userModel.loadUserData();
+      await conversationService.initializeForUser(userModel.userId);
+      await savedAdsProvider.initializeSavedAds(userModel.userId);
+
+      // Charger le feed initial si nécessaire
+      if (userModel.likedCompanies.isNotEmpty ||
+          userModel.followedUsers.isNotEmpty) {
+        await homeProvider.loadUnifiedFeed(
+          userModel.likedCompanies,
+          userModel.followedUsers,
+          refresh: true,
+        );
+      }
+    } catch (e) {
+      debugPrint(
+          'Erreur lors de l\'initialisation des données utilisateur: $e');
+      rethrow;
+    }
   }
 }
 

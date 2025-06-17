@@ -12,6 +12,7 @@ import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
 import 'package:happy/screens/troc-et-echange/ad_list_page.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
+import 'package:happy/widgets/search_bar.dart';
 import 'package:happy/widgets/search_result.dart';
 import 'package:provider/provider.dart';
 
@@ -70,7 +71,7 @@ class _SearchPageState extends State<SearchPage> {
         children: [
           // Barre de recherche et filtres (avec padding)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             child: Column(
               children: [
                 _buildSearchBar(),
@@ -101,38 +102,27 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(26),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: "Rechercher...",
-          hintStyle: TextStyle(color: Colors.grey[400]),
-          border: InputBorder.none,
-          prefixIcon: Icon(Icons.search, color: Colors.blue[700]),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    context.read<SearchProvider>().clearResults();
-                  },
-                )
-              : null,
-        ),
-      ),
+    return CustomSearchBar(
+      controller: _searchController,
+      hintText: 'Rechercher...',
+      onChanged: (value) {
+        if (_debounce?.isActive ?? false) _debounce!.cancel();
+        _debounce = Timer(const Duration(milliseconds: 500), () {
+          setState(() {
+            _searchTerm = value;
+          });
+
+          if (value.length >= 2) {
+            context.read<SearchProvider>().search(value);
+          } else if (value.isEmpty) {
+            context.read<SearchProvider>().clearResults();
+          }
+        });
+      },
+      onClear: () {
+        _searchController.clear();
+        context.read<SearchProvider>().clearResults();
+      },
     );
   }
 

@@ -174,6 +174,7 @@ class BookingService {
       }
 
       final schedule = scheduleDoc.docs.first.data();
+
       // Correction de l'indexation des jours : 0 = Dimanche, 1 = Lundi, etc.
       final weekDay = date.weekday % 7; // 0-6 où 0 est dimanche
 
@@ -193,9 +194,11 @@ class BookingService {
         final dailySchedules =
             schedule['dailySchedules'] as Map<String, dynamic>;
         final dailySchedule = dailySchedules[weekDay.toString()];
+
         if (dailySchedule == null) {
           return {};
         }
+
         openTime = dailySchedule['openTime'] as String;
         closeTime = dailySchedule['closeTime'] as String;
         isOpen = dailySchedule['isOpen'] as bool;
@@ -241,22 +244,20 @@ class BookingService {
           currentSlot
               .add(Duration(minutes: serviceDuration))
               .isAtSameMomentAs(endTime)) {
-        // Ignorer les créneaux passés pour aujourd'hui
         if (date.day == DateTime.now().day &&
             currentSlot.isBefore(DateTime.now())) {
           currentSlot = currentSlot.add(Duration(minutes: serviceDuration));
           continue;
         }
 
-        // Vérifier si le créneau n'est pas pendant une pause
         if (!_isInBreakTime(currentSlot, breaks, serviceDuration)) {
           final bookings = await _getExistingBookings(serviceId, currentSlot);
           final availableCount = simultaneousSlots - bookings;
 
           if (availableCount > 0) {
             availableSlots[currentSlot] = availableCount;
-          }
-        }
+          } else {}
+        } else {}
 
         currentSlot = currentSlot.add(Duration(minutes: serviceDuration));
       }

@@ -80,34 +80,35 @@ class MyAdsPage extends StatelessWidget {
             );
           }
 
-          return GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.55,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            padding: const EdgeInsets.all(10),
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               DocumentSnapshot doc = snapshot.data!.docs[index];
-              return FutureBuilder<Ad>(
-                future: Ad.fromFirestore(doc),
-                builder: (context, adSnapshot) {
-                  if (adSnapshot.connectionState == ConnectionState.waiting) {
-                    return const Card(
-                        child: Center(child: CircularProgressIndicator()));
-                  }
-                  if (adSnapshot.hasError || !adSnapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
-                  final ad = adSnapshot.data!;
-                  return AdCard(
-                    ad: ad,
-                    onTap: () => _showAdOptions(context, ad),
-                    onSaveTap: () {},
-                  );
-                },
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: FutureBuilder<Ad>(
+                  future: Ad.fromFirestore(doc),
+                  builder: (context, adSnapshot) {
+                    if (adSnapshot.connectionState == ConnectionState.waiting) {
+                      return const SizedBox(
+                        height: 140,
+                        child: Card(
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      );
+                    }
+                    if (adSnapshot.hasError || !adSnapshot.hasData) {
+                      return const SizedBox.shrink();
+                    }
+                    final ad = adSnapshot.data!;
+                    return AdCard(
+                      ad: ad,
+                      onTap: () => _showAdOptions(context, ad),
+                      onSaveTap: () {},
+                    );
+                  },
+                ),
               );
             },
           );
