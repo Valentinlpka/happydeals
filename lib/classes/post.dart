@@ -14,17 +14,20 @@ import 'package:happy/classes/service_post.dart';
 import 'package:happy/classes/share_post.dart';
 
 class Post {
-  final String companyId;
   final String id;
+  final String companyId;
+  final String companyName;
+  final String companyLogo;
   final DateTime timestamp;
+  final DateTime? updatedAt;
   final String type;
   int views;
   int likes;
   List<String> likedBy;
   int commentsCount;
   List<Comment> comments;
-  final String? sharedBy; // ID de l'utilisateur qui a partagé le post
-  final DateTime? sharedAt; // Date de partage
+  final String? sharedBy;
+  final DateTime? sharedAt;
   final String? originalPostId; // ID du post original si c'est un partage
   final String? comment;
   List<String> viewedBy = [];
@@ -34,6 +37,9 @@ class Post {
     required this.id,
     required this.companyId,
     required this.timestamp,
+    required this.companyName,
+    required this.companyLogo,
+    this.updatedAt,
     required this.type,
     this.views = 0,
     this.likes = 0,
@@ -88,6 +94,8 @@ class Post {
     return Post(
       id: id,
       companyId: map['companyId'] ?? '',
+      companyName: map['companyName'] ?? '',
+      companyLogo: map['companyLogo'] ?? '',
       timestamp: (map['timestamp'] as Timestamp).toDate(),
       type: map['type'] ?? 'unknown',
       views: map['views'] ?? 0,
@@ -106,15 +114,18 @@ class Post {
 
   Map<String, dynamic> toMap() {
     return {
-      'companyId': companyId, // Ajoutez cette ligne
-
-      'timestamp': Timestamp.fromDate(timestamp),
+      'id': id,
+      'companyId': companyId,
+      'timestamp': timestamp,
+      'updatedAt': updatedAt,
+      'companyName': companyName,
+      'companyLogo': companyLogo,
       'type': type,
       'views': views,
       'likes': likes,
       'likedBy': likedBy,
       'commentsCount': commentsCount,
-      'comments': comments.map((comment) => comment.toMap()).toList(),
+      'comments': comments.map((c) => c.toMap()).toList(),
       'sharedBy': sharedBy,
       'sharedAt': sharedAt != null ? Timestamp.fromDate(sharedAt!) : null,
       'originalPostId': originalPostId,
@@ -205,6 +216,31 @@ class Post {
       rethrow;
     }
   }
+
+  // Fonction utilitaire pour convertir un timestamp
+  static DateTime? convertTimestamp(dynamic timestampData) {
+    try {
+      if (timestampData == null) return null;
+      
+      if (timestampData is Timestamp) {
+        return timestampData.toDate();
+      } else if (timestampData is DateTime) {
+        return timestampData;
+      } else if (timestampData is Map<String, dynamic>) {
+        if (timestampData.containsKey('_seconds')) {
+          final seconds = timestampData['_seconds'] as int;
+          return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+        }
+      } else if (timestampData is String) {
+        return DateTime.parse(timestampData);
+      }
+      debugPrint("Type de timestamp non géré: ${timestampData.runtimeType}");
+      return null;
+    } catch (e) {
+      debugPrint("Erreur lors de la conversion du timestamp: $e");
+      return null;
+    }
+  }
 }
 
 Future<void> sharePost(String postId, String userId) async {
@@ -216,6 +252,8 @@ Future<void> sharePost(String postId, String userId) async {
 
   final originalPost = Post.fromDocument(postDoc);
   final sharedPost = Post(
+    companyName: originalPost.companyName,
+    companyLogo: originalPost.companyLogo,
     id: FirebaseFirestore.instance.collection('posts').doc().id,
     companyId: originalPost.companyId,
     timestamp: DateTime.now(),

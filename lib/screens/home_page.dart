@@ -674,19 +674,20 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     };
 
     return Container(
-      height: 60, // Hauteur fixe pour le conteneur
+      height: 60,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.start, // Changé de center à start
             children: _navigationItems.map((item) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Container(
-                  height: 42, // Hauteur fixe pour les boutons
+                  height: 42,
+                  constraints: const BoxConstraints(maxWidth: 160), // Ajout d'une largeur maximale
                   decoration: BoxDecoration(
                     gradient: gradients[item.title],
                     borderRadius: BorderRadius.circular(8),
@@ -707,10 +708,10 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
+                        horizontal: 12, // Réduit de 16 à 12
                         vertical: 0,
                       ),
-                      minimumSize: const Size(0, 32), // Hauteur minimale
+                      minimumSize: const Size(0, 32),
                       elevation: 0,
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
@@ -724,16 +725,17 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                         Icon(
                           item.icon,
                           color: Colors.white,
-                          size: 18,
+                          size: 16, // Réduit de 18 à 16
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4), // Réduit de 6 à 4
                         Text(
                           item.title,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 13, // Réduit de 14 à 13
                             fontWeight: FontWeight.w500,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -750,6 +752,10 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   Widget _buildHeader() {
     return Consumer2<UserModel, NotificationProvider>(
       builder: (context, usersProvider, notificationProvider, _) {
+        final String profileUrl = usersProvider.profileUrl.trim();
+        final bool hasValidProfileUrl = profileUrl.isNotEmpty && 
+            (profileUrl.startsWith('http://') || profileUrl.startsWith('https://'));
+
         return Container(
           padding: EdgeInsets.symmetric(
             horizontal: MediaQuery.of(context).size.width * 0.04,
@@ -787,10 +793,20 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                               shape: BoxShape.circle,
                               color: Colors.white,
                             ),
-                            child: CircleAvatar(
+                            child: hasValidProfileUrl
+                                ? CircleAvatar(
                               radius: MediaQuery.of(context).size.width * 0.06,
-                              backgroundImage:
-                                  NetworkImage(usersProvider.profileUrl),
+                                    backgroundImage: NetworkImage(profileUrl),
+                                    backgroundColor: Colors.grey[200],
+                                  )
+                                : CircleAvatar(
+                                    radius: MediaQuery.of(context).size.width * 0.06,
+                                    backgroundColor: Colors.grey[200],
+                                    child: Icon(
+                                      Icons.person,
+                                      size: MediaQuery.of(context).size.width * 0.06,
+                                      color: Colors.grey[400],
+                                    ),
                             ),
                           ),
                         ),
@@ -952,8 +968,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         final postData = item.item;
         final post = postData['post'] as Post;
 
-        final companyData =
-            Map<String, dynamic>.from(postData['company'] ?? {});
         final sharedByUserData = postData['sharedByUser'] != null
             ? Map<String, dynamic>.from(postData['sharedByUser']!)
             : null;
@@ -973,13 +987,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                 key: ValueKey('${post.id}_${post.originalPostId}_ad'),
                 post: post,
                 ad: ad,
-                companyData: const CompanyData(
-                  category: '',
-                  cover: '',
-                  logo: '',
-                  name: '',
-                  rawData: {},
-                ),
                 currentUserId: currentUserId,
                 sharedByUserData: sharedByUserData,
                 currentProfileUserId: currentUserId,
@@ -1007,12 +1014,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
               sharedByUserData: sharedByUserData,
               currentProfileUserId: currentUserId,
               onView: () {},
-              companyData: CompanyData(
-                  category: companyData['categorie'] ?? '',
-                  cover: companyData['cover'] ?? '',
-                  logo: companyData['logo'] ?? '',
-                  name: companyData['name'] ?? '',
-                  rawData: companyData),
             ),
           );
         }

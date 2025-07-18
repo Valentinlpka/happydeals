@@ -9,6 +9,8 @@ class SharedPost extends Post {
     required super.originalPostId,
     required super.sharedBy,
     required super.sharedAt,
+    required super.companyName,
+    required super.companyLogo,
     super.comment,
   }) : super(type: 'shared');
 
@@ -24,6 +26,8 @@ class SharedPost extends Post {
           ? (data['sharedAt'] as Timestamp).toDate()
           : DateTime.now(),
       comment: data['comment'] ?? '',
+      companyName: data['companyName'] ?? '',
+      companyLogo: data['companyLogo'] ?? '',
     );
   }
 }

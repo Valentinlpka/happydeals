@@ -1,81 +1,37 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
-import 'package:happy/classes/product_post.dart';
 import 'package:happy/config/app_router.dart';
 
 class ProductCards extends StatelessWidget {
-  final ProductPost post;
-  final String companyName;
-  final String companyLogo;
+  final Product product;
 
   const ProductCards({
     super.key,
-    required this.post,
-    required this.companyName,
-    required this.companyLogo,
+    required this.product,
   });
-
-  Future<Product?> _getProduct(String productId) async {
-    try {
-      final productDoc = await FirebaseFirestore.instance
-          .collection('products')
-          .doc(productId)
-          .get();
-
-      if (productDoc.exists) {
-        return Product.fromFirestore(productDoc);
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () async {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return const Center(child: CircularProgressIndicator());
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          AppRouter.productDetails,
+          arguments: {
+            'product': product,
           },
         );
-
-        try {
-          final product = await _getProduct(post.productId);
-          if (!context.mounted) return;
-          Navigator.pop(context);
-          if (product != null && context.mounted) {
-            Navigator.pushNamed(
-              context,
-              AppRouter.productDetails,
-              arguments: {
-                'product': product,
-              },
-            );
-          }
-        } catch (e) {
-          Navigator.pop(context);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Erreur de chargement du produit')),
-            );
-          }
-        }
       },
       child: Column(
         children: [
           // Image du produit
-          if (post.variants.isNotEmpty && post.variants[0].images.isNotEmpty)
+          if (product.variants.isNotEmpty && product.variants[0].images.isNotEmpty)
             Hero(
-              tag: 'product-card-${post.productId}',
+              tag: 'product-card-${product.id}',
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
-                  post.variants[0].images[0],
+                  product.variants[0].images[0],
                   width: double.infinity,
                   height: 200,
                   fit: BoxFit.contain,
@@ -125,7 +81,7 @@ class ProductCards extends StatelessWidget {
               children: [
                 // Nom du produit
                 Text(
-                  post.name,
+                  product.name,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -137,7 +93,7 @@ class ProductCards extends StatelessWidget {
 
                 // Description
                 Text(
-                  post.description,
+                  product.description,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -149,15 +105,15 @@ class ProductCards extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 // Prix
-                if (post.variants.isNotEmpty)
+                if (product.variants.isNotEmpty)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      if (post.variants[0].discount?.isValid() ?? false) ...[
+                      if (product.variants[0].discount?.isValid() ?? false) ...[
                         Text(
-                          "${post.variants[0].discount!.calculateDiscountedPrice(post.variants[0].price).toStringAsFixed(2)} €",
+                          "${product.variants[0].discount!.calculateDiscountedPrice(product.variants[0].price).toStringAsFixed(2)} €",
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -166,7 +122,7 @@ class ProductCards extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          "${post.variants[0].price.toStringAsFixed(2)} €",
+                          "${product.variants[0].price.toStringAsFixed(2)} €",
                           style: TextStyle(
                             fontSize: 16,
                             decoration: TextDecoration.lineThrough,
@@ -175,7 +131,7 @@ class ProductCards extends StatelessWidget {
                         ),
                       ] else
                         Text(
-                          "${post.variants[0].price.toStringAsFixed(2)} €",
+                          "${product.variants[0].price.toStringAsFixed(2)} €",
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,

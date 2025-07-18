@@ -46,7 +46,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   Future<Company> _loadCompanyData() async {
     final doc = await FirebaseFirestore.instance
         .collection('companys')
-        .doc(widget.product.sellerId)
+        .doc(widget.product.companyId)
         .get();
 
     if (!doc.exists) {
@@ -736,59 +736,120 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
           ),
         ),
         const SizedBox(height: 16),
-        FutureBuilder<Company>(
-          future: companyFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError) {
-              return Center(
-                child: Text('Erreur: ${snapshot.error}'),
-              );
-            }
-
-            if (!snapshot.hasData) {
-              return const Center(
-                child: Text('Aucune information sur le vendeur'),
-              );
-            }
-
-            return CompanyInfoCard(
-              company: snapshot.data!,
+        CompanyInfoCard(
+          name: widget.product.companyName,
+          logo: widget.product.companyLogo,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => DetailsEntreprise(
-                    entrepriseId: widget.product.sellerId,
+                    entrepriseId: widget.product.companyId,
                   ),
                 ),
               ),
-            );
-          },
         ),
       ],
     );
   }
 
   Widget _buildSimilarProducts() {
+    debugPrint('🔍 Vérification des IDs du produit:');
+    debugPrint('- ID: "${widget.product.id}"');
+    debugPrint('- Category ID: "${widget.product.categoryId}"');
+    debugPrint('- Company ID: "${widget.product.companyId}"');
+
+    // Validation plus stricte des IDs
+    if (widget.product.id.trim().isEmpty) {
+      debugPrint('❌ ID du produit est vide ou contient uniquement des espaces');
+      return const SizedBox();
+    }
+
+    if (widget.product.categoryId.trim().isEmpty) {
+      debugPrint('❌ ID de la catégorie est vide ou contient uniquement des espaces');
+      return const SizedBox();
+    }
+
+    if (widget.product.companyId.trim().isEmpty) {
+      debugPrint('❌ ID de l\'entreprise est vide ou contient uniquement des espaces');
+      return const SizedBox();
+    }
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('products')
+          .collection('posts')
+          .where('type', isEqualTo: 'product')
           .where('categoryId', isEqualTo: widget.product.categoryId)
-          .where('sellerId', isEqualTo: widget.product.sellerId)
+          .where('companyId', isEqualTo: widget.product.companyId)
+          .where('isActive', isEqualTo: true)
           .limit(5)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox();
+        if (snapshot.hasError) {
+          debugPrint('❌ Erreur dans StreamBuilder: ${snapshot.error}');
+          debugPrint('❌ Stack trace: ${snapshot.stackTrace}');
+          return const SizedBox();
+        }
 
-        final products = snapshot.data!.docs
-            .map((doc) => Product.fromFirestore(doc))
-            .where((p) => p.id != widget.product.id)
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          debugPrint('ℹ️ Pas de données pour les produits similaires');
+          return const SizedBox();
+        }
+
+        debugPrint('📦 Nombre de documents trouvés: ${snapshot.data!.docs.length}');
+
+        final products = snapshot.data!.docs.map((doc) {
+          try {
+            final data = doc.data() as Map<String, dynamic>;
+            
+            // Vérification des données critiques
+            if (!data.containsKey('id') || 
+                !data.containsKey('companyId') || 
+                !data.containsKey('categoryId')) {
+              debugPrint('❌ Document manquant des champs requis: ${doc.id}');
+              return null;
+            }
+
+            final String docId = doc.id;
+            final String productId = data['id'] as String? ?? '';
+            final String companyId = data['companyId'] as String? ?? '';
+            final String categoryId = data['categoryId'] as String? ?? '';
+
+            // Vérification approfondie des IDs
+            if (docId.trim().isEmpty || 
+                productId.trim().isEmpty || 
+                companyId.trim().isEmpty || 
+                categoryId.trim().isEmpty) {
+              debugPrint('❌ IDs invalides dans le document ${doc.id}:');
+              debugPrint('  - DocID: $docId');
+              debugPrint('  - ProductID: $productId');
+              debugPrint('  - CompanyID: $companyId');
+              debugPrint('  - CategoryID: $categoryId');
+              return null;
+            }
+
+            // Ne pas inclure le produit actuel
+            if (productId == widget.product.id) {
+              debugPrint('ℹ️ Produit actuel ignoré: $productId');
+              return null;
+            }
+
+            debugPrint('✅ Document valide trouvé: $docId');
+            return Product.fromFirestore(doc);
+          } catch (e, stackTrace) {
+            debugPrint('❌ Erreur lors de la conversion du produit ${doc.id}: $e');
+            debugPrint('❌ Stack trace: $stackTrace');
+            return null;
+          }
+        })
+        .whereType<Product>()
             .toList();
 
-        if (products.isEmpty) return const SizedBox();
+        if (products.isEmpty) {
+          debugPrint('ℹ️ Aucun produit similaire valide trouvé après filtrage');
+          return const SizedBox();
+        }
+
+        debugPrint('✅ ${products.length} produits similaires valides trouvés');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1022,6 +1083,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                           companyId: widget.product.sellerId,
                           timestamp: DateTime.now(),
                           type: 'product',
+                          companyName: widget.product.companyName,
+                          companyLogo: widget.product.companyLogo,
                         ),
                         onConfirm: (String comment) async {
                           try {
@@ -1199,6 +1262,8 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
                                     companyId: widget.product.sellerId,
                                     timestamp: DateTime.now(),
                                     type: 'product',
+                                    companyName: widget.product.companyName,
+                                    companyLogo: widget.product.companyLogo,
                                   ),
                                 );
 

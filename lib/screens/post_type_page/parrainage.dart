@@ -252,63 +252,43 @@ class _ParraiangePageState extends State<ParraiangePage> {
             itemBuilder: (context, index) {
               final referral = Referral.fromDocument(referrals[index]);
 
-              return FutureBuilder<DocumentSnapshot>(
-                future: _firestore
-                    .collection('companys')
-                    .doc(referral.companyId)
-                    .get(),
-                builder: (context, companySnapshot) {
-                  if (!companySnapshot.hasData) return const SizedBox.shrink();
+              if (_searchQuery.isNotEmpty &&
+                  !referral.title
+                      .toLowerCase()
+                      .contains(_searchQuery.toLowerCase())) {
+                return const SizedBox.shrink();
+              }
 
-                  final companyData =
-                      companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyCategorie = companyData['categorie'] as String;
-                  final companyAddress =
-                      companyData['adress'] as Map<String, dynamic>;
-                  final companyLat = companyAddress['latitude'] as double;
-                  final companyLng = companyAddress['longitude'] as double;
+              final companyAddress = referral.companyAddress;
+              final companyLat = double.tryParse(companyAddress['latitude'].toString()) ?? 0.0;
+              final companyLng = double.tryParse(companyAddress['longitude'].toString()) ?? 0.0;
+              final companyCategorie = companyAddress['category'] as String? ?? '';
 
-                  if (_selectedCategory != 'Toutes' &&
-                      companyCategorie != _selectedCategory) {
-                    return const SizedBox.shrink();
-                  }
+              if (_selectedCategory != 'Toutes' &&
+                  companyCategorie != _selectedCategory) {
+                return const SizedBox.shrink();
+              }
 
-                  if (_searchQuery.isNotEmpty &&
-                      !referral.title
-                          .toLowerCase()
-                          .contains(_searchQuery.toLowerCase())) {
-                    return const SizedBox.shrink();
-                  }
+              if (_selectedLat != null &&
+                  _selectedLng != null &&
+                  !LocationUtils.isWithinRadius(
+                    _selectedLat!,
+                    _selectedLng!,
+                    companyLat,
+                    companyLng,
+                    _selectedRadius,
+                  )) {
+                return const SizedBox.shrink();
+              }
 
-                  if (_selectedLat != null &&
-                      _selectedLng != null &&
-                      !LocationUtils.isWithinRadius(
-                        _selectedLat!,
-                        _selectedLng!,
-                        companyLat,
-                        companyLng,
-                        _selectedRadius,
-                      )) {
-                    return const SizedBox.shrink();
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: PostWidget(
-                      post: referral,
-                      currentUserId: currentUserId,
-                      currentProfileUserId: currentUserId,
-                      onView: () {},
-                      companyData: CompanyData(
-                        name: companyData['name'] ?? '',
-                        category: companyData['categorie'] ?? '',
-                        logo: companyData['logo'] ?? '',
-                        cover: companyData['cover'] ?? '',
-                        rawData: companyData,
-                      ),
-                    ),
-                  );
-                },
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: PostWidget(
+                  post: referral,
+                  currentUserId: currentUserId,
+                  currentProfileUserId: currentUserId,
+                  onView: () {},
+                ),
               );
             },
           ),

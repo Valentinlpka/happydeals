@@ -206,11 +206,15 @@ class _CartScreenState extends State<CartScreen> {
 
                   double distance = 0;
                   if (userModel.latitude != 0 && userModel.longitude != 0) {
+                    // Conversion des coordonnées string en double
+                    final companyLat = double.tryParse(companyAddress['latitude'].toString()) ?? 0.0;
+                    final companyLng = double.tryParse(companyAddress['longitude'].toString()) ?? 0.0;
+                    
                     distance = calculateDistance(
                       userModel.latitude,
                       userModel.longitude,
-                      companyAddress['latitude'] as double,
-                      companyAddress['longitude'] as double,
+                      companyLat,
+                      companyLng,
                     );
                   }
 
@@ -268,7 +272,7 @@ class _CartScreenState extends State<CartScreen> {
                                                 BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            companyData['category'] ?? '',
+                                            companyData['categorie'] ?? '',
                                             style: TextStyle(
                                               color: Colors.blue[900],
                                               fontSize: 12,

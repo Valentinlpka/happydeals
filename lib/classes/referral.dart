@@ -1,26 +1,70 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
+class Reward {
+  final String type;
+  final String value;
+  final String? details;
+
+  Reward({
+    required this.type,
+    required this.value,
+    this.details,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'type': type,
+      'value': value,
+      'details': details,
+    };
+  }
+
+  factory Reward.fromMap(Map<String, dynamic> map) {
+    return Reward(
+      type: map['type'] ?? '',
+      value: map['value'] ?? '',
+      details: map['details'],
+    );
+  }
+}
+
 class Referral extends Post {
   final String title;
   final String searchText;
   final String description;
-  final String sponsorBenefit;
-  final String refereeBenefit;
-  final String image;
-  final DateTime dateFinal;
+  final String? participationConditions;
+  final String rewardRecipient;
+  final Reward sponsorReward;
+  final Reward refereeReward;
+  final DateTime endDate;
+  final int? maxReferrals;
+  final String? termsLink;
+  final String? image;
+  final List<String>? tags;
+  final String? additionalInfo;
+  final Map<String, dynamic> companyAddress;
 
   Referral({
     required super.id,
     required super.timestamp,
     required this.title,
     required this.searchText,
-    required this.dateFinal,
     required this.description,
-    required this.sponsorBenefit,
-    required this.refereeBenefit,
+    this.participationConditions,
+    required this.rewardRecipient,
+    required this.sponsorReward,
+    required this.refereeReward,
+    required this.endDate,
+    this.maxReferrals,
+    this.termsLink,
+    this.image,
+    this.tags,
+    this.additionalInfo,
     required super.companyId,
-    required this.image,
+    required super.companyName,
+    required super.companyLogo,
+    required this.companyAddress,
     super.views,
     super.likes,
     super.likedBy,
@@ -38,11 +82,20 @@ class Referral extends Post {
       title: data['title'] ?? '',
       searchText: data['searchText'] ?? '',
       description: data['description'] ?? '',
-      sponsorBenefit: data['sponsorBenefit'] ?? '',
-      refereeBenefit: data['refereeBenefit'] ?? '',
+      participationConditions: data['participationConditions'],
+      rewardRecipient: data['rewardRecipient'] ?? 'both',
+      sponsorReward: Reward.fromMap(data['sponsorReward'] ?? {}),
+      refereeReward: Reward.fromMap(data['refereeReward'] ?? {}),
+      endDate: (data['endDate'] as Timestamp).toDate(),
+      maxReferrals: data['maxReferrals'],
+      termsLink: data['termsLink'],
+      image: data['image'],
+      tags: List<String>.from(data['tags'] ?? []),
+      additionalInfo: data['additionalInfo'],
       companyId: data['companyId'] ?? '',
-      image: data['image'] ?? '',
-      dateFinal: (data['date_final'] as Timestamp).toDate(),
+      companyName: data['companyName'] ?? '',
+      companyLogo: data['companyLogo'] ?? '',
+      companyAddress: data['companyAddress'] ?? {},
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
@@ -61,11 +114,19 @@ class Referral extends Post {
       'title': title,
       'searchText': searchText,
       'description': description,
-      'companyId': companyId,
-      'sponsorBenefit': sponsorBenefit,
-      'refereeBenefit': refereeBenefit,
+      'participationConditions': participationConditions,
+      'rewardRecipient': rewardRecipient,
+      'sponsorReward': sponsorReward.toMap(),
+      'refereeReward': refereeReward.toMap(),
+      'endDate': Timestamp.fromDate(endDate),
+      'maxReferrals': maxReferrals,
+      'termsLink': termsLink,
       'image': image,
-      'date_final': Timestamp.fromDate(dateFinal),
+      'tags': tags,
+      'additionalInfo': additionalInfo,
+      'companyName': companyName,
+      'companyLogo': companyLogo,
+      'companyAddress': companyAddress,
     });
     return map;
   }

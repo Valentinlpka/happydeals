@@ -220,7 +220,7 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Promotion (${widget.service.discount!['value']}${widget.service.discount!['type'] == 'percentage' ? '%' : '€'})',
+                    'Promotion (${widget.service.discount!.value}${widget.service.discount!.type == 'percentage' ? '%' : '€'})',
                     style: TextStyle(color: Colors.red[700]),
                   ),
                   Text(

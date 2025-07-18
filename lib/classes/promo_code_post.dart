@@ -58,6 +58,8 @@ class PromoCodePost extends Post {
     required this.discountType,
     this.promoCodeId,
     required this.description,
+    required super.companyName,
+    required super.companyLogo,
     this.expiresAt,
     this.maxUses,
     this.currentUses = 0,
@@ -99,6 +101,8 @@ class PromoCodePost extends Post {
       discountType: data['discountType'] ?? 'fixed',
       promoCodeId: data['promoCodeId'],
       description: data['description'] ?? '',
+      companyName: data['companyName'] ?? '',
+      companyLogo: data['companyLogo'] ?? '',
       expiresAt: data['expiresAt'] != null
           ? (data['expiresAt'] as Timestamp).toDate()
           : null,

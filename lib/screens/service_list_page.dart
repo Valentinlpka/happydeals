@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/config/app_router.dart';
@@ -10,6 +9,7 @@ import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/services/service_service.dart';
 import 'package:happy/widgets/location_filter.dart';
 import 'package:happy/widgets/search_bar.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class ServiceListPage extends StatefulWidget {
@@ -23,7 +23,6 @@ class ServiceListPage extends StatefulWidget {
 class _ServiceListPageState extends State<ServiceListPage> {
   final ServiceClientService _serviceService = ServiceClientService();
   final TextEditingController _searchController = TextEditingController();
-  final Map<String, Map<String, dynamic>> _companyCache = {};
 
   String _searchQuery = '';
   double? _selectedLat;
@@ -86,35 +85,14 @@ class _ServiceListPageState extends State<ServiceListPage> {
   }
 
   Widget _buildCompanySection(String proId, List<ServiceModel> services) {
-    if (_companyCache.containsKey(proId)) {
-      final companyData = _companyCache[proId]!;
-      final distance = _getCompanyDistance(companyData);
-      return _buildCompanySectionContent(
-          companyData, proId, services, distance);
+    if (proId.isEmpty || services.isEmpty) {
+      return const SizedBox.shrink();
     }
 
-    return FutureBuilder<DocumentSnapshot>(
-      future:
-          FirebaseFirestore.instance.collection('companys').doc(proId).get(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
+    // On utilise le premier service pour obtenir les informations de l'entreprise
+    final firstService = services.first;
+    final distance = _getCompanyDistance(firstService);
 
-        final companyData = snapshot.data!.data() as Map<String, dynamic>;
-        _companyCache[proId] = companyData;
-
-        final distance = _getCompanyDistance(companyData);
-        return _buildCompanySectionContent(
-            companyData, proId, services, distance);
-      },
-    );
-  }
-
-  Widget _buildCompanySectionContent(
-    Map<String, dynamic> companyData,
-    String proId,
-    List<ServiceModel> services,
-    double? distance,
-  ) {
     return Card(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       elevation: 0,
@@ -124,7 +102,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
       ),
       child: Column(
         children: [
-          _buildCompanyHeader(companyData, proId, distance),
+          _buildCompanyHeader(firstService, distance),
           const Divider(height: 1),
           _buildServicesCarousel(services),
         ],
@@ -132,27 +110,26 @@ class _ServiceListPageState extends State<ServiceListPage> {
     );
   }
 
-  Widget _buildCompanyHeader(
-      Map<String, dynamic> companyData, String proId, double? distance) {
+  Widget _buildCompanyHeader(ServiceModel service, double? distance) {
     return InkWell(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => DetailsEntreprise(entrepriseId: proId),
+          builder: (context) => DetailsEntreprise(entrepriseId: service.professionalId),
         ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            _buildCompanyLogo(companyData['logo'], proId),
+            _buildCompanyLogo(service.companyLogo, service.professionalId),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    companyData['name'] ?? '',
+                    service.companyName,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -174,7 +151,6 @@ class _ServiceListPageState extends State<ServiceListPage> {
                 ],
               ),
             ),
-            _buildRatingWidget(companyData),
           ],
         ),
       ),
@@ -278,7 +254,12 @@ class _ServiceListPageState extends State<ServiceListPage> {
                 fit: StackFit.expand,
                 children: [
                   _buildServiceImage(service),
-                  if (service.hasActivePromotion) _buildPromotionBadge(service),
+                  if (service.hasActivePromotion)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: _buildPromotionBadge(service),
+                    ),
                   _buildDurationBadge(service),
                 ],
               ),
@@ -333,23 +314,37 @@ class _ServiceListPageState extends State<ServiceListPage> {
   }
 
   Widget _buildPromotionBadge(ServiceModel service) {
-    return Positioned(
-      top: 8,
-      left: 8,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    if (!service.hasActivePromotion) return const SizedBox.shrink();
+
+    final discount = service.discount!;
+    final discountText = discount.type == 'percentage'
+        ? '${discount.value.toStringAsFixed(0)}%'
+        : '${discount.value.toStringAsFixed(2)}€';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.red[700],
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(
-          '-${service.discount!['value']}${service.discount!['type'] == 'percentage' ? '%' : '€'}',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.local_offer_rounded,
+            color: Colors.white,
+            size: 16,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '-$discountText',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),
+        ],
       ),
     );
   }
@@ -377,8 +372,23 @@ class _ServiceListPageState extends State<ServiceListPage> {
 
   Widget _buildPriceWidget(ServiceModel service) {
     if (service.hasActivePromotion) {
-      return Row(
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '${service.finalPrice.toStringAsFixed(2)}€',
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(width: 4),
           Text(
             '${service.price.toStringAsFixed(2)}€',
             style: TextStyle(
@@ -387,13 +397,14 @@ class _ServiceListPageState extends State<ServiceListPage> {
               decoration: TextDecoration.lineThrough,
             ),
           ),
-          const SizedBox(width: 4),
+            ],
+          ),
+          if (service.discount?.endDate != null)
           Text(
-            '${service.finalPrice.toStringAsFixed(2)}€',
+              'Jusqu\'au ${DateFormat('dd/MM/yyyy').format(service.discount!.endDate!.toDate())}',
             style: TextStyle(
-              color: Colors.red[700],
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+                fontSize: 10,
+                color: Colors.grey[600],
             ),
           ),
         ],
@@ -418,31 +429,72 @@ class _ServiceListPageState extends State<ServiceListPage> {
     );
   }
 
-  double? _getCompanyDistance(Map<String, dynamic> companyData) {
+  double? _getCompanyDistance(ServiceModel service) {
     if (_selectedLat == null || _selectedLng == null) return null;
 
-    final address = companyData['adress'] as Map<String, dynamic>?;
-    if (address == null) return null;
+    // Vérification de l'existence de l'adresse
+    if (service.companyAddress.isEmpty) return null;
 
-    final lat = address['latitude'] as double?;
-    final lng = address['longitude'] as double?;
+    // Conversion sécurisée des coordonnées
+    double? lat;
+    double? lng;
+
+    try {
+      var latValue = service.companyAddress['latitude'];
+      var lngValue = service.companyAddress['longitude'];
+
+      // Si les valeurs sont des strings, on essaie de les convertir
+      if (latValue is String) {
+        lat = double.tryParse(latValue);
+      } else if (latValue is num) {
+        lat = latValue.toDouble();
+      }
+
+      if (lngValue is String) {
+        lng = double.tryParse(lngValue);
+      } else if (lngValue is num) {
+        lng = lngValue.toDouble();
+      }
+
+      // Vérification des valeurs
     if (lat == null || lng == null) return null;
+      if (lat == 0 && lng == 0) return null;
 
-    return _calculateDistance(_selectedLat!, _selectedLng!, lat, lng);
+      // Vérification que les coordonnées sont dans des plages valides
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
+      // Debug des coordonnées
+      print('Selected coordinates: $_selectedLat, $_selectedLng');
+      print('Company coordinates: $lat, $lng');
+
+      final distance = _calculateDistance(_selectedLat!, _selectedLng!, lat, lng);
+      print('Calculated distance: $distance km');
+
+      return distance;
+    } catch (e) {
+      print('Error calculating distance: $e');
+      return null;
+    }
   }
 
-  double _calculateDistance(
-      double lat1, double lon1, double lat2, double lon2) {
-    const double earthRadius = 6371;
-    final dLat = _toRadians(lat2 - lat1);
-    final dLon = _toRadians(lon2 - lon1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_toRadians(lat1)) *
-            math.cos(_toRadians(lat2)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371; // Rayon de la Terre en kilomètres
+    
+    // Conversion en radians
+    final lat1Rad = _toRadians(lat1);
+    final lat2Rad = _toRadians(lat2);
+    final deltaLat = _toRadians(lat2 - lat1);
+    final deltaLon = _toRadians(lon2 - lon1);
+    
+    // Formule de la haversine
+    final a = math.sin(deltaLat / 2) * math.sin(deltaLat / 2) +
+        math.cos(lat1Rad) * math.cos(lat2Rad) *
+        math.sin(deltaLon / 2) * math.sin(deltaLon / 2);
+    
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadius * c;
+    final distance = earthRadius * c;
+
+    return distance;
   }
 
   double _toRadians(double degree) => degree * math.pi / 180;
@@ -451,7 +503,9 @@ class _ServiceListPageState extends State<ServiceListPage> {
       List<ServiceModel> services) {
     final Map<String, List<ServiceModel>> grouped = {};
     for (final service in services) {
+      if (service.professionalId.isNotEmpty) {
       grouped.putIfAbsent(service.professionalId, () => []).add(service);
+      }
     }
     return grouped;
   }

@@ -203,6 +203,8 @@ class _AdCreationScreenState extends State<AdCreationScreen> {
             companyId: formData['companyId'] ?? '',
             timestamp: DateTime.now(),
             originalPostId: newAdRef.id,
+            companyName: formData['companyName'] ?? '',
+            companyLogo: formData['companyLogo'] ?? '',
             sharedBy: currentUser.uid,
             sharedAt: DateTime.now(),
             comment: "a publié une annonce",

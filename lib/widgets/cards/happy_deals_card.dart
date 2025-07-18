@@ -7,18 +7,10 @@ import 'package:intl/intl.dart';
 
 class HappyDealsCard extends StatelessWidget {
   final HappyDeal post;
-  final String companyName;
-  final String companyCategorie;
-  final String companyLogo;
-  final String companyCover;
 
   const HappyDealsCard({
     super.key,
     required this.post,
-    required this.companyName,
-    required this.companyCover,
-    required this.companyCategorie,
-    required this.companyLogo,
   });
 
   String _formatDateTime(DateTime dateTime) {
@@ -60,7 +52,6 @@ class HappyDealsCard extends StatelessWidget {
                 AppRouter.happyDealDetails,
                 arguments: {
                   'happydeal': post,
-                  'cover': companyCover,
                 },
               );
             },
@@ -71,7 +62,7 @@ class HappyDealsCard extends StatelessWidget {
                 FutureBuilder<String?>(
                   future: _getProductImage(post.productId),
                   builder: (context, snapshot) {
-                    final imageUrl = snapshot.data ?? companyCover;
+                    final imageUrl = snapshot.data ?? '';
                     return Stack(
                       children: [
                         ClipRRect(

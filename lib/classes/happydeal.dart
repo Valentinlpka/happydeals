@@ -17,6 +17,8 @@ class HappyDeal extends Post {
   final List<String> categoryPath;
   final String categoryId;
   final bool isActive;
+  final String? discountType;
+  final Map<String, dynamic>? companyAddress;
 
   HappyDeal({
     required super.timestamp,
@@ -34,6 +36,10 @@ class HappyDeal extends Post {
     required this.isActive,
     required this.newPrice,
     required this.oldPrice,
+    this.discountType,
+    required super.companyName,
+    required super.companyLogo,
+    this.companyAddress,
     super.views,
     super.likes,
     super.likedBy,
@@ -45,32 +51,80 @@ class HappyDeal extends Post {
 
   factory HappyDeal.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // Conversion sécurisée des timestamps
+    DateTime? startDate;
+    if (data['startDate'] != null) {
+      if (data['startDate'] is Timestamp) {
+        startDate = (data['startDate'] as Timestamp).toDate();
+      } else if (data['startDate'] is String) {
+        startDate = DateTime.tryParse(data['startDate']);
+      }
+    }
+    
+    DateTime? endDate;
+    if (data['endDate'] != null) {
+      if (data['endDate'] is Timestamp) {
+        endDate = (data['endDate'] as Timestamp).toDate();
+      } else if (data['endDate'] is String) {
+        endDate = DateTime.tryParse(data['endDate']);
+      }
+    }
+
+    // Conversion sécurisée de categoryPath
+    List<String> categoryPath = [];
+    if (data['categoryPath'] != null) {
+      if (data['categoryPath'] is List) {
+        categoryPath = List<String>.from(
+          (data['categoryPath'] as List).map((item) => item.toString())
+        );
+      } else if (data['categoryPath'] is String) {
+        categoryPath = [data['categoryPath'].toString()];
+      }
+    }
+
+    // Conversion sécurisée des valeurs numériques
+    num discountPercentage = 0;
+    if (data['discountPercentage'] != null) {
+      if (data['discountPercentage'] is num) {
+        discountPercentage = data['discountPercentage'];
+      } else if (data['discountPercentage'] is String) {
+        discountPercentage = num.tryParse(data['discountPercentage']) ?? 0;
+      }
+    }
+
     return HappyDeal(
       id: doc.id,
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
-      title: data['title'],
-      searchText: data['searchText'],
-      productName: data['productName'],
-      description: data['description'],
-      productId: data['productId'],
-      discountPercentage: data['discountPercentage'],
-      startDate: (data['startDate'] as Timestamp).toDate(),
-      endDate: (data['endDate'] as Timestamp).toDate(),
-      companyId: data['companyId'],
-      photo: data['photo'],
-      views: data['views'] ?? 0,
-      likes: data['likes'] ?? 0,
+      timestamp: data['timestamp'] is Timestamp 
+          ? (data['timestamp'] as Timestamp).toDate()
+          : DateTime.now(),
+      title: data['title']?.toString() ?? '',
+      searchText: data['searchText']?.toString() ?? '',
+      productName: data['productName']?.toString() ?? '',
+      description: data['description']?.toString() ?? '',
+      productId: data['productId']?.toString() ?? '',
+      discountPercentage: discountPercentage,
+      startDate: startDate ?? DateTime.now(),
+      endDate: endDate ?? DateTime.now().add(const Duration(days: 7)),
+      companyId: data['companyId']?.toString() ?? '',
+      photo: data['photo']?.toString() ?? '',
+      views: (data['views'] is num) ? (data['views'] as num).toInt() : 0,
+      likes: (data['likes'] is num) ? (data['likes'] as num).toInt() : 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
-      commentsCount: data['commentsCount'] ?? 0,
+      commentsCount: (data['commentsCount'] is num) ? (data['commentsCount'] as num).toInt() : 0,
       comments: (data['comments'] as List<dynamic>?)
               ?.map((commentData) => Comment.fromMap(commentData))
               .toList() ??
           [],
-      newPrice: data['newPrice'],
-      oldPrice: data['oldPrice'],
-      categoryId: data['categoryId'] ?? '',
-      categoryPath: List<String>.from(data['categoryPath'] ?? []),
+      newPrice: (data['newPrice'] is num) ? data['newPrice'] : 0,
+      oldPrice: (data['oldPrice'] is num) ? data['oldPrice'] : 0,
+      categoryId: data['categoryId']?.toString() ?? '',
+      categoryPath: categoryPath,
       isActive: data['isActive'] ?? true,
+      discountType: data['discountType']?.toString(),
+      companyName: data['companyName']?.toString() ?? '',
+      companyLogo: data['companyLogo']?.toString() ?? '',
+      companyAddress: data['companyAddress'] as Map<String, dynamic>?,
     );
   }
 
@@ -101,6 +155,8 @@ class HappyDeal extends Post {
       photo: photo,
       categoryPath: product.categoryPath,
       categoryId: product.categoryId,
+      companyName: product.companyName,
+      companyLogo: product.companyLogo,
       isActive: product.isActive,
       newPrice: newPrice,
       oldPrice: product.basePrice,
@@ -127,6 +183,10 @@ class HappyDeal extends Post {
       'categoryId': categoryId,
       'categoryPath': categoryPath,
       'isActive': isActive,
+      'discountType': discountType,
+      'companyName': companyName,
+      'companyLogo': companyLogo,
+      'companyAddress': companyAddress,
     });
     return map;
   }

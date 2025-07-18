@@ -33,15 +33,27 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
   }
 
   Future<void> _loadCategories() async {
-    final categoriesSnapshot = await _firestore.collection('companys').get();
-    final categories = categoriesSnapshot.docs
-        .map((doc) => doc['categorie'] as String)
-        .toSet()
-        .toList();
+    try {
+      final categoriesSnapshot = await _firestore.collection('companys').get();
+      final Set<String> uniqueCategories = {};
 
-    setState(() {
-      _categories = ['Toutes', ...categories];
-    });
+      for (var doc in categoriesSnapshot.docs) {
+        final data = doc.data();
+        if (data.containsKey('categorie') && data['categorie'] != null) {
+          uniqueCategories.add(data['categorie'].toString());
+        }
+      }
+
+      setState(() {
+        _categories = ['Toutes', ...uniqueCategories];
+      });
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des catégories: $e');
+      // Définir une liste par défaut en cas d'erreur
+      setState(() {
+        _categories = ['Toutes'];
+      });
+    }
   }
 
   void _showLocationFilterBottomSheet() async {
@@ -270,14 +282,31 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
                     return const SizedBox.shrink();
                   }
 
-                  final companyData =
-                      companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyCategorie = companyData['categorie'] as String;
-                  final companyAddress =
-                      companyData['adress'] as Map<String, dynamic>;
-                  final companyLat = companyAddress['latitude'] as double;
-                  final companyLng = companyAddress['longitude'] as double;
+                  final companyData = companySnapshot.data!.data() as Map<String, dynamic>;
 
+                  final companyCategorie = companyData['categorie']?.toString() ?? '';
+                  final companyAddress = companyData['adress'] as Map<String, dynamic>? ?? {};
+
+                  // Conversion sécurisée des coordonnées
+                  double? companyLat;
+                  if (companyAddress['latitude'] != null) {
+                    if (companyAddress['latitude'] is num) {
+                      companyLat = (companyAddress['latitude'] as num).toDouble();
+                    } else if (companyAddress['latitude'] is String) {
+                      companyLat = double.tryParse(companyAddress['latitude']);
+                    }
+                  }
+
+                  double? companyLng;
+                  if (companyAddress['longitude'] != null) {
+                    if (companyAddress['longitude'] is num) {
+                      companyLng = (companyAddress['longitude'] as num).toDouble();
+                    } else if (companyAddress['longitude'] is String) {
+                      companyLng = double.tryParse(companyAddress['longitude']);
+                    }
+                  }
+
+                  // Appliquer les filtres
                   if (_selectedCategory != 'Toutes' &&
                       companyCategorie != _selectedCategory) {
                     return const SizedBox.shrink();
@@ -292,6 +321,8 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
 
                   if (_selectedLat != null &&
                       _selectedLng != null &&
+                      companyLat != null &&
+                      companyLng != null &&
                       !LocationUtils.isWithinRadius(
                         _selectedLat!,
                         _selectedLng!,
@@ -309,13 +340,6 @@ class _HappyDealsPageState extends State<HappyDealsPage> {
                       currentUserId: currentUserId,
                       currentProfileUserId: currentUserId,
                       onView: () {},
-                      companyData: CompanyData(
-                        name: companyData['name'],
-                        category: companyData['categorie'] ?? '',
-                        logo: companyData['logo'],
-                        cover: companyData['cover'] ?? '',
-                        rawData: companyData,
-                      ),
                     ),
                   );
                 },

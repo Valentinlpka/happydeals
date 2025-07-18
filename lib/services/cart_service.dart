@@ -173,7 +173,7 @@ class CartService extends ChangeNotifier {
     try {
       String sellerName = '';
       final companyDoc =
-          await _firestore.collection('companys').doc(product.sellerId).get();
+          await _firestore.collection('companys').doc(product.companyId).get();
 
       if (companyDoc.exists) {
         sellerName = companyDoc.data()?['name'] ?? 'Unknown Company';
@@ -183,7 +183,7 @@ class CartService extends ChangeNotifier {
         final existingCartQuery = await _firestore
             .collection('carts')
             .where('userId', isEqualTo: _auth.currentUser!.uid)
-            .where('sellerId', isEqualTo: product.sellerId)
+            .where('sellerId', isEqualTo: product.companyId)
             .get();
 
         if (existingCartQuery.docs.isNotEmpty) {
@@ -199,7 +199,7 @@ class CartService extends ChangeNotifier {
         final cartRef = _firestore.collection('carts').doc();
         final newCart = Cart(
           id: cartRef.id,
-          sellerId: product.sellerId,
+          sellerId: product.companyId,
           merchantId: product.merchantId,
           sellerName: sellerName,
           createdAt: DateTime.now(),

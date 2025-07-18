@@ -6,8 +6,6 @@ import 'package:intl/intl.dart';
 class DealsExpressCard extends StatelessWidget {
   final ExpressDeal post;
   final String currentUserId;
-  final String companyName;
-  final String companyLogo;
   final String? companyCity;
   final String? distance;
   final bool isHorizontal;
@@ -15,8 +13,6 @@ class DealsExpressCard extends StatelessWidget {
   const DealsExpressCard({
     super.key,
     required this.post,
-    required this.companyName,
-    required this.companyLogo,
     required this.currentUserId,
     this.companyCity,
     this.distance,
@@ -61,7 +57,7 @@ class DealsExpressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isActive = post.availableBaskets > 0;
+    final bool isActive = post.basketCount > 0;
     final timeRemaining = _getTimeRemaining(post.pickupTimes[0]);
 
     if (isHorizontal) {
@@ -198,7 +194,7 @@ class DealsExpressCard extends StatelessWidget {
                             ),
                             child: Text(
                               isActive
-                                  ? '${post.availableBaskets} restants'
+                                  ? '${post.basketCount} restants'
                                   : 'Épuisé',
                               style: TextStyle(
                                 color: isActive
@@ -312,6 +308,7 @@ class DealsExpressCard extends StatelessWidget {
                                   ),
                                 ),
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
                                       Icons.shopping_basket_rounded,
@@ -321,16 +318,19 @@ class DealsExpressCard extends StatelessWidget {
                                           : Colors.grey[600],
                                     ),
                                     const SizedBox(width: 6),
-                                    Text(
-                                      isActive
-                                          ? '${post.availableBaskets} panier${post.availableBaskets > 1 ? 's' : ''}'
-                                          : 'Indisponible',
-                                      style: TextStyle(
-                                        color: isActive
-                                            ? Colors.green[700]
-                                            : Colors.grey[600],
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
+                                    Flexible(
+                                      child: Text(
+                                        isActive
+                                            ? '${post.basketCount} panier${post.basketCount > 1 ? 's' : ''}'
+                                            : 'Indisponible',
+                                        style: TextStyle(
+                                          color: isActive
+                                              ? Colors.green[700]
+                                              : Colors.grey[600],
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -345,10 +345,10 @@ class DealsExpressCard extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.orange[50],
                                   borderRadius: BorderRadius.circular(8),
-                                  border:
-                                      Border.all(color: Colors.orange[200]!),
+                                  border: Border.all(color: Colors.orange[200]!),
                                 ),
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
                                       Icons.timer_outlined,
@@ -356,12 +356,15 @@ class DealsExpressCard extends StatelessWidget {
                                       color: Colors.orange[700],
                                     ),
                                     const SizedBox(width: 6),
-                                    Text(
-                                      timeRemaining,
-                                      style: TextStyle(
-                                        color: Colors.orange[700],
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
+                                    Flexible(
+                                      child: Text(
+                                        timeRemaining,
+                                        style: TextStyle(
+                                          color: Colors.orange[700],
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],

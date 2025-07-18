@@ -269,15 +269,9 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          FutureBuilder<Company>(
-            future: companyFuture,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              return CompanyInfoCard(
-                company: snapshot.data!,
+          CompanyInfoCard(
+            name: widget.post.companyName,
+            logo: widget.post.companyLogo,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -286,8 +280,6 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
                     ),
                   ),
                 ),
-              );
-            },
           ),
         ],
       ),

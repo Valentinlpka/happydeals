@@ -5,15 +5,11 @@ import 'package:happy/config/app_router.dart';
 
 class PromoCodeCard extends StatelessWidget {
   final PromoCodePost post;
-  final String companyName;
-  final String companyLogo;
   final String currentUserId;
 
   const PromoCodeCard({
     super.key,
     required this.post,
-    required this.companyName,
-    required this.companyLogo,
     required this.currentUserId,
   });
 
@@ -50,8 +46,8 @@ class PromoCodeCard extends StatelessWidget {
               AppRouter.promoCodeDetails,
               arguments: {
                 'post': post,
-                'companyName': companyName,
-                'companyLogo': companyLogo,
+                'companyName': post.companyName,
+                'companyLogo': post.companyLogo,
               },
             ),
             child: Padding(

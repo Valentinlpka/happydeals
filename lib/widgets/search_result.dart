@@ -358,18 +358,9 @@ class _SearchResultsState extends State<SearchResults> {
       return const SizedBox.shrink();
     }
 
-    Map<String, dynamic> companyData =
-        companySnapshot.data() as Map<String, dynamic>;
-
     return PostWidget(
       key: Key(document.id),
       post: post,
-      companyData: CompanyData(
-          category: companyData['categorie'] ?? '',
-          cover: companyData['cover'] ?? '',
-          logo: companyData['logo'] ?? '',
-          name: companyData['name'] ?? 'Unknown',
-          rawData: companyData),
       currentUserId: '',
       currentProfileUserId: '',
       onView: () {},

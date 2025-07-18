@@ -26,6 +26,8 @@ class News extends Post {
     super.likes,
     super.likedBy,
     super.commentsCount,
+    required super.companyName,
+    required super.companyLogo,
     super.comments,
   }) : super(type: 'news');
 
@@ -44,6 +46,8 @@ class News extends Post {
       companyId: data['companyId'] ?? FirebaseAuth.instance.currentUser?.uid,
       searchText: data['searchText'],
       timestamp: (data['timestamp'] as Timestamp).toDate(),
+      companyName: data['companyName'] ?? '',
+      companyLogo: data['companyLogo'] ?? '',
     );
   }
 
@@ -72,6 +76,8 @@ class News extends Post {
               ?.map((commentData) => Comment.fromMap(commentData))
               .toList() ??
           [],
+      companyName: data['companyName'] ?? '',
+      companyLogo: data['companyLogo'] ?? '',
     );
   }
 

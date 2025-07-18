@@ -19,6 +19,11 @@ class ConcoursCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final totalValue = contest.rewards.fold<double>(
+      0,
+      (sum, reward) => sum + (reward.value * reward.winnersCount),
+    );
+
     return Column(
       children: [
         // Carte principale
@@ -55,7 +60,7 @@ class ConcoursCard extends StatelessWidget {
                         top: Radius.circular(12),
                       ),
                       child: Image.network(
-                        contest.giftPhoto,
+                        contest.image,
                         height: 140,
                         width: double.infinity,
                         fit: BoxFit.cover,
@@ -143,7 +148,7 @@ class ConcoursCard extends StatelessWidget {
                   ),
 
                 // Lots à gagner
-                if (contest.gifts.isNotEmpty)
+                if (contest.rewards.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.all(12),
                     child: Row(
@@ -153,7 +158,7 @@ class ConcoursCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'À gagner : ${contest.gifts.map((g) => g.name).join(", ")}',
+                            'À gagner : ${contest.rewards.map((r) => r.description).join(", ")} (Valeur totale : ${totalValue.toStringAsFixed(2)}€)',
                             style: const TextStyle(
                               fontSize: 13,
                               color: Colors.black87,

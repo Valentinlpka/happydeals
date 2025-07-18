@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/classes/company.dart';
 import 'package:happy/classes/event.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/providers/conversation_provider.dart';
@@ -26,14 +25,12 @@ class DetailsEvenementPage extends StatefulWidget {
 }
 
 class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
-  late Future<Company> companyFuture;
   final ScrollController _scrollController = ScrollController();
   bool _showTitle = false;
 
   @override
   void initState() {
     super.initState();
-    companyFuture = _fetchCompanyDetails(widget.event.companyId);
     _scrollController.addListener(_onScroll);
   }
 
@@ -49,14 +46,6 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
     } else if (_scrollController.offset <= 140 && _showTitle) {
       setState(() => _showTitle = false);
     }
-  }
-
-  Future<Company> _fetchCompanyDetails(String companyId) async {
-    DocumentSnapshot doc = await FirebaseFirestore.instance
-        .collection('companys')
-        .doc(companyId)
-        .get();
-    return Company.fromDocument(doc);
   }
 
   String formatDate(DateTime date) {
@@ -419,14 +408,9 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
             ),
           ),
           const SizedBox(height: 16),
-          FutureBuilder<Company>(
-            future: companyFuture,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              return CompanyInfoCard(
-                company: snapshot.data!,
+          CompanyInfoCard(
+            name: widget.event.companyName,
+            logo: widget.event.companyLogo,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -435,8 +419,6 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                     ),
                   ),
                 ),
-              );
-            },
           ),
         ],
       ),
@@ -507,6 +489,8 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                         id: widget.event.id,
                         companyId: widget.event.companyId,
                         timestamp: DateTime.now(),
+                        companyName: widget.event.companyName,
+                        companyLogo: widget.event.companyLogo,
                         type: 'event',
                       ),
                       onConfirm: (String comment) async {
@@ -639,6 +623,8 @@ class _DetailsEvenementPageState extends State<DetailsEvenementPage> {
                                   companyId: widget.event.companyId,
                                   timestamp: DateTime.now(),
                                   type: 'event',
+                                  companyName: widget.event.companyName,
+                                  companyLogo: widget.event.companyLogo,
                                 );
 
                                 await Provider.of<ConversationService>(context,

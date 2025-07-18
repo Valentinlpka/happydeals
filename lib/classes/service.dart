@@ -1,5 +1,47 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class ServiceDiscount {
+  final String type;
+  final double value;
+  final Timestamp? startDate;
+  final Timestamp? endDate;
+  final bool isActive;
+  final String? promotionPostId;
+
+  ServiceDiscount({
+    required this.type,
+    required this.value,
+    this.startDate,
+    this.endDate,
+    this.isActive = true,
+    this.promotionPostId,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'type': type,
+      'value': value,
+      'startDate': startDate,
+      'endDate': endDate,
+      'isActive': isActive,
+      'promotionPostId': promotionPostId,
+    };
+  }
+
+  factory ServiceDiscount.fromMap(Map<String, dynamic> map) {
+    return ServiceDiscount(
+      type: map['type'] ?? 'percentage',
+      value: (map['value'] is int) 
+          ? (map['value'] as int).toDouble() 
+          : (map['value'] ?? 0.0).toDouble(),
+      startDate: map['startDate'],
+      endDate: map['endDate'],
+      isActive: map['isActive'] ?? true,
+      promotionPostId: map['promotionPostId'],
+    );
+  }
+}
+
 class ServiceModel {
   final String id;
   final String name;
@@ -12,9 +54,23 @@ class ServiceModel {
   final bool isActive;
   final String stripeProductId;
   final String stripePriceId;
-  final DateTime createdAt;
+  final DateTime timestamp;
   final DateTime updatedAt;
-  final Map<String, dynamic>? discount;
+  final ServiceDiscount? discount;
+  final String companyName;
+  final String companyLogo;
+  final Map<String, dynamic> companyAddress;
+  final String executionLocation;
+  final double? travelRadius;
+  final int minParticipants;
+  final int maxParticipants;
+  final String cancellationPolicy;
+  final String? cancellationPolicyOther;
+  final List<String> providedEquipment;
+  final List<String> keywords;
+  final String? additionalInfo;
+  final String categoryId;
+  final List<String> categoryPath;
 
   ServiceModel({
     required this.id,
@@ -28,32 +84,55 @@ class ServiceModel {
     this.isActive = true,
     required this.stripeProductId,
     required this.stripePriceId,
-    required this.createdAt,
+    required this.timestamp,
     required this.updatedAt,
     this.discount,
+    required this.companyName,
+    required this.companyLogo,
+    required this.companyAddress,
+    this.executionLocation = 'on_site',
+    this.travelRadius,
+    this.minParticipants = 1,
+    this.maxParticipants = 1,
+    this.cancellationPolicy = 'no_cancellation',
+    this.cancellationPolicyOther,
+    this.providedEquipment = const [],
+    this.keywords = const [],
+    this.additionalInfo,
+    this.categoryId = '',
+    this.categoryPath = const [],
   });
 
   bool get hasActivePromotion {
     if (discount == null) return false;
 
-    final startDate = (discount!['startDate'] as Timestamp).toDate();
-    final endDate = (discount!['endDate'] as Timestamp).toDate();
-    final isActive = discount!['isActive'] as bool;
+    final startDate = discount!.startDate?.toDate();
+    final endDate = discount!.endDate?.toDate();
+    final isActive = discount!.isActive;
 
     return isActive &&
-        DateTime.now().isAfter(startDate) &&
-        DateTime.now().isBefore(endDate);
+        (startDate == null || DateTime.now().isAfter(startDate)) &&
+        (endDate == null || DateTime.now().isBefore(endDate));
   }
 
   double get finalPrice {
     if (hasActivePromotion) {
-      if (discount!['type'] == 'percentage') {
-        return price * (1 - (discount!['value'] as num) / 100);
-      } else if (discount!['type'] == 'fixed') {
-        return price - (discount!['value'] as num);
+      if (discount!.type == 'percentage') {
+        return price * (1 - discount!.value / 100);
+      } else if (discount!.type == 'fixed') {
+        return price - discount!.value;
       }
     }
     return price;
+  }
+
+  double get discountPercentage {
+    if (!hasActivePromotion) return 0;
+    if (discount!.type == 'percentage') {
+      return discount!.value;
+    } else {
+      return (discount!.value / price) * 100;
+    }
   }
 
   Map<String, dynamic> toMap() {
@@ -69,14 +148,27 @@ class ServiceModel {
       'isActive': isActive,
       'stripeProductId': stripeProductId,
       'stripePriceId': stripePriceId,
-      'createdAt': createdAt,
+      'timestamp': timestamp,
       'updatedAt': updatedAt,
-      'discount': discount,
+      'discount': discount?.toMap(),
+      'companyName': companyName,
+      'companyLogo': companyLogo,
+      'companyAddress': companyAddress,
+      'executionLocation': executionLocation,
+      'travelRadius': travelRadius,
+      'minParticipants': minParticipants,
+      'maxParticipants': maxParticipants,
+      'cancellationPolicy': cancellationPolicy,
+      'cancellationPolicyOther': cancellationPolicyOther,
+      'providedEquipment': providedEquipment,
+      'keywords': keywords,
+      'additionalInfo': additionalInfo,
+      'categoryId': categoryId,
+      'categoryPath': categoryPath,
     };
   }
 
   factory ServiceModel.fromMap(Map<String, dynamic> map) {
-    // Conversion des types numériques
     final price = map['price'] is int
         ? (map['price'] as int).toDouble()
         : (map['price'] ?? 0.0).toDouble();
@@ -88,19 +180,9 @@ class ServiceModel {
         ? map['duration'] as int
         : (map['duration'] ?? 30).toInt();
 
-    // Gestion du discount
-    Map<String, dynamic>? discountMap;
+    ServiceDiscount? discount;
     if (map['discount'] != null) {
-      final discountData = map['discount'] as Map<String, dynamic>;
-      discountMap = {
-        'type': discountData['type'] ?? '',
-        'value': discountData['value'] is int
-            ? (discountData['value'] as int).toDouble()
-            : (discountData['value'] ?? 0.0).toDouble(),
-        'startDate': discountData['startDate'],
-        'endDate': discountData['endDate'],
-        'isActive': discountData['isActive'] ?? true,
-      };
+      discount = ServiceDiscount.fromMap(map['discount'] as Map<String, dynamic>);
     }
 
     return ServiceModel(
@@ -110,14 +192,28 @@ class ServiceModel {
       description: map['description'] ?? '',
       price: price,
       duration: duration,
-      professionalId: map['professionalId'] ?? '',
+      professionalId: map['companyId'] ?? '',
       images: List<String>.from(map['images'] ?? []),
       isActive: map['isActive'] ?? true,
       stripeProductId: map['stripeProductId'] ?? '',
       stripePriceId: map['stripePriceId'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      timestamp: (map['timestamp'] as Timestamp).toDate(),
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
-      discount: discountMap,
+      discount: discount,
+      companyName: map['companyName'] ?? '',
+      companyLogo: map['companyLogo'] ?? '',
+      companyAddress: Map<String, dynamic>.from(map['companyAddress'] ?? {}),
+      executionLocation: map['executionLocation'] ?? 'on_site',
+      travelRadius: (map['travelRadius'] ?? 0.0).toDouble(),
+      minParticipants: map['minParticipants'] ?? 1,
+      maxParticipants: map['maxParticipants'] ?? 1,
+      cancellationPolicy: map['cancellationPolicy'] ?? 'no_cancellation',
+      cancellationPolicyOther: map['cancellationPolicyOther'],
+      providedEquipment: List<String>.from(map['providedEquipment'] ?? []),
+      keywords: List<String>.from(map['keywords'] ?? []),
+      additionalInfo: map['additionalInfo'],
+      categoryId: map['categoryId'] ?? '',
+      categoryPath: List<String>.from(map['categoryPath'] ?? []),
     );
   }
 

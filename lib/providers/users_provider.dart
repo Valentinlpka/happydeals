@@ -572,6 +572,8 @@ class UserModel with ChangeNotifier {
         timestamp: DateTime.now(),
         sharedBy: userId,
         sharedAt: DateTime.now(),
+        companyName: originalPost.companyName,
+        companyLogo: originalPost.companyLogo,
         originalPostId: postId,
         comment: comment,
       );

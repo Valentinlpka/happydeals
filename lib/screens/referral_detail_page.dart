@@ -382,18 +382,30 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
                             icon: Icons.card_giftcard_rounded,
                             iconColor: Colors.purple[700],
                             children: [
-                              if (referralData['sponsorReward'] != null)
-                                _buildRewardItem(
-                                  'Parrain',
-                                  referralData['sponsorReward'].toString(),
-                                  isParrain,
+                              if (referralData['sponsorReward'] != null) ...[
+                                Builder(
+                                  builder: (context) {
+                                    final sponsorReward = Map<String, dynamic>.from(referralData['sponsorReward']);
+                                    return _buildRewardItem(
+                                      'Parrain',
+                                      '${sponsorReward['value']}${sponsorReward['details'] != null ? ' - ${sponsorReward['details']}' : ''}',
+                                      isParrain,
+                                    );
+                                  },
                                 ),
-                              if (referralData['refereeReward'] != null)
-                                _buildRewardItem(
-                                  'Filleul',
-                                  referralData['refereeReward'].toString(),
-                                  !isParrain,
+                              ],
+                              if (referralData['refereeReward'] != null) ...[
+                                Builder(
+                                  builder: (context) {
+                                    final refereeReward = Map<String, dynamic>.from(referralData['refereeReward']);
+                                    return _buildRewardItem(
+                                      'Filleul',
+                                      '${refereeReward['value']}${refereeReward['details'] != null ? ' - ${refereeReward['details']}' : ''}',
+                                      !isParrain,
+                                    );
+                                  },
                                 ),
+                              ],
                             ],
                           ),
 
@@ -553,6 +565,10 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
   }
 
   Widget _buildRewardItem(String type, String reward, bool isCurrentUser) {
+    final rewardParts = reward.split(' - ');
+    final rewardValue = rewardParts[0];
+    final rewardDetails = rewardParts.length > 1 ? rewardParts[1] : '';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -594,13 +610,22 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
                   ),
                 ),
                 Text(
-                  reward,
+                  rewardValue,
                   style: TextStyle(
                     fontSize: 13,
                     color:
                         isCurrentUser ? Colors.purple[900] : Colors.grey[900],
                   ),
                 ),
+                if (rewardDetails.isNotEmpty)
+                  Text(
+                    rewardDetails,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          isCurrentUser ? Colors.purple[500] : Colors.grey[500],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -696,11 +721,20 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
           title: postData['title'] ?? '',
           searchText: postData['searchText'] ?? '',
           description: postData['description'] ?? '',
-          sponsorBenefit: postData['sponsorBenefit'] ?? '',
-          refereeBenefit: postData['refereeBenefit'] ?? '',
+          participationConditions: postData['participationConditions'],
+          rewardRecipient: postData['rewardRecipient'] ?? 'both',
+          sponsorReward: Reward.fromMap(postData['sponsorReward'] ?? {}),
+          refereeReward: Reward.fromMap(postData['refereeReward'] ?? {}),
+          endDate: (postData['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          maxReferrals: postData['maxReferrals'],
+          termsLink: postData['termsLink'],
+          image: postData['image'],
+          tags: List<String>.from(postData['tags'] ?? []),
+          additionalInfo: postData['additionalInfo'],
           companyId: postData['companyId'] ?? '',
-          image: postData['image'] ?? '',
-          dateFinal: (postData['date_final'] as Timestamp).toDate(),
+          companyName: companyData['name'] ?? '',
+          companyLogo: companyData['logo'] ?? '',
+          companyAddress: companyData['adress'] ?? {},
           views: postData['views'] ?? 0,
           likes: postData['likes'] ?? 0,
           likedBy: List<String>.from(postData['likedBy'] ?? []),
@@ -725,14 +759,9 @@ class _ReferralDetailPageState extends State<ReferralDetailPage>
           ),
           child: Column(
             children: [
-              // En-tête de l'entreprise
-
-              // Carte de parrainage
               ParrainageCard(
                 post: referral,
                 currentUserId: currentUserId,
-                companyLogo: companyData['logo'] ?? '',
-                companyName: companyData['name'] ?? '',
               ),
             ],
           ),

@@ -214,6 +214,9 @@ class AlgoliaService {
       // Construire les filtres
       List<String> filters = [];
 
+          filters.add('type:product');
+
+
       if (isActive != null) {
         filters.add('isActive:$isActive');
       }
@@ -242,7 +245,7 @@ class AlgoliaService {
 
       // Exécuter la recherche
       final response = await http.post(
-        Uri.parse('$apiEndpoint/products/query'),
+        Uri.parse('$apiEndpoint/posts/query'),
         headers: {
           'X-Algolia-API-Key': searchApiKey,
           'X-Algolia-Application-Id': applicationId,

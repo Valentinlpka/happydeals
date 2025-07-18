@@ -89,12 +89,6 @@ class LikedPostsPage extends StatelessWidget {
                       post: post,
                       currentUserId: currentUserId,
                       currentProfileUserId: currentUserId,
-                      companyData: CompanyData(
-                          category: companyData['categorie'] ?? '',
-                          cover: companyData['cover'] ?? '',
-                          logo: companyData['logo'] ?? '',
-                          name: companyData['name'] ?? '',
-                          rawData: companyData),
                       onView: () {
                         // Logique d'affichage du détail du post
                       },

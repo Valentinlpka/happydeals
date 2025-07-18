@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' show cos, sin, sqrt, atan2, pi;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -299,7 +299,7 @@ class _ProductsPageState extends State<ProductsPage> {
                               return _buildProductSection(
                                 title: 'Produits près de chez vous',
                                 stream: FirebaseFirestore.instance
-                                    .collection('products')
+                                    .collection('posts')
                                     .where('isActive', isEqualTo: true)
                                     .where('sellerId', whereIn: snapshot.data)
                                     .limit(10)
@@ -311,7 +311,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                       builder: (context) => ProductsListPage(
                                         title: 'Produits près de chez vous',
                                         query: FirebaseFirestore.instance
-                                            .collection('products')
+                                            .collection('posts')
                                             .where('isActive', isEqualTo: true)
                                             .where('sellerId',
                                                 whereIn: snapshot.data),
@@ -331,9 +331,10 @@ class _ProductsPageState extends State<ProductsPage> {
                         _buildProductSection(
                           title: 'Nouveautés',
                           stream: FirebaseFirestore.instance
-                              .collection('products')
+                              .collection('posts')
+                              .where('type', isEqualTo: 'product')
                               .where('isActive', isEqualTo: true)
-                              .orderBy('createdAt', descending: true)
+                              .orderBy('timestamp', descending: true)
                               .limit(10)
                               .snapshots(),
                           onSeeMorePressed: () {
@@ -343,9 +344,10 @@ class _ProductsPageState extends State<ProductsPage> {
                                 builder: (context) => ProductsListPage(
                                   title: 'Nouveautés',
                                   query: FirebaseFirestore.instance
-                                      .collection('products')
+                                      .collection('posts')
+                                      .where('type', isEqualTo: 'product')
                                       .where('isActive', isEqualTo: true)
-                                      .orderBy('createdAt', descending: true),
+                                      .orderBy('timestamp', descending: true),
                                   showDistance: true,
                                   userLat: _selectedLat,
                                   userLng: _selectedLng,
@@ -360,11 +362,14 @@ class _ProductsPageState extends State<ProductsPage> {
                         _buildProductSection(
                           title: 'Les plus populaires',
                           stream: FirebaseFirestore.instance
-                              .collection('products')
+                              .collection('posts')
+                              .where('type', isEqualTo: 'product')
                               .where('isActive', isEqualTo: true)
-                              .orderBy('soldCount', descending: true)
+                              .orderBy('views', descending: true)
                               .limit(10)
                               .snapshots(),
+                              
+                              
                           onSeeMorePressed: () {
                             Navigator.push(
                               context,
@@ -372,9 +377,10 @@ class _ProductsPageState extends State<ProductsPage> {
                                 builder: (context) => ProductsListPage(
                                   title: 'Les plus populaires',
                                   query: FirebaseFirestore.instance
-                                      .collection('products')
+                                      .collection('posts')
+                                      .where('type', isEqualTo: 'product')
                                       .where('isActive', isEqualTo: true)
-                                      .orderBy('soldCount', descending: true),
+                                      .orderBy('views', descending: true),
                                   showDistance: true,
                                   userLat: _selectedLat,
                                   userLng: _selectedLng,
@@ -389,7 +395,8 @@ class _ProductsPageState extends State<ProductsPage> {
                         ..._mainCategories.map(
                           (category) => StreamBuilder<QuerySnapshot>(
                             stream: FirebaseFirestore.instance
-                                .collection('products')
+                                .collection('posts')
+                                .where('type', isEqualTo: 'product')
                                 .where('isActive', isEqualTo: true)
                                 .where('categoryPath',
                                     arrayContains: category.id)
@@ -405,16 +412,17 @@ class _ProductsPageState extends State<ProductsPage> {
                                 return const SizedBox();
                               }
 
-                              final products = snapshot.data!.docs;
+                              final posts = snapshot.data!.docs;
 
-                              if (products.isEmpty) {
+                              if (posts.isEmpty) {
                                 return const SizedBox();
                               }
 
                               return _buildProductSection(
                                 title: category.name,
                                 stream: FirebaseFirestore.instance
-                                    .collection('products')
+                                    .collection('posts')
+                                    .where('type', isEqualTo: 'product')
                                     .where('isActive', isEqualTo: true)
                                     .where('categoryPath',
                                         arrayContains: category.id)
@@ -470,6 +478,7 @@ class _ProductsPageState extends State<ProductsPage> {
     return '${distance.toStringAsFixed(1)}km';
   }
 
+  // Modifiez la méthode _buildProductSection pour utiliser la collection 'posts'
   Widget _buildProductSection({
     required String title,
     required Stream<QuerySnapshot> stream,
@@ -518,21 +527,50 @@ class _ProductsPageState extends State<ProductsPage> {
               }
 
               if (snapshot.hasError) {
-                return Center(child: Text('Erreur: ${snapshot.error}'));
+                debugPrint('❌ Erreur dans StreamBuilder: ${snapshot.error}');
+                debugPrint('❌ Stack trace: ${snapshot.stackTrace}');
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red[700], size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Une erreur est survenue',
+                        style: TextStyle(color: Colors.grey[800], fontSize: 16),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData || snapshot.data?.docs.isEmpty == true) {
+                debugPrint('ℹ️ Pas de données pour la section "$title"');
+                return const Center(
+                  child: Text('Aucun produit disponible'),
+                );
               }
 
               final products = snapshot.data?.docs
-                      .map((doc) => Product.fromFirestore(doc))
+                      .map((doc) {
+                        try {
+                          return Product.fromFirestore(doc);
+                        } catch (e, stackTrace) {
+                          debugPrint('❌ Erreur lors de la conversion du produit ${doc.id}: $e');
+                          debugPrint('❌ Stack trace: $stackTrace');
+                          return null;
+                        }
+                      })
+                      .whereType<Product>() // Filtre les null et cast en Product
                       .where((product) =>
                           _searchQuery.isEmpty ||
                           product.name.toLowerCase().contains(_searchQuery) ||
-                          (product.description
-                              .toLowerCase()
-                              .contains(_searchQuery)))
+                          product.description.toLowerCase().contains(_searchQuery))
                       .toList() ??
                   [];
 
               if (products.isEmpty) {
+                debugPrint('ℹ️ Aucun produit trouvé pour la section "$title"');
                 return const Center(
                   child: Text('Aucun produit disponible'),
                 );
@@ -547,148 +585,49 @@ class _ProductsPageState extends State<ProductsPage> {
                   return Container(
                     width: 200,
                     margin: const EdgeInsets.only(right: 16),
-                    child: FutureBuilder<DocumentSnapshot>(
-                      future: FirebaseFirestore.instance
-                          .collection('companys')
-                          .doc(product.sellerId)
-                          .get(),
-                      builder: (context, companySnapshot) {
-                        if (!companySnapshot.hasData) {
-                          return const SizedBox.shrink();
-                        }
-
-                        final companyData = companySnapshot.data!.data()
-                            as Map<String, dynamic>;
-                        final companyName = companyData['name'] as String;
-                        final companyLogo = companyData['logo'] as String;
-                        final address =
-                            companyData['adress'] as Map<String, dynamic>?;
-
-                        double? distance;
-                        if (_selectedLat != null &&
-                            _selectedLng != null &&
-                            address != null &&
-                            address['latitude'] != null &&
-                            address['longitude'] != null) {
-                          final companyLat = address['latitude'] as double;
-                          final companyLng = address['longitude'] as double;
-
-                          final latDiff =
-                              _degreesToRadians(companyLat - _selectedLat!);
-                          final lngDiff =
-                              _degreesToRadians(companyLng - _selectedLng!);
-
-                          const double earthRadius = 6371;
-                          final a = sin(latDiff / 2) * sin(latDiff / 2) +
-                              cos(_degreesToRadians(_selectedLat!)) *
-                                  cos(_degreesToRadians(companyLat)) *
-                                  sin(lngDiff / 2) *
-                                  sin(lngDiff / 2);
-
-                          final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-                          distance = earthRadius * c;
-                        }
-
-                        return Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.grey[200]!),
-                          ),
-                          child: InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ModernProductDetailPage(
-                                    product: product,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Stack(
-                                    children: [
-                                      Container(
-                                        decoration: const BoxDecoration(
-                                          borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(12),
-                                          ),
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              const BorderRadius.vertical(
-                                            top: Radius.circular(12),
-                                          ),
-                                          child: product.images.isNotEmpty
-                                              ? Image.network(
-                                                  product.images[0],
-                                                  fit: BoxFit.cover,
-                                                  width: double.infinity,
-                                                  height: double.infinity,
-                                                  errorBuilder: (context, error,
-                                                      stackTrace) {
-                                                    return Container(
-                                                      color: Colors.grey[100],
-                                                      child: Center(
-                                                        child: Column(
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .center,
-                                                          children: [
-                                                            Icon(
-                                                              Icons
-                                                                  .image_not_supported_outlined,
-                                                              size: 32,
-                                                              color: Colors
-                                                                  .grey[400],
-                                                            ),
-                                                            const SizedBox(
-                                                                height: 8),
-                                                            Text(
-                                                              'Image non disponible',
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .grey[600],
-                                                                fontSize: 12,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                  loadingBuilder: (context,
-                                                      child, loadingProgress) {
-                                                    if (loadingProgress ==
-                                                        null) {
-                                                      return child;
-                                                    }
-                                                    return Container(
-                                                      color: Colors.grey[100],
-                                                      child: Center(
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                          value: loadingProgress
-                                                                      .expectedTotalBytes !=
-                                                                  null
-                                                              ? loadingProgress
-                                                                      .cumulativeBytesLoaded /
-                                                                  loadingProgress
-                                                                      .expectedTotalBytes!
-                                                              : null,
-                                                          color: const Color(
-                                                              0xFF4B88DA),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                )
-                                              : Container(
+                    child: Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey[200]!),
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ModernProductDetailPage(
+                                product: product,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    decoration: const BoxDecoration(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(12),
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(12),
+                                      ),
+                                      child: product.images.isNotEmpty
+                                          ? Image.network(
+                                              product.images[0],
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                              errorBuilder: (context, error,
+                                                  stackTrace) {
+                                                return Container(
                                                   color: Colors.grey[100],
                                                   child: Center(
                                                     child: Column(
@@ -706,7 +645,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                                         const SizedBox(
                                                             height: 8),
                                                         Text(
-                                                          'Pas d\'image',
+                                                          'Image non disponible',
                                                           style: TextStyle(
                                                             color: Colors
                                                                 .grey[600],
@@ -716,148 +655,198 @@ class _ProductsPageState extends State<ProductsPage> {
                                                       ],
                                                     ),
                                                   ),
+                                                );
+                                              },
+                                              loadingBuilder: (context, child,
+                                                  loadingProgress) {
+                                                if (loadingProgress == null) {
+                                                  return child;
+                                                }
+                                                return Container(
+                                                  color: Colors.grey[100],
+                                                  child: Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      value: loadingProgress
+                                                                  .expectedTotalBytes !=
+                                                              null
+                                                          ? loadingProgress
+                                                                  .cumulativeBytesLoaded /
+                                                              loadingProgress
+                                                                  .expectedTotalBytes!
+                                                          : null,
+                                                      color: const Color(
+                                                          0xFF4B88DA),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            )
+                                          : Container(
+                                              color: Colors.grey[100],
+                                              child: Center(
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons
+                                                          .image_not_supported_outlined,
+                                                      size: 32,
+                                                      color: Colors.grey[400],
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      'Pas d\'image',
+                                                      style: TextStyle(
+                                                        color: Colors.grey[600],
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                        ),
-                                      ),
-                                      if (product.discount?.isValid() ?? false)
-                                        Positioned(
-                                          top: 8,
-                                          left: 8,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red[700],
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                            child: Text(
-                                              '-${product.discount!.value}${product.discount!.type == 'percentage' ? '%' : '€'}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          product.name,
+                                  if (product.discount?.isValid() ?? false)
+                                    Positioned(
+                                      top: 8,
+                                      left: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red[700],
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          '-${product.discount!.value}${product.discount!.type == 'percentage' ? '%' : '€'}',
                                           style: const TextStyle(
-                                            fontSize: 14,
+                                            color: Colors.white,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.bold,
                                           ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 4),
-                                        if (product.discount?.isValid() ??
-                                            false) ...[
-                                          Row(
-                                            children: [
-                                              Text(
-                                                '${product.finalPrice.toStringAsFixed(2)}€',
-                                                style: TextStyle(
-                                                  color: Colors.red[700],
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '${product.price.toStringAsFixed(2)}€',
-                                                style: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: 12,
-                                                  decoration: TextDecoration
-                                                      .lineThrough,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ] else
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      product.name,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    if (product.discount?.isValid() ?? false) ...[
+                                      Row(
+                                        children: [
                                           Text(
-                                            '${product.price.toStringAsFixed(2)}€',
+                                            '${product.finalPrice.toStringAsFixed(2)}€',
                                             style: TextStyle(
-                                              color: Colors.blue[700],
+                                              color: Colors.red[700],
                                               fontWeight: FontWeight.w600,
                                               fontSize: 14,
                                             ),
                                           ),
-                                        const Spacer(),
-                                        Row(
-                                          children: [
-                                            if (companyLogo.isNotEmpty)
-                                              CircleAvatar(
-                                                radius: 12,
-                                                backgroundImage:
-                                                    NetworkImage(companyLogo),
-                                              ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    companyName,
-                                                    style: TextStyle(
-                                                      color: Colors.grey[600],
-                                                      fontSize: 12,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                  if (distance != null)
-                                                    Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.location_on,
-                                                          size: 12,
-                                                          color:
-                                                              Colors.grey[600],
-                                                        ),
-                                                        const SizedBox(
-                                                            width: 2),
-                                                        Text(
-                                                          _formatDistance(
-                                                              distance),
-                                                          style: TextStyle(
-                                                            color: Colors
-                                                                .grey[600],
-                                                            fontSize: 12,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                ],
-                                              ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${product.basePrice.toStringAsFixed(2)}€',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12,
+                                              decoration:
+                                                  TextDecoration.lineThrough,
                                             ),
-                                          ],
+                                          ),
+                                        ],
+                                      ),
+                                    ] else
+                                      Text(
+                                        '${product.basePrice.toStringAsFixed(2)}€',
+                                        style: TextStyle(
+                                          color: Colors.blue[700],
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    const Spacer(),
+                                    Row(
+                                      children: [
+                                        if (product.companyLogo.isNotEmpty)
+                                          CircleAvatar(
+                                            radius: 12,
+                                            backgroundImage:
+                                                NetworkImage(product.companyLogo),
+                                          ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                product.companyName,
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 12,
+                                                ),
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                              ),
+                                              if (_selectedLat != null &&
+                                                  _selectedLng != null)
+                                                Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.location_on,
+                                                      size: 12,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                    const SizedBox(width: 2),
+                                                    Text(
+                                                      _formatDistance(
+                                                          calculateDistance(
+                                                        _selectedLat!,
+                                                        _selectedLng!,
+                                                        product.pickupLatitude,
+                                                        product.pickupLongitude,
+                                                      )),
+                                                      style: TextStyle(
+                                                        color: Colors.grey[600],
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          ],
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -885,22 +874,12 @@ class _ProductsPageState extends State<ProductsPage> {
               return false;
             }
 
-            final companyLat = address['latitude'] as double;
-            final companyLng = address['longitude'] as double;
-
-            // Calcul de la distance en utilisant la formule de Haversine
-            const double earthRadius = 6371; // Rayon de la Terre en kilomètres
-            final latDiff = _degreesToRadians(companyLat - _selectedLat!);
-            final lngDiff = _degreesToRadians(companyLng - _selectedLng!);
-
-            final a = sin(latDiff / 2) * sin(latDiff / 2) +
-                cos(_degreesToRadians(_selectedLat!)) *
-                    cos(_degreesToRadians(companyLat)) *
-                    sin(lngDiff / 2) *
-                    sin(lngDiff / 2);
-
-            final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-            final distance = earthRadius * c;
+            final distance = calculateDistance(
+              _selectedLat,
+              _selectedLng,
+              address['latitude'],
+              address['longitude'],
+            );
 
             return distance <= _selectedRadius;
           })
@@ -908,15 +887,48 @@ class _ProductsPageState extends State<ProductsPage> {
           .toList();
 
       return nearbyCompanies;
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint(
-          'Erreur lors de la récupération des entreprises à proximité: $e');
+          'Erreur lors de la récupération des entreprises à proximité: $e\n$stackTrace');
       return [];
     }
   }
 
   double _degreesToRadians(double degrees) {
     return degrees * pi / 180;
+  }
+
+  double calculateDistance(dynamic lat1, dynamic lon1, dynamic lat2, dynamic lon2) {
+    // Fonction utilitaire pour convertir en double
+    double parseDouble(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
+    // Conversion directe en utilisant parseDouble
+    final latitude1 = parseDouble(lat1);
+    final longitude1 = parseDouble(lon1);
+    final latitude2 = parseDouble(lat2);
+    final longitude2 = parseDouble(lon2);
+
+    // Vérification des valeurs nulles ou invalides
+    if (latitude1 == 0.0 || longitude1 == 0.0 || latitude2 == 0.0 || longitude2 == 0.0) {
+      debugPrint('Coordonnées invalides : lat1=$lat1, lon1=$lon1, lat2=$lat2, lon2=$lon2');
+      return 0.0;
+    }
+
+    const double earthRadius = 6371; // Rayon de la Terre en kilomètres
+    final double dLat = _degreesToRadians(latitude2 - latitude1);
+    final double dLon = _degreesToRadians(longitude2 - longitude1);
+
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_degreesToRadians(latitude1)) * cos(_degreesToRadians(latitude2)) *
+        sin(dLon / 2) * sin(dLon / 2);
+
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
   }
 
   // Modifiez la méthode _buildSearchResults pour utiliser les résultats d'Algolia
@@ -959,7 +971,7 @@ class _ProductsPageState extends State<ProductsPage> {
         // Récupérer les données du produit depuis Algolia
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance
-              .collection('products')
+              .collection('posts')
               .doc(productData['objectID'])
               .get(),
           builder: (context, snapshot) {
@@ -1011,7 +1023,7 @@ class _ProductsPageState extends State<ProductsPage> {
                               ),
                               child: product.images.isNotEmpty
                                   ? Image.network(
-                                      product.images[0],
+                                      product.images.first,
                                       fit: BoxFit.cover,
                                       width: double.infinity,
                                       height: double.infinity,
@@ -1107,7 +1119,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  '-${product.discount!.value}${product.discount!.type == 'percentage' ? '%' : '€'}',
+                                  '-${product.discount?.value}${product.discount?.type == 'percentage' ? '%' : '€'}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -1137,25 +1149,31 @@ class _ProductsPageState extends State<ProductsPage> {
                             ),
                             const SizedBox(height: 4),
                             if (product.discount?.isValid() ?? false) ...[
-                              Text(
-                                '${product.price.toStringAsFixed(2)}€',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                  decoration: TextDecoration.lineThrough,
-                                ),
-                              ),
-                              Text(
-                                '${product.finalPrice.toStringAsFixed(2)}€',
-                                style: TextStyle(
-                                  color: Colors.red[700],
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${product.finalPrice.toStringAsFixed(2)}€',
+                                    style: TextStyle(
+                                      color: Colors.red[700],
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${product.basePrice.toStringAsFixed(2)}€',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 12,
+                                      decoration:
+                                          TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ] else
                               Text(
-                                '${product.price.toStringAsFixed(2)}€',
+                                '${product.basePrice.toStringAsFixed(2)}€',
                                 style: TextStyle(
                                   color: Colors.blue[700],
                                   fontWeight: FontWeight.w600,
@@ -1163,101 +1181,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 ),
                               ),
                             const Spacer(),
-                            FutureBuilder<DocumentSnapshot>(
-                              future: FirebaseFirestore.instance
-                                  .collection('companys')
-                                  .doc(product.sellerId)
-                                  .get(),
-                              builder: (context, snapshot) {
-                                if (!snapshot.hasData) {
-                                  return const SizedBox();
-                                }
-
-                                final companyData = snapshot.data!.data()
-                                    as Map<String, dynamic>;
-                                final companyName =
-                                    companyData['name'] as String;
-                                final companyLogo =
-                                    companyData['logo'] as String;
-                                final address = companyData['adress']
-                                    as Map<String, dynamic>?;
-
-                                double? distance;
-                                if (_selectedLat != null &&
-                                    _selectedLng != null &&
-                                    address != null &&
-                                    address['latitude'] != null &&
-                                    address['longitude'] != null) {
-                                  final companyLat =
-                                      address['latitude'] as double;
-                                  final companyLng =
-                                      address['longitude'] as double;
-
-                                  final latDiff = _degreesToRadians(
-                                      companyLat - _selectedLat!);
-                                  final lngDiff = _degreesToRadians(
-                                      companyLng - _selectedLng!);
-
-                                  const double earthRadius = 6371;
-                                  final a = sin(latDiff / 2) *
-                                          sin(latDiff / 2) +
-                                      cos(_degreesToRadians(_selectedLat!)) *
-                                          cos(_degreesToRadians(companyLat)) *
-                                          sin(lngDiff / 2) *
-                                          sin(lngDiff / 2);
-
-                                  final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-                                  distance = earthRadius * c;
-                                }
-
-                                return Row(
-                                  children: [
-                                    if (companyLogo.isNotEmpty)
-                                      CircleAvatar(
-                                        radius: 12,
-                                        backgroundImage:
-                                            NetworkImage(companyLogo),
-                                      ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            companyName,
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 12,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          if (distance != null)
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.location_on,
-                                                  size: 12,
-                                                  color: Colors.grey[600],
-                                                ),
-                                                const SizedBox(width: 2),
-                                                Text(
-                                                  _formatDistance(distance),
-                                                  style: TextStyle(
-                                                    color: Colors.grey[600],
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+                           
                           ],
                         ),
                       ),

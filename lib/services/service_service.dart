@@ -7,7 +7,8 @@ class ServiceClientService {
   // Récupérer tous les services actifs
   Stream<List<ServiceModel>> getActiveServices() {
     return _firestore
-        .collection('services')
+        .collection('posts')
+        .where('type', isEqualTo: 'service')
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
@@ -18,8 +19,9 @@ class ServiceClientService {
   // Récupérer les services d'un professionnel
   Stream<List<ServiceModel>> getServicesByProfessional(String professionalId) {
     return _firestore
-        .collection('services')
-        .where('professionalId', isEqualTo: professionalId)
+        .collection('posts')
+        .where('type', isEqualTo: 'service')
+        .where('companyId', isEqualTo: professionalId)
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
@@ -38,7 +40,7 @@ class ServiceClientService {
   // Récupérer un service spécifique
   Stream<ServiceModel> getServiceById(String serviceId) {
     return _firestore
-        .collection('services')
+        .collection('posts')
         .doc(serviceId)
         .snapshots()
         .map((doc) => ServiceModel.fromMap(doc.data()!));
@@ -47,7 +49,8 @@ class ServiceClientService {
   // Rechercher des services
   Stream<List<ServiceModel>> searchServices(String query) {
     return _firestore
-        .collection('services')
+        .collection('posts')
+        .where('type', isEqualTo: 'service')
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) => snapshot.docs

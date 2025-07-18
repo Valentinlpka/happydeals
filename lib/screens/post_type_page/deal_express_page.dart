@@ -330,6 +330,17 @@ class _DealExpressPageState extends State<DealExpressPage> {
 
     for (var dealDoc in deals) {
       try {
+        Map<String, dynamic> data = dealDoc.data() as Map<String, dynamic>;
+        
+        // Vérifier et convertir le timestamp si nécessaire
+        if (data['timestamp'] is Map) {
+          final timestampMap = data['timestamp'] as Map<String, dynamic>;
+          data['timestamp'] = Timestamp(
+            timestampMap['_seconds'] ?? 0,
+            timestampMap['_nanoseconds'] ?? 0,
+          );
+        }
+        
         final deal = ExpressDeal.fromDocument(dealDoc);
         final companyDoc =
             await _firestore.collection('companys').doc(deal.companyId).get();
@@ -339,8 +350,22 @@ class _DealExpressPageState extends State<DealExpressPage> {
         final companyData = companyDoc.data() as Map<String, dynamic>;
         final companyCategorie = companyData['categorie'] as String;
         final companyAddress = companyData['adress'] as Map<String, dynamic>;
-        final companyLat = companyAddress['latitude'] as double?;
-        final companyLng = companyAddress['longitude'] as double?;
+        
+        // Conversion sécurisée des coordonnées
+        double? companyLat;
+        double? companyLng;
+        
+        if (companyAddress['latitude'] != null) {
+          companyLat = companyAddress['latitude'] is String 
+              ? double.tryParse(companyAddress['latitude'])
+              : (companyAddress['latitude'] as num).toDouble();
+        }
+        
+        if (companyAddress['longitude'] != null) {
+          companyLng = companyAddress['longitude'] is String 
+              ? double.tryParse(companyAddress['longitude'])
+              : (companyAddress['longitude'] as num).toDouble();
+        }
 
         // Filtres
         if (_selectedCategory != 'Toutes' &&
@@ -353,9 +378,11 @@ class _DealExpressPageState extends State<DealExpressPage> {
           continue;
         }
 
-        final isActive = deal.availableBaskets > 0;
-        if (showUnavailable != !isActive) {
-          continue;
+        final isActive = deal.basketCount > 0;
+        if (showUnavailable) {
+          if (isActive) continue;
+        } else {
+          if (!isActive) continue;
         }
 
         // Gestion de la distance
@@ -392,13 +419,6 @@ class _DealExpressPageState extends State<DealExpressPage> {
               currentUserId: currentUserId,
               currentProfileUserId: currentUserId,
               onView: () {},
-              companyData: CompanyData(
-                name: companyData['name'],
-                category: companyData['categorie'] ?? '',
-                logo: companyData['logo'],
-                cover: companyData['cover'] ?? '',
-                rawData: companyData,
-              ),
             ),
           ),
         );
@@ -406,6 +426,7 @@ class _DealExpressPageState extends State<DealExpressPage> {
         processedDeals.add(postWidget);
       } catch (e) {
         if (!mounted) return processedDeals;
+          print(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors du traitement du deal: $e'),

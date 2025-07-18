@@ -14,73 +14,50 @@ class ProductCard extends StatelessWidget {
     this.width = 200,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final mainVariant = product.variants.firstOrNull;
-    if (mainVariant == null) return const SizedBox();
+  // Fonction utilitaire pour valider l'URL de l'image
+  bool _isValidImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return false;
+    final trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith('file:///')) return false;
+    return trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://');
+  }
 
-    final activeDiscount = mainVariant.discount?.isValid() ?? false
-        ? mainVariant.discount
-        : product.discount?.isValid() ?? false
-            ? product.discount
-            : null;
+  Widget _buildImageWithError(String? imageUrl, {bool isSmallScreen = false}) {
+    if (!_isValidImageUrl(imageUrl)) {
+      return Container(
+        color: Colors.grey[100],
+        child: Icon(
+          Icons.image_outlined,
+          size: isSmallScreen ? 32 : 40,
+          color: Colors.grey[400],
+        ),
+      );
+    }
 
-    final hasDiscount = activeDiscount != null;
-    final finalPrice = hasDiscount
-        ? activeDiscount.calculateDiscountedPrice(mainVariant.price)
-        : mainVariant.price;
-
-    // Couleurs personnalisées
-    const Color primaryColor = Color(0xFF6C63FF);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 360;
-        final cardWidth = isSmallScreen ? constraints.maxWidth : width;
-
+    return Image.network(
+      imageUrl!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('Erreur de chargement de l\'image: $error');
         return Container(
-          width: cardWidth,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: primaryColor.withAlpha(18),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
+          color: Colors.grey[100],
+          child: Icon(
+            Icons.image_outlined,
+            size: isSmallScreen ? 32 : 40,
+            color: Colors.grey[400],
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ModernProductDetailPage(product: product),
-                ),
-              ),
-              borderRadius: BorderRadius.circular(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildImageSection(
-                    mainVariant,
-                    hasDiscount,
-                    finalPrice,
-                    primaryColor,
-                    isSmallScreen,
-                  ),
-                  _buildInfoSection(
-                    mainVariant,
-                    hasDiscount,
-                    finalPrice,
-                    primaryColor,
-                    isSmallScreen,
-                  ),
-                ],
-              ),
+        );
+      },
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey[100],
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
             ),
           ),
         );
@@ -103,18 +80,15 @@ class ProductCard extends StatelessWidget {
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             child: SizedBox.expand(
-              child: variant.images.isNotEmpty
+              child: variant.images.isNotEmpty && _isValidImageUrl(variant.images[0])
                   ? Hero(
                       tag: 'product_${product.id}',
-                      child: Image.network(
-                        variant.images[0],
-                        fit: BoxFit.cover,
-                      ),
+                      child: _buildImageWithError(variant.images[0], isSmallScreen: isSmallScreen),
                     )
                   : Container(
                       color: Colors.grey[100],
                       child: Icon(
-                        Icons.image_outlined,
+                        Icons.image_not_supported,
                         size: isSmallScreen ? 32 : 40,
                         color: Colors.grey[400],
                       ),
@@ -281,26 +255,46 @@ class ProductCard extends StatelessWidget {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('companys')
-          .doc(product.sellerId)
+          .doc(product.companyId) 
           .get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
         final company = snapshot.data!.data() as Map<String, dynamic>?;
         if (company == null) return const SizedBox();
 
+        final logoUrl = company['logo'] as String?;
+
         return Row(
           children: [
-            if (company['logo'] != null)
+            if (logoUrl != null)
               Container(
                 width: isSmallScreen ? 16 : 18,
                 height: isSmallScreen ? 16 : 18,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.grey[200]!),
-                  image: DecorationImage(
-                    image: NetworkImage(company['logo']),
-                    fit: BoxFit.cover,
-                  ),
+                ),
+                child: ClipOval(
+                  child: _isValidImageUrl(logoUrl)
+                      ? Image.network(
+                          logoUrl,
+                          width: isSmallScreen ? 16 : 18,
+                          height: isSmallScreen ? 16 : 18,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            debugPrint('Erreur de chargement du logo: $error');
+                            return Icon(
+                              Icons.business,
+                              size: isSmallScreen ? 12 : 14,
+                              color: Colors.grey[400],
+                            );
+                          },
+                        )
+                      : Icon(
+                          Icons.business,
+                          size: isSmallScreen ? 12 : 14,
+                          color: Colors.grey[400],
+                        ),
                 ),
               ),
             SizedBox(width: isSmallScreen ? 6 : 8),
@@ -345,6 +339,80 @@ class ProductCard extends StatelessWidget {
             isLiked ? Icons.favorite : Icons.favorite_border,
             size: isSmallScreen ? 16 : 18,
             color: isLiked ? const Color(0xFFFF3B30) : Colors.grey[800],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mainVariant = product.variants.firstOrNull;
+    if (mainVariant == null) return const SizedBox();
+
+    final activeDiscount = mainVariant.discount?.isValid() ?? false
+        ? mainVariant.discount
+        : product.discount?.isValid() ?? false
+            ? product.discount
+            : null;
+
+    final hasDiscount = activeDiscount != null;
+    final finalPrice = hasDiscount
+        ? activeDiscount.calculateDiscountedPrice(mainVariant.price)
+        : mainVariant.price;
+
+    // Couleurs personnalisées
+    const Color primaryColor = Color(0xFF6C63FF);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 360;
+        final cardWidth = isSmallScreen ? constraints.maxWidth : width;
+
+        return Container(
+          width: cardWidth,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withAlpha(18),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ModernProductDetailPage(product: product),
+                ),
+              ),
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildImageSection(
+                    mainVariant,
+                    hasDiscount,
+                    finalPrice,
+                    primaryColor,
+                    isSmallScreen,
+                  ),
+                  _buildInfoSection(
+                    mainVariant,
+                    hasDiscount,
+                    finalPrice,
+                    primaryColor,
+                    isSmallScreen,
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       },

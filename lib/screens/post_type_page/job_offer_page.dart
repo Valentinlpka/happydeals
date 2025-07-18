@@ -402,13 +402,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                   }
 
                   // Création de l'objet CompanyData
-                  final companyDataObj = CompanyData(
-                    name: companyData['name'] ?? 'Nom inconnu',
-                    category: companyData['category'] ?? '',
-                    logo: companyData['logo'] ?? '',
-                    cover: companyData['cover'] ?? '',
-                    rawData: companyData,
-                  );
+             
 
                   // Création du PostWidget
                   return PostWidget(
@@ -418,7 +412,6 @@ class _JobOffersPageState extends State<JobOffersPage> {
                     currentProfileUserId:
                         '', // À remplacer par l'ID du profil actuel
                     onView: () {}, // Callback pour la vue
-                    companyData: companyDataObj,
                   );
                 },
               );

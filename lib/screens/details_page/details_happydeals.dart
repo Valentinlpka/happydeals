@@ -14,12 +14,10 @@ import 'package:provider/provider.dart';
 
 class DetailsHappyDeals extends StatefulWidget {
   final HappyDeal happydeal;
-  final String cover;
 
   const DetailsHappyDeals({
     super.key,
     required this.happydeal,
-    required this.cover,
   });
 
   @override
@@ -28,7 +26,6 @@ class DetailsHappyDeals extends StatefulWidget {
 
 class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   late Future<Product?> _productFuture;
-  late Future<DocumentSnapshot?> _companyFuture;
   final ScrollController _scrollController = ScrollController();
   bool _isInitialized = false;
 
@@ -48,7 +45,6 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   void initState() {
     super.initState();
     _productFuture = _fetchProduct();
-    _companyFuture = _fetchCompany();
   }
 
   Future<Product?> _fetchProduct() async {
@@ -63,16 +59,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
     }
   }
 
-  Future<DocumentSnapshot?> _fetchCompany() async {
-    try {
-      return await FirebaseFirestore.instance
-          .collection('companys')
-          .doc(widget.happydeal.companyId)
-          .get();
-    } catch (e) {
-      return null;
-    }
-  }
+
 
   String _formatDateTime(DateTime dateTime) {
     return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
@@ -164,20 +151,51 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
     return FutureBuilder<Product?>(
       future: _productFuture,
       builder: (context, snapshot) {
-        final imageUrl = snapshot.hasData && snapshot.data!.variants.isNotEmpty
-            ? snapshot.data!.variants.first.images.first
-            : widget.cover;
+        // Vérification de la validité de l'URL de l'image
+        bool hasValidImage = snapshot.hasData && 
+                           snapshot.data!.variants.isNotEmpty && 
+                           snapshot.data!.variants.first.images.isNotEmpty &&
+                           snapshot.data!.variants.first.images.first.isNotEmpty &&
+                           (snapshot.data!.variants.first.images.first.startsWith('http://') ||
+                            snapshot.data!.variants.first.images.first.startsWith('https://'));
 
         return Hero(
           tag: 'deal-${widget.happydeal.id}',
-          child: Image.network(
-            imageUrl,
+          child: hasValidImage
+              ? Image.network(
+                  snapshot.data!.variants.first.images.first,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) =>
-                Image.network(widget.cover, fit: BoxFit.cover),
-          ),
+                  errorBuilder: (_, __, ___) => _buildDefaultImage(),
+                )
+              : _buildDefaultImage(),
         );
       },
+    );
+  }
+
+  Widget _buildDefaultImage() {
+    return Container(
+      color: Colors.grey[200],
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.image_not_supported_outlined,
+              color: Colors.grey[400],
+              size: 50.w,
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'Image non disponible',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14.sp,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -311,6 +329,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                   builder: (BuildContext dialogContext) {
                     return ShareConfirmationDialog(
                       post: Post(
+                        companyName: widget.happydeal.companyName,
+                        companyLogo: widget.happydeal.companyLogo,
                         id: widget.happydeal.id,
                         companyId: widget.happydeal.companyId,
                         timestamp: DateTime.now(),
@@ -442,6 +462,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                             onTap: () async {
                               try {
                                 final post = Post(
+                                  companyName: widget.happydeal.companyName,
+                                  companyLogo: widget.happydeal.companyLogo,
                                   id: widget.happydeal.id,
                                   companyId: widget.happydeal.companyId,
                                   timestamp: DateTime.now(),
@@ -648,6 +670,10 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
         if (!snapshot.hasData) return const SizedBox.shrink();
 
         final product = snapshot.data!;
+        bool hasValidImage = product.variants.isNotEmpty && 
+                           product.variants.first.images.isNotEmpty &&
+                           product.variants.first.images.first.isNotEmpty;
+
         return InkWell(
           onTap: () => Navigator.push(
             context,
@@ -670,15 +696,34 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
             ),
             child: Row(
               children: [
-                if (product.variants.isNotEmpty &&
-                    product.variants.first.images.isNotEmpty)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8.r),
-                    child: Image.network(
+                  child: hasValidImage
+                      ? Image.network(
                       product.variants.first.images.first,
                       width: 80.w,
                       height: 80.h,
                       fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 80.w,
+                            height: 80.h,
+                            color: Colors.grey[200],
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: Colors.grey[400],
+                              size: 30.w,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          width: 80.w,
+                          height: 80.h,
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Colors.grey[400],
+                            size: 30.w,
+                          ),
                     ),
                   ),
                 SizedBox(width: 16.w),
@@ -716,17 +761,9 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   }
 
   Widget _buildCompanySection() {
-    return FutureBuilder<DocumentSnapshot?>(
-      future: _companyFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-
-        final companyData = snapshot.data!.data() as Map<String, dynamic>?;
-        if (companyData == null) return const SizedBox.shrink();
-
-        final companyName = companyData['name'] ?? 'Entreprise';
-        final companyLogo = companyData['logo'] ?? '';
-        final companyCategorie = companyData['categorie'] ?? '';
+    bool hasValidLogo = widget.happydeal.companyLogo.isNotEmpty && 
+                       (widget.happydeal.companyLogo.startsWith('http://') || 
+                        widget.happydeal.companyLogo.startsWith('https://'));
 
         return InkWell(
           onTap: () => Navigator.push(
@@ -757,11 +794,11 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                   backgroundColor: Colors.blue[700],
                   child: CircleAvatar(
                     radius: 22.r,
-                    backgroundImage: companyLogo.isNotEmpty
-                        ? NetworkImage(companyLogo)
+                backgroundImage: hasValidLogo
+                    ? NetworkImage(widget.happydeal.companyLogo)
                         : null,
                     backgroundColor: Colors.white,
-                    child: companyLogo.isEmpty
+                child: !hasValidLogo
                         ? Icon(Icons.business,
                             color: Colors.blue[700], size: 20.w)
                         : null,
@@ -769,41 +806,12 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                 ),
                 SizedBox(width: 16.w),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        companyName,
+              child: Text(
+                widget.happydeal.companyName,
                         style: TextStyle(
                           fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8.w,
-                              vertical: 2.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[50],
-                              borderRadius: BorderRadius.circular(4.r),
-                            ),
-                            child: Text(
-                              companyCategorie,
-                              style: TextStyle(
-                                color: Colors.blue[800],
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 28.w),
-                        ],
-                      ),
-                    ],
                   ),
                 ),
                 Icon(Icons.arrow_forward_ios,
@@ -811,8 +819,6 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
               ],
             ),
           ),
-        );
-      },
     );
   }
 }

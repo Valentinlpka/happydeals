@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/classes/promo_code_post.dart';
@@ -16,14 +15,11 @@ import 'package:provider/provider.dart';
 
 class PromoCodeDetails extends StatefulWidget {
   final PromoCodePost post;
-  final String companyName;
-  final String companyLogo;
+
 
   const PromoCodeDetails({
     super.key,
     required this.post,
-    required this.companyName,
-    required this.companyLogo,
   });
 
   @override
@@ -256,33 +252,17 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
           'Entreprise',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
-              .collection('companys')
-              .doc(widget.post.companyId)
-              .get(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (!snapshot.hasData || !snapshot.data!.exists) {
-              return const Center(child: Text('Entreprise non trouvée'));
-            }
-
-            final company = Company.fromDocument(snapshot.data!);
-            return CompanyInfoCard(
-              company: company,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DetailsEntreprise(
-                    entrepriseId: widget.post.companyId,
-                  ),
-                ),
+        CompanyInfoCard(
+          name: widget.post.companyName,
+          logo: widget.post.companyLogo,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DetailsEntreprise(
+                entrepriseId: widget.post.companyId,
               ),
-            );
-          },
+            ),
+          ),
         ),
       ],
     );
@@ -571,6 +551,8 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
                   builder: (BuildContext dialogContext) {
                     return ShareConfirmationDialog(
                       post: Post(
+                        companyName: widget.post.companyName,
+                        companyLogo: widget.post.companyLogo,
                         id: widget.post.id,
                         companyId: widget.post.companyId,
                         timestamp: DateTime.now(),
@@ -702,6 +684,8 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
                             onTap: () async {
                               try {
                                 final post = Post(
+                                  companyName: widget.post.companyName,
+                                  companyLogo: widget.post.companyLogo,
                                   id: widget.post.id,
                                   companyId: widget.post.companyId,
                                   timestamp: DateTime.now(),

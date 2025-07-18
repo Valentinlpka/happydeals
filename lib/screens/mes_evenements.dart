@@ -110,8 +110,6 @@ class MyEventsPage extends StatelessWidget {
               return EvenementCard(
                 event: eventData['event'] as Event,
                 currentUserId: userId,
-                companyName: eventData['companyName'] as String,
-                companyLogo: eventData['companyLogo'] as String,
               );
             },
           );

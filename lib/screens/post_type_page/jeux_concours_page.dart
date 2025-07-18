@@ -236,63 +236,44 @@ class _JeuxConcoursPageState extends State<JeuxConcoursPage> {
             itemBuilder: (context, index) {
               final contest = Contest.fromDocument(contests[index]);
 
-              return FutureBuilder<DocumentSnapshot>(
-                future: _firestore
-                    .collection('companys')
-                    .doc(contest.companyId)
-                    .get(),
-                builder: (context, companySnapshot) {
-                  if (!companySnapshot.hasData) return const SizedBox.shrink();
+              if (_searchQuery.isNotEmpty &&
+                  !contest.title
+                      .toLowerCase()
+                      .contains(_searchQuery.toLowerCase())) {
+                return const SizedBox.shrink();
+              }
 
-                  final companyData =
-                      companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyCategorie = companyData['categorie'] as String;
-                  final companyAddress =
-                      companyData['adress'] as Map<String, dynamic>;
-                  final companyLat = companyAddress['latitude'] as double;
-                  final companyLng = companyAddress['longitude'] as double;
+              if (contest.companyAddress != null) {
+                final companyLat = double.tryParse(contest.companyAddress!['latitude'].toString()) ?? 0.0;
+                final companyLng = double.tryParse(contest.companyAddress!['longitude'].toString()) ?? 0.0;
+                final companyCategorie = contest.companyAddress!['category'] as String? ?? '';
 
-                  if (_selectedCategory != 'Toutes' &&
-                      companyCategorie != _selectedCategory) {
-                    return const SizedBox.shrink();
-                  }
+                if (_selectedCategory != 'Toutes' &&
+                    companyCategorie != _selectedCategory) {
+                  return const SizedBox.shrink();
+                }
 
-                  if (_searchQuery.isNotEmpty &&
-                      !contest.title
-                          .toLowerCase()
-                          .contains(_searchQuery.toLowerCase())) {
-                    return const SizedBox.shrink();
-                  }
+                if (_selectedLat != null &&
+                    _selectedLng != null &&
+                    !LocationUtils.isWithinRadius(
+                      _selectedLat!,
+                      _selectedLng!,
+                      companyLat,
+                      companyLng,
+                      _selectedRadius,
+                    )) {
+                  return const SizedBox.shrink();
+                }
+              }
 
-                  if (_selectedLat != null &&
-                      _selectedLng != null &&
-                      !LocationUtils.isWithinRadius(
-                        _selectedLat!,
-                        _selectedLng!,
-                        companyLat,
-                        companyLng,
-                        _selectedRadius,
-                      )) {
-                    return const SizedBox.shrink();
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: PostWidget(
-                      post: contest,
-                      onView: () {},
-                      currentProfileUserId: currentUserId,
-                      currentUserId: currentUserId,
-                      companyData: CompanyData(
-                        name: companyData['name'] ?? '',
-                        category: companyData['categorie'] ?? '',
-                        logo: companyData['logo'] ?? '',
-                        cover: companyData['cover'] ?? '',
-                        rawData: companyData,
-                      ),
-                    ),
-                  );
-                },
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: PostWidget(
+                  post: contest,
+                  onView: () {},
+                  currentProfileUserId: currentUserId,
+                  currentUserId: currentUserId,
+                ),
               );
             },
           ),

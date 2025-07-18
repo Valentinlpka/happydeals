@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:happy/classes/company.dart';
 
 class CompanyInfoCard extends StatelessWidget {
-  final Company company;
+  final String name;
+  final String logo;
   final VoidCallback? onTap;
   final bool showRating;
   final bool showVerifiedBadge;
   final bool isCompact;
+  final double? averageRating;
+  final int? numberOfReviews;
 
   const CompanyInfoCard({
     super.key,
-    required this.company,
+    required this.name,
+    required this.logo,
     this.onTap,
     this.showRating = true,
     this.showVerifiedBadge = true,
     this.isCompact = false,
+    this.averageRating,
+    this.numberOfReviews,
   });
 
   @override
@@ -44,7 +49,7 @@ class CompanyInfoCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
-                      image: NetworkImage(company.logo),
+                      image: NetworkImage(logo),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -58,7 +63,7 @@ class CompanyInfoCard extends StatelessWidget {
                         children: [
                           Flexible(
                             child: Text(
-                              company.name,
+                              name,
                               style: TextStyle(
                                 fontSize: isCompact ? 16 : 18,
                                 fontWeight: FontWeight.bold,
@@ -99,7 +104,7 @@ class CompanyInfoCard extends StatelessWidget {
                           ],
                         ],
                       ),
-                      if (showRating && (company.numberOfReviews ?? 0) > 0) ...[
+                      if (showRating && numberOfReviews != null && numberOfReviews! > 0) ...[
                         SizedBox(height: isCompact ? 4 : 8),
                         Row(
                           children: [
@@ -122,8 +127,7 @@ class CompanyInfoCard extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    (company.averageRating ?? 0.0)
-                                        .toStringAsFixed(1),
+                                    (averageRating ?? 0.0).toStringAsFixed(1),
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -135,7 +139,7 @@ class CompanyInfoCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '(${company.numberOfReviews ?? 0} avis)',
+                              '($numberOfReviews avis)',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: isCompact ? 12 : 14,

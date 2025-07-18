@@ -282,13 +282,7 @@ class _PublicationsPageState extends State<PublicationsPage> {
                   return const SizedBox.shrink();
                 }
 
-                final companyDataObj = CompanyData(
-                  name: companyData['name'] ?? 'Nom inconnu',
-                  category: companyData['category'] ?? '',
-                  logo: companyData['logo'] ?? '',
-                  cover: companyData['cover'] ?? '',
-                  rawData: companyData,
-                );
+               
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
@@ -297,7 +291,6 @@ class _PublicationsPageState extends State<PublicationsPage> {
                     currentUserId: '',
                     currentProfileUserId: '',
                     onView: () {},
-                    companyData: companyDataObj,
                   ),
                 );
               },

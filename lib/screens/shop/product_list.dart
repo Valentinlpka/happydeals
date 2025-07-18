@@ -24,15 +24,16 @@ class _ProductListState extends State<ProductList>
 
   // Ajout d'un Stream en cache
   late final Stream<QuerySnapshot> _productsStream;
-
   @override
   void initState() {
+    print("widget.sellerId: ${widget.sellerId}");
     super.initState();
     _productsStream = FirebaseFirestore.instance
-        .collection('products')
-        .where('sellerId', isEqualTo: widget.sellerId)
+        .collection('posts')
+        .where('type', isEqualTo: 'product')
+        .where('companyId', isEqualTo: widget.sellerId) // Changé de companyId à sellerId
         .where('isActive', isEqualTo: true)
-        .orderBy('createdAt', descending: true)
+        .orderBy('timestamp', descending: true)
         .snapshots();
   }
 
@@ -106,7 +107,27 @@ class _ProductListState extends State<ProductList>
         }
 
         final products = snapshot.data!.docs
-            .map((doc) => Product.fromFirestore(doc))
+            .map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              debugPrint("Document ID: ${doc.id}");
+              debugPrint("Document data: $data");
+              // Afficher le type de chaque champ
+              data.forEach((key, value) {
+                debugPrint("Champ '$key': ${value?.runtimeType}");
+                if (value is List) {
+                  debugPrint("  Contenu de la liste '$key': $value");
+                }
+              });
+              try {
+                return Product.fromFirestore(doc);
+              } catch (e, stackTrace) {
+                debugPrint("Erreur lors de la conversion du document ${doc.id}: $e");
+                debugPrint("Stack trace: $stackTrace");
+                return null;
+              }
+            })
+            .where((product) => product != null)
+            .cast<Product>()
             .toList();
 
         return CustomScrollView(
@@ -141,10 +162,17 @@ class ProductListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mainVariant =
-        product.variants.isNotEmpty ? product.variants[0] : null;
+    final mainVariant = product.variants.isNotEmpty ? product.variants[0] : null;
     final hasDiscount = mainVariant?.discount?.isValid() ?? false;
     final isOutOfStock = mainVariant?.stock == 0;
+
+    // Logique pour déterminer l'image à afficher
+    String? imageUrl;
+    if (mainVariant != null && mainVariant.images.isNotEmpty) {
+      imageUrl = mainVariant.images[0];
+    } else if (product.images.isNotEmpty) {
+      imageUrl = product.images[0];
+    }
 
     return Hero(
       tag: 'product-list-${product.id}-${mainVariant?.id ?? "main"}',
@@ -177,24 +205,30 @@ class ProductListItem extends StatelessWidget {
                 Expanded(
                   flex: 3,
                   child: ClipRRect(
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (mainVariant != null &&
-                            mainVariant.images.isNotEmpty)
+                        if (imageUrl != null)
                           Image.network(
-                            mainVariant.images[0],
+                            imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
+                            errorBuilder: (context, error, stackTrace) => Container(
                               color: Colors.grey[200],
                               child: Icon(
                                 Icons.image_not_supported_outlined,
                                 color: Colors.grey[400],
                                 size: 32,
                               ),
+                            ),
+                          )
+                        else
+                          Container(
+                            color: Colors.grey[200],
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: Colors.grey[400],
+                              size: 32,
                             ),
                           ),
                         if (hasDiscount)

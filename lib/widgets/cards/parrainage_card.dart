@@ -6,15 +6,11 @@ import 'package:intl/intl.dart';
 class ParrainageCard extends StatelessWidget {
   final Referral post;
   final String currentUserId;
-  final String companyLogo;
-  final String companyName;
 
   const ParrainageCard({
     super.key,
     required this.post,
     required this.currentUserId,
-    required this.companyLogo,
-    required this.companyName,
   });
 
   String _formatDateTime(DateTime dateTime) {
@@ -25,7 +21,6 @@ class ParrainageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Carte principale
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 10),
           child: InkWell(
@@ -76,7 +71,7 @@ class ParrainageCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          "Jusqu'au ${_formatDateTime(post.dateFinal)}",
+                          "Jusqu'au ${_formatDateTime(post.endDate)}",
                           style: TextStyle(
                             color: Colors.grey[700],
                             fontSize: 13,
@@ -100,27 +95,22 @@ class ParrainageCard extends StatelessWidget {
                   const SizedBox(height: 16),
 
                   // Avantages
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildBenefitCard(
-                          "Parrain",
-                          post.sponsorBenefit,
-                          Colors.blue[700]!,
-                          Colors.blue[50]!,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildBenefitCard(
-                          "Filleul",
-                          post.refereeBenefit,
-                          Colors.green[700]!,
-                          Colors.green[50]!,
-                        ),
-                      ),
-                    ],
-                  ),
+                  if (post.rewardRecipient == 'both' || post.rewardRecipient == 'sponsor')
+                    _buildBenefitCard(
+                      "Parrain",
+                      "${post.sponsorReward.value} - ${post.sponsorReward.details ?? ''}",
+                      Colors.blue[700]!,
+                      Colors.blue[50]!,
+                    ),
+                  if (post.rewardRecipient == 'both')
+                    const SizedBox(height: 12),
+                  if (post.rewardRecipient == 'both' || post.rewardRecipient == 'referee')
+                    _buildBenefitCard(
+                      "Filleul",
+                      "${post.refereeReward.value} - ${post.refereeReward.details ?? ''}",
+                      Colors.green[700]!,
+                      Colors.green[50]!,
+                    ),
                 ],
               ),
             ),

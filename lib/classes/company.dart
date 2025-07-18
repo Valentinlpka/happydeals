@@ -46,28 +46,67 @@ class Company {
 
   factory Company.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // Conversion sécurisée de la galerie
+    List<Map<String, dynamic>> galleryList = [];
+    if (data['gallery'] != null) {
+      if (data['gallery'] is List) {
+        galleryList = List<Map<String, dynamic>>.from(
+          (data['gallery'] as List).map((item) {
+            if (item is Map) {
+              return Map<String, dynamic>.from(item);
+            }
+            return {'url': item.toString(), 'id': 'gallery-${DateTime.now().millisecondsSinceEpoch}'};
+          }),
+        );
+      } else if (data['gallery'] is String) {
+        galleryList = [
+          {
+            'url': data['gallery'],
+            'id': 'gallery-${DateTime.now().millisecondsSinceEpoch}'
+          }
+        ];
+      }
+    }
+
+    // Conversion sécurisée du rating
+    double? rating;
+    if (data['rating'] != null) {
+      if (data['rating'] is num) {
+        rating = (data['rating'] as num).toDouble();
+      } else if (data['rating'] is String) {
+        rating = double.tryParse(data['rating']);
+      }
+    }
+
     return Company(
       id: doc.id,
-      name: data['name'] ?? '',
-      entityType: data['entityType'] ?? '',
-      website: data['website'] ?? '',
-      categorie: data['categorie'] ?? '',
-      cover: data['cover'] ?? '',
-      gallery: List<Map<String, dynamic>>.from(data['gallery'] ?? []),
-      description: data['description'] ?? '',
-      email: data['email'] ?? '',
-      like: data['like'] ?? 0,
-      logo: data['logo'] ?? '',
-      phone: data['phone'] ?? '',
-      type: data['type'] ?? '',
-      sellerId: data['sellerId'] ?? '',
+      name: data['name']?.toString() ?? '',
+      entityType: data['entityType']?.toString() ?? '',
+      website: data['website']?.toString() ?? '',
+      categorie: data['categorie']?.toString() ?? '',
+      cover: data['cover']?.toString() ?? '',
+      gallery: galleryList,
+      description: data['description']?.toString() ?? '',
+      email: data['email']?.toString() ?? '',
+      like: (data['like'] is num) ? (data['like'] as num).toInt() : 0,
+      logo: data['logo']?.toString() ?? '',
+      phone: data['phone']?.toString() ?? '',
+      type: data['type']?.toString() ?? '',
+      sellerId: data['sellerId']?.toString() ?? '',
       adress: Address.fromMap(data['adress'] ?? {}),
       openingHours: OpeningHours(
-        hours: Map<String, String>.from(data['openingHours'] ?? {}),
+        hours: Map<String, String>.from(
+          (data['openingHours'] ?? {}).map((key, value) => 
+            MapEntry(key.toString(), value?.toString() ?? 'fermé')
+          ),
+        ),
         sameHoursAllDays: false,
       ),
-      averageRating: (data['rating'] as num?)?.toDouble(),
-      numberOfReviews: data['numberOfReviews'] as int?,
+      averageRating: rating,
+      numberOfReviews: (data['numberOfReviews'] is num) 
+          ? (data['numberOfReviews'] as num).toInt() 
+          : null,
       createdAt: data['createdAt'] is Timestamp
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
@@ -116,13 +155,32 @@ class Address {
   });
 
   factory Address.fromMap(Map<String, dynamic> map) {
+    // Conversion sécurisée des coordonnées
+    double? lat;
+    if (map['latitude'] != null) {
+      if (map['latitude'] is num) {
+        lat = (map['latitude'] as num).toDouble();
+      } else if (map['latitude'] is String) {
+        lat = double.tryParse(map['latitude']);
+      }
+    }
+
+    double? lng;
+    if (map['longitude'] != null) {
+      if (map['longitude'] is num) {
+        lng = (map['longitude'] as num).toDouble();
+      } else if (map['longitude'] is String) {
+        lng = double.tryParse(map['longitude']);
+      }
+    }
+
     return Address(
-      adresse: map['adresse'] ?? '',
-      codePostal: map['code_postal'] ?? '',
-      pays: map['pays'] ?? '',
-      ville: map['ville'] ?? '',
-      latitude: (map['latitude'] as num?)?.toDouble(),
-      longitude: (map['longitude'] as num?)?.toDouble(),
+      adresse: map['adresse']?.toString() ?? '',
+      codePostal: map['code_postal']?.toString() ?? '',
+      pays: map['pays']?.toString() ?? '',
+      ville: map['ville']?.toString() ?? '',
+      latitude: lat,
+      longitude: lng,
     );
   }
 

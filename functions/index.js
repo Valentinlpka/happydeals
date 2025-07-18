@@ -76,6 +76,9 @@ exports.createStripeCheckoutSession = functions.firestore
           },
         ],
         mode: "subscription",
+        subscription_data: {
+          trial_period_days: 30,
+        },
         success_url: success_url,
         cancel_url: cancel_url,
       });
@@ -187,6 +190,9 @@ exports.createCheckoutSession = functions.https.onCall(
         mode: "subscription",
         success_url: `${baseUrl}/plans/success`,
         cancel_url: `${baseUrl}/plans`,
+        subscription_data: {
+          trial_period_days: 30,
+        },
         metadata: {
           firebaseUID: userId,
           planName: planName,
@@ -294,7 +300,7 @@ async function handleCheckoutSessionCompleted(session) {
     const updatedClaims = {
       companyCreated: true,
       stripeRole: planName,
-      subscriptionActive: subscription.status === 'active',
+      subscriptionActive: subscription.status === 'active' || subscription.status === 'trialing',
       subscriptionId: subscriptionId
     };
 
@@ -303,7 +309,7 @@ async function handleCheckoutSessionCompleted(session) {
     // Forcer le rafraîchissement du token
     await admin.auth().revokeRefreshTokens(firebaseUID);
 
-    console.log(`Custom claims mis à jour pour l'utilisateur ${firebaseUID}:`, customClaims);
+    console.log(`Custom claims mis à jour pour l'utilisateur ${firebaseUID}:`, updatedClaims);
   } catch (error) {
     console.error(
       "Erreur lors du traitement de checkout.session.completed:",
@@ -320,9 +326,6 @@ async function handleInvoicePaid(invoice) {
     );
     const customer = await stripe.customers.retrieve(invoice.customer);
 
-    // Récupérer le planName depuis les métadonnées de la subscription
-    const planName = subscription.metadata.planName;
-
     await admin
       .firestore()
       .collection("users")
@@ -332,7 +335,6 @@ async function handleInvoicePaid(invoice) {
         subscriptionPeriodEnd: admin.firestore.Timestamp.fromMillis(
           subscription.current_period_end * 1000
         ),
-        planName: planName, // Ajouter le planName
       });
   }
 }
@@ -402,8 +404,20 @@ async function handleSubscriptionUpdated(subscription) {
     const userData = userDoc.data();
 
     // Récupérer le planName depuis les métadonnées ou garder celui existant dans Firestore
-    const planName = subscription.metadata?.planName || userData?.planName || 'default';
-    const subscriptionRenewal = subscription.cancel_at_period_end === false;
+    let planName = 'default';
+
+    try {
+      const priceId = subscription.items.data[0].price.id;
+      const price = await stripe.prices.retrieve(priceId, {
+        expand: ['product']  // ⬅️ pour avoir accès au nom du produit
+      });
+      
+      const productName = typeof price.product === 'object' ? price.product.name : null;
+      planName = productName || userData?.planName || 'default';
+          } catch (err) {
+      console.warn("Impossible de récupérer le nickname du plan Stripe :", err);
+    }
+        const subscriptionRenewal = subscription.cancel_at_period_end === false;
 
     // Préparer l'objet de mise à jour avec uniquement des valeurs définies
     const updateData = {
@@ -449,7 +463,7 @@ async function handleSubscriptionUpdated(subscription) {
     await admin.auth().setCustomUserClaims(firebaseUID, updatedClaims);
     await admin.auth().revokeRefreshTokens(firebaseUID);
 
-    console.log(`Custom claims mis à jour pour l'utilisateur ${firebaseUID}:`, customClaims);
+    console.log(`Custom claims mis à jour pour l'utilisateur ${firebaseUID}:`, updatedClaims);
     console.log(`Updated subscription for user ${firebaseUID}`, {
       subscriptionRenewal,
       cancelAt: subscription.cancel_at || "Not cancelled",
@@ -2310,10 +2324,15 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency: "eur",
+        customer: stripeCustomerId,
+        application_fee_amount: 100,
         metadata: {
           type,
           userId: context.auth.uid,
           ...processedMetadata,
+        },
+        transfer_data: {
+          destination: "acct_1RTLqPIEAfIDSsKq",
         },
       });
 
@@ -2458,7 +2477,7 @@ async function handleOrderPayment(paymentData) {
         pendingOrderData.items.map(async (item) => {
           const productRef = admin
             .firestore()
-            .collection("products")
+            .collection("posts")
             .doc(item.productId);
           return {
             ref: productRef,

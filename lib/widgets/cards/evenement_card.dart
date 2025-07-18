@@ -6,15 +6,11 @@ import 'package:intl/intl.dart';
 class EvenementCard extends StatelessWidget {
   final Event event;
   final String currentUserId;
-  final String companyName;
-  final String companyLogo;
 
   const EvenementCard({
     super.key,
     required this.event,
     required this.currentUserId,
-    required this.companyName,
-    required this.companyLogo,
   });
 
   String _formatDateTime(DateTime dateTime) {

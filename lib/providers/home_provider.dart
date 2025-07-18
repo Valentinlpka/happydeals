@@ -13,10 +13,11 @@ import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
-import 'package:happy/classes/product_post.dart';
+import 'package:happy/classes/product.dart';
 import 'package:happy/classes/promo_code_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/service_post.dart';
+import 'package:happy/classes/service_promotion.dart';
 import 'package:happy/classes/share_post.dart';
 
 class HomeProvider extends ChangeNotifier {
@@ -413,18 +414,60 @@ class HomeProvider extends ChangeNotifier {
     await Future.wait(futures);
   }
 
+  // Fonction utilitaire pour valider et nettoyer les URLs d'images
+  String _sanitizeImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) {
+      return '';
+    }
+
+    final trimmedUrl = url.trim();
+    
+    // Vérifier si l'URL commence par file:///
+    if (trimmedUrl.startsWith('file:///')) {
+      return '';
+    }
+
+    // Vérifier si l'URL est valide (commence par http:// ou https://)
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+      return '';
+    }
+
+    return trimmedUrl;
+  }
+
   Future<void> _processPost(
     DocumentSnapshot postDoc,
     Set<String> addedPostIds,
     List<CombinedItem> combinedItems,
   ) async {
     try {
+      debugPrint("Début du traitement du post ${postDoc.id}");
+      
+      // Vérification et conversion sécurisée des données numériques
+      final data = postDoc.data() as Map<String, dynamic>;
+      _sanitizeNumericValues(data);
+
+      // Nettoyer les URLs d'images
+      if (data['images'] is List) {
+        data['images'] = (data['images'] as List).map((img) => _sanitizeImageUrl(img?.toString())).where((url) => url.isNotEmpty).toList();
+      }
+      if (data['image'] != null) {
+        data['image'] = _sanitizeImageUrl(data['image']?.toString());
+      }
+      if (data['companyLogo'] != null) {
+        data['companyLogo'] = _sanitizeImageUrl(data['companyLogo']?.toString());
+      }
+
       final post = _createPostFromDocument(postDoc);
-      if (post == null) return;
+      if (post == null) {
+        debugPrint("❌ Post null pour le document ${postDoc.id}");
+        return;
+      }
 
       final uniqueId = '${post.id}_${post.timestamp.millisecondsSinceEpoch}';
       if (addedPostIds.contains(uniqueId) ||
           _loadedItemIds.contains(uniqueId)) {
+        debugPrint("Post déjà ajouté: $uniqueId");
         return;
       }
 
@@ -436,7 +479,10 @@ class HomeProvider extends ChangeNotifier {
       if (post is SharedPost) {
         final sharedByUserData = await _getSharedByUserData(post.sharedBy!);
         final contentData = await _getOriginalContent(post);
-        if (contentData == null || sharedByUserData == null) return;
+        if (contentData == null || sharedByUserData == null) {
+          debugPrint("❌ Données manquantes pour le post partagé ${post.id}");
+          return;
+        }
 
         postData = {
           'post': post,
@@ -445,9 +491,11 @@ class HomeProvider extends ChangeNotifier {
           'uniqueId': uniqueId,
         };
       } else {
-        // Utiliser le cache pour les données d'entreprise
         final companyData = await getCompanyData(post.companyId);
-        if (companyData == null) return;
+        if (companyData == null) {
+          debugPrint("❌ Données d'entreprise manquantes pour ${post.id}");
+          return;
+        }
 
         postData = {
           'post': post,
@@ -457,8 +505,67 @@ class HomeProvider extends ChangeNotifier {
       }
 
       combinedItems.add(CombinedItem(postData, post.timestamp, 'post'));
-    } catch (e) {
-      debugPrint('Erreur lors du traitement du post: $e');
+      debugPrint("✅ Post ${post.id} traité avec succès");
+    } catch (e, stackTrace) {
+      debugPrint('❌ Erreur lors du traitement du post ${postDoc.id}: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+  }
+
+  void _sanitizeNumericValues(Map<String, dynamic> data) {
+    // Fonction utilitaire pour convertir en double
+    double? toDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      if (value is String) {
+        final normalized = value.trim().replaceAll(',', '.');
+        return double.tryParse(normalized);
+      }
+      return null;
+    }
+
+    // Fonction utilitaire pour convertir en int
+    int? toInt(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toInt();
+      if (value is String) {
+        return int.tryParse(value.trim());
+      }
+      return null;
+    }
+
+    // Liste des champs qui doivent être des nombres
+    final numericFields = [
+      'price', 'basePrice', 'finalPrice', 'tva',
+      'duration', 'views', 'likes', 'commentsCount',
+      'sharesCount', 'value', 'stock'
+    ];
+
+    // Conversion des champs numériques
+    for (var field in numericFields) {
+      if (data.containsKey(field)) {
+        final value = data[field];
+        if (field == 'views' || field == 'likes' || 
+            field == 'commentsCount' || field == 'sharesCount' || 
+            field == 'stock') {
+          data[field] = toInt(value) ?? 0;
+        } else {
+          data[field] = toDouble(value) ?? 0.0;
+        }
+      }
+    }
+
+    // Traitement des sous-objets
+    if (data['variants'] is List) {
+      for (var variant in data['variants']) {
+        if (variant is Map<String, dynamic>) {
+          _sanitizeNumericValues(variant);
+        }
+      }
+    }
+
+    if (data['discount'] is Map<String, dynamic>) {
+      _sanitizeNumericValues(data['discount']);
     }
   }
 
@@ -504,7 +611,7 @@ class HomeProvider extends ChangeNotifier {
         case 'job_offer':
           return JobOffer.fromDocument(doc);
         case 'product':
-          return ProductPost.fromDocument(doc);
+          return Product.fromFirestore(doc);
         case 'contest':
           return Contest.fromDocument(doc);
         case 'happy_deal':
@@ -521,6 +628,8 @@ class HomeProvider extends ChangeNotifier {
           return SharedPost.fromDocument(doc);
         case 'promo_code':
           return PromoCodePost.fromDocument(doc);
+        case 'service_promotion':
+          return ServicePromotion.fromFirestore(doc);
         case 'service':
           return ServicePost.fromDocument(doc);
         default:

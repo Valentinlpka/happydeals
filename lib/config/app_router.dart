@@ -208,7 +208,6 @@ class AppRouter {
         if (args is Map<String, dynamic>) {
           return getRoute(DetailsHappyDeals(
             happydeal: args['happydeal'],
-            cover: args['cover'],
           ));
         }
         break;
@@ -218,8 +217,6 @@ class AppRouter {
         if (args is Map<String, dynamic>) {
           return getRoute(PromoCodeDetails(
             post: args['post'],
-            companyName: args['companyName'],
-            companyLogo: args['companyLogo'],
           ));
         }
         break;

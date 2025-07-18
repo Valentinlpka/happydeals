@@ -91,7 +91,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
                       _buildInfoCard(context),
                       const SizedBox(height: 50),
                       _buildTotalSection(context),
-                      if (widget.deal.availableBaskets <= 3)
+                      if (widget.deal.totalSlots <= 3)
                         _buildAvailabilityWarning(),
                     ],
                   ),
@@ -117,7 +117,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
               'companyId': widget.deal.companyId,
               'stripeAccountId': widget.deal.stripeAccountId,
               'basketCount': widget.deal.basketCount,
-              'availableBaskets': widget.deal.availableBaskets,
+              'availableBaskets': widget.deal.totalSlots,
               'companyName': companyName,
               'pickupAddress': companyAddress,
               'timestamp': widget.deal.timestamp.toIso8601String(),
@@ -156,7 +156,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
         ),
         _buildInfoRow(
           Icons.inventory_2_outlined,
-          'Paniers disponibles: ${widget.deal.availableBaskets}',
+          'Paniers disponibles: ${widget.deal.totalSlots}',
         ),
       ],
     );
@@ -221,7 +221,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Plus que ${widget.deal.availableBaskets} panier${widget.deal.availableBaskets > 1 ? 's' : ''} disponible${widget.deal.availableBaskets > 1 ? 's' : ''}!',
+              'Plus que ${widget.deal.totalSlots} panier${widget.deal.totalSlots > 1 ? 's' : ''} disponible${widget.deal.totalSlots > 1 ? 's' : ''}!',
               style: const TextStyle(
                 color: Colors.orange,
                 fontWeight: FontWeight.w500,

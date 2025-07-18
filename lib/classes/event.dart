@@ -43,6 +43,8 @@ class Event extends Post {
     super.likes,
     super.likedBy,
     super.commentsCount,
+    required super.companyName,
+    required super.companyLogo,
     super.comments,
   }) : super(
           type: 'event',
@@ -65,6 +67,8 @@ class Event extends Post {
       longitude: data['longitude'],
       description: data['description'],
       companyId: data['companyId'],
+      companyName: data['companyName'],
+      companyLogo: data['companyLogo'],
       products: List<String>.from(data['products']),
       photo: data['photo'],
       views: data['views'] ?? 0,

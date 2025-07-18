@@ -480,12 +480,6 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
       key: ValueKey('${postId}_${DateTime.now().millisecondsSinceEpoch}'),
       post: post,
       ad: ad,
-      companyData: CompanyData(
-          category: companyData?['categorie'] ?? '',
-          cover: companyData?['cover'] ?? '',
-          logo: companyData?['logo'] ?? '',
-          name: companyData?['name'] ?? '',
-          rawData: companyData ?? {}),
       currentUserId: widget.userId,
       sharedByUserData: formattedUserData,
       currentProfileUserId: widget.userId,

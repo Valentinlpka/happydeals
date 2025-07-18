@@ -12,7 +12,7 @@ import 'package:happy/classes/loyalty_card.dart';
 import 'package:happy/classes/loyalty_program.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
-import 'package:happy/classes/product_post.dart';
+import 'package:happy/classes/product.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/referral_options_modal.dart';
 import 'package:happy/classes/service_post.dart';
@@ -242,7 +242,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
         case 'service':
           return ServicePost.fromDocument(doc);
         case 'product':
-          return ProductPost.fromDocument(doc);
+          return Product.fromFirestore(doc);
         default:
           return null;
       }
@@ -841,17 +841,10 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
           itemBuilder: (context, index) {
             final postData = referralPosts[index];
             final post = postData['post'] as Post;
-            final companyData = postData['company'] as Map<String, dynamic>;
 
             return PostWidget(
               key: ValueKey(post.id),
               post: post,
-              companyData: CompanyData(
-                  category: companyData['categorie'] ?? '',
-                  cover: companyData['cover'] ?? '',
-                  logo: companyData['logo'] ?? '',
-                  name: companyData['name'] ?? '',
-                  rawData: companyData),
               currentUserId: FirebaseAuth.instance.currentUser!.uid,
               currentProfileUserId: FirebaseAuth.instance.currentUser!.uid,
               onView: () {
@@ -956,18 +949,9 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                 itemBuilder: (context, index) {
                   final postData = filteredPosts[index];
                   final post = postData['post'] as Post;
-                  final companyData =
-                      postData['company'] as Map<String, dynamic>;
-
                   return PostWidget(
                     key: ValueKey(post.id),
                     post: post,
-                    companyData: CompanyData(
-                        category: companyData['categorie'] ?? '',
-                        cover: companyData['cover'] ?? '',
-                        logo: companyData['logo'] ?? '',
-                        name: companyData['name'] ?? '',
-                        rawData: companyData),
                     currentUserId: FirebaseAuth.instance.currentUser!.uid,
                     currentProfileUserId:
                         FirebaseAuth.instance.currentUser!.uid,

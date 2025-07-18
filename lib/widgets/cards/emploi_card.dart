@@ -3,7 +3,7 @@ import 'package:happy/classes/joboffer.dart';
 import 'package:happy/config/app_router.dart';
 
 class JobOfferCard extends StatelessWidget {
-  final JobOffer post;
+  final JobOffer? post;
 
   const JobOfferCard({
     super.key,
@@ -12,6 +12,10 @@ class JobOfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (post == null) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
       child: Material(
@@ -35,7 +39,7 @@ class JobOfferCard extends StatelessWidget {
               children: [
                 // Titre du poste
                 Text(
-                  post.title,
+                  post?.title ?? 'Offre d\'emploi',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -51,27 +55,28 @@ class JobOfferCard extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildTag(
-                      icon: Icons.location_on_outlined,
-                      text: post.city,
-                      color: Colors.blue,
-                    ),
-                    if (post.contractType != null)
+                    if (post?.city.isNotEmpty == true)
+                      _buildTag(
+                        icon: Icons.location_on_outlined,
+                        text: post!.city,
+                        color: Colors.blue,
+                      ),
+                    if (post?.contractType?.isNotEmpty == true)
                       _buildTag(
                         icon: Icons.work_outline,
-                        text: post.contractType!,
+                        text: post!.contractType!,
                         color: Colors.indigo,
                       ),
-                    if (post.workingHours != null)
+                    if (post?.workingHours?.isNotEmpty == true)
                       _buildTag(
                         icon: Icons.access_time_rounded,
-                        text: post.workingHours!,
+                        text: post!.workingHours!,
                         color: Colors.orange,
                       ),
                   ],
                 ),
 
-                if (post.salary!.isNotEmpty) ...[
+                if (post?.salary?.isNotEmpty == true) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -97,7 +102,7 @@ class JobOfferCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          post.salary!,
+                          post!.salary!,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
@@ -109,12 +114,12 @@ class JobOfferCard extends StatelessWidget {
                   ),
                 ],
 
-                if (post.keywords.isNotEmpty) ...[
+                if (post?.keywords.isNotEmpty == true) ...[
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: post.keywords.map((keyword) {
+                    children: post!.keywords.map((keyword) {
                       return Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,

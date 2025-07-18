@@ -130,6 +130,7 @@ class UserApplicationsPage extends StatelessWidget {
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     var application = snapshot.data!.docs[index];
+                    var applicationData = application.data() as Map<String, dynamic>;
                     return Container(
                       margin: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -163,7 +164,7 @@ class UserApplicationsPage extends StatelessWidget {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            application['jobTitle'] ??
+                                            applicationData['jobTitle'] ??
                                                 'Titre inconnu',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w600,
@@ -172,7 +173,7 @@ class UserApplicationsPage extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            'Postuler le: ${_formatDate(application['appliedAt'])}',
+                                            'Postuler le: ${_formatDate(applicationData['appliedAt'])}',
                                             style: TextStyle(
                                               color: Colors.grey[600],
                                               fontSize: 13,
@@ -182,9 +183,8 @@ class UserApplicationsPage extends StatelessWidget {
                                       ),
                                     ),
                                     _buildStatusChip(
-                                        application['status'],
-                                        application.data()
-                                            as Map<String, dynamic>),
+                                        applicationData['status'],
+                                        applicationData),
                                   ],
                                 ),
                                 const SizedBox(height: 16),
@@ -206,13 +206,17 @@ class UserApplicationsPage extends StatelessWidget {
                                                 Colors.blue.withAlpha(26 * 2),
                                             width: 2,
                                           ),
-                                          image: DecorationImage(
+                                          image: applicationData['companyLogo'] != null ? DecorationImage(
                                             image: NetworkImage(
-                                              application['companyLogo'] ?? '',
+                                              applicationData['companyLogo'],
                                             ),
                                             fit: BoxFit.cover,
-                                          ),
+                                          ) : null,
                                         ),
+                                        child: applicationData['companyLogo'] == null ? Icon(
+                                          Icons.business,
+                                          color: Colors.blue[300],
+                                        ) : null,
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
@@ -221,19 +225,14 @@ class UserApplicationsPage extends StatelessWidget {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              application['companyName'] ?? '',
+                                              applicationData['companyName'] ?? '',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.w500,
                                                 fontSize: 14,
                                               ),
                                             ),
-                                            if ((application.data()
-                                                        as Map<String, dynamic>)
-                                                    .containsKey(
-                                                        'userUnreadMessages') &&
-                                                application[
-                                                        'userUnreadMessages'] ==
-                                                    true) ...[
+                                            if (applicationData.containsKey('userUnreadMessages') &&
+                                                applicationData['userUnreadMessages'] == true) ...[
                                               const SizedBox(height: 4),
                                               Container(
                                                 padding:

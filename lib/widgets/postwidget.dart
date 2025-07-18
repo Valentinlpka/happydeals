@@ -13,10 +13,11 @@ import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/joboffer.dart';
 import 'package:happy/classes/news.dart';
 import 'package:happy/classes/post.dart';
-import 'package:happy/classes/product_post.dart';
+import 'package:happy/classes/product.dart';
 import 'package:happy/classes/promo_code_post.dart';
 import 'package:happy/classes/referral.dart';
 import 'package:happy/classes/service_post.dart';
+import 'package:happy/classes/service_promotion.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/users_provider.dart';
@@ -34,6 +35,7 @@ import 'package:happy/widgets/cards/parrainage_card.dart';
 import 'package:happy/widgets/cards/product_cards.dart';
 import 'package:happy/widgets/cards/promo_code_card.dart';
 import 'package:happy/widgets/cards/service_cards.dart';
+import 'package:happy/widgets/cards/service_promotion_card.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -45,7 +47,6 @@ class PostWidget extends StatefulWidget {
   final String currentUserId;
   final String currentProfileUserId;
   final VoidCallback onView;
-  final CompanyData companyData;
   final Map<String, dynamic>? sharedByUserData;
 
   const PostWidget({
@@ -55,7 +56,6 @@ class PostWidget extends StatefulWidget {
     required this.currentUserId,
     required this.currentProfileUserId,
     required this.onView,
-    required this.companyData,
     this.sharedByUserData,
   });
 
@@ -63,22 +63,6 @@ class PostWidget extends StatefulWidget {
   State<PostWidget> createState() => _PostWidgetState();
 }
 
-// Classe pour encapsuler les données de l'entreprise
-class CompanyData {
-  final String name;
-  final String category;
-  final String logo;
-  final String cover;
-  final Map<String, dynamic> rawData;
-
-  const CompanyData({
-    required this.name,
-    required this.category,
-    required this.logo,
-    required this.cover,
-    required this.rawData,
-  });
-}
 
 class _PostWidgetState extends State<PostWidget>
     with AutomaticKeepAliveClientMixin {
@@ -115,7 +99,6 @@ class _PostWidgetState extends State<PostWidget>
         child: _PostCard(
           post: _postCache[widget.post.id] ?? widget.post,
           stateManager: _stateManager,
-          companyData: widget.companyData,
           sharedByUserData: widget.sharedByUserData,
           currentUserId: widget.currentUserId,
           currentProfileUserId: widget.currentProfileUserId,
@@ -206,7 +189,6 @@ class PostStateManager {
 class _PostCard extends StatelessWidget {
   final Post post;
   final PostStateManager stateManager;
-  final CompanyData companyData;
   final Map<String, dynamic>? sharedByUserData;
   final String currentUserId;
   final String currentProfileUserId;
@@ -215,7 +197,6 @@ class _PostCard extends StatelessWidget {
   const _PostCard({
     required this.post,
     required this.stateManager,
-    required this.companyData,
     required this.currentUserId,
     required this.currentProfileUserId,
     required this.onView,
@@ -238,18 +219,15 @@ class _PostCard extends StatelessWidget {
           else
             _CompanyHeader(
               post: post,
-              companyData: companyData,
               timestamp: post.timestamp,
             ),
           _PostContent(
             post: post,
-            companyData: companyData,
             currentUserId: currentUserId,
           ),
           _InteractionBar(
             post: post,
             currentUserId: currentUserId,
-            companyData: companyData,
           ),
         ],
       ),
@@ -259,15 +237,21 @@ class _PostCard extends StatelessWidget {
 
 // Composants individuels
 class _CompanyHeader extends StatelessWidget {
-  final CompanyData companyData;
   final Post post;
   final DateTime timestamp;
 
   const _CompanyHeader({
-    required this.companyData,
     required this.post,
     required this.timestamp,
   });
+
+  // Fonction utilitaire pour valider l'URL de l'image
+  bool _isValidImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return false;
+    final trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith('file:///')) return false;
+    return trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://');
+  }
 
   String _getPostType() {
     switch (post.runtimeType) {
@@ -275,7 +259,7 @@ class _CompanyHeader extends StatelessWidget {
         return 'Événement';
       case PromoCodePost:
         return 'Code Promo';
-      case ProductPost:
+      case Product:
         return 'Produit';
       case Referral:
         return 'Parrainage';
@@ -289,6 +273,8 @@ class _CompanyHeader extends StatelessWidget {
         return 'Deal Express';
       case ServicePost:
         return 'Services';
+      case ServicePromotion:
+        return 'Promotion';
       default:
         return 'Publication';
     }
@@ -308,7 +294,7 @@ class _CompanyHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
-      case ProductPost:
+      case Product:
         return const LinearGradient(
           colors: [
             Color.fromARGB(255, 234, 46, 159),
@@ -353,6 +339,12 @@ class _CompanyHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
+      case ServicePromotion:
+        return const LinearGradient(
+          colors: [Color(0xFF6B48FF), Color(0xFF8466FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
       default:
         return const LinearGradient(
           colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
@@ -368,7 +360,7 @@ class _CompanyHeader extends StatelessWidget {
         return Icons.calendar_today_outlined;
       case PromoCodePost:
         return Icons.confirmation_number;
-      case ProductPost:
+      case Product:
         return Icons.shopping_bag_outlined;
       case Referral:
         return Icons.people_outline;
@@ -411,8 +403,29 @@ class _CompanyHeader extends StatelessWidget {
                 padding: const EdgeInsets.all(2),
                 child: CircleAvatar(
                   radius: 24,
-                  backgroundImage: NetworkImage(companyData.logo),
                   backgroundColor: Colors.white,
+                  child: _isValidImageUrl(post.companyLogo)
+                      ? ClipOval(
+                          child: Image.network(
+                            post.companyLogo,
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              debugPrint('Erreur de chargement du logo: $error');
+                              return Icon(
+                                Icons.business,
+                                size: 24,
+                                color: Colors.grey[400],
+                              );
+                            },
+                          ),
+                        )
+                      : Icon(
+                          Icons.business,
+                          size: 24,
+                          color: Colors.grey[400],
+                        ),
                 ),
               ),
             ),
@@ -422,7 +435,7 @@ class _CompanyHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    companyData.name,
+                    post.companyName,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -490,6 +503,14 @@ class _SharedPostHeader extends StatelessWidget {
     required this.currentUserId,
   });
 
+  // Fonction utilitaire pour valider l'URL de l'image
+  bool _isValidImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return false;
+    final trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith('file:///')) return false;
+    return trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://');
+  }
+
   @override
   Widget build(BuildContext context) {
     final sharedText = post.comment == "a publié une annonce"
@@ -504,12 +525,27 @@ class _SharedPostHeader extends StatelessWidget {
           leading: GestureDetector(
             onTap: () => _navigateToUserProfile(context, post.sharedBy!),
             child: CircleAvatar(
-              backgroundImage:
-                  NetworkImage(userData?['userProfilePicture'] ?? ''),
-              backgroundColor: Colors.grey,
-              onBackgroundImageError: (exception, stackTrace) {
-                debugPrint('Erreur de chargement image: $exception');
-              },
+              backgroundColor: Colors.grey[200],
+              child: _isValidImageUrl(userData?['userProfilePicture'])
+                  ? ClipOval(
+                      child: Image.network(
+                        userData!['userProfilePicture'],
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint('Erreur de chargement de l\'image de profil: $error');
+                          return Icon(
+                            Icons.person,
+                            color: Colors.grey[400],
+                          );
+                        },
+                      ),
+                    )
+                  : Icon(
+                      Icons.person,
+                      color: Colors.grey[400],
+                    ),
             ),
           ),
           title: GestureDetector(
@@ -671,12 +707,10 @@ class _SharedPostHeader extends StatelessWidget {
 
 class _PostContent extends StatelessWidget {
   final Post post;
-  final CompanyData companyData;
   final String currentUserId;
 
   const _PostContent({
     required this.post,
-    required this.companyData,
     required this.currentUserId,
   });
 
@@ -777,59 +811,43 @@ class _PostContent extends StatelessWidget {
       case HappyDeal:
         return HappyDealsCard(
           post: post as HappyDeal,
-          companyName: companyData.name,
-          companyCover: companyData.cover,
-          companyCategorie: companyData.category,
-          companyLogo: companyData.logo,
         );
       case News:
         return NewsCard(
           news: post as News,
-          companyName: companyData.name,
-          companyLogo: companyData.logo,
         );
       case Referral:
         return ParrainageCard(
           post: post as Referral,
           currentUserId: currentUserId,
-          companyName: companyData.name,
-          companyLogo: companyData.logo,
         );
       case ExpressDeal:
         return DealsExpressCard(
           currentUserId: currentUserId,
           post: post as ExpressDeal,
-          companyName: companyData.name,
-          companyLogo: companyData.logo,
         );
-      case ProductPost:
+      case Product:
         return ProductCards(
-          post: post as ProductPost,
-          companyName: companyData.name,
-          companyLogo: companyData.logo,
+          product: post as Product,
         );
       case ServicePost:
         return ServiceCards(
           post: post as ServicePost,
-          companyName: companyData.name,
-          companyLogo: companyData.logo,
+        );
+      case ServicePromotion:
+        return ServicePromotionCard(
+          promotion: post as ServicePromotion,
         );
       case Event:
         return EvenementCard(
           event: post as Event,
           currentUserId: currentUserId,
-          companyName: companyData.name,
-          companyLogo: companyData.logo,
         );
       case PromoCodePost:
         return PromoCodeCard(
           post: post as PromoCodePost,
-          companyName: companyData.name,
-          companyLogo: companyData.logo,
           currentUserId: currentUserId,
         );
-
-      // ... autres cas similaires ...
       default:
         return Card(
           child: Padding(
@@ -839,8 +857,8 @@ class _PostContent extends StatelessWidget {
               children: [
                 Text('Type de post non supporté: ${post.runtimeType}'),
                 Text('ID du post: ${post.id}'),
-                Text('Entreprise: ${companyData.name}'),
-                Text('Catégorie: ${companyData.category}'),
+                Text('Entreprise: ${post.companyName}'),
+                Text('Catégorie: ${post.companyLogo}'),
               ],
             ),
           ),
@@ -852,12 +870,10 @@ class _PostContent extends StatelessWidget {
 class _InteractionBar extends StatelessWidget {
   final Post post;
   final String currentUserId;
-  final CompanyData companyData;
 
   const _InteractionBar({
     required this.post,
     required this.currentUserId,
-    required this.companyData,
   });
 
   @override
@@ -954,6 +970,14 @@ class _InteractionBar extends StatelessWidget {
 
   void _navigateToComments(BuildContext context) {
     final TextEditingController commentController = TextEditingController();
+
+    // Fonction utilitaire pour valider l'URL de l'image
+    bool isValidImageUrl(String? url) {
+      if (url == null || url.trim().isEmpty) return false;
+      final trimmedUrl = url.trim();
+      if (trimmedUrl.startsWith('file:///')) return false;
+      return trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://');
+    }
 
     showModalBottomSheet(
       context: context,
@@ -1112,6 +1136,8 @@ class _InteractionBar extends StatelessWidget {
                                               .toDate()
                                           : DateTime.now();
 
+                                  final imageUrl = userData['image_profile'] as String?;
+
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 16),
                                     child: Row(
@@ -1120,10 +1146,29 @@ class _InteractionBar extends StatelessWidget {
                                       children: [
                                         CircleAvatar(
                                           radius: 20,
-                                          backgroundImage: NetworkImage(
-                                            userData['image_profile'] ?? '',
-                                          ),
                                           backgroundColor: Colors.grey[200],
+                                          child: isValidImageUrl(imageUrl)
+                                              ? ClipOval(
+                                                  child: Image.network(
+                                                    imageUrl!,
+                                                    width: 40,
+                                                    height: 40,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context, error, stackTrace) {
+                                                      debugPrint('Erreur de chargement de l\'image de profil: $error');
+                                                      return Icon(
+                                                        Icons.person,
+                                                        size: 24,
+                                                        color: Colors.grey[400],
+                                                      );
+                                                    },
+                                                  ),
+                                                )
+                                              : Icon(
+                                                  Icons.person,
+                                                  size: 24,
+                                                  color: Colors.grey[400],
+                                                ),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(

@@ -10,6 +10,7 @@ import 'package:happy/screens/bottom_sheet_emploi.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class DetailsEmploiPage extends StatefulWidget {
@@ -29,10 +30,12 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
   bool _hasApplied = false;
   final ScrollController _scrollController = ScrollController();
   bool _isStickyHeaderVisible = false;
+  Company? _company;
 
   @override
   void initState() {
     super.initState();
+    _loadCompanyData();
     _checkApplicationStatus();
     _scrollController.addListener(_onScroll);
   }
@@ -55,6 +58,26 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
       }
     }
   }
+
+  Future<void> _loadCompanyData() async {
+    try {
+      final companyDoc = await FirebaseFirestore.instance
+          .collection('companys')
+          .doc(widget.post.companyId)
+          .get();
+      
+      if (companyDoc.exists) {
+        setState(() {
+          _company = Company.fromDocument(companyDoc);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des données de l\'entreprise: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
 
   Future<void> _checkApplicationStatus() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -143,15 +166,66 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isLiked =
-        context.watch<UserModel>().likedPosts.contains(widget.post.id);
+    final isLiked = context.watch<UserModel>().likedPosts.contains(widget.post.id);
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          // App Bar personnalisée
+          _buildSliverAppBar(isLiked, theme),
+          
+          // Contenu principal
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                // En-tête avec informations principales
+                _buildHeader(isMobile),
+                
+                // Carte entreprise
+                if (_company != null) _buildCompanyCard(),
+                
+                // Informations clés
+                _buildKeyInformation(isMobile),
+                
+                // Description détaillée
+                _buildDetailedDescription(isMobile),
+                
+                // Compétences et mots-clés
+                if (widget.post.keywords.isNotEmpty)
+                  _buildKeywords(isMobile),
+                
+                // Avantages
+                if (widget.post.benefits.isNotEmpty)
+                  _buildBenefits(isMobile),
+                
+                // Pourquoi nous rejoindre
+                if (widget.post.whyJoin.isNotEmpty)
+                  _buildWhyJoinUs(isMobile),
+                
+                // Espace pour le bouton flottant
+                const SizedBox(height: 100),
+              ],
+            ),
+          ),
+        ],
+      ),
+      // Bouton Postuler flottant
+      floatingActionButton: _buildFloatingActionButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildSliverAppBar(bool isLiked, ThemeData theme) {
+    return SliverAppBar(
+      expandedHeight: 0,
+      floating: true,
+      pinned: true,
         backgroundColor: Colors.white,
-        elevation: 0,
+      elevation: _isStickyHeaderVisible ? 2 : 0,
         leading: IconButton(
           icon: Container(
             padding: const EdgeInsets.all(8),
@@ -168,59 +242,49 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
           duration: const Duration(milliseconds: 200),
           child: Text(
             widget.post.title,
-            style: TextStyle(
-              fontSize: isMobile ? 16 : 18,
+          style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ),
-        centerTitle: true,
         actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isLiked ? Icons.bookmark : Icons.bookmark_border,
-                size: 20,
+        _buildActionButton(
+          icon: isLiked ? Icons.bookmark : Icons.bookmark_border,
                 color: isLiked ? Colors.blue[700] : Colors.grey[800],
-              ),
-            ),
             onPressed: () async {
               await Provider.of<UserModel>(context, listen: false)
                   .handleLike(widget.post);
             },
           ),
-          IconButton(
+        _buildActionButton(
+          icon: Icons.share_outlined,
+          onPressed: () => _showShareOptions(context),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    Color? color,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 shape: BoxShape.circle,
               ),
-              child:
-                  Icon(Icons.share_outlined, size: 20, color: Colors.grey[800]),
+        child: Icon(icon, size: 20, color: color ?? Colors.grey[800]),
             ),
-            onPressed: () => _showShareOptions(context),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            controller: _scrollController,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // En-tête avec informations principales
-                Container(
+      onPressed: onPressed,
+    );
+  }
+
+  Widget _buildHeader(bool isMobile) {
+    return Container(
                   width: double.infinity,
                   color: Colors.white,
                   padding: EdgeInsets.all(isMobile ? 16 : 24),
@@ -237,71 +301,102 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Badges d'information
-                      Wrap(
+          _buildHeaderTags(),
+          const SizedBox(height: 16),
+          _buildPostMetadata(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderTags() {
+    return Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
                           if (widget.post.contractType != null)
-                            _buildInfoChip(
+          _buildTag(
                               Icons.work_outline,
                               widget.post.contractType!,
                               Colors.blue,
                             ),
-                          if (widget.post.industrySector.isNotEmpty)
-                            _buildInfoChip(
-                              Icons.category_outlined,
-                              widget.post.industrySector,
-                              Colors.purple,
-                            ),
-                          if (widget.post.workplaceType.isNotEmpty)
-                            _buildInfoChip(
-                              Icons.business_outlined,
-                              widget.post.workplaceType,
+        if (widget.post.workingHours != null)
+          _buildTag(
+            Icons.access_time,
+            widget.post.workingHours!,
                               Colors.orange,
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // CompanyInfoCard avec style amélioré
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: FutureBuilder<DocumentSnapshot>(
-                          future: FirebaseFirestore.instance
-                              .collection('companys')
-                              .doc(widget.post.companyId)
-                              .get(),
-                          builder: (context, snapshot) {
-                            if (_isLoading) {
-                              return const SizedBox(
-                                height: 80,
-                                child: Center(
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              );
+        _buildTag(
+          Icons.location_on_outlined,
+          widget.post.city,
+          Colors.green,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPostMetadata() {
+    return Row(
+      children: [
+        Icon(Icons.remove_red_eye_outlined, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 4),
+        Text(
+          '${widget.post.views} vues',
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 4),
+        Text(
+          'Publié ${_formatDate(widget.post.timestamp)}',
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      return 'aujourd\'hui';
+    } else if (difference.inDays == 1) {
+      return 'hier';
+    } else if (difference.inDays < 7) {
+      return 'il y a ${difference.inDays} jours';
+    } else {
+      return DateFormat('d MMMM yyyy', 'fr_FR').format(date);
+    }
+  }
+
+  Widget _buildCompanyCard() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
                             }
-                            if (!snapshot.hasData) {
-                              return const SizedBox(
-                                height: 80,
-                                child: Center(
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              );
-                            }
-                            final company =
-                                Company.fromDocument(snapshot.data!);
+
                             return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.grey[200]!,
-                                  width: 1,
-                                ),
+        color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
                               ),
                               child: CompanyInfoCard(
-                                company: company,
+        name: widget.post.companyName,
+        logo: widget.post.companyLogo,
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -311,239 +406,476 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                                   ),
                                 ),
                                 isCompact: true,
-                                showRating: false,
+        showRating: true,
                               ),
                             );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+  }
 
-                // Informations clés
-                Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
+  Widget _buildKeyInformation(bool isMobile) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
                     color: Colors.white,
-                  ),
-                  padding: EdgeInsets.all(isMobile ? 16 : 24),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.info_outline,
+                  color: Colors.blue[700],
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
                       Text(
                         'Informations clés',
                         style: TextStyle(
                           fontSize: isMobile ? 18 : 20,
-                          fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
                         ),
+              ),
+            ],
                       ),
-                      const SizedBox(height: 16),
-                      _buildKeyInfoRow(
-                        Icons.location_on_outlined,
-                        'Localisation',
-                        widget.post.city,
-                      ),
-                      _buildKeyInfoRow(
+          const SizedBox(height: 20),
+          _buildInfoGrid(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoGrid() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildInfoItem(
                         Icons.work_outline,
                         'Type de contrat',
                         widget.post.contractType ?? 'Non spécifié',
-                      ),
+                Colors.blue,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildInfoItem(
+                Icons.location_on_outlined,
+                'Localisation',
+                widget.post.city,
+                Colors.green,
+              ),
+            ),
+          ],
+        ),
+        if (widget.post.workingHours != null || (widget.post.salary != null && widget.post.salary!.isNotEmpty))
+          const SizedBox(height: 12),
+        if (widget.post.workingHours != null || (widget.post.salary != null && widget.post.salary!.isNotEmpty))
+          Row(
+            children: [
                       if (widget.post.workingHours != null)
-                        _buildKeyInfoRow(
+                Expanded(
+                  child: _buildInfoItem(
                           Icons.access_time_outlined,
                           'Temps de travail',
                           widget.post.workingHours!,
-                        ),
-                      _buildKeyInfoRow(
-                        Icons.euro_outlined,
-                        'Salaire',
-                        (widget.post.salary == null ||
-                                widget.post.salary!.isEmpty)
-                            ? 'À définir'
-                            : widget.post.salary!,
-                      ),
-                      if (widget.post.industrySector.isNotEmpty)
-                        _buildKeyInfoRow(
-                          Icons.category_outlined,
-                          'Catégorie',
-                          widget.post.industrySector,
-                        ),
-                      if (widget.post.workplaceType.isNotEmpty)
-                        _buildKeyInfoRow(
-                          Icons.business_outlined,
-                          'Type de lieu',
-                          widget.post.workplaceType,
-                        ),
-                    ],
+                    Colors.orange,
                   ),
                 ),
-
-                // Description du poste
-                _buildSectionContainer(
-                  'Description du poste',
-                  widget.post.description,
-                  isMobile,
+              if (widget.post.workingHours != null && widget.post.salary != null && widget.post.salary!.isNotEmpty)
+                const SizedBox(width: 12),
+              if (widget.post.salary != null && widget.post.salary!.isNotEmpty)
+                Expanded(
+                  child: _buildInfoItem(
+                        Icons.euro_outlined,
+                        'Salaire',
+                    widget.post.salary!,
+                    Colors.purple,
+                  ),
                 ),
+            ],
+          ),
+      ],
+    );
+  }
 
-                // Missions
-                _buildSectionContainer(
-                  'Missions',
-                  widget.post.missions,
-                  isMobile,
+  Widget _buildInfoItem(IconData icon, String label, String value, MaterialColor color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color[100]!),
+                        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: color[700],
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color[700],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                        ),
+              ),
+            ],
                 ),
-
-                // Profil recherché
-                _buildSectionContainer(
-                  'Profil recherché',
-                  widget.post.profile,
-                  isMobile,
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.grey[800],
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
                 ),
+    );
+  }
 
-                // Mots clés
-                Container(
-                  width: double.infinity,
+  Widget _buildDetailedDescription(bool isMobile) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
                   color: Colors.white,
-                  margin: const EdgeInsets.only(top: 12),
-                  padding: EdgeInsets.all(isMobile ? 16 : 24),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+          _buildSectionTitle('Description du poste', isMobile),
+          const SizedBox(height: 16),
                       Text(
-                        'Mots clés',
+            widget.post.description,
                         style: TextStyle(
-                          fontSize: isMobile ? 18 : 20,
-                          fontWeight: FontWeight.w700,
+              fontSize: isMobile ? 14 : 16,
+              height: 1.6,
+              color: Colors.grey[800],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: widget.post.keywords.map((keyword) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
+          if (widget.post.numberOfPositions > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.indigo[50],
+                color: Colors.blue[50],
                               borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blue[100]!),
                             ),
                             child: Text(
-                              keyword,
+                'Nombre de postes : ${widget.post.numberOfPositions}',
                               style: TextStyle(
-                                color: Colors.indigo[700],
+                  color: Colors.blue[700],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+
+          // Localisation et contact
+          _buildLocationAndContact(isMobile),
+          const SizedBox(height: 24),
+
+          // Dates importantes
+          _buildImportantDates(isMobile),
+          const SizedBox(height: 24),
+
+          // Profil recherché
+          _buildRequirements(isMobile),
+          const SizedBox(height: 24),
+
+          // Conditions de travail
+          _buildWorkingConditions(isMobile),
+          const SizedBox(height: 24),
+
+          // Rémunération
+          _buildCompensation(isMobile),
+          const SizedBox(height: 24),
+
+          // Avantages
+          if (widget.post.benefits.isNotEmpty)
+            _buildBenefitsList(isMobile),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationAndContact(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Localisation et contact', isMobile),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Adresse
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.location_on, size: 20, color: Colors.red[700]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Adresse',
+                          style: TextStyle(
+                            color: Colors.grey[700],
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                          );
-                        }).toList(),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.post.address,
+                          style: TextStyle(
+                            color: Colors.grey[800],
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                       ),
                     ],
                   ),
                 ),
-
-                // Avantages
-                if (widget.post.benefits.isNotEmpty)
-                  _buildSectionContainer(
-                    'Avantages',
-                    widget.post.benefits,
-                    isMobile,
+                ],
+              ),
+              
+              if (widget.post.additionalInfo.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                // Informations de contact
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 20, color: Colors.blue[700]),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Informations de contact',
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                   ),
-
-                // Pourquoi nous rejoindre
-                if (widget.post.whyJoin.isNotEmpty)
-                  _buildSectionContainer(
-                    'Pourquoi nous rejoindre',
-                    widget.post.whyJoin,
-                    isMobile,
-                  ),
-                // Padding pour éviter que le bouton flottant ne cache le contenu
-                const SizedBox(height: 80),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.post.additionalInfo,
+                            style: TextStyle(
+                              color: Colors.grey[800],
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
               ],
             ),
           ),
-          // Bouton flottant qui apparaît au scroll
-          if (_isStickyHeaderVisible)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(13),
-                      blurRadius: 10,
-                    ),
                   ],
                 ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : 24,
-                  vertical: 12,
-                ),
-                child: SafeArea(
-                  child: Row(
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImportantDates(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Dates importantes', isMobile),
+        const SizedBox(height: 12),
+        Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          widget.post.title,
-                          style: TextStyle(
-                            fontSize: isMobile ? 16 : 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+              child: _buildDateInfo(
+                'Date de début',
+                widget.post.startDate,
+                Icons.calendar_today,
+                Colors.green,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      if (!_hasApplied)
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[700],
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDateInfo(
+                'Date limite de candidature',
+                widget.post.applicationDeadline,
+                Icons.event_busy,
+                Colors.red,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateInfo(String label, String date, IconData icon, MaterialColor color) {
+    final formattedDate = DateFormat('d MMMM yyyy', 'fr_FR').format(DateTime.parse(date));
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color[50],
                               borderRadius: BorderRadius.circular(8),
-                            ),
+        border: Border.all(color: color[100]!),
                           ),
-                          onPressed: _showApplicationBottomSheet,
-                          child: const Text(
-                            'Postuler',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color[700],
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color[700]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  formattedDate,
                             style: TextStyle(
+                    color: Colors.grey[800],
                               fontSize: 14,
-                              fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                             ),
                           ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequirements(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Profil recherché', isMobile),
+        const SizedBox(height: 12),
+        if (widget.post.experienceRequired.isNotEmpty)
+          _buildRequirementItem(
+            'Expérience requise',
+            widget.post.experienceRequired,
+            Icons.work_history,
+            Colors.purple,
+          ),
+        if (widget.post.educationRequired.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildRequirementItem(
+            'Formation requise',
+            widget.post.educationRequired,
+            Icons.school,
+            Colors.orange,
+          ),
+        ],
+        if (widget.post.requiredLicenses.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildRequirementItem(
+            'Permis/Licences requis',
+            widget.post.requiredLicenses.join(', '),
+            Icons.badge,
+            Colors.blue,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildRequirementItem(String label, String value, IconData icon, MaterialColor color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.green[50],
+        color: color[50],
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green[200]!),
+        border: Border.all(color: color[100]!),
                           ),
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.check_circle,
-                                  size: 16, color: Colors.green[700]),
-                              const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: color[700]),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                               Text(
-                                'Déjà postulé',
+                  label,
                                 style: TextStyle(
-                                  color: Colors.green[700],
+                    color: color[700],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: Colors.grey[800],
                                   fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -551,52 +883,62 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                         ),
                     ],
                   ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String label, Color color) {
-    final baseColor = color;
-    final backgroundColor = Color.fromRGBO(
-      baseColor.r.toInt(),
-      baseColor.g.toInt(),
-      baseColor.b.toInt(),
-      0.1,
+  Widget _buildWorkingConditions(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Conditions de travail', isMobile),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildConditionTag(
+              'Rythme',
+              widget.post.workingRhythm,
+              Icons.schedule,
+              Colors.blue,
+            ),
+            _buildConditionTag(
+              'Type de travail',
+              widget.post.workplaceType,
+              Icons.business,
+              Colors.purple,
+            ),
+            if (widget.post.weekendWork)
+              _buildConditionTag(
+                'Travail le weekend',
+                widget.post.weekendWorkDetails,
+                Icons.weekend,
+                Colors.orange,
+            ),
+        ],
+      ),
+      ],
     );
-    final borderColor = Color.fromRGBO(
-      baseColor.r.toInt(),
-      baseColor.g.toInt(),
-      baseColor.b.toInt(),
-      0.2,
-    );
-    final textColor = Color.fromRGBO(
-      baseColor.r.toInt(),
-      baseColor.g.toInt(),
-      baseColor.b.toInt(),
-      0.8,
-    );
+  }
 
+  Widget _buildConditionTag(String label, String value, IconData icon, MaterialColor color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: color[50],
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: color[100]!),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: textColor),
-          const SizedBox(width: 4),
+          Icon(icon, size: 16, color: color[700]),
+          const SizedBox(width: 8),
           Text(
-            label,
+            '$label : $value',
             style: TextStyle(
-              color: textColor,
-              fontSize: 12,
+              color: color[700],
+              fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -605,41 +947,191 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
     );
   }
 
-  Widget _buildKeyInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
+  Widget _buildCompensation(bool isMobile) {
+    if (widget.post.salaryMin.isEmpty && widget.post.salaryMax.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+        _buildSectionTitle('Rémunération', isMobile),
+        const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
+            color: Colors.green[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.green[100]!),
             ),
-            child: Icon(icon, size: 16, color: Colors.grey[700]),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+              Row(
+                children: [
+                  Icon(Icons.euro, size: 20, color: Colors.green[700]),
+                  const SizedBox(width: 8),
                 Text(
-                  label,
+                    'Salaire annuel',
                   style: TextStyle(
-                    fontSize: 12,
+                      color: Colors.green[700],
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                  ),
+                  ),
+                ],
+                ),
+              const SizedBox(height: 8),
+                Text(
+                '${widget.post.salaryMin} € - ${widget.post.salaryMax} €',
+                style: TextStyle(
+                  color: Colors.grey[800],
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (widget.post.variableCompensation.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  widget.post.variableCompensation,
+                  style: TextStyle(
                     color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBenefitsList(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Avantages', isMobile),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: widget.post.benefits.map((benefit) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.indigo[50],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.indigo[100]!),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle_outline, size: 16, color: Colors.indigo[700]),
+                  const SizedBox(width: 8),
+                  Text(
+                    benefit,
+                    style: TextStyle(
+                      color: Colors.indigo[700],
+                      fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
+            ),
+            );
+          }).toList(),
+          ),
+        ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title, bool isMobile) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: isMobile ? 18 : 20,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  Widget _buildKeywords(bool isMobile) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+      color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Compétences recherchées', isMobile),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: widget.post.keywords.map((keyword) {
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.blue[100]!),
+                ),
+                child: Text(
+                  keyword,
+                  style: TextStyle(
+                    color: Colors.blue[700],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefits(bool isMobile) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Avantages', isMobile),
+          const SizedBox(height: 16),
+          Text(
+            widget.post.benefits.join(' • '),
+            style: TextStyle(
+              fontSize: isMobile ? 14 : 16,
+              height: 1.6,
+              color: Colors.grey[800],
             ),
           ),
         ],
@@ -647,29 +1139,126 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
     );
   }
 
-  Widget _buildSectionContainer(String title, String content, bool isMobile) {
+  Widget _buildWhyJoinUs(bool isMobile) {
     return Container(
-      width: double.infinity,
-      color: Colors.white,
-      margin: const EdgeInsets.only(top: 12),
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: isMobile ? 18 : 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          _buildSectionTitle('Pourquoi nous rejoindre', isMobile),
           const SizedBox(height: 16),
           Text(
-            content,
+            widget.post.whyJoin,
             style: TextStyle(
               fontSize: isMobile ? 14 : 16,
               height: 1.6,
               color: Colors.grey[800],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFloatingActionButton() {
+    if (_isLoading) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _hasApplied
+          ? Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle, size: 20, color: Colors.green[700]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Candidature envoyée',
+                    style: TextStyle(
+                      color: Colors.green[700],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ElevatedButton(
+              onPressed: _showApplicationBottomSheet,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[700],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                elevation: 2,
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.send_rounded, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Postuler maintenant',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildTag(IconData icon, String label, MaterialColor color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color[50],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color[100]!),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color[700]),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color[700],
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -703,6 +1292,8 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                         companyId: widget.post.companyId,
                         timestamp: DateTime.now(),
                         type: 'job',
+                        companyName: widget.post.companyName,
+                        companyLogo: widget.post.companyLogo,
                       ),
                       onConfirm: (String comment) async {
                         try {
@@ -830,6 +1421,8 @@ class _DetailsEmploiPageState extends State<DetailsEmploiPage> {
                             onTap: () async {
                               try {
                                 final post = Post(
+                                  companyName: widget.post.companyName,
+                                  companyLogo: widget.post.companyLogo,
                                   id: widget.post.id,
                                   companyId: widget.post.companyId,
                                   timestamp: DateTime.now(),

@@ -1,26 +1,70 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:happy/classes/post.dart';
 
-class Gift {
-  final String name;
-  final String image;
+class Reward {
+  final String description;
+  final double value;
+  final int winnersCount;
 
-  Gift({
-    required this.name,
-    required this.image,
+  Reward({
+    required this.description,
+    required this.value,
+    required this.winnersCount,
   });
 
-  factory Gift.fromMap(Map<String, dynamic> data) {
-    return Gift(
-      name: data['name'] ?? 'Nom inconnu',
-      image: data['image'] ?? '',
+  factory Reward.fromMap(Map<String, dynamic> data) {
+    return Reward(
+      description: data['description'] ?? '',
+      value: (data['value'] ?? 0).toDouble(),
+      winnersCount: data['winnersCount'] ?? 1,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'name': name,
-      'image': image,
+      'description': description,
+      'value': value,
+      'winnersCount': winnersCount,
+    };
+  }
+}
+
+class ContestConditions {
+  final bool limitOnePerPerson;
+  final int minimumAge;
+  final bool requirePurchase;
+  final double? minimumPurchaseAmount;
+  final String? otherConditions;
+  final String? rulesUrl;
+
+  ContestConditions({
+    required this.limitOnePerPerson,
+    required this.minimumAge,
+    this.requirePurchase = false,
+    this.minimumPurchaseAmount,
+    this.otherConditions,
+    this.rulesUrl,
+  });
+
+  factory ContestConditions.fromMap(Map<String, dynamic> data) {
+    return ContestConditions(
+      limitOnePerPerson: data['limitOnePerPerson'] ?? true,
+      minimumAge: data['minimumAge'] ?? 18,
+      requirePurchase: data['requirePurchase'] ?? false,
+      minimumPurchaseAmount: data['minimumPurchaseAmount']?.toDouble(),
+      otherConditions: data['otherConditions'],
+      rulesUrl: data['rulesUrl'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'limitOnePerPerson': limitOnePerPerson,
+      'minimumAge': minimumAge,
+      'requirePurchase': requirePurchase,
+      'minimumPurchaseAmount': minimumPurchaseAmount,
+      'otherConditions': otherConditions,
+      'rulesUrl': rulesUrl,
     };
   }
 }
@@ -55,17 +99,21 @@ class Contest extends Post {
   final String title;
   final String searchText;
   final String description;
-  final List<Gift> gifts;
-  final String howToParticipate;
-  final String conditions;
+  final List<Reward> rewards;
   final DateTime startDate;
   final DateTime endDate;
-  final String giftPhoto;
-  final int maxParticipants;
+  final DateTime drawDate;
+  final DateTime announcementDate;
+  final String announcementMethod;
+  final ContestConditions conditions;
+  final String image;
+  final List<String> keywords;
+  final String? additionalInfo;
   final int participantsCount;
   final bool isActive;
   final List<Participant>? participants;
   final Map<String, dynamic>? winner;
+  final Map<String, dynamic>? companyAddress;
 
   Contest({
     required super.id,
@@ -74,23 +122,29 @@ class Contest extends Post {
     required this.title,
     required this.searchText,
     required this.description,
-    required this.gifts,
+    required this.rewards,
     required super.companyId,
-    required this.howToParticipate,
-    required this.conditions,
     required this.startDate,
     required this.endDate,
-    required this.giftPhoto,
-    required this.maxParticipants,
+    required this.drawDate,
+    required this.announcementDate,
+    required this.announcementMethod,
+    required this.conditions,
+    required this.image,
+    required this.keywords,
+    this.additionalInfo,
     required this.participantsCount,
     required this.isActive,
     this.participants,
     this.winner,
+    this.companyAddress,
     super.views,
     super.likes,
     super.likedBy,
     super.commentsCount,
     super.comments,
+    required super.companyName,
+    required super.companyLogo,
   }) : super(type: 'contest');
 
   factory Contest.fromDocument(DocumentSnapshot doc) {
@@ -102,18 +156,21 @@ class Contest extends Post {
       title: data['title'] ?? 'Titre inconnu',
       searchText: data['searchText'] ?? '',
       description: data['description'] ?? '',
-      gifts: (data['gifts'] as List<dynamic>?)
-              ?.map((giftsData) =>
-                  Gift.fromMap(giftsData as Map<String, dynamic>))
+      rewards: (data['rewards'] as List<dynamic>?)
+              ?.map((rewardData) =>
+                  Reward.fromMap(rewardData as Map<String, dynamic>))
               .toList() ??
           [],
       companyId: data['companyId'] ?? '',
-      howToParticipate: data['howToParticipate'] ?? '',
-      conditions: data['conditions'] ?? '',
       startDate: (data['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       endDate: (data['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      giftPhoto: data['giftPhoto'] ?? '',
-      maxParticipants: data['maxParticipants'] ?? 0,
+      drawDate: (data['drawDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      announcementDate: (data['announcementDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      announcementMethod: data['announcementMethod'] ?? '',
+      conditions: ContestConditions.fromMap(data['conditions'] ?? {}),
+      image: data['image'] ?? '',
+      keywords: List<String>.from(data['keywords'] ?? []),
+      additionalInfo: data['additionalInfo'],
       participantsCount: data['participantsCount'] ?? 0,
       isActive: data['isActive'] ?? false,
       participants: (data['participants'] as List<dynamic>?)
@@ -122,8 +179,11 @@ class Contest extends Post {
               .toList() ??
           [],
       winner: data['winner'],
+      companyAddress: data['companyAddress'] as Map<String, dynamic>?,
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
+      companyName: data['companyName'] ?? '',
+      companyLogo: data['companyLogo'] ?? '',
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)
@@ -140,17 +200,21 @@ class Contest extends Post {
       'title': title,
       'searchText': searchText,
       'description': description,
-      'gifts': gifts.map((gift) => gift.toMap()).toList(),
+      'rewards': rewards.map((reward) => reward.toMap()).toList(),
       'companyId': companyId,
-      'howToParticipate': howToParticipate,
-      'conditions': conditions,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
-      'giftPhoto': giftPhoto,
-      'maxParticipants': maxParticipants,
+      'drawDate': Timestamp.fromDate(drawDate),
+      'announcementDate': Timestamp.fromDate(announcementDate),
+      'announcementMethod': announcementMethod,
+      'conditions': conditions.toMap(),
+      'image': image,
+      'keywords': keywords,
+      'additionalInfo': additionalInfo,
       'participantsCount': participantsCount,
       'isActive': isActive,
       'winner': winner,
+      'companyAddress': companyAddress,
     });
     return map;
   }

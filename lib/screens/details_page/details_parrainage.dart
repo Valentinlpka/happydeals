@@ -9,6 +9,7 @@ import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class DetailsParrainagePage extends StatefulWidget {
@@ -156,21 +157,18 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
 
   Widget _buildCompanySection() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: FutureBuilder<Company>(
-        future: companyFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: Text('Entreprise non trouvée'));
-          }
-
-          final company = snapshot.data!;
-          return CompanyInfoCard(
-            company: company,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Entreprise',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          CompanyInfoCard(
+            name: widget.referral.companyName,
+            logo: widget.referral.companyLogo,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -179,8 +177,8 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                 ),
               ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -191,16 +189,21 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.referral.rewardRecipient == 'both' || widget.referral.rewardRecipient == 'sponsor')
           _buildBenefitCard(
             'Avantage parrain',
-            widget.referral.sponsorBenefit,
+              widget.referral.sponsorReward.value,
+              widget.referral.sponsorReward.details ?? '',
             Icons.card_giftcard,
             Colors.green,
           ),
+          if (widget.referral.rewardRecipient == 'both')
           const SizedBox(height: 16),
+          if (widget.referral.rewardRecipient == 'both' || widget.referral.rewardRecipient == 'referee')
           _buildBenefitCard(
             'Avantage filleul',
-            widget.referral.refereeBenefit,
+              widget.referral.refereeReward.value,
+              widget.referral.refereeReward.details ?? '',
             Icons.redeem,
             Colors.orange,
           ),
@@ -210,7 +213,7 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
   }
 
   Widget _buildBenefitCard(
-      String title, String benefit, IconData icon, MaterialColor color) {
+      String title, String value, String details, IconData icon, MaterialColor color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -236,13 +239,24 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
           ),
           const SizedBox(height: 8),
           Text(
-            benefit,
+            value,
             style: TextStyle(
               fontSize: 15,
               color: Colors.grey[800],
               height: 1.5,
             ),
           ),
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              details,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+                height: 1.4,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -260,81 +274,92 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Comment ça marche ?',
+            'Informations importantes',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
-          _buildStep(
-            1,
-            'Cliquez sur "Je parraine !"',
-            'Remplissez les informations nécessaires',
+          
+          if (widget.referral.participationConditions != null &&
+              widget.referral.participationConditions!.isNotEmpty) ...[
+            _buildInfoSection(
+              'Conditions de participation',
+              widget.referral.participationConditions!,
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          _buildInfoSection(
+            'Date limite',
+            "Ce programme de parrainage se termine le ${DateFormat('d MMMM yyyy', 'fr_FR').format(widget.referral.endDate)}",
           ),
-          _buildStep(
-            2,
-            'Partagez votre code',
-            'Envoyez votre code de parrainage à vos amis',
+
+          if (widget.referral.maxReferrals != null) ...[
+            const SizedBox(height: 16),
+            _buildInfoSection(
+              'Limite de parrainages',
+              "Maximum ${widget.referral.maxReferrals} filleuls par parrain",
           ),
-          _buildStep(
-            3,
-            'Suivez vos parrainages',
-            'Consultez l\'état de vos parrainages dans votre profil',
+          ],
+
+          if (widget.referral.additionalInfo != null &&
+              widget.referral.additionalInfo!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildInfoSection(
+              'Informations supplémentaires',
+              widget.referral.additionalInfo!,
+            ),
+          ],
+
+          if (widget.referral.tags != null && widget.referral.tags!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.referral.tags!.map((tag) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  tag,
+                  style: TextStyle(
+                    color: Colors.blue[700],
+                    fontSize: 12,
           ),
+                ),
+              )).toList(),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStep(int number, String title, String description) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                number.toString(),
-                style: TextStyle(
-                  color: Colors.blue[800],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+  Widget _buildInfoSection(String title, String content) {
+    return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 15,
+            fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  description,
+          content,
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 14,
+            height: 1.5,
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -361,6 +386,8 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                   builder: (BuildContext dialogContext) {
                     return ShareConfirmationDialog(
                       post: Post(
+                        companyName: widget.referral.companyName,
+                        companyLogo: widget.referral.companyLogo,
                         id: widget.referral.id,
                         companyId: widget.referral.companyId,
                         timestamp: DateTime.now(),
@@ -492,6 +519,8 @@ class _DetailsParrainagePageState extends State<DetailsParrainagePage> {
                             onTap: () async {
                               try {
                                 final post = Post(
+                                  companyName: widget.referral.companyName,
+                                  companyLogo: widget.referral.companyLogo,
                                   id: widget.referral.id,
                                   companyId: widget.referral.companyId,
                                   timestamp: DateTime.now(),

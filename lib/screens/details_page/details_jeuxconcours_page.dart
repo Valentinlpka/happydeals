@@ -65,7 +65,11 @@ class _ParticipationDialogState extends State<ParticipationDialog> {
 
         final currentParticipants =
             contestDoc.data()?['participantsCount'] ?? 0;
-        if (currentParticipants >= widget.contest.maxParticipants) {
+        final totalWinners = widget.contest.rewards.fold<int>(
+          0,
+          (sum, reward) => sum + reward.winnersCount,
+        );
+        if (currentParticipants >= totalWinners * 100) {
           throw 'Le concours est complet';
         }
 
@@ -125,7 +129,31 @@ class _ParticipationDialogState extends State<ParticipationDialog> {
             const SizedBox(height: 16),
             Flexible(
               child: SingleChildScrollView(
-                child: Text(widget.contest.conditions),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Conditions générales :',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '• Âge minimum requis : ${widget.contest.conditions.minimumAge} ans\n'
+                      '• ${widget.contest.conditions.limitOnePerPerson ? "Une seule participation par personne" : "Participations multiples autorisées"}\n'
+                      '${widget.contest.conditions.requirePurchase ? "• Achat minimum requis : ${widget.contest.conditions.minimumPurchaseAmount?.toStringAsFixed(2)}€\n" : ""}'
+                      '${widget.contest.conditions.otherConditions != null ? "\nConditions supplémentaires :\n${widget.contest.conditions.otherConditions}" : ""}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -221,33 +249,12 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          _buildAppBar(isLiked, _showTitle),
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                _buildTimelineIndicator(),
-                _buildGiftsList(),
-                _buildDescriptionSection(),
-                _buildOrganizer(),
-                _buildParticipationSection(),
-              ],
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomBar(isContestOver, theme),
-    );
-  }
-
-  Widget _buildAppBar(bool isLiked, bool showTitle) {
-    return SliverAppBar(
+          SliverAppBar(
       expandedHeight: 250,
       pinned: true,
       stretch: true,
       backgroundColor: Colors.grey[50],
-      elevation: showTitle ? 2 : 0,
+            elevation: _showTitle ? 2 : 0,
       leading: IconButton(
         icon: Container(
           padding: const EdgeInsets.all(8),
@@ -293,7 +300,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
         const SizedBox(width: 8),
       ],
       flexibleSpace: FlexibleSpaceBar(
-        title: showTitle
+              title: _showTitle
             ? Text(
                 widget.contest.title,
                 style: const TextStyle(
@@ -307,7 +314,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
           fit: StackFit.expand,
           children: [
             Image.network(
-              widget.contest.giftPhoto,
+                    widget.contest.image,
               fit: BoxFit.cover,
             ),
             Container(
@@ -325,6 +332,23 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
           ],
         ),
       ),
+          ),
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                _buildTimelineIndicator(),
+                _buildGiftsList(),
+                _buildDescriptionSection(),
+                _buildOrganizer(),
+                _buildParticipationSection(),
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomBar(isContestOver, theme),
     );
   }
 
@@ -395,14 +419,14 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Cadeaux à gagner',
+            'Récompenses',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
-          ...widget.contest.gifts.map((gift) => Container(
+          ...widget.contest.rewards.map((reward) => Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -415,134 +439,57 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: gift.image.isNotEmpty
-                      ? Stack(
-                          children: [
-                            Image.network(
-                              gift.image,
-                              height: 200,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _buildDefaultGiftCard(gift.name),
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return _buildGiftLoadingCard();
-                              },
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
                               child: Container(
                                 padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
-                                    colors: [
-                                      Colors.black.withOpacity(0.8),
-                                      Colors.transparent,
-                                    ],
-                                  ),
-                                ),
-                                child: Text(
-                                  gift.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : _buildDefaultGiftCard(gift.name),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                        reward.description,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.euro, size: 16, color: Colors.green[700]),
+                          const SizedBox(width: 4),
+                Text(
+                            'Valeur: ${reward.value.toStringAsFixed(2)}€',
+                  style: TextStyle(
+                              color: Colors.green[700],
+                              fontWeight: FontWeight.w500,
+                  ),
+                ),
+                          const SizedBox(width: 16),
+                          Icon(Icons.people, size: 16, color: Colors.blue[700]),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${reward.winnersCount} gagnant${reward.winnersCount > 1 ? 's' : ''}',
+                            style: TextStyle(
+                              color: Colors.blue[700],
+                              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+                    ],
+                  ),
+        ),
               )),
         ],
       ),
     );
   }
 
-  Widget _buildDefaultGiftCard(String giftName) {
-    return Container(
-      height: 120,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.blue[700]!,
-            Colors.blue[900]!,
-          ],
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.card_giftcard,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  giftName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Lot à gagner',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGiftLoadingCard() {
-    return Container(
-      height: 200,
-      width: double.infinity,
-      color: Colors.grey[200],
-      child: Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[700]!),
-        ),
-      ),
-    );
-  }
-
   Widget _buildDescriptionSection() {
+    final totalWinners = widget.contest.rewards.fold<int>(
+      0,
+      (sum, reward) => sum + reward.winnersCount,
+    );
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -568,13 +515,13 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                 _buildInfoRow(
                   Icons.people_outline,
                   'Participants',
-                  '${widget.contest.participantsCount}/${widget.contest.maxParticipants}',
+                  '${widget.contest.participantsCount}',
                 ),
                 const SizedBox(height: 12),
                 _buildInfoRow(
                   Icons.emoji_events_outlined,
                   'Gagnants',
-                  '1',
+                  '$totalWinners',
                 ),
                 const Divider(height: 24),
                 Text(
@@ -631,15 +578,9 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
             ),
           ),
           const SizedBox(height: 16),
-          FutureBuilder<Company>(
-            future: companyFuture,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              return CompanyInfoCard(
-                company: snapshot.data!,
+          CompanyInfoCard(
+            name: widget.contest.companyName,
+            logo: widget.contest.companyLogo,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -647,8 +588,6 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                         entrepriseId: widget.contest.companyId),
                   ),
                 ),
-              );
-            },
           ),
         ],
       ),
@@ -662,7 +601,7 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Comment participer',
+            'Conditions de participation',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -684,16 +623,31 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.contest.howToParticipate,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
+                _buildConditionItem(
+                  'Âge minimum requis',
+                  '${widget.contest.conditions.minimumAge} ans',
+                  Icons.person_outline,
                 ),
+                const SizedBox(height: 12),
+                _buildConditionItem(
+                  'Participation',
+                  widget.contest.conditions.limitOnePerPerson
+                      ? 'Une seule participation par personne'
+                      : 'Participations multiples autorisées',
+                  Icons.repeat,
+                ),
+                if (widget.contest.conditions.requirePurchase) ...[
+                  const SizedBox(height: 12),
+                  _buildConditionItem(
+                    'Achat requis',
+                    'Montant minimum: ${widget.contest.conditions.minimumPurchaseAmount?.toStringAsFixed(2)}€',
+                    Icons.shopping_cart_outlined,
+                ),
+                ],
+                if (widget.contest.conditions.otherConditions?.isNotEmpty ?? false) ...[
                 const SizedBox(height: 16),
                 const Text(
-                  'Conditions de participation :',
+                    'Conditions supplémentaires :',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -701,18 +655,88 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  widget.contest.conditions,
+                    widget.contest.conditions.otherConditions!,
                   style: TextStyle(
-                    fontSize: 16,
+                      fontSize: 14,
                     height: 1.5,
-                    color: Colors.grey[600],
+                      color: Colors.grey[700],
                   ),
                 ),
+              ],
+                if (widget.contest.conditions.rulesUrl?.isNotEmpty ?? false) ...[
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () {
+                      // Ajouter la logique pour ouvrir l'URL
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.description_outlined, color: Colors.blue[700]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Consulter le règlement complet',
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Icon(Icons.open_in_new, size: 16, color: Colors.blue[700]),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildConditionItem(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 20, color: Colors.blue[700]),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -781,6 +805,8 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                   builder: (BuildContext dialogContext) {
                     return ShareConfirmationDialog(
                       post: Post(
+                        companyName: widget.contest.companyName,
+                        companyLogo: widget.contest.companyLogo,
                         id: widget.contest.id,
                         companyId: widget.contest.companyId,
                         timestamp: DateTime.now(),
@@ -912,6 +938,8 @@ class _DetailsJeuxConcoursPageState extends State<DetailsJeuxConcoursPage> {
                             onTap: () async {
                               try {
                                 final post = Post(
+                                  companyName: widget.contest.companyName,
+                                  companyLogo: widget.contest.companyLogo,
                                   id: widget.contest.id,
                                   companyId: widget.contest.companyId,
                                   timestamp: DateTime.now(),

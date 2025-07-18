@@ -7,14 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 class NewsCard extends StatelessWidget {
   final News news;
-  final String companyLogo;
-  final String companyName;
 
   const NewsCard({
     super.key,
     required this.news,
-    required this.companyLogo,
-    required this.companyName,
   });
 
   Widget _buildMediaGallery(BuildContext context) {

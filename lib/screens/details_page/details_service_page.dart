@@ -1,6 +1,5 @@
 // lib/pages/services/service_detail_page.dart
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
 import 'package:happy/screens/service_payment.dart';
@@ -51,28 +50,15 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     _selectedTimeNotifier.value = value;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: StreamBuilder<ServiceModel>(
-        stream: _serviceService.getServiceById(widget.serviceId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+  Widget _buildPromotionSection(ServiceModel service) {
+    if (!service.hasActivePromotion) return const SizedBox.shrink();
 
-          final service = snapshot.data!;
+    final discount = service.discount!;
+    final discountText = discount.type == 'percentage'
+        ? '${discount.value.toStringAsFixed(0)}%'
+        : '${discount.value.toStringAsFixed(2)}€';
 
-          return CustomScrollView(
-            slivers: [
-              _buildAppBar(service),
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildImageCarousel(service),
-                    if (service.hasActivePromotion)
-                      Container(
+    return Container(
                         width: double.infinity,
                         margin: const EdgeInsets.all(16),
                         padding: const EdgeInsets.all(16),
@@ -82,6 +68,25 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                           border: Border.all(color: Colors.red[100]!),
                         ),
                         child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.local_offer_rounded,
+                  color: Colors.red[700],
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Offre Spéciale !',
@@ -91,251 +96,62 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                             Text(
-                              'Économisez ${service.discount!['value']}${service.discount!['type'] == 'percentage' ? '%' : '€'} sur ce service',
+                      'Économisez $discountText sur ce service',
                               style: TextStyle(
                                 color: Colors.red[700],
                                 fontSize: 16,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Valable jusqu\'au ${DateFormat('dd/MM/yyyy').format((service.discount!['endDate'] as Timestamp).toDate())}',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    _buildServiceInfo(service),
-                    _buildAvailabilitySection(service),
                   ],
                 ),
               ),
             ],
-          );
-        },
-      ),
-      bottomNavigationBar: _buildBottomBar(),
-    );
-  }
-
-  Widget _buildAppBar(ServiceModel service) {
-    return SliverAppBar(
-      expandedHeight: 0,
-      floating: true,
-      pinned: true,
-      title: Text(service.name),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.share),
-          onPressed: () {
-            // Implémenter le partage
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomBar() {
-    return StreamBuilder<ServiceModel>(
-      stream: _serviceService.getServiceById(widget.serviceId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox();
-
-        final service = snapshot.data!;
-
-        return ValueListenableBuilder<DateTime?>(
-          valueListenable: _selectedTimeNotifier,
-          builder: (context, selectedTime, _) {
-            return Container(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 16,
-                bottom: MediaQuery.of(context).padding.bottom + 16,
-              ),
+          ),
+          if (discount.startDate != null || discount.endDate != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        if (service.hasActivePromotion) ...[
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                '${service.finalPrice.toStringAsFixed(2)} €',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red[50],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '-${service.discount!['value']}${service.discount!['type'] == 'percentage' ? '%' : '€'}',
-                                  style: TextStyle(
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 16,
                                     color: Colors.red[700],
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                '${service.price.toStringAsFixed(2)} €',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[500],
-                                  decoration: TextDecoration.lineThrough,
-                                  decorationColor: Colors.grey[400],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ] else
-                          Text(
-                            '${service.price.toStringAsFixed(2)} €',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
                   Expanded(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      child: ElevatedButton(
-                        onPressed: selectedTime == null
-                            ? null
-                            : () => _proceedToPayment(service),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: selectedTime == null
-                              ? Colors.grey[300]
-                              : Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: selectedTime == null ? 0 : 2,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 16,
-                            horizontal: 24,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Réserver',
+                    child: Text(
+                      _getPromotionDateText(discount),
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: selectedTime == null
-                                    ? Colors.grey[600]
-                                    : Colors.white,
-                              ),
-                            ),
-                            if (selectedTime != null) ...[
-                              const SizedBox(width: 8),
-                              const Icon(
-                                Icons.arrow_forward_rounded,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                            ],
-                          ],
-                        ),
+                        color: Colors.red[700],
+                        fontSize: 14,
                       ),
                     ),
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _proceedToPayment(ServiceModel service) {
-    // Naviguer vers la page de paiement avec la date/heure sélectionnée
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ServicePaymentPage(
-          service: service,
-          bookingDateTime: _selectedTime!,
-        ),
+            ),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _buildImageCarousel(ServiceModel service) {
-    if (service.images.isEmpty) {
-      return Container(
-        height: 250,
-        color: Colors.grey[300],
-        child: const Icon(Icons.image_not_supported, size: 50),
-      );
+  String _getPromotionDateText(ServiceDiscount discount) {
+    if (discount.startDate != null && discount.endDate != null) {
+      return 'Du ${DateFormat('dd/MM/yyyy').format(discount.startDate!.toDate())} au ${DateFormat('dd/MM/yyyy').format(discount.endDate!.toDate())}';
+    } else if (discount.startDate != null) {
+      return 'À partir du ${DateFormat('dd/MM/yyyy').format(discount.startDate!.toDate())}';
+    } else if (discount.endDate != null) {
+      return 'Jusqu\'au ${DateFormat('dd/MM/yyyy').format(discount.endDate!.toDate())}';
     }
-
-    return CarouselSlider(
-      options: CarouselOptions(
-        height: 250,
-        viewportFraction: 1.0,
-        enableInfiniteScroll: service.images.length > 1,
-        autoPlay: service.images.length > 1,
-      ),
-      items: service.images.map((imageUrl) {
-        return Builder(
-          builder: (BuildContext context) {
-            return Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              width: double.infinity,
-            );
-          },
-        );
-      }).toList(),
-    );
+    return 'Offre à durée limitée';
   }
 
   Widget _buildServiceInfo(ServiceModel service) {
@@ -387,7 +203,9 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '-${service.discount!['value']}${service.discount!['type'] == 'percentage' ? '%' : '€'}',
+                    service.discount!.type == 'percentage'
+                        ? '-${service.discount!.value.toStringAsFixed(0)}%'
+                        : '-${service.discount!.value.toStringAsFixed(2)}€',
                     style: TextStyle(
                       color: Colors.red[700],
                       fontWeight: FontWeight.bold,
@@ -402,31 +220,6 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                 ),
             ],
           ),
-          if (service.hasActivePromotion) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.access_time, size: 16, color: Colors.red[700]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Promotion valable jusqu\'au ${DateFormat('dd/MM/yyyy').format((service.discount!['endDate'] as Timestamp).toDate())}',
-                      style: TextStyle(
-                        color: Colors.red[700],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
           Text(
             'Description',
@@ -664,6 +457,449 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildAdditionalInfo(ServiceModel service) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Informations complémentaires',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Lieu d'exécution
+          _buildInfoRow(
+            icon: Icons.location_on,
+            title: 'Lieu d\'exécution',
+            value: service.executionLocation == 'on_site'
+                ? 'Sur place'
+                : service.executionLocation == 'at_home'
+                    ? 'À domicile'
+                    : 'Sur place et à domicile',
+          ),
+          if (service.executionLocation != 'on_site' && service.travelRadius != null) ...[
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              icon: Icons.directions_car,
+              title: 'Rayon de déplacement',
+              value: '${service.travelRadius} km',
+            ),
+          ],
+          const SizedBox(height: 16),
+          // Participants
+          _buildInfoRow(
+            icon: Icons.people,
+            title: 'Participants',
+            value: service.minParticipants == service.maxParticipants
+                ? '${service.minParticipants} personne${service.minParticipants > 1 ? 's' : ''}'
+                : '${service.minParticipants} à ${service.maxParticipants} personnes',
+          ),
+          const SizedBox(height: 16),
+          // Politique d'annulation
+          _buildInfoRow(
+            icon: Icons.event_busy,
+            title: 'Politique d\'annulation',
+            value: _getCancellationPolicyText(service.cancellationPolicy),
+          ),
+          if (service.cancellationPolicyOther != null) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 40),
+              child: Text(
+                service.cancellationPolicyOther!,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+          if (service.providedEquipment.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildEquipmentSection(service.providedEquipment),
+          ],
+          if (service.keywords.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildKeywordsSection(service.keywords),
+          ],
+          if (service.additionalInfo != null && service.additionalInfo!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildInfoRow(
+              icon: Icons.info_outline,
+              title: 'Informations additionnelles',
+              value: service.additionalInfo!,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _getCancellationPolicyText(String policy) {
+    switch (policy) {
+      case 'flexible':
+        return 'Flexible - Annulation gratuite jusqu\'à 24h avant';
+      case 'moderate':
+        return 'Modérée - Annulation gratuite jusqu\'à 48h avant';
+      case 'strict':
+        return 'Stricte - Annulation gratuite jusqu\'à 7 jours avant';
+      case 'no_cancellation':
+        return 'Aucune annulation possible';
+      default:
+        return 'Politique personnalisée';
+    }
+  }
+
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 24, color: Colors.grey[700]),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEquipmentSection(List<String> equipment) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoRow(
+          icon: Icons.handyman,
+          title: 'Équipement fourni',
+          value: '',
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 40),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: equipment.map((item) => Chip(
+              label: Text(item),
+              backgroundColor: Colors.grey[200],
+            )).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKeywordsSection(List<String> keywords) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoRow(
+          icon: Icons.tag,
+          title: 'Mots-clés',
+          value: '',
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 40),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: keywords.map((keyword) => Chip(
+              label: Text(keyword),
+              backgroundColor: Colors.blue[50],
+              labelStyle: TextStyle(color: Colors.blue[700]),
+            )).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: StreamBuilder<ServiceModel>(
+        stream: _serviceService.getServiceById(widget.serviceId),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final service = snapshot.data!;
+
+          return CustomScrollView(
+            slivers: [
+              _buildAppBar(service),
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildImageCarousel(service),
+                    if (service.hasActivePromotion)
+                      _buildPromotionSection(service),
+                    _buildServiceInfo(service),
+                    _buildAvailabilitySection(service),
+                    _buildAdditionalInfo(service),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+  Widget _buildAppBar(ServiceModel service) {
+    return SliverAppBar(
+      expandedHeight: 0,
+      floating: true,
+      pinned: true,
+      title: Text(service.name),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.share),
+          onPressed: () {
+            // Implémenter le partage
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return StreamBuilder<ServiceModel>(
+      stream: _serviceService.getServiceById(widget.serviceId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+
+        final service = snapshot.data!;
+
+        return ValueListenableBuilder<DateTime?>(
+          valueListenable: _selectedTimeNotifier,
+          builder: (context, selectedTime, _) {
+            return Container(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 16,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Total',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        if (service.hasActivePromotion)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    '${service.finalPrice.toStringAsFixed(2)} €',
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red[50],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      service.discount!.type == 'percentage'
+                                          ? '-${service.discount!.value.toStringAsFixed(0)}%'
+                                          : '-${service.discount!.value.toStringAsFixed(2)}€',
+                                      style: TextStyle(
+                                        color: Colors.red[700],
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${service.price.toStringAsFixed(2)} €',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                  decoration: TextDecoration.lineThrough,
+                                  decorationColor: Colors.grey[400],
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            '${service.price.toStringAsFixed(2)} €',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      child: ElevatedButton(
+                        onPressed: selectedTime == null
+                            ? null
+                            : () => _proceedToPayment(service),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: selectedTime == null
+                              ? Colors.grey[300]
+                              : Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: selectedTime == null ? 0 : 2,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 24,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Réserver',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: selectedTime == null
+                                    ? Colors.grey[600]
+                                    : Colors.white,
+                              ),
+                            ),
+                            if (selectedTime != null) ...[
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _proceedToPayment(ServiceModel service) {
+    // Naviguer vers la page de paiement avec la date/heure sélectionnée
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ServicePaymentPage(
+          service: service,
+          bookingDateTime: _selectedTime!,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageCarousel(ServiceModel service) {
+    if (service.images.isEmpty) {
+      return Container(
+        height: 250,
+        color: Colors.grey[300],
+        child: const Icon(Icons.image_not_supported, size: 50),
+      );
+    }
+
+    return CarouselSlider(
+      options: CarouselOptions(
+        height: 250,
+        viewportFraction: 1.0,
+        enableInfiniteScroll: service.images.length > 1,
+        autoPlay: service.images.length > 1,
+      ),
+      items: service.images.map((imageUrl) {
+        return Builder(
+          builder: (BuildContext context) {
+            return Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+            );
+          },
+        );
+      }).toList(),
     );
   }
 }

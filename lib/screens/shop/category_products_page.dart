@@ -215,7 +215,8 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
-            .collection('products')
+            .collection('posts')
+            .where('type', isEqualTo: 'product')
             .where('categoryPath', arrayContains: widget.categoryId)
             .where('isActive', isEqualTo: true)
             .snapshots(),
@@ -225,16 +226,25 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
           }
 
           if (snapshot.hasError) {
+            debugPrint('Erreur Firestore: ${snapshot.error}');
             return Center(child: Text('Erreur: ${snapshot.error}'));
           }
 
           final products = snapshot.data?.docs ?? [];
+          debugPrint("Nombre total de documents: ${products.length}");
+          
           final filteredProducts = _selectedCompanies.isEmpty
               ? products
               : products
-                  .where((product) =>
-                      _selectedCompanies.contains(product['companyId']))
+                  .where((product) {
+                    final data = product.data() as Map<String, dynamic>;
+                    debugPrint("Données du produit: $data");
+                    final companyId = data['companyId']?.toString() ?? '';
+                    return companyId.isNotEmpty && _selectedCompanies.contains(companyId);
+                  })
                   .toList();
+
+          debugPrint("Nombre de produits filtrés: ${filteredProducts.length}");
 
           if (filteredProducts.isEmpty) {
             return Center(
@@ -260,200 +270,196 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.7,
+              childAspectRatio: 0.65, // Ajusté pour donner plus d'espace vertical
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
             itemCount: filteredProducts.length,
             itemBuilder: (context, index) {
-              final product = Product.fromFirestore(filteredProducts[index]);
+              final productDoc = filteredProducts[index];
+              final productData = productDoc.data() as Map<String, dynamic>;
+              debugPrint("Construction du produit ${index + 1}/${filteredProducts.length}");
+              debugPrint("ID du produit: ${productDoc.id}");
 
-              return FutureBuilder<DocumentSnapshot>(
-                future: _firestore
-                    .collection('companys')
-                    .doc(product.sellerId)
-                    .get(),
-                builder: (context, companySnapshot) {
-                  if (!companySnapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
+              Product? product;
+              try {
+                product = Product.fromFirestore(productDoc);
+                debugPrint("Product créé avec succès: ${product.name}");
+              } catch (e) {
+                debugPrint('Erreur lors de la conversion du produit: $e');
+                return const SizedBox.shrink();
+              }
 
-                  final companyData =
-                      companySnapshot.data!.data() as Map<String, dynamic>;
-                  final companyName = companyData['name'] as String;
-                  final companyLogo = companyData['logo'] as String;
-                  final address =
-                      companyData['adress'] as Map<String, dynamic>?;
-
-                  double? distance;
-                  if (address != null) {
-                    distance = _calculateDistance(address);
-                  }
-
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ModernProductDetailPage(
-                            product: product,
-                          ),
+              return Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey[200]!),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ModernProductDetailPage(
+                          product: product!,
                         ),
-                      );
-                    },
-                    child: Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey[200]!),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Image du produit
-                          Expanded(
-                            flex: 3,
-                            child: Stack(
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(12),
-                                    ),
-                                    image: DecorationImage(
-                                      image: NetworkImage(
-                                        product.images.isNotEmpty
-                                            ? product.images[0]
-                                            : 'URL_IMAGE_PAR_DEFAUT',
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image du produit
+                      Expanded(
+                        flex: 5, // Augmenté pour donner plus d'espace à l'image
+                        child: Stack(
+                          children: [
+                            Container(
+                              decoration: const BoxDecoration(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(12),
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(12),
+                                ),
+                                child: product.images.isNotEmpty
+                                    ? Image.network(
+                                        product.images[0],
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          debugPrint("Erreur de chargement d'image: $error");
+                                          return Container(
+                                            color: Colors.grey[100],
+                                            child: Center(
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.image_not_supported_outlined,
+                                                    size: 32,
+                                                    color: Colors.grey[400],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    'Image non disponible',
+                                                    style: TextStyle(
+                                                      color: Colors.grey[600],
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      )
+                                    : Container(
+                                        color: Colors.grey[100],
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.image_not_supported_outlined,
+                                                size: 32,
+                                                color: Colors.grey[400],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'Pas d\'image',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
-                                      fit: BoxFit.cover,
+                              ),
+                            ),
+                            if (product.discount?.isValid() ?? false)
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red[700],
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '-${product.discount!.value}${product.discount!.type == 'percentage' ? '%' : '€'}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
-                                if (product.discount?.isValid() ?? false)
-                                  Positioned(
-                                    top: 8,
-                                    left: 8,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red[700],
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        '-${product.discount!.value}${product.discount!.type == 'percentage' ? '%' : '€'}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          // Informations du produit
-                          Expanded(
-                            flex: 2,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Nom du produit
-                                  Text(
-                                    product.name,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  // Prix
-                                  if (product.discount?.isValid() ?? false) ...[
-                                    Text(
-                                      '${product.price.toStringAsFixed(2)}€',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                        decoration: TextDecoration.lineThrough,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${product.finalPrice.toStringAsFixed(2)}€',
-                                      style: TextStyle(
-                                        color: Colors.red[700],
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ] else
-                                    Text(
-                                      '${product.price.toStringAsFixed(2)}€',
-                                      style: TextStyle(
-                                        color: Colors.blue[700],
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  const Spacer(),
-                                  // Informations de l'entreprise
-                                  Row(
-                                    children: [
-                                      if (companyLogo.isNotEmpty)
-                                        CircleAvatar(
-                                          radius: 12,
-                                          backgroundImage:
-                                              NetworkImage(companyLogo),
-                                        ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          companyName,
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 12,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (distance != null)
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.location_on,
-                                              size: 12,
-                                              color: Colors.grey[600],
-                                            ),
-                                            const SizedBox(width: 2),
-                                            Text(
-                                              _formatDistance(distance),
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                    ],
-                                  ),
-                                ],
                               ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              );
+                      // Informations du produit
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              product.name,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            if (product.discount?.isValid() ?? false) ...[
+                              Text(
+                                '${product.basePrice.toStringAsFixed(2)}€',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${product.finalPrice.toStringAsFixed(2)}€',
+                                style: TextStyle(
+                                  color: Colors.red[700],
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ] else
+                              Text(
+                                '${product.basePrice.toStringAsFixed(2)}€',
+                                style: TextStyle(
+                                  color: Colors.blue[700],
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ));
             },
           );
         },
@@ -461,3 +467,4 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
     );
   }
 }
+

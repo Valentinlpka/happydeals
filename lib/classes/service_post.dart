@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/service.dart';
-import 'package:happy/classes/service_discount.dart';
+import 'package:happy/classes/service_discount.dart' as discount_model;
 
 class ServicePost extends Post {
   final String serviceId;
@@ -14,8 +14,9 @@ class ServicePost extends Post {
   final int duration;
   final List<String> images;
   final bool isActive;
-  final ServiceDiscount? discount;
+  final discount_model.ServiceDiscount? discount;
   final String professionalId;
+  final Map<String, dynamic> companyAddress;
 
   ServicePost({
     required super.id,
@@ -30,6 +31,7 @@ class ServicePost extends Post {
     required this.duration,
     required this.images,
     required this.professionalId,
+    required this.companyAddress,
     this.isActive = true,
     this.discount,
     super.views = 0,
@@ -37,6 +39,8 @@ class ServicePost extends Post {
     super.likedBy = const [],
     super.commentsCount = 0,
     super.comments = const [],
+    required super.companyName,
+    required super.companyLogo,
   })  : assert(serviceId.isNotEmpty, 'serviceId ne peut pas être vide'),
         super(type: 'service');
 
@@ -60,8 +64,11 @@ class ServicePost extends Post {
       professionalId: service.professionalId,
       isActive: service.isActive,
       discount: service.discount != null
-          ? ServiceDiscount.fromMap(service.discount!)
+          ? discount_model.ServiceDiscount.fromMap(service.discount!.toMap())
           : null,
+      companyName: service.companyName,
+      companyLogo: service.companyLogo,
+      companyAddress: service.companyAddress,
     );
     return post;
   }
@@ -80,15 +87,8 @@ class ServicePost extends Post {
       'images': images,
       'isActive': isActive,
       'professionalId': professionalId,
-      'discount': discount != null
-          ? {
-              'type': discount!.type,
-              'value': discount!.value,
-              'startDate': Timestamp.fromDate(discount!.startDate),
-              'endDate': Timestamp.fromDate(discount!.endDate),
-              'isActive': discount!.isActive,
-            }
-          : null,
+      'discount': discount?.toMap(),
+      'companyAddress': companyAddress,
     });
     return map;
   }
@@ -113,13 +113,16 @@ class ServicePost extends Post {
       tva: data['tva'] ?? 20,
       duration: data['duration'] ?? 30,
       images: List<String>.from(data['images'] ?? []),
-      professionalId: data['professionalId'] ?? '',
+      professionalId: data['companyId'] ?? '',
       isActive: data['isActive'] ?? true,
       discount: data['discount'] != null
-          ? ServiceDiscount.fromMap(data['discount'])
+          ? discount_model.ServiceDiscount.fromMap(data['discount'])
           : null,
       views: data['views'] ?? 0,
       likes: data['likes'] ?? 0,
+      companyName: data['companyName'] ?? '',
+      companyLogo: data['companyLogo'] ?? '',
+      companyAddress: Map<String, dynamic>.from(data['companyAddress'] ?? {}),
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)

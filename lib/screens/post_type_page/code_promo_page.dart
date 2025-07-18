@@ -298,13 +298,6 @@ class _CodePromoPageState extends State<CodePromoPage> {
                       currentUserId: _currentUserId,
                       currentProfileUserId: _currentUserId,
                       onView: () {},
-                      companyData: CompanyData(
-                        name: companyData['name'],
-                        category: companyData['categorie'] ?? '',
-                        logo: companyData['logo'],
-                        cover: companyData['cover'] ?? '',
-                        rawData: companyData,
-                      ),
                     ),
                   );
                 },

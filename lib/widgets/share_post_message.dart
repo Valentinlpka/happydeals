@@ -27,7 +27,6 @@ class SharedPostMessage extends StatefulWidget {
 class _SharedPostMessageState extends State<SharedPostMessage>
     with AutomaticKeepAliveClientMixin {
   static final Map<String, Post> _postCache = {};
-  static final Map<String, CompanyData> _companyCache = {};
 
   @override
   bool get wantKeepAlive => true;
@@ -80,18 +79,6 @@ class _SharedPostMessageState extends State<SharedPostMessage>
               return const Text('Données de l\'entreprise non trouvées');
             }
 
-            final companyData =
-                companySnapshot.data!.data() as Map<String, dynamic>;
-            final company = _companyCache[companyId] ??
-                CompanyData(
-                  name: companyData['name'] ?? '',
-                  category: companyData['categorie'] ?? '',
-                  logo: companyData['logo'] ?? '',
-                  cover: companyData['cover'] ?? '',
-                  rawData: companyData,
-                );
-            _companyCache[companyId] = company;
-
             return Container(
               margin: EdgeInsets.only(
                 left: widget.isMe ? 50.0 : 8.0,
@@ -136,7 +123,6 @@ class _SharedPostMessageState extends State<SharedPostMessage>
                           child: _buildPostContent(
                             post,
                             context,
-                            company: company,
                           ),
                         ),
                       ],
@@ -163,9 +149,8 @@ class _SharedPostMessageState extends State<SharedPostMessage>
 
   Widget _buildPostContent(
     Post post,
-    BuildContext context, {
-    required CompanyData company,
-  }) {
+    BuildContext context,
+  ) {
     if (post is Ad) {
       final ad = post as Ad;
       return SizedBox(
@@ -213,7 +198,6 @@ class _SharedPostMessageState extends State<SharedPostMessage>
           onView: () {},
           currentProfileUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
           currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-          companyData: company,
         ),
       ),
     );
