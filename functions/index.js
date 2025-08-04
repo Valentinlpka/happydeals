@@ -41,6 +41,25 @@ exports.setCompanyCreatedClaim = functions.https.onCall(async (data, context) =>
   }
 });
 
+exports.setSubscriptionActiveClaim = functions.https.onCall(async (data, context) => {
+  // Vérifier que l'utilisateur est authentifié
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'L\'utilisateur doit être authentifié');
+  }
+
+  const { uid } = data;
+  
+  try {
+    // Définir le custom claim
+    await admin.auth().setCustomUserClaims(uid, { companyCreated: true , subscriptionActive: true });
+    
+    return { success: true, message: 'Custom claim companyCreated défini avec succès' };
+  } catch (error) {
+    console.error('Erreur lors de la définition du custom claim:', error);
+    throw new functions.https.HttpsError('internal', 'Erreur lors de la définition du custom claim');
+  }
+});
+
 exports.createStripeCheckoutSession = functions.firestore
   .document("users/{userId}/checkout_sessions/{docId}")
   .onCreate(async (snap, context) => {
@@ -1154,7 +1173,7 @@ exports.confirmDealExpressPickup = functions.https.onCall(
     try {
       const reservationRef = admin
         .firestore()
-        .collection("reservations")
+        .collection("orders")
         .doc(reservationId);
       const reservation = await reservationRef.get();
 
@@ -1167,7 +1186,7 @@ exports.confirmDealExpressPickup = functions.https.onCall(
 
       const reservationData = reservation.data();
 
-      if (reservationData.status !== "prête à être retirée") {
+      if (reservationData.status !== "pending_remove") {
         throw new functions.https.HttpsError(
           "failed-precondition",
           "La réservation n'est pas prête à être retirée"
@@ -2189,6 +2208,869 @@ function combineDateTime(date, time) {
   );
 }
 
+// // Fonction permettant de créer un lien de paiement pour tous les types
+// exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
+//   if (!context.auth) {
+//     throw new functions.https.HttpsError(
+//       "unauthenticated",
+//       "User must be authenticated."
+//     );
+//   }
+
+//   try {
+//     const { type, amount, metadata, successUrl, cancelUrl, isWeb } = data;
+
+//     // Récupérer les informations du client
+//     const customerSnapshot = await admin
+//       .firestore()
+//       .collection("users")
+//       .doc(context.auth.uid)
+//       .get();
+
+//     if (!customerSnapshot.exists) {
+//       throw new functions.https.HttpsError(
+//         "not-found",
+//         "Utilisateur non trouvé."
+//       );
+//     }
+
+//     const customerData = customerSnapshot.data();
+
+//     // Récupérer ou créer le client Stripe
+//     let stripeCustomerId = customerData.stripeCustomerId;
+//     if (!stripeCustomerId) {
+//       // Créer un nouveau client Stripe
+//       const stripeCustomer = await stripe.customers.create({
+//         email: customerData.email,
+//         name: `${customerData.firstName} ${customerData.lastName}`,
+//         metadata: {
+//           firebaseUID: context.auth.uid,
+//         },
+//       });
+
+//       stripeCustomerId = stripeCustomer.id;
+
+//       // Mettre à jour l'utilisateur avec son ID Stripe
+//       await admin.firestore().collection("users").doc(context.auth.uid).update({
+//         stripeCustomerId: stripeCustomerId,
+//       });
+//     }
+
+//     // Préparer les metadata
+//     let processedMetadata = {
+//       customerEmail: customerData.email,
+//       customerName: `${customerData.firstName} ${customerData.lastName}`,
+//       ...metadata,
+//     };
+//     Object.keys(processedMetadata).forEach((key) => {
+//       processedMetadata[key] = String(processedMetadata[key] || "");
+//     });
+
+//     if (isWeb) {
+//       // Extraire l'ID existant de l'URL de succès
+//       const urlParams = new URL(successUrl).searchParams;
+//       let finalSuccessUrl = successUrl;
+
+//       // Ajouter le session_id à l'URL existante
+//       if (successUrl.includes("?")) {
+//         finalSuccessUrl = `${successUrl}&session_id={CHECKOUT_SESSION_ID}`;
+//       } else {
+//         finalSuccessUrl = `${successUrl}?session_id={CHECKOUT_SESSION_ID}`;
+//       }
+
+//       // Créer une session Checkout pour le web
+//       const session = await stripe.checkout.sessions.create({
+//         customer: stripeCustomerId,
+//         payment_method_types: ["card"],
+//         mode: "payment",
+//         success_url: finalSuccessUrl.replace("#/", ""),
+//         cancel_url: cancelUrl.replace("#/", ""),
+//         line_items: [
+//           {
+//             price_data: {
+//               currency: "eur",
+//               unit_amount: amount,
+//               product_data: {
+//                 name:
+//                   type === "order"
+//                     ? "Commande Up !"
+//                     : type === "express_deal"
+//                     ? "Panier anti-gaspi"
+//                     : "Réservation de service",
+//               },
+//             },
+//             quantity: 1,
+//           },
+//         ],
+//         metadata: {
+//           type,
+//           userId: context.auth.uid,
+//           ...processedMetadata,
+//         },
+//       });
+
+//       // Stocker les informations de paiement en attente selon le type
+//       let collectionName;
+//       switch (type) {
+//         case "order":
+//           collectionName = "pending_orders";
+//           break;
+//         case "express_deal":
+//           collectionName = "pending_express_deal_payments";
+//           break;
+//         case "service":
+//           collectionName = "pending_service_payments";
+//           break;
+//         default:
+//           throw new Error("Type de paiement non supporté");
+//       }
+
+//       await admin.firestore().collection(collectionName).doc(session.id).set({
+//         userId: context.auth.uid,
+//         metadata: processedMetadata,
+//         status: "pending",
+//         type: type,
+//         amount: amount,
+//         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       });
+
+//       return {
+//         url: session.url,
+//         sessionId: session.id,
+//       };
+//     } else {
+//       // Créer un Payment Intent pour mobile
+//       const paymentIntent = await stripe.paymentIntents.create({
+//         amount,
+//         currency: "eur",
+//         customer: stripeCustomerId,
+//         application_fee_amount: 100,
+//         metadata: {
+//           type,
+//           userId: context.auth.uid,
+//           ...processedMetadata,
+//         },
+//         transfer_data: {
+//           destination: "acct_1RTLqPIEAfIDSsKq",
+//         },
+//       });
+
+//       return {
+//         clientSecret: paymentIntent.client_secret,
+//         sessionId: paymentIntent.id,
+//       };
+//     }
+//   } catch (error) {
+//     console.error("Payment creation error:", error);
+//     throw new functions.https.HttpsError("internal", error.message);
+//   }
+// });
+
+// // Webhook handler (vérification du paiement et création de la commande selon le type)
+// exports.handleStripeWebhook = functions.https.onRequest(
+//   async (request, response) => {
+//     const sig = request.headers["stripe-signature"];
+//     const webhookSecret = stripeWebhooks.webhook2;
+//     let event;
+
+//     console.log("Webhook received");
+
+//     try {
+//       event = stripe.webhooks.constructEvent(
+//         request.rawBody,
+//         sig,
+//         webhookSecret
+//       );
+//       console.log("Event type:", event.type);
+
+//       if (
+//         event.type === "checkout.session.completed" ||
+//         event.type === "payment_intent.succeeded"
+//       ) {
+//         const paymentData = event.data.object;
+//         const metadata = paymentData.metadata || {};
+//         const type = metadata.type;
+
+//         console.log("Processing payment:", {
+//           type,
+//           paymentId: paymentData.id,
+//           metadata: metadata,
+//         });
+
+//         if (!type) {
+//           console.error("No payment type found in metadata");
+//           response.json({ received: true });
+//           return;
+//         }
+
+//         // Vérifier le statut du paiement
+//         if (
+//           paymentData.status !== "complete" &&
+//           paymentData.status !== "succeeded"
+//         ) {
+//           console.log(
+//             `Payment ${paymentData.id} not completed, status: ${paymentData.status}`
+//           );
+//           response.json({ received: true });
+//           return;
+//         }
+
+//         let result;
+//         try {
+//           switch (type) {
+//             case "order":
+//               result = await handleOrderPayment(paymentData);
+//               break;
+//             case "express_deal":
+//               result = await handleExpressDealPayment(paymentData);
+//               break;
+//             case "service":
+//               result = await handleServicePayment(paymentData);
+//               break;
+//             default:
+//               throw new Error(`Unknown payment type: ${type}`);
+//           }
+
+//           console.log(`Successfully processed ${type} payment:`, result);
+
+//           // Créer une notification
+//           if (type === "order") {
+//             await sendOrderNotifications(result.orderId, {
+//               ...pendingOrderData,
+//               userId: metadata.userId,
+//               amount: pendingOrderData.totalPrice * 100,
+//               userData: await admin
+//                 .firestore()
+//                 .collection("users")
+//                 .doc(metadata.userId)
+//                 .get()
+//                 .then((doc) => doc.data()),
+//               companyData: await admin
+//                 .firestore()
+//                 .collection("companys")
+//                 .doc(pendingOrderData.entrepriseId)
+//                 .get()
+//                 .then((doc) => doc.data()),
+//             });
+//           }
+//         } catch (error) {
+//           console.error(`Error processing ${type} payment:`, error);
+//           // On continue malgré l'erreur pour ne pas retraiter le webhook
+//         }
+//       }
+
+//       response.json({ received: true });
+//     } catch (error) {
+//       console.error("Webhook error:", error);
+//       response.status(400).send(`Webhook Error: ${error.message}`);
+//     }
+//   }
+// );
+
+// // Création commande classique
+// async function handleOrderPayment(paymentData) {
+//   const metadata = paymentData.metadata;
+//   const cartId = metadata.cartId;
+//   const orderId = metadata.orderId;
+//   const userId = metadata.userId;
+
+//   try {
+//     const pendingOrderDoc = await admin
+//       .firestore()
+//       .collection("pending_orders")
+//       .doc(orderId)
+//       .get();
+
+//     if (!pendingOrderDoc.exists) {
+//       console.error("Pending order not found for orderId:", orderId);
+//       throw new Error("Pending order not found");
+//     }
+
+//     const pendingOrderData = pendingOrderDoc.data();
+//     console.log("PendingOrderData:", pendingOrderData);
+
+//     // 1. Exécuter la transaction Firestore pour la gestion des stocks
+//     await admin.firestore().runTransaction(async (transaction) => {
+//       // LECTURES D'ABORD
+//       const productReads = await Promise.all(
+//         pendingOrderData.items.map(async (item) => {
+//           const productRef = admin
+//             .firestore()
+//             .collection("posts")
+//             .doc(item.productId);
+//           return {
+//             ref: productRef,
+//             doc: await transaction.get(productRef),
+//             item: item,
+//           };
+//         })
+//       );
+
+//       const orderRef = admin.firestore().collection("orders").doc(orderId);
+
+//       // Créer la commande
+//       transaction.set(orderRef, {
+//         userId: userId,
+//         items: pendingOrderData.items,
+//         sellerId: pendingOrderData.sellerId,
+//         entrepriseId: pendingOrderData.entrepriseId,
+//         subtotal: pendingOrderData.subtotal,
+//         promoCode: pendingOrderData.promoCode,
+//         discountAmount: pendingOrderData.discountAmount,
+//         totalPrice: pendingOrderData.totalPrice,
+//         pickupAddress: pendingOrderData.pickupAddress,
+//         status: "paid",
+//         paymentId: paymentData.id, // Utiliser directement l'ID du payment intent
+//         paidAt: admin.firestore.FieldValue.serverTimestamp(),
+//         createdAt:
+//           pendingOrderData.createdAt ||
+//           admin.firestore.FieldValue.serverTimestamp(),
+//         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//       });
+
+//       // Mise à jour des stocks
+//       for (const { ref, doc, item } of productReads) {
+//         if (!doc.exists) {
+//           console.error(`Product not found: ${item.productId}`);
+//           continue;
+//         }
+
+//         const productData = doc.data();
+//         const variant = productData.variants.find(
+//           (v) => v.id === item.variantId
+//         );
+
+//         if (!variant) {
+//           console.error(
+//             `Variant not found: ${item.variantId} for product ${item.productId}`
+//           );
+//           continue;
+//         }
+
+//         const updatedVariants = productData.variants.map((v) => {
+//           if (v.id === item.variantId) {
+//             return {
+//               ...v,
+//               stock: Math.max(0, v.stock - item.quantity),
+//             };
+//           }
+//           return v;
+//         });
+
+//         transaction.update(ref, { variants: updatedVariants });
+//       }
+
+//       // Supprimer le panier si nécessaire
+//       if (cartId) {
+//         const cartRef = admin.firestore().collection("carts").doc(cartId);
+//         transaction.delete(cartRef);
+//       }
+
+//       // Supprimer la commande en attente
+//       transaction.delete(pendingOrderDoc.ref);
+//     });
+
+//     // 2. Envoyer les notifications et emails
+//     await sendOrderNotifications(orderId, {
+//       ...pendingOrderData,
+//       userId,
+//       amount: pendingOrderData.totalPrice * 100, // Convertir en centimes pour la cohérence
+//       userData: await admin
+//         .firestore()
+//         .collection("users")
+//         .doc(userId)
+//         .get()
+//         .then((doc) => doc.data()),
+//       companyData: await admin
+//         .firestore()
+//         .collection("companys")
+//         .doc(pendingOrderData.entrepriseId)
+//         .get()
+//         .then((doc) => doc.data()),
+//     });
+
+//     console.log("Order successfully processed:", orderId);
+//     return { orderId };
+//   } catch (error) {
+//     console.error("Error processing order:", error);
+//     await admin.firestore().collection("payment_errors").add({
+//       orderId,
+//       error: error.message,
+//       paymentId: paymentData.id,
+//       timestamp: admin.firestore.FieldValue.serverTimestamp(),
+//     });
+//     throw error;
+//   }
+// }
+
+// // Fonction helper pour les notifications
+// async function sendOrderNotifications(orderId, orderData) {
+//   const batch = admin.firestore().batch();
+
+//   // Notification pour le professionnel
+//   const notificationProRef = admin
+//     .firestore()
+//     .collection("notifications_pro")
+//     .doc();
+//   batch.set(notificationProRef, {
+//     userId: orderData.sellerId,
+//     type: "order",
+//     title: "🛍️ Nouvelle commande reçue",
+//     message: `Un client vient de passer une commande d'un montant de ${(
+//       orderData.amount / 100
+//     ).toFixed(2)}€`,
+//     targetId: orderId,
+//     createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//     isRead: false,
+//   });
+
+//   // Notification pour le client
+//   const notificationClientRef = admin
+//     .firestore()
+//     .collection("notifications")
+//     .doc();
+//   batch.set(notificationClientRef, {
+//     userId: orderData.userId,
+//     type: "order",
+//     title: "🎉 Commande confirmée",
+//     message: `Votre commande d'un montant de ${(orderData.amount / 100).toFixed(
+//       2
+//     )}€ a été confirmée`,
+//     targetId: orderId,
+//     createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//     isRead: false,
+//   });
+
+//   await batch.commit();
+
+//   // Envoyer les emails
+//   try {
+//     await Promise.all([
+//       // Email au client
+//       transporter.sendMail({
+//         from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
+//         to: orderData.userData.email,
+//         subject: "🎉 Votre commande est confirmée",
+//         html: generateOrderCustomerEmail(
+//           orderData,
+//           orderData.userData,
+//           orderId
+//         ),
+//       }),
+//       // Email au professionnel
+//       transporter.sendMail({
+//         from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
+//         to: orderData.companyData.email,
+//         subject: "🛍️ Nouvelle commande reçue",
+//         html: generateOrderProfessionalEmail(
+//           orderData,
+//           orderData.userData,
+//           orderId
+//         ),
+//       }),
+//     ]);
+
+//     console.log("Emails envoyés avec succès");
+//   } catch (emailError) {
+//     console.error("Erreur lors de l'envoi des emails:", emailError);
+//   }
+
+//   // Envoyer une notification push au client si le token FCM existe
+//   if (orderData.userData.fcmToken) {
+//     const message = {
+//       notification: {
+//         title: "🎉 Commande confirmée",
+//         body: `Votre commande d'un montant de ${(
+//           orderData.amount / 100
+//         ).toFixed(2)}€ a été confirmée`,
+//       },
+//       data: {
+//         type: "order",
+//         targetId: orderId,
+//         click_action: "FLUTTER_NOTIFICATION_CLICK",
+//       },
+//       token: orderData.userData.fcmToken,
+//     };
+
+//     try {
+//       await admin.messaging().send(message);
+//       console.log("Notification push envoyée avec succès");
+//     } catch (error) {
+//       console.error("Erreur lors de l'envoi de la notification push:", error);
+//     }
+//   }
+// }
+
+// // Création commande deal express
+// async function handleExpressDealPayment(paymentData) {
+//   const metadata = paymentData.metadata;
+//   const dealId = metadata.postId;
+//   const reservationId = metadata.reservationId;
+
+//   if (!dealId) {
+//     throw new Error("No dealId found in metadata");
+//   }
+
+//   try {
+//     const batch = admin.firestore().batch();
+
+//     // Générer un code de validation de 6 caractères (lettres et chiffres)
+//     const generateValidationCode = () => {
+//       const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+//       let code = "";
+//       for (let i = 0; i < 6; i++) {
+//         code += characters.charAt(
+//           Math.floor(Math.random() * characters.length)
+//         );
+//       }
+//       return code;
+//     };
+
+//     const validationCode = generateValidationCode();
+
+//     // Créer la réservation
+//     const reservationRef = admin
+//       .firestore()
+//       .collection("reservations")
+//       .doc(reservationId);
+//     const reservationData = {
+//       postId: dealId,
+//       status: "confirmed",
+//       paymentId: paymentData.id,
+//       buyerId: metadata.userId,
+//       quantity: 1,
+//       pickupDate: admin.firestore.Timestamp.fromDate(
+//         new Date(metadata.pickupDate)
+//       ),
+//       price: parseFloat(metadata.price || "0"),
+//       timestamp: admin.firestore.FieldValue.serverTimestamp(),
+//       companyId: metadata.companyId,
+//       tva: parseFloat(metadata.tva || "0"),
+//       isValidated: false,
+//       basketType: metadata.basketType,
+//       companyName: metadata.companyName,
+//       pickupAddress: metadata.pickupAddress,
+//       validationCode: validationCode,
+//     };
+
+//     batch.set(reservationRef, reservationData);
+
+//     // Mettre à jour le compteur de paniers
+//     const dealRef = admin.firestore().collection("posts").doc(dealId);
+//     batch.update(dealRef, {
+//       basketCount: admin.firestore.FieldValue.increment(-1),
+//     });
+
+//     // Créer une notification pour le vendeur
+//     const notificationProRef = admin
+//       .firestore()
+//       .collection("notifications_pro")
+//       .doc();
+//     batch.set(notificationProRef, {
+//       userId: metadata.companyId,
+//       type: "deal_express",
+//       title: `🌱 Nouveau ${metadata.basketType} réservé`,
+//       message: `Un client vient de réserver un ${metadata.basketType}`,
+//       targetId: reservationId,
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       isRead: false,
+//     });
+
+//     // Créer une notification pour le client
+//     const notificationClientRef = admin
+//       .firestore()
+//       .collection("notifications")
+//       .doc();
+//     batch.set(notificationClientRef, {
+//       userId: metadata.userId,
+//       type: "deal_express",
+//       title: "🎉 Réservation confirmée",
+//       message: `Votre réservation pour un ${metadata.basketType} a été confirmée`,
+//       targetId: reservationId,
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       isRead: false,
+//     });
+
+//     await batch.commit();
+
+//     // Récupérer les informations de l'utilisateur et de l'entreprise
+//     const [userDoc, companyDoc] = await Promise.all([
+//       admin.firestore().collection("users").doc(metadata.userId).get(),
+//       admin.firestore().collection("companys").doc(metadata.companyId).get(),
+//     ]);
+
+//     if (!userDoc.exists || !companyDoc.exists) {
+//       throw new Error("User or company not found");
+//     }
+
+//     const userData = userDoc.data();
+//     const companyData = companyDoc.data();
+
+//     // Envoyer les emails
+//     try {
+//       await Promise.all([
+//         // Email au client
+//         transporter.sendMail({
+//           from: '"Up ! 🌱" <happy.deals59@gmail.com>',
+//           to: userData.email,
+//           subject: `🎉 Votre ${metadata.basketType}  est réservé !`,
+//           html: generateDealCustomerEmail(
+//             reservationData,
+//             userData,
+//             reservationId
+//           ),
+//         }),
+//         // Email au professionnel
+//         transporter.sendMail({
+//           from: '"Up ! 🌱" <happy.deals59@gmail.com>',
+//           to: companyData.email,
+//           subject: `🌟 Nouveau ${metadata.basketType} réservé`,
+//           html: generateDealProfessionalEmail(reservationData, userData),
+//         }),
+//       ]);
+
+//       console.log("Emails envoyés avec succès");
+//     } catch (emailError) {
+//       console.error("Erreur lors de l'envoi des emails:", emailError);
+//     }
+
+//     // Envoyer une notification push au client si le token FCM existe
+//     if (userData.fcmToken) {
+//       const message = {
+//         notification: {
+//           title: "🎉 Réservation confirmée",
+//           body: `Votre réservation pour un ${metadata.basketType} a été confirmée`,
+//         },
+//         data: {
+//           type: "deal_express",
+//           targetId: reservationId,
+//           click_action: "FLUTTER_NOTIFICATION_CLICK",
+//         },
+//         token: userData.fcmToken,
+//       };
+
+//       try {
+//         await admin.messaging().send(message);
+//         console.log("Notification push envoyée avec succès");
+//       } catch (error) {
+//         console.error("Erreur lors de l'envoi de la notification push:", error);
+//       }
+//     }
+
+//     // Programmer la suppression pour plus tard
+//     setTimeout(async () => {
+//       try {
+//         await admin
+//           .firestore()
+//           .collection("pending_express_deal_payments")
+//           .doc(paymentData.id)
+//           .delete();
+//       } catch (error) {
+//         console.error("Error deleting pending payment:", error);
+//       }
+//     }, 5 * 60 * 1000); // Supprime après 5 minutes
+
+//     return { reservationId: reservationRef.id };
+//   } catch (error) {
+//     console.error("Erreur lors du traitement du deal express:", error);
+//     throw error;
+//   }
+// }
+
+// // Création commande réservations
+// async function handleServicePayment(paymentData) {
+//   const metadata = paymentData.metadata;
+//   const serviceId = metadata.serviceId;
+//   const bookingId = metadata.bookingId;
+//   const bookingDateTime = new Date(metadata.bookingDateTime);
+//   const timestamp = admin.firestore.Timestamp.fromDate(bookingDateTime);
+
+//   if (!serviceId) {
+//     throw new Error("No serviceId found in metadata");
+//   }
+
+//   // Préparer les données de base de la réservation
+//   const bookingData = {
+//     serviceId: serviceId,
+//     status: "confirmed",
+//     paymentId: paymentData.id,
+//     userId: metadata.userId,
+//     professionalId: metadata.professionalId,
+//     bookingDateTime: timestamp,
+//     amount: parseFloat(metadata.amount || "0"),
+//     serviceName: metadata.serviceName,
+//     tva: parseFloat(metadata.tva || "0"),
+//     priceTTC: parseFloat(metadata.priceTTC || "0"),
+//     priceHT: parseFloat(metadata.priceHT || "0"),
+//     duration: metadata.duration,
+//     createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//     adresse: metadata.adresse,
+//   };
+
+//   // Ajouter les informations du code promo si présent
+//   if (metadata.promoApplied) {
+//     bookingData.promoCode = metadata.promoCode;
+//     bookingData.originalPrice = parseFloat(metadata.originalPrice);
+//     bookingData.discountAmount = parseFloat(metadata.discountAmount);
+//     bookingData.finalPrice = parseFloat(metadata.finalPrice);
+
+//     // Mettre à jour les statistiques du code promo
+//     try {
+//       const promoRef = admin
+//         .firestore()
+//         .collection("promo_codes")
+//         .where("code", "==", metadata.promoCode)
+//         .where("companyId", "==", metadata.professionalId)
+//         .limit(1);
+
+//       const promoSnapshot = await promoRef.get();
+//       if (!promoSnapshot.empty) {
+//         const promoDoc = promoSnapshot.docs[0];
+//         await promoDoc.ref.update({
+//           currentUses: admin.firestore.FieldValue.increment(1),
+//           usageHistory: admin.firestore.FieldValue.arrayUnion([
+//             metadata.userId,
+//           ]),
+//           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//         });
+//       }
+//     } catch (error) {
+//       console.error("Error updating promo code:", error);
+//       // Continue même si la mise à jour du code promo échoue
+//     }
+//   }
+
+//   try {
+//     // Créer la réservation
+//     const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+//     await bookingRef.set(bookingData);
+
+//     // Créer une notification pour le professionnel
+//     const notificationProRef = admin
+//       .firestore()
+//       .collection("notifications_pro")
+//       .doc();
+//     await notificationProRef.set({
+//       userId: metadata.professionalId,
+//       type: "booking",
+//       title: "✨ Nouvelle réservation",
+//       message: `Un client vient de réserver le service "${metadata.serviceName}"`,
+//       targetId: bookingId,
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       isRead: false,
+//     });
+
+//     // Créer une notification pour le client
+//     const notificationClientRef = admin
+//       .firestore()
+//       .collection("notifications")
+//       .doc();
+//     await notificationClientRef.set({
+//       userId: metadata.userId,
+//       type: "booking",
+//       title: "🎉 Réservation confirmée",
+//       message: `Votre réservation pour "${metadata.serviceName}" a été confirmée`,
+//       targetId: bookingId,
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       isRead: false,
+//     });
+
+//     // Récupérer les informations du client et du professionnel
+//     const [userDoc, companyDoc] = await Promise.all([
+//       admin.firestore().collection("users").doc(metadata.userId).get(),
+//       admin
+//         .firestore()
+//         .collection("companys")
+//         .doc(metadata.professionalId)
+//         .get(),
+//     ]);
+
+//     if (!userDoc.exists || !companyDoc.exists) {
+//       throw new Error("User or company not found");
+//     }
+
+//     const userData = userDoc.data();
+//     const companyData = companyDoc.data();
+
+//     // Envoyer les emails
+//     try {
+//       await Promise.all([
+//         // Email au client
+//         transporter.sendMail({
+//           from: '"Up ✨" <happy.deals59@gmail.com>',
+//           to: userData.email,
+//           subject: `✨ Votre réservation pour "${metadata.serviceName}" est confirmée`,
+//           html: generateServiceBookingCustomerEmail(
+//             bookingData,
+//             userData,
+//             companyData
+//           ),
+//         }),
+//         // Email au professionnel
+//         transporter.sendMail({
+//           from: '"Up ! ✨" <happy.deals59@gmail.com>',
+//           to: companyData.email,
+//           subject: `🎯 Nouvelle réservation pour "${metadata.serviceName}"`,
+//           html: generateServiceBookingProfessionalEmail(
+//             bookingData,
+//             userData,
+//             companyData
+//           ),
+//         }),
+//       ]);
+
+//       console.log("Emails envoyés avec succès");
+//     } catch (emailError) {
+//       console.error("Erreur lors de l'envoi des emails:", emailError);
+//     }
+
+//     // Envoyer une notification push au client si le token FCM existe
+//     if (userData.fcmToken) {
+//       const message = {
+//         notification: {
+//           title: "✨ Réservation confirmée",
+//           body: `Votre réservation pour "${metadata.serviceName}" a été confirmée`,
+//         },
+//         data: {
+//           type: "booking",
+//           targetId: bookingId,
+//           click_action: "FLUTTER_NOTIFICATION_CLICK",
+//         },
+//         token: userData.fcmToken,
+//       };
+
+//       try {
+//         await admin.messaging().send(message);
+//         console.log("Notification push envoyée avec succès");
+//       } catch (error) {
+//         console.error("Erreur lors de l'envoi de la notification push:", error);
+//       }
+//     }
+
+//     // Programmer la suppression du paiement en attente
+//     setTimeout(async () => {
+//       try {
+//         await admin
+//           .firestore()
+//           .collection("pending_service_payments")
+//           .doc(paymentData.id)
+//           .delete();
+//       } catch (error) {
+//         console.error("Error deleting pending payment:", error);
+//       }
+//     }, 5 * 60 * 1000);
+
+//     return { bookingId: bookingRef.id };
+//   } catch (error) {
+//     console.error("Error processing service booking:", error);
+//     throw error;
+//   }
+// }
+
+
+
+//TEST POUR LES COMMANDES : 
+
 // Fonction permettant de créer un lien de paiement pour tous les types
 exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -2248,65 +3130,10 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
     });
 
     if (isWeb) {
-      // Extraire l'ID existant de l'URL de succès
-      const urlParams = new URL(successUrl).searchParams;
-      let finalSuccessUrl = successUrl;
+      // ... existing code for session creation ...
 
-      // Ajouter le session_id à l'URL existante
-      if (successUrl.includes("?")) {
-        finalSuccessUrl = `${successUrl}&session_id={CHECKOUT_SESSION_ID}`;
-      } else {
-        finalSuccessUrl = `${successUrl}?session_id={CHECKOUT_SESSION_ID}`;
-      }
-
-      // Créer une session Checkout pour le web
-      const session = await stripe.checkout.sessions.create({
-        customer: stripeCustomerId,
-        payment_method_types: ["card"],
-        mode: "payment",
-        success_url: finalSuccessUrl.replace("#/", ""),
-        cancel_url: cancelUrl.replace("#/", ""),
-        line_items: [
-          {
-            price_data: {
-              currency: "eur",
-              unit_amount: amount,
-              product_data: {
-                name:
-                  type === "order"
-                    ? "Commande Up !"
-                    : type === "express_deal"
-                    ? "Panier anti-gaspi"
-                    : "Réservation de service",
-              },
-            },
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          type,
-          userId: context.auth.uid,
-          ...processedMetadata,
-        },
-      });
-
-      // Stocker les informations de paiement en attente selon le type
-      let collectionName;
-      switch (type) {
-        case "order":
-          collectionName = "pending_orders";
-          break;
-        case "express_deal":
-          collectionName = "pending_express_deal_payments";
-          break;
-        case "service":
-          collectionName = "pending_service_payments";
-          break;
-        default:
-          throw new Error("Type de paiement non supporté");
-      }
-
-      await admin.firestore().collection(collectionName).doc(session.id).set({
+      // Utiliser une seule collection pour tous les types
+      await admin.firestore().collection("pending_orders").doc(session.id).set({
         userId: context.auth.uid,
         metadata: processedMetadata,
         status: "pending",
@@ -2320,142 +3147,80 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
         sessionId: session.id,
       };
     } else {
-      // Créer un Payment Intent pour mobile
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount,
-        currency: "eur",
-        customer: stripeCustomerId,
-        application_fee_amount: 100,
-        metadata: {
-          type,
-          userId: context.auth.uid,
-          ...processedMetadata,
-        },
-        transfer_data: {
-          destination: "acct_1RTLqPIEAfIDSsKq",
-        },
-      });
-
-      return {
-        clientSecret: paymentIntent.client_secret,
-        sessionId: paymentIntent.id,
-      };
-    }
+              // Créer un Payment Intent pour mobile
+              const paymentIntent = await stripe.paymentIntents.create({
+                amount,
+                currency: "eur",
+                customer: stripeCustomerId,
+                application_fee_amount: 100,
+                metadata: {
+                  type,
+                  userId: context.auth.uid,
+                  ...processedMetadata,
+                },
+                transfer_data: {
+                  destination: "acct_1RTLqPIEAfIDSsKq",
+                },
+              });
+        
+              return {
+                clientSecret: paymentIntent.client_secret,
+                sessionId: paymentIntent.id,
+              };
+                }
   } catch (error) {
     console.error("Payment creation error:", error);
     throw new functions.https.HttpsError("internal", error.message);
   }
 });
 
-// Webhook handler (vérification du paiement et création de la commande selon le type)
-exports.handleStripeWebhook = functions.https.onRequest(
-  async (request, response) => {
-    const sig = request.headers["stripe-signature"];
+// Fonction unifiée pour gérer tous les types de paiement
+exports.handleStripeWebhook = functions.https.onRequest(async (request, response) => {
+      const sig = request.headers["stripe-signature"];
     const webhookSecret = stripeWebhooks.webhook2;
     let event;
 
     console.log("Webhook received");
 
-    try {
-      event = stripe.webhooks.constructEvent(
-        request.rawBody,
-        sig,
-        webhookSecret
-      );
-      console.log("Event type:", event.type);
+  try {
+    event = stripe.webhooks.constructEvent(request.rawBody, sig, webhookSecret);
+    
+    if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
+      const paymentData = event.data.object;
+      const metadata = paymentData.metadata || {};
+      const type = metadata.type;
 
-      if (
-        event.type === "checkout.session.completed" ||
-        event.type === "payment_intent.succeeded"
-      ) {
-        const paymentData = event.data.object;
-        const metadata = paymentData.metadata || {};
-        const type = metadata.type;
-
-        console.log("Processing payment:", {
-          type,
-          paymentId: paymentData.id,
-          metadata: metadata,
-        });
-
-        if (!type) {
-          console.error("No payment type found in metadata");
-          response.json({ received: true });
-          return;
-        }
-
-        // Vérifier le statut du paiement
-        if (
-          paymentData.status !== "complete" &&
-          paymentData.status !== "succeeded"
-        ) {
-          console.log(
-            `Payment ${paymentData.id} not completed, status: ${paymentData.status}`
-          );
-          response.json({ received: true });
-          return;
-        }
-
-        let result;
-        try {
-          switch (type) {
-            case "order":
-              result = await handleOrderPayment(paymentData);
-              break;
-            case "express_deal":
-              result = await handleExpressDealPayment(paymentData);
-              break;
-            case "service":
-              result = await handleServicePayment(paymentData);
-              break;
-            default:
-              throw new Error(`Unknown payment type: ${type}`);
-          }
-
-          console.log(`Successfully processed ${type} payment:`, result);
-
-          // Créer une notification
-          if (type === "order") {
-            await sendOrderNotifications(result.orderId, {
-              ...pendingOrderData,
-              userId: metadata.userId,
-              amount: pendingOrderData.totalPrice * 100,
-              userData: await admin
-                .firestore()
-                .collection("users")
-                .doc(metadata.userId)
-                .get()
-                .then((doc) => doc.data()),
-              companyData: await admin
-                .firestore()
-                .collection("companys")
-                .doc(pendingOrderData.entrepriseId)
-                .get()
-                .then((doc) => doc.data()),
-            });
-          }
-        } catch (error) {
-          console.error(`Error processing ${type} payment:`, error);
-          // On continue malgré l'erreur pour ne pas retraiter le webhook
-        }
+      if (!type) {
+        console.error("No payment type found in metadata");
+        response.json({ received: true });
+        return;
       }
 
-      response.json({ received: true });
-    } catch (error) {
-      console.error("Webhook error:", error);
-      response.status(400).send(`Webhook Error: ${error.message}`);
-    }
-  }
-);
+      if (paymentData.status !== "complete" && paymentData.status !== "succeeded") {
+        console.log(`Payment ${paymentData.id} not completed, status: ${paymentData.status}`);
+        response.json({ received: true });
+        return;
+      }
 
-// Création commande classique
-async function handleOrderPayment(paymentData) {
+      // Utiliser une seule fonction pour tous les types
+      await handleUnifiedPayment(paymentData, type);
+    }
+
+    response.json({ received: true });
+  } catch (error) {
+    console.error("Webhook error:", error);
+    response.status(400).send(`Webhook Error: ${error.message}`);
+  }
+});
+
+// Fonction unifiée pour traiter tous les types de paiement
+async function handleUnifiedPayment(paymentData, type) {
   const metadata = paymentData.metadata;
-  const cartId = metadata.cartId;
   const orderId = metadata.orderId;
   const userId = metadata.userId;
 
   try {
+    // Récupérer le document en attente
     const pendingOrderDoc = await admin
       .firestore()
       .collection("pending_orders")
@@ -2468,115 +3233,209 @@ async function handleOrderPayment(paymentData) {
     }
 
     const pendingOrderData = pendingOrderDoc.data();
-    console.log("PendingOrderData:", pendingOrderData);
+    
+    // Déterminer le montant selon le type de commande
+    let amount;
+    switch (type) {
+      case "order":
+        amount = pendingOrderData.totalPrice || 0;
+        break;
+      case "express_deal":
+        amount = pendingOrderData.amount || 0;
+        break;
+      case "service":
+        amount = pendingOrderData.amount || 0;
+        break;
+      default:
+        amount = pendingOrderData.amount || pendingOrderData.totalPrice || 0;
+    }
+    
+    // Créer la structure commune pour tous les types
+    const baseOrderData = {
+      userId: userId,
+      type: type,
+      status: "confirmed",
+      paymentId: paymentData.id,
+      companyId: pendingOrderData.companyId || pendingOrderData.entrepriseId || pendingOrderData.professionalId,
+      amount: amount,
+      createdAt: pendingOrderData.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
 
-    // 1. Exécuter la transaction Firestore pour la gestion des stocks
+    // Ajouter les champs spécifiques selon le type
+    let specificOrderData = {};
+    
+    switch (type) {
+      case "order":
+        specificOrderData = {
+          items: pendingOrderData.items || [],
+          sellerId: pendingOrderData.sellerId,
+          entrepriseId: pendingOrderData.entrepriseId,
+          subtotal: pendingOrderData.subtotal || 0,
+          promoCode: pendingOrderData.promoCode || null,
+          discountAmount: pendingOrderData.discountAmount || 0,
+          totalPrice: pendingOrderData.totalPrice || 0,
+          pickupAddress: pendingOrderData.pickupAddress || null,
+        };
+        break;
+        
+      case "express_deal":
+        const validationCode = generateValidationCode();
+        specificOrderData = {
+          postId: pendingOrderData.postId,
+          dealId: pendingOrderData.dealId,
+          companyId: pendingOrderData.companyId,
+          pickupDate: pendingOrderData.pickupDate ? 
+            admin.firestore.Timestamp.fromDate(new Date(pendingOrderData.pickupDate)) : null,
+          basketType: pendingOrderData.basketType,
+          companyName: pendingOrderData.companyName,
+          pickupAddress: pendingOrderData.pickupAddress,
+          tva: pendingOrderData.tva || 0,
+          validationCode: validationCode,
+          isValidated: false,
+        };
+        break;
+        
+      case "service":
+        specificOrderData = {
+          serviceId: pendingOrderData.serviceId,
+          serviceName: pendingOrderData.serviceName,
+          bookingDateTime: pendingOrderData.bookingDateTime ? 
+            admin.firestore.Timestamp.fromDate(new Date(pendingOrderData.bookingDateTime)) : null,
+          professionalId: pendingOrderData.professionalId,
+          duration: pendingOrderData.duration || 0,
+          tva: pendingOrderData.tva || 0,
+          priceTTC: pendingOrderData.priceTTC || 0,
+          priceHT: pendingOrderData.priceHT || 0,
+          adresse: pendingOrderData.adresse || null,
+          hasPromotion: pendingOrderData.hasPromotion || false,
+          promotionDetails: pendingOrderData.promotionDetails || null,
+          originalPrice: pendingOrderData.originalPrice || null,
+          finalPrice: pendingOrderData.finalPrice || null,
+          discount: pendingOrderData.discount || null,
+          promoCode: pendingOrderData.promoCode || null,
+          promoDiscount: pendingOrderData.promoDiscount || null,
+        };
+        break;
+    }
+
+    // Combiner les données en filtrant les valeurs undefined
+    const orderData = { ...baseOrderData, ...specificOrderData };
+    
+    // Nettoyer les valeurs undefined pour éviter l'erreur Firestore
+    Object.keys(orderData).forEach(key => {
+      if (orderData[key] === undefined) {
+        delete orderData[key];
+      }
+    });
+
+    // Utiliser une transaction pour tout traiter
     await admin.firestore().runTransaction(async (transaction) => {
-      // LECTURES D'ABORD
-      const productReads = await Promise.all(
-        pendingOrderData.items.map(async (item) => {
-          const productRef = admin
-            .firestore()
-            .collection("posts")
-            .doc(item.productId);
-          return {
-            ref: productRef,
-            doc: await transaction.get(productRef),
-            item: item,
-          };
-        })
-      );
-
-      const orderRef = admin.firestore().collection("orders").doc(orderId);
-
-      // Créer la commande
-      transaction.set(orderRef, {
-        userId: userId,
-        items: pendingOrderData.items,
-        sellerId: pendingOrderData.sellerId,
-        entrepriseId: pendingOrderData.entrepriseId,
-        subtotal: pendingOrderData.subtotal,
-        promoCode: pendingOrderData.promoCode,
-        discountAmount: pendingOrderData.discountAmount,
-        totalPrice: pendingOrderData.totalPrice,
-        pickupAddress: pendingOrderData.pickupAddress,
-        status: "paid",
-        paymentId: paymentData.id, // Utiliser directement l'ID du payment intent
-        paidAt: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt:
-          pendingOrderData.createdAt ||
-          admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // Mise à jour des stocks
-      for (const { ref, doc, item } of productReads) {
-        if (!doc.exists) {
-          console.error(`Product not found: ${item.productId}`);
-          continue;
-        }
-
-        const productData = doc.data();
-        const variant = productData.variants.find(
-          (v) => v.id === item.variantId
-        );
-
-        if (!variant) {
-          console.error(
-            `Variant not found: ${item.variantId} for product ${item.productId}`
-          );
-          continue;
-        }
-
-        const updatedVariants = productData.variants.map((v) => {
-          if (v.id === item.variantId) {
+      // *** TOUTES LES LECTURES D'ABORD ***
+      
+      // Préparer les lectures pour la gestion des stocks (si commande classique)
+      let productReads = [];
+      if (type === "order" && pendingOrderData.items) {
+        productReads = await Promise.all(
+          pendingOrderData.items.map(async (item) => {
+            const productRef = admin.firestore().collection("posts").doc(item.productId);
             return {
-              ...v,
-              stock: Math.max(0, v.stock - item.quantity),
+              ref: productRef,
+              doc: await transaction.get(productRef),
+              item: item,
             };
+          })
+        );
+      }
+
+      // Lecture du code promo si nécessaire (pour les services)
+      let promoDoc = null;
+      if (type === "service" && pendingOrderData.promoCode) {
+        const promoQuery = admin
+          .firestore()
+          .collection("promo_codes")
+          .where("code", "==", pendingOrderData.promoCode)
+          .where("companyId", "==", pendingOrderData.professionalId || "UP")
+          .limit(1);
+
+        const promoSnapshot = await promoQuery.get();
+        if (!promoSnapshot.empty) {
+          promoDoc = promoSnapshot.docs[0];
+        }
+      }
+
+      // *** TOUTES LES ÉCRITURES APRÈS ***
+      
+      // Créer la commande unifiée
+      const orderRef = admin.firestore().collection("orders").doc(orderId);
+      transaction.set(orderRef, orderData);
+      
+      // Traitement spécifique selon le type
+      if (type === "order") {
+        // Mise à jour des stocks
+        for (const { ref, doc, item } of productReads) {
+          if (!doc.exists) {
+            console.error(`Product not found: ${item.productId}`);
+            continue;
           }
-          return v;
-        });
 
-        transaction.update(ref, { variants: updatedVariants });
+          const productData = doc.data();
+          const variant = productData.variants.find(v => v.id === item.variantId);
+
+          if (!variant) {
+            console.error(`Variant not found: ${item.variantId} for product ${item.productId}`);
+            continue;
+          }
+
+          const updatedVariants = productData.variants.map(v => {
+            if (v.id === item.variantId) {
+              return { ...v, stock: Math.max(0, v.stock - item.quantity) };
+            }
+            return v;
+          });
+
+          transaction.update(ref, { variants: updatedVariants });
+        }
+        
+        // Supprimer le panier si nécessaire
+        if (metadata.cartId) {
+          const cartRef = admin.firestore().collection("carts").doc(metadata.cartId);
+          transaction.delete(cartRef);
+        }
+      } else if (type === "express_deal") {
+        // Décrémenter le compteur de paniers
+        if (pendingOrderData.postId) {
+          const dealRef = admin.firestore().collection("posts").doc(pendingOrderData.postId);
+          transaction.update(dealRef, {
+            basketCount: admin.firestore.FieldValue.increment(-1),
+          });
+        }
+      } else if (type === "service") {
+        // Mettre à jour le code promo
+        if (promoDoc) {
+          transaction.update(promoDoc.ref, {
+            currentUses: admin.firestore.FieldValue.increment(1),
+            usageHistory: admin.firestore.FieldValue.arrayUnion([userId]),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
       }
-
-      // Supprimer le panier si nécessaire
-      if (cartId) {
-        const cartRef = admin.firestore().collection("carts").doc(cartId);
-        transaction.delete(cartRef);
-      }
-
-      // Supprimer la commande en attente
+      
+      // Supprimer le document en attente
       transaction.delete(pendingOrderDoc.ref);
     });
 
-    // 2. Envoyer les notifications et emails
-    await sendOrderNotifications(orderId, {
-      ...pendingOrderData,
-      userId,
-      amount: pendingOrderData.totalPrice * 100, // Convertir en centimes pour la cohérence
-      userData: await admin
-        .firestore()
-        .collection("users")
-        .doc(userId)
-        .get()
-        .then((doc) => doc.data()),
-      companyData: await admin
-        .firestore()
-        .collection("companys")
-        .doc(pendingOrderData.entrepriseId)
-        .get()
-        .then((doc) => doc.data()),
-    });
+    // Envoyer les notifications
+    await sendUnifiedNotifications(orderId, orderData, type);
 
-    console.log("Order successfully processed:", orderId);
+    console.log(`Successfully processed ${type} order:`, orderId);
     return { orderId };
   } catch (error) {
-    console.error("Error processing order:", error);
+    console.error(`Error processing ${type} order:`, error);
     await admin.firestore().collection("payment_errors").add({
       orderId,
       error: error.message,
+      type: type,
       paymentId: paymentData.id,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -2584,467 +3443,117 @@ async function handleOrderPayment(paymentData) {
   }
 }
 
-// Fonction helper pour les notifications
-async function sendOrderNotifications(orderId, orderData) {
-  const batch = admin.firestore().batch();
+// Fonction helper pour générer un code de validation
+function generateValidationCode() {
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return code;
+}
 
+// Fonction unifiée pour les notifications
+async function sendUnifiedNotifications(orderId, orderData, type) {
+  const batch = admin.firestore().batch();
+  
+  // Déterminer les destinataires selon le type
+  let professionalId;
+  let notificationTitle;
+  let notificationMessage;
+  
+  switch (type) {
+    case "order":
+      professionalId = orderData.sellerId;
+      notificationTitle = "🛍️ Nouvelle commande reçue";
+      notificationMessage = `Un client vient de passer une commande d'un montant de ${(orderData.amount).toFixed(2)}€`;
+      break;
+    case "express_deal":
+      professionalId = orderData.companyId;
+      notificationTitle = `🌱 Nouveau ${orderData.basketType} réservé`;
+      notificationMessage = `Un client vient de réserver un ${orderData.basketType}`;
+      break;
+    case "service":
+      professionalId = orderData.professionalId;
+      notificationTitle = "✨ Nouvelle réservation";
+      notificationMessage = `Un client vient de réserver le service "${orderData.serviceName}"`;
+      break;
+  }
+  
   // Notification pour le professionnel
-  const notificationProRef = admin
-    .firestore()
-    .collection("notifications_pro")
-    .doc();
+  const notificationProRef = admin.firestore().collection("notifications_pro").doc();
   batch.set(notificationProRef, {
-    userId: orderData.sellerId,
-    type: "order",
-    title: "🛍️ Nouvelle commande reçue",
-    message: `Un client vient de passer une commande d'un montant de ${(
-      orderData.amount / 100
-    ).toFixed(2)}€`,
+    userId: professionalId,
+    type: type,
+    title: notificationTitle,
+    message: notificationMessage,
     targetId: orderId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     isRead: false,
   });
 
   // Notification pour le client
-  const notificationClientRef = admin
-    .firestore()
-    .collection("notifications")
-    .doc();
+  const notificationClientRef = admin.firestore().collection("notifications").doc();
   batch.set(notificationClientRef, {
     userId: orderData.userId,
-    type: "order",
+    type: type,
     title: "🎉 Commande confirmée",
-    message: `Votre commande d'un montant de ${(orderData.amount / 100).toFixed(
-      2
-    )}€ a été confirmée`,
+    message: `Votre commande a été confirmée`,
     targetId: orderId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     isRead: false,
   });
 
   await batch.commit();
+  
+  // Envoyer les emails et notifications push
+  await sendEmails(orderId, orderData, type);
+}
 
-  // Envoyer les emails
+// Fonction pour envoyer les emails selon le type
+async function sendEmails(orderId, orderData, type) {
   try {
-    await Promise.all([
-      // Email au client
-      transporter.sendMail({
-        from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
-        to: orderData.userData.email,
-        subject: "🎉 Votre commande est confirmée",
-        html: generateOrderCustomerEmail(
-          orderData,
-          orderData.userData,
-          orderId
-        ),
-      }),
-      // Email au professionnel
-      transporter.sendMail({
-        from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
-        to: orderData.companyData.email,
-        subject: "🛍️ Nouvelle commande reçue",
-        html: generateOrderProfessionalEmail(
-          orderData,
-          orderData.userData,
-          orderId
-        ),
-      }),
+    // Récupérer les données utilisateur et entreprise
+    const [userDoc, companyDoc] = await Promise.all([
+      admin.firestore().collection("users").doc(orderData.userId).get(),
+      admin.firestore().collection("companys").doc(
+        type === "order" ? orderData.sellerId : 
+        type === "express_deal" ? orderData.companyId : 
+        orderData.professionalId
+      ).get(),
     ]);
+
+    const userData = userDoc.data();
+    const companyData = companyDoc.data();
+
+    // Envoyer les emails appropriés selon le type
+    let emailSubject, emailTemplate;
+    
+    switch (type) {
+      case "order":
+        emailSubject = "🎉 Votre commande est confirmée";
+        emailTemplate = generateOrderCustomerEmail(orderData, userData, orderId);
+        break;
+      case "express_deal":
+        emailSubject = `🎉 Votre ${orderData.basketType} est réservé !`;
+        emailTemplate = generateDealCustomerEmail(orderData, userData, orderId);
+        break;
+      case "service":
+        emailSubject = `✨ Votre réservation pour "${orderData.serviceName}" est confirmée`;
+        emailTemplate = generateServiceBookingCustomerEmail(orderData, userData, companyData);
+        break;
+    }
+
+    await transporter.sendMail({
+      from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
+      to: userData.email,
+      subject: emailSubject,
+      html: emailTemplate,
+    });
 
     console.log("Emails envoyés avec succès");
   } catch (emailError) {
     console.error("Erreur lors de l'envoi des emails:", emailError);
-  }
-
-  // Envoyer une notification push au client si le token FCM existe
-  if (orderData.userData.fcmToken) {
-    const message = {
-      notification: {
-        title: "🎉 Commande confirmée",
-        body: `Votre commande d'un montant de ${(
-          orderData.amount / 100
-        ).toFixed(2)}€ a été confirmée`,
-      },
-      data: {
-        type: "order",
-        targetId: orderId,
-        click_action: "FLUTTER_NOTIFICATION_CLICK",
-      },
-      token: orderData.userData.fcmToken,
-    };
-
-    try {
-      await admin.messaging().send(message);
-      console.log("Notification push envoyée avec succès");
-    } catch (error) {
-      console.error("Erreur lors de l'envoi de la notification push:", error);
-    }
-  }
-}
-
-// Création commande deal express
-async function handleExpressDealPayment(paymentData) {
-  const metadata = paymentData.metadata;
-  const dealId = metadata.postId;
-  const reservationId = metadata.reservationId;
-
-  if (!dealId) {
-    throw new Error("No dealId found in metadata");
-  }
-
-  try {
-    const batch = admin.firestore().batch();
-
-    // Générer un code de validation de 6 caractères (lettres et chiffres)
-    const generateValidationCode = () => {
-      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let code = "";
-      for (let i = 0; i < 6; i++) {
-        code += characters.charAt(
-          Math.floor(Math.random() * characters.length)
-        );
-      }
-      return code;
-    };
-
-    const validationCode = generateValidationCode();
-
-    // Créer la réservation
-    const reservationRef = admin
-      .firestore()
-      .collection("reservations")
-      .doc(reservationId);
-    const reservationData = {
-      postId: dealId,
-      status: "confirmed",
-      paymentId: paymentData.id,
-      buyerId: metadata.userId,
-      quantity: 1,
-      pickupDate: admin.firestore.Timestamp.fromDate(
-        new Date(metadata.pickupDate)
-      ),
-      price: parseFloat(metadata.price || "0"),
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      companyId: metadata.companyId,
-      tva: parseFloat(metadata.tva || "0"),
-      isValidated: false,
-      basketType: metadata.basketType,
-      companyName: metadata.companyName,
-      pickupAddress: metadata.pickupAddress,
-      validationCode: validationCode,
-    };
-
-    batch.set(reservationRef, reservationData);
-
-    // Mettre à jour le compteur de paniers
-    const dealRef = admin.firestore().collection("posts").doc(dealId);
-    batch.update(dealRef, {
-      basketCount: admin.firestore.FieldValue.increment(-1),
-    });
-
-    // Créer une notification pour le vendeur
-    const notificationProRef = admin
-      .firestore()
-      .collection("notifications_pro")
-      .doc();
-    batch.set(notificationProRef, {
-      userId: metadata.companyId,
-      type: "deal_express",
-      title: `🌱 Nouveau ${metadata.basketType} réservé`,
-      message: `Un client vient de réserver un ${metadata.basketType}`,
-      targetId: reservationId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      isRead: false,
-    });
-
-    // Créer une notification pour le client
-    const notificationClientRef = admin
-      .firestore()
-      .collection("notifications")
-      .doc();
-    batch.set(notificationClientRef, {
-      userId: metadata.userId,
-      type: "deal_express",
-      title: "🎉 Réservation confirmée",
-      message: `Votre réservation pour un ${metadata.basketType} a été confirmée`,
-      targetId: reservationId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      isRead: false,
-    });
-
-    await batch.commit();
-
-    // Récupérer les informations de l'utilisateur et de l'entreprise
-    const [userDoc, companyDoc] = await Promise.all([
-      admin.firestore().collection("users").doc(metadata.userId).get(),
-      admin.firestore().collection("companys").doc(metadata.companyId).get(),
-    ]);
-
-    if (!userDoc.exists || !companyDoc.exists) {
-      throw new Error("User or company not found");
-    }
-
-    const userData = userDoc.data();
-    const companyData = companyDoc.data();
-
-    // Envoyer les emails
-    try {
-      await Promise.all([
-        // Email au client
-        transporter.sendMail({
-          from: '"Up ! 🌱" <happy.deals59@gmail.com>',
-          to: userData.email,
-          subject: `🎉 Votre ${metadata.basketType}  est réservé !`,
-          html: generateDealCustomerEmail(
-            reservationData,
-            userData,
-            reservationId
-          ),
-        }),
-        // Email au professionnel
-        transporter.sendMail({
-          from: '"Up ! 🌱" <happy.deals59@gmail.com>',
-          to: companyData.email,
-          subject: `🌟 Nouveau ${metadata.basketType} réservé`,
-          html: generateDealProfessionalEmail(reservationData, userData),
-        }),
-      ]);
-
-      console.log("Emails envoyés avec succès");
-    } catch (emailError) {
-      console.error("Erreur lors de l'envoi des emails:", emailError);
-    }
-
-    // Envoyer une notification push au client si le token FCM existe
-    if (userData.fcmToken) {
-      const message = {
-        notification: {
-          title: "🎉 Réservation confirmée",
-          body: `Votre réservation pour un ${metadata.basketType} a été confirmée`,
-        },
-        data: {
-          type: "deal_express",
-          targetId: reservationId,
-          click_action: "FLUTTER_NOTIFICATION_CLICK",
-        },
-        token: userData.fcmToken,
-      };
-
-      try {
-        await admin.messaging().send(message);
-        console.log("Notification push envoyée avec succès");
-      } catch (error) {
-        console.error("Erreur lors de l'envoi de la notification push:", error);
-      }
-    }
-
-    // Programmer la suppression pour plus tard
-    setTimeout(async () => {
-      try {
-        await admin
-          .firestore()
-          .collection("pending_express_deal_payments")
-          .doc(paymentData.id)
-          .delete();
-      } catch (error) {
-        console.error("Error deleting pending payment:", error);
-      }
-    }, 5 * 60 * 1000); // Supprime après 5 minutes
-
-    return { reservationId: reservationRef.id };
-  } catch (error) {
-    console.error("Erreur lors du traitement du deal express:", error);
-    throw error;
-  }
-}
-
-// Création commande réservations
-async function handleServicePayment(paymentData) {
-  const metadata = paymentData.metadata;
-  const serviceId = metadata.serviceId;
-  const bookingId = metadata.bookingId;
-  const bookingDateTime = new Date(metadata.bookingDateTime);
-  const timestamp = admin.firestore.Timestamp.fromDate(bookingDateTime);
-
-  if (!serviceId) {
-    throw new Error("No serviceId found in metadata");
-  }
-
-  // Préparer les données de base de la réservation
-  const bookingData = {
-    serviceId: serviceId,
-    status: "confirmed",
-    paymentId: paymentData.id,
-    userId: metadata.userId,
-    professionalId: metadata.professionalId,
-    bookingDateTime: timestamp,
-    amount: parseFloat(metadata.amount || "0"),
-    serviceName: metadata.serviceName,
-    tva: parseFloat(metadata.tva || "0"),
-    priceTTC: parseFloat(metadata.priceTTC || "0"),
-    priceHT: parseFloat(metadata.priceHT || "0"),
-    duration: metadata.duration,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    adresse: metadata.adresse,
-  };
-
-  // Ajouter les informations du code promo si présent
-  if (metadata.promoApplied) {
-    bookingData.promoCode = metadata.promoCode;
-    bookingData.originalPrice = parseFloat(metadata.originalPrice);
-    bookingData.discountAmount = parseFloat(metadata.discountAmount);
-    bookingData.finalPrice = parseFloat(metadata.finalPrice);
-
-    // Mettre à jour les statistiques du code promo
-    try {
-      const promoRef = admin
-        .firestore()
-        .collection("promo_codes")
-        .where("code", "==", metadata.promoCode)
-        .where("companyId", "==", metadata.professionalId)
-        .limit(1);
-
-      const promoSnapshot = await promoRef.get();
-      if (!promoSnapshot.empty) {
-        const promoDoc = promoSnapshot.docs[0];
-        await promoDoc.ref.update({
-          currentUses: admin.firestore.FieldValue.increment(1),
-          usageHistory: admin.firestore.FieldValue.arrayUnion([
-            metadata.userId,
-          ]),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
-    } catch (error) {
-      console.error("Error updating promo code:", error);
-      // Continue même si la mise à jour du code promo échoue
-    }
-  }
-
-  try {
-    // Créer la réservation
-    const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
-    await bookingRef.set(bookingData);
-
-    // Créer une notification pour le professionnel
-    const notificationProRef = admin
-      .firestore()
-      .collection("notifications_pro")
-      .doc();
-    await notificationProRef.set({
-      userId: metadata.professionalId,
-      type: "booking",
-      title: "✨ Nouvelle réservation",
-      message: `Un client vient de réserver le service "${metadata.serviceName}"`,
-      targetId: bookingId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      isRead: false,
-    });
-
-    // Créer une notification pour le client
-    const notificationClientRef = admin
-      .firestore()
-      .collection("notifications")
-      .doc();
-    await notificationClientRef.set({
-      userId: metadata.userId,
-      type: "booking",
-      title: "🎉 Réservation confirmée",
-      message: `Votre réservation pour "${metadata.serviceName}" a été confirmée`,
-      targetId: bookingId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      isRead: false,
-    });
-
-    // Récupérer les informations du client et du professionnel
-    const [userDoc, companyDoc] = await Promise.all([
-      admin.firestore().collection("users").doc(metadata.userId).get(),
-      admin
-        .firestore()
-        .collection("companys")
-        .doc(metadata.professionalId)
-        .get(),
-    ]);
-
-    if (!userDoc.exists || !companyDoc.exists) {
-      throw new Error("User or company not found");
-    }
-
-    const userData = userDoc.data();
-    const companyData = companyDoc.data();
-
-    // Envoyer les emails
-    try {
-      await Promise.all([
-        // Email au client
-        transporter.sendMail({
-          from: '"Up ✨" <happy.deals59@gmail.com>',
-          to: userData.email,
-          subject: `✨ Votre réservation pour "${metadata.serviceName}" est confirmée`,
-          html: generateServiceBookingCustomerEmail(
-            bookingData,
-            userData,
-            companyData
-          ),
-        }),
-        // Email au professionnel
-        transporter.sendMail({
-          from: '"Up ! ✨" <happy.deals59@gmail.com>',
-          to: companyData.email,
-          subject: `🎯 Nouvelle réservation pour "${metadata.serviceName}"`,
-          html: generateServiceBookingProfessionalEmail(
-            bookingData,
-            userData,
-            companyData
-          ),
-        }),
-      ]);
-
-      console.log("Emails envoyés avec succès");
-    } catch (emailError) {
-      console.error("Erreur lors de l'envoi des emails:", emailError);
-    }
-
-    // Envoyer une notification push au client si le token FCM existe
-    if (userData.fcmToken) {
-      const message = {
-        notification: {
-          title: "✨ Réservation confirmée",
-          body: `Votre réservation pour "${metadata.serviceName}" a été confirmée`,
-        },
-        data: {
-          type: "booking",
-          targetId: bookingId,
-          click_action: "FLUTTER_NOTIFICATION_CLICK",
-        },
-        token: userData.fcmToken,
-      };
-
-      try {
-        await admin.messaging().send(message);
-        console.log("Notification push envoyée avec succès");
-      } catch (error) {
-        console.error("Erreur lors de l'envoi de la notification push:", error);
-      }
-    }
-
-    // Programmer la suppression du paiement en attente
-    setTimeout(async () => {
-      try {
-        await admin
-          .firestore()
-          .collection("pending_service_payments")
-          .doc(paymentData.id)
-          .delete();
-      } catch (error) {
-        console.error("Error deleting pending payment:", error);
-      }
-    }, 5 * 60 * 1000);
-
-    return { bookingId: bookingRef.id };
-  } catch (error) {
-    console.error("Error processing service booking:", error);
-    throw error;
   }
 }
 
@@ -3530,9 +4039,10 @@ exports.onOrderStatusUpdate = functions.firestore
     ) {
       console.log("=== Début traitement commande completed ===");
 
-      const sellerId = newValue.sellerId;
+      const sellerId = newValue.sellerId || newValue.professionalId || newValue.companyId;
+      const type = newValue.type;
       const userId = newValue.userId;
-      const totalAmount = parseFloat(newValue.totalPrice);
+      const totalAmount = parseFloat(newValue.amount);
 
       if (isNaN(totalAmount) || totalAmount <= 0) {
         console.error(
@@ -3593,7 +4103,7 @@ exports.onOrderStatusUpdate = functions.firestore
           batch,
           userId,
           totalAmount,
-          "order",
+          type,
           context.params.orderId
         );
 
@@ -4218,3 +4728,564 @@ exports.sendTrainingRequest = functions.https.onCall(async (data, context) => {
     );
   }
 });
+
+// Parrainage Up Systeme de récompense : 
+
+// Déclenchée lors de l'inscription avec un code de parrainage
+const STRIPE_PRICE_MAPPING = {
+  // Essentiel
+  "price_1RgMygEdQ2kxvmjkz6Ez1tcd": { plan: "essentiel", period: "monthly" },
+  "price_1RgMygEdQ2kxvmjkz6Ez1tcdb": { plan: "essentiel", period: "quarterly" },
+  "price_1RgMygEdQ2kxvmjkz6Ez1tcda": { plan: "essentiel", period: "annual" },
+  
+  // Boost
+  "price_1Qqj1IEdQ2kxvmjk4SMeCd71": { plan: "boost", period: "monthly" },
+  "price_1Qqj1IEdQ2kxvmjkAcen8dD2": { plan: "boost", period: "quarterly" },
+  "price_1Qqj1JEdQ2kxvmjk3indax32": { plan: "boost", period: "annual" },
+  
+  // Power
+  "price_1Qqj2hEdQ2kxvmjk7ZHlopEQ": { plan: "power", period: "monthly" },
+  "price_1Qqj2iEdQ2kxvmjk39pXPul9": { plan: "power", period: "quarterly" },
+  "price_1Qqj2jEdQ2kxvmjkebBbucO0": { plan: "power", period: "annual" }
+};
+
+const REWARD_CONFIG = {
+  particulier_to_company: {
+    particulier: {
+      essentiel: { quarterly: 100, annual: 200, monthly: 50 },
+      boost: { quarterly: 500, annual: 1000, monthly: 200 },
+      power: { quarterly: 1000, annual: 2000, monthly: 400 }
+    },
+    company: {
+      essentiel: { quarterly: 1, annual: 2, monthly: 0 },
+      boost: { quarterly: 1, annual: 2, monthly: 0 },
+      power: { quarterly: 1, annual: 2, monthly: 0 }
+    }
+  },
+  association_to_company: {
+    association: {
+      essentiel: { quarterly: 1, annual: 3, monthly: 0.5 },
+      boost: { quarterly: 7.5, annual: 20, monthly: 3 },
+      power: { quarterly: 15, annual: 40, monthly: 6 }
+    },
+    company: {
+      essentiel: { quarterly: 1, annual: 2, monthly: 0 },
+      boost: { quarterly: 1, annual: 2, monthly: 0 },
+      power: { quarterly: 1, annual: 2, monthly: 0 }
+    }
+  }
+};
+
+exports.onUserRegistration = functions.firestore
+    .document('users/{userId}')
+    .onCreate(async (snap, context) => {
+      const userData = snap.data();
+      
+      if (userData.referredBy) {
+        // Trouver le parrain avec son uniqueCode
+        const referrerQuery = await admin.firestore()
+          .collection('users')
+          .where('uniqueCode', '==', userData.referredBy)
+          .get();
+          
+        if (!referrerQuery.empty) {
+          const referrer = referrerQuery.docs[0];
+          const referrerData = referrer.data();
+          
+          // Créer l'entrée de parrainage
+          const referralData = await createReferralEntry(
+            referrer.id, 
+            context.params.userId, 
+            referrerData.type, 
+            userData.type
+          );
+          
+          await admin.firestore().collection('referrals_up').add(referralData);
+        }
+      }
+    });
+
+
+
+    async function createReferralEntry(referrerId, referredId, referrerType, referredType) {
+      const referralType = `${referrerType}_to_${referredType}`;
+      
+      let conditions = {};
+      let referrerReward = { type: 'none', value: 0 };
+      let referredReward = { type: 'none', value: 0 };
+      
+      switch (referralType) {
+        case 'company_to_company':
+          conditions = { requiresPayment: true, requiresOrders: 0, requiresAd: false };
+          // Les récompenses seront calculées quand le plan sera choisi
+          referrerReward = { type: 'months', value: 1 }; // Par défaut, sera ajusté
+          referredReward = { type: 'months', value: 1 };
+          break;
+          
+        case 'company_to_association':
+          conditions = { requiresPayment: false, requiresOrders: 0, requiresAd: true };
+          referrerReward = { type: 'cashback', value: 5 };
+          referredReward = { type: 'none', value: 0 };
+          break;
+          
+        case 'company_to_particulier':
+          conditions = { requiresPayment: false, requiresOrders: 3, requiresAd: false, minOrderAmount: 5 };
+          referrerReward = { type: 'cashback', value: 1 };
+          referredReward = { type: 'points', value: 100 };
+          break;
+          
+        case 'particulier_to_association':
+          conditions = { requiresPayment: false, requiresOrders: 0, requiresAd: true };
+          referrerReward = { type: 'points', value: 200 };
+          referredReward = { type: 'none', value: 0 };
+          break;
+          
+        case 'particulier_to_particulier':
+          conditions = { requiresPayment: false, requiresOrders: 3, requiresAd: false, minOrderAmount: 5 };
+          referrerReward = { type: 'points', value: 100 };
+          referredReward = { type: 'points', value: 100 };
+          break;
+          
+        case 'particulier_to_company':
+          conditions = { requiresPayment: true, requiresOrders: 0, requiresAd: false };
+          // Sera calculé quand le pro choisira son plan
+          referrerReward = { type: 'pending', value: 0 };
+          referredReward = { type: 'pending', value: 0 };
+          break;
+          
+        case 'association_to_company':
+          conditions = { requiresPayment: true, requiresOrders: 0, requiresAd: false };
+          // Sera calculé quand le pro choisira son plan
+          referrerReward = { type: 'pending', value: 0 };
+          referredReward = { type: 'pending', value: 0 };
+          break;
+          
+        case 'association_to_association':
+          conditions = { requiresPayment: false, requiresOrders: 0, requiresAd: true };
+          referrerReward = { type: 'cashback', value: 5 };
+          referredReward = { type: 'cashback', value: 5 };
+          break;
+          
+        case 'association_to_particulier':
+          conditions = { requiresPayment: false, requiresOrders: 3, requiresAd: false, minOrderAmount: 5 };
+          referrerReward = { type: 'cashback', value: 1.5 };
+          referredReward = { type: 'points', value: 100 };
+          break;
+      }
+      
+      return {
+        referrerId,
+        referredId,
+        referrerType,
+        referredType,
+        status: 'pending',
+        conditions,
+        referrerReward,
+        referredReward,
+        conditionsMet: {
+          paymentMade: false,
+          ordersCompleted: 0,
+          adPosted: false
+        },
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      };
+    }
+    
+    function calculateRewardsByPlan(referrerType, referredType, planName, period) {
+      const configKey = `${referrerType}_to_${referredType}`;
+      const config = REWARD_CONFIG[configKey];
+      
+      if (!config || !config[referrerType] || !config[referredType]) {
+        return { referrerReward: { type: 'none', value: 0 }, referredReward: { type: 'none', value: 0 } };
+      }
+      
+      const referrerReward = {
+        type: referrerType === 'particulier' ? 'points' : 'cashback',
+        value: config[referrerType][planName][period]
+      };
+      
+      const referredReward = {
+        type: 'months',
+        value: config[referredType][planName][period],
+        planName: planName
+      };
+      
+      return { referrerReward, referredReward };
+    }
+
+  
+    // Déclenchée quand subscriptionStatus change
+exports.onSubscriptionStatusChange = functions.firestore
+.document('users/{userId}')
+.onUpdate(async (change, context) => {
+  const before = change.before.data();
+  const after = change.after.data();
+  const userId = context.params.userId;
+  
+  // Si le statut passe à "active" (paiement effectué)
+  if (before.subscriptionStatus !== 'active' && after.subscriptionStatus === 'active') {
+    // Mettre à jour les parrainages en attente pour ce pro
+    const pendingReferrals = await admin.firestore()
+      .collection('referrals_up')
+      .where('referredId', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
+      
+    for (const doc of pendingReferrals.docs) {
+      const referralData = doc.data();
+      
+      // Calculer les récompenses basées sur le plan choisi
+      if (referralData.referrerType === 'particulier' || referralData.referrerType === 'association') {
+        const period = getPeriodFromPriceId(after.priceId);
+        const rewards = calculateRewardsByPlan(
+          referralData.referrerType,
+          'company',
+          after.planName,
+          period
+        );
+        
+        await doc.ref.update({
+          referrerReward: rewards.referrerReward,
+          referredReward: rewards.referredReward,
+          'conditionsMet.paymentMade': true
+        });
+        
+        // Valider le parrainage si toutes les conditions sont remplies
+        await validateReferralIfReady(doc.id);
+      }
+    }
+  }
+});
+
+function getPeriodFromPriceId(priceId) {
+const mapping = STRIPE_PRICE_MAPPING[priceId];
+return mapping ? mapping.period : 'monthly';
+}
+
+// Déclenchée quand une commande est terminée
+exports.onOrderCompleted = functions.firestore
+    .document('orders/{orderId}')
+    .onUpdate(async (change, context) => {
+      const before = change.before.data();
+      const after = change.after.data();
+      
+      // Si le statut passe à "completed"
+      if (before.status !== 'completed' && after.status === 'completed' && after.amount >= 5) {
+        await updateReferralOrderProgress(after.userId);
+        
+        // Vérifier s'il y a un code promo et si c'est un code UP
+        if (after.promoCode && after.companyId) {
+          try {
+            // Récupérer les détails du code promo
+            const promoSnapshot = await admin.firestore()
+              .collection('promo_codes')
+              .where('code', '==', after.promoCode)
+              .limit(1)
+              .get();
+            
+            if (!promoSnapshot.empty) {
+              const promoData = promoSnapshot.docs[0].data();
+              
+              // Si c'est un code promo UP, ajouter un cashback au professionnel
+              if (promoData.companyId === 'UP' && promoData.discountValue > 0) {
+                const cashbackAmount = promoData.discountValue;
+                
+                // Ajouter le cashback au professionnel
+                await admin.firestore()
+                  .collection('users')
+                  .doc(after.companyId)
+                  .update({
+                    cashback: admin.firestore.FieldValue.increment(cashbackAmount)
+                  });
+                
+                // Enregistrer l'historique du cashback
+                await admin.firestore()
+                  .collection('cashback_history')
+                  .add({
+                    userId: after.companyId,
+                    type: 'earn',
+                    amount: cashbackAmount,
+                    source: 'promo_code',
+                    orderType: after.type,
+                    orderId: context.params.orderId,
+                    promoCode: after.promoCode,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
+                  });
+                
+                console.log(`Cashback de ${cashbackAmount} points ajouté au professionnel ${after.companyId} pour le code promo UP: ${after.promoCode}`);
+              }
+            }
+          } catch (error) {
+            console.error('Erreur lors du traitement du cashback code promo UP:', error);
+          }
+        }
+      }
+    });
+
+async function updateReferralOrderProgress(userId) {
+  // Récupérer les parrainages en attente nécessitant des commandes
+  const pendingReferrals = await admin.firestore()
+    .collection('referrals_up')
+    .where('referredId', '==', userId)
+    .where('status', '==', 'pending')
+    .get();
+    
+  for (const doc of pendingReferrals.docs) {
+    const referral = doc.data();
+    
+    if (referral.conditions.requiresOrders > 0) {
+      const newOrderCount = referral.conditionsMet.ordersCompleted + 1;
+      
+      await doc.ref.update({
+        'conditionsMet.ordersCompleted': newOrderCount
+      });
+      
+      // Vérifier si le nombre requis est atteint
+      if (newOrderCount >= referral.conditions.requiresOrders) {
+        await validateReferralIfReady(doc.id);
+      }
+    }
+  }
+}
+
+async function validateReferralIfReady(referralId) {
+  const referralDoc = await admin.firestore()
+    .collection('referrals_up')
+    .doc(referralId)
+    .get();
+    
+  const referral = referralDoc.data();
+  const conditions = referral.conditions;
+  const conditionsMet = referral.conditionsMet;
+  
+  let allConditionsValidated = true;
+  
+  // Vérifier toutes les conditions
+  if (conditions.requiresPayment && !conditionsMet.paymentMade) {
+    allConditionsValidated = false;
+  }
+  
+  if (conditions.requiresOrders && conditionsMet.ordersCompleted < conditions.requiresOrders) {
+    allConditionsValidated = false;
+  }
+  
+  if (conditions.requiresAd && !conditionsMet.adPosted) {
+    allConditionsValidated = false;
+  }
+  
+  // Valider si tout est OK
+  if (allConditionsValidated) {
+    await executeReferralRewards(referralId, referral);
+  }
+}
+
+async function executeReferralRewards(referralId, referralData) {
+  const batch = admin.firestore().batch();
+  
+  // Marquer le parrainage comme validé
+  const referralRef = admin.firestore().collection('referrals_up').doc(referralId);
+  batch.update(referralRef, {
+    status: 'validated',
+    validationDate: admin.firestore.FieldValue.serverTimestamp()
+  });
+  
+  // Récompenser le parrain
+  await rewardUser(referralData.referrerId, referralData.referrerReward, referralId, batch);
+  
+  // Récompenser le filleul
+  await rewardUser(referralData.referredId, referralData.referredReward, referralId, batch);
+  
+  await batch.commit();
+}
+
+async function rewardUser(userId, reward, referralId, batch) {
+  const userRef = admin.firestore().collection('users').doc(userId);
+  
+  if (reward.type === 'points') {
+    // Ajouter les points
+    batch.update(userRef, {
+      loyaltyPoints: admin.firestore.FieldValue.increment(reward.value)
+    });
+    
+    // Ajouter à l'historique des points
+    const pointsHistoryRef = admin.firestore().collection('pointsHistory').doc();
+    batch.set(pointsHistoryRef, {
+      userId: userId,
+      amount: reward.value,
+      date: admin.firestore.FieldValue.serverTimestamp(),
+      points: reward.value,
+      status: 'earned',
+      type: 'referral',
+      referralId: referralId
+    });
+    
+  } else if (reward.type === 'cashback') {
+    // Ajouter au cashback
+    batch.update(userRef, {
+      cashback: admin.firestore.FieldValue.increment(reward.value)
+    });
+    
+    // Ajouter à l'historique du cashback
+    const cashbackHistoryRef = admin.firestore().collection('cashback_history').doc();
+    batch.set(cashbackHistoryRef, {
+      userId: userId,
+      amount: reward.value,
+      type: 'earned',
+      source: 'referral',
+      referralId: referralId,
+      date: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+  } else if (reward.type === 'months') {
+    // Pour les mois gratuits, vous devrez adapter selon votre logique Stripe
+    // Ici on peut juste logger ou créer un crédit à appliquer
+    console.log(`User ${userId} should receive ${reward.value} free months for plan ${reward.planName}`);
+    
+    // Vous pourriez créer une collection "subscription_credits" par exemple
+    const creditRef = admin.firestore().collection('subscription_credits').doc();
+    batch.set(creditRef, {
+      userId: userId,
+      months: reward.value,
+      planName: reward.planName,
+      status: 'pending',
+      referralId: referralId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  }
+}
+
+// Fonction pour tracker l'utilisation des codes promo
+exports.trackPromoCodeUsage = functions.firestore
+    .document('orders/{orderId}')
+    .onCreate(async (snap, context) => {
+      const orderData = snap.data();
+      const orderId = context.params.orderId;
+      
+      // Vérifier s'il y a un code promo utilisé
+      if (!orderData.promoCode) {
+        return null;
+      }
+      
+      try {
+        console.log(`=== Tracking usage du code promo: ${orderData.promoCode} ===`);
+        
+        // Récupérer les détails du code promo
+        const promoSnapshot = await admin.firestore()
+          .collection('promo_codes')
+          .where('code', '==', orderData.promoCode)
+          .limit(1)
+          .get();
+        
+        if (promoSnapshot.empty) {
+          console.error(`Code promo non trouvé: ${orderData.promoCode}`);
+          return null;
+        }
+        
+        const promoDoc = promoSnapshot.docs[0];
+        const promoData = promoDoc.data();
+        const promoId = promoDoc.id;
+        
+        // Calculer le montant de la remise
+        let discountAmount = 0;
+        let discountType = 'unknown';
+        
+        if (orderData.discountAmount) {
+          // Utiliser directement le montant de remise sauvegardé dans la commande
+          discountAmount = parseFloat(orderData.discountAmount);
+          discountType = 'saved_amount';
+        } else if (orderData.originalPrice && orderData.finalPrice) {
+          // Calculer la différence entre prix original et final
+          discountAmount = parseFloat(orderData.originalPrice) - parseFloat(orderData.finalPrice);
+          discountType = 'calculated_difference';
+        } else if (promoData.discountType && promoData.discountValue) {
+          // Recalculer selon le type de réduction du code promo
+          const orderAmount = parseFloat(orderData.amount || orderData.totalPrice || 0);
+          discountType = promoData.discountType;
+          
+          if (promoData.discountType === 'percentage') {
+            // Réduction en pourcentage
+            const percentage = parseFloat(promoData.discountValue);
+            discountAmount = orderAmount * (percentage / 100);
+            console.log(`Calcul réduction pourcentage: ${orderAmount}€ × ${percentage}% = ${discountAmount}€`);
+          } else if (promoData.discountType === 'amount' || promoData.discountType === 'fixed') {
+            // Réduction montant fixe
+            const fixedAmount = parseFloat(promoData.discountValue);
+            discountAmount = Math.min(fixedAmount, orderAmount); // Ne peut pas dépasser le montant total
+            console.log(`Calcul réduction fixe: min(${fixedAmount}€, ${orderAmount}€) = ${discountAmount}€`);
+          } else {
+            console.warn(`Type de réduction inconnu: ${promoData.discountType}`);
+            discountAmount = parseFloat(promoData.discountValue);
+          }
+        }
+        
+        // Arrondir à 2 décimales
+        discountAmount = Math.round(discountAmount * 100) / 100;
+        
+        // Déterminer l'entreprise concernée
+        const companyId = orderData.companyId || orderData.sellerId || orderData.professionalId || 'unknown';
+        
+        // Créer un document de tracking dans une sous-collection du code promo
+        await admin.firestore()
+          .collection('promo_codes')
+          .doc(promoId)
+          .collection('usage_history')
+          .doc(orderId)
+          .set({
+            orderId: orderId,
+            userId: orderData.userId,
+            date: orderData.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+            orderAmount: parseFloat(orderData.amount || orderData.totalPrice || 0),
+            discountAmount: discountAmount,
+            companyId: companyId,
+            promoCode: orderData.promoCode,
+            isUpPromo: promoData.companyId === 'UP',
+            orderType: orderData.type || 'unknown',
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+        
+        // Mettre à jour currentUses
+        const currentUses = (promoData.currentUses || 0) + 1;
+        const maxUses = parseInt(promoData.maxUses || '0');
+        
+        // Déterminer si le code doit être désactivé
+        const shouldDeactivate = maxUses > 0 && currentUses >= maxUses;
+        
+        const updateData = {
+          currentUses: currentUses,
+          lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        // Désactiver si limite atteinte
+        if (shouldDeactivate) {
+          updateData.isActive = false;
+          updateData.status = 'expired';
+          console.log(`Code promo ${orderData.promoCode} désactivé - limite atteinte (${currentUses}/${maxUses})`);
+        }
+        
+        // Mettre à jour le document principal du code promo
+        await admin.firestore()
+          .collection('promo_codes')
+          .doc(promoId)
+          .update(updateData);
+        
+        console.log(`Usage du code promo ${orderData.promoCode} trackéé avec succès:`);
+        console.log(`- Utilisateur: ${orderData.userId}`);
+        console.log(`- Montant commande: ${orderData.amount}€`);
+        console.log(`- Remise: ${discountAmount}€`);
+        console.log(`- Entreprise: ${companyId}`);
+        console.log(`- UP Promo: ${promoData.companyId === 'UP'}`);
+        console.log(`- Utilisations: ${currentUses}/${maxUses}`);
+        console.log(`- Actif: ${!shouldDeactivate}`);
+        
+        return null;
+        
+      } catch (error) {
+        console.error('Erreur lors du tracking du code promo:', error);
+        return null;
+      }
+    });
+
+
+
+    

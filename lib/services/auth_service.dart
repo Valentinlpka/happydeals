@@ -25,12 +25,8 @@ class AuthService {
 
       await user?.sendEmailVerification();
 
-      await _firestore.collection('users').doc(user!.uid).set({
-        'email': email,
-        'isProfileComplete': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
+      // Ne plus créer le document ici - il sera créé lors de l'onboarding
+      
       return 'Success';
     } on FirebaseAuthException catch (e) {
       return e.message;
@@ -162,14 +158,8 @@ class AuthService {
             await _firestore.collection('users').doc(user.uid).get();
 
         if (!userDoc.exists) {
-          // Créer un nouveau document utilisateur
-          await _firestore.collection('users').doc(user.uid).set({
-            'email': user.email,
-            'name': user.displayName,
-            'photoUrl': user.photoURL,
-            'createdAt': FieldValue.serverTimestamp(),
-            'profileCompleted': false,
-          });
+          // Nouveau utilisateur Google - sera redirigé vers l'onboarding
+          // Le document sera créé lors de l'onboarding avec toutes les informations
           return 'new_user';
         }
 

@@ -9,7 +9,9 @@ import 'package:happy/screens/loyalty_points_page.dart';
 import 'package:happy/screens/mes_evenements.dart';
 import 'package:happy/screens/my_contests_page.dart';
 import 'package:happy/screens/my_deals_express.dart';
+import 'package:happy/screens/onboarding/edit_onboarding_page.dart';
 import 'package:happy/screens/profile.dart';
+import 'package:happy/screens/referral_code_page.dart';
 import 'package:happy/screens/savings_page.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/screens/user_applications_page.dart';
@@ -53,6 +55,28 @@ class _Category {
 }
 
 final List<_Category> _categories = [
+  _Category(
+    title: 'Mon compte',
+    items: [
+      _ServiceItem(
+        icon: Icons.person_outline,
+        title: 'Mes informations personnelles',
+        onTap: (context, _) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EditOnboardingPage()),
+        ),
+      ),
+      _ServiceItem(
+        icon: Icons.verified_user_outlined,
+        title: 'Code de parrainage',
+        subtitle: 'Votre code unique',
+        onTap: (context, _) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ReferralCodePage()),
+        ),
+      ),
+    ],
+  ),
   _Category(
     title: 'Économies',
     items: [
@@ -298,6 +322,7 @@ class _SettingsContent extends StatelessWidget {
               return _ServiceCard(
                 icon: item.icon,
                 title: item.title,
+                subtitle: item.subtitle,
                 onTap: () => item.onTap(context, user.userId),
               );
             },
@@ -340,11 +365,13 @@ class _SettingsContent extends StatelessWidget {
 class _ServiceCard extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
 
   const _ServiceCard({
     required this.icon,
     required this.title,
+    this.subtitle,
     required this.onTap,
   });
 
@@ -381,13 +408,28 @@ class _ServiceCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[800],
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               Icon(
@@ -406,11 +448,13 @@ class _ServiceCard extends StatelessWidget {
 class _ServiceItem {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final Function(BuildContext, String) onTap;
 
   const _ServiceItem({
     required this.icon,
     required this.title,
+    this.subtitle,
     required this.onTap,
   });
 }

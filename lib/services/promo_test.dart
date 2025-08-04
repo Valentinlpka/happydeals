@@ -56,7 +56,7 @@ class PromoCodeService {
       }
 
       // 5. Vérifier les conditions spécifiques
-      final conditionType = promoData['conditionType'] as String;
+      final conditionType = promoData['conditionType'] as String? ?? 'none';
       final conditionValue = promoData['conditionValue'] ?? 0;
       final conditionProductId = promoData['conditionProductId'] as String?;
 

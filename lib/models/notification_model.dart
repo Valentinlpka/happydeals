@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum NotificationType {
   order,
   dealExpress,
-  booking,
+  service,
 }
 
 class NotificationModel {
@@ -59,10 +59,10 @@ class NotificationModel {
     switch (type) {
       case 'order':
         return NotificationType.order;
-      case 'deal_express':
+      case 'express_deal':
         return NotificationType.dealExpress;
-      case 'booking':
-        return NotificationType.booking;
+      case 'service':
+        return NotificationType.service;
       default:
         return NotificationType.order;
     }

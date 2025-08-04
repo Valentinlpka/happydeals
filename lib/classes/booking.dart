@@ -51,19 +51,36 @@ class BookingModel {
     );
   }
 
-  // Nouvelle méthode pour créer depuis un DocumentSnapshot
+  // Méthode adaptée pour la nouvelle structure unifiée des commandes
   factory BookingModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    // Vérifier si c'est une commande de service dans la structure unifiée
+    if (data['type'] == 'service') {
+      return BookingModel(
+        id: doc.id,
+        userId: data['userId'] ?? '',
+        serviceId: data['serviceId'] ?? '',
+        professionalId: data['professionalId'] ?? '',
+        timeSlotId: data['timeSlotId'] ?? 'unified_${doc.id}', // Générer un timeSlotId factice
+        bookingDate: (data['bookingDateTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        price: (data['amount'] ?? 0).toDouble(), // Utiliser 'amount' au lieu de 'price'
+        status: data['status'] ?? '',
+        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
+    }
+    
+    // Pour les anciennes structures (si elles existent encore)
     return BookingModel(
-      id: doc.id, // Utilise l'ID du document directement
+      id: doc.id,
       userId: data['userId'] ?? '',
       serviceId: data['serviceId'] ?? '',
       professionalId: data['professionalId'] ?? '',
       timeSlotId: data['timeSlotId'] ?? '',
       bookingDate: (data['bookingDateTime'] ?? Timestamp.now()).toDate(),
-      price: (data['amount'] ?? 0).toDouble(),
+      price: (data['amount'] ?? data['price'] ?? 0).toDouble(),
       status: data['status'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }

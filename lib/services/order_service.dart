@@ -30,6 +30,7 @@ class OrderService {
     try {
       return _firestore
           .collection('orders')
+          .where('type', isEqualTo: 'order')
           .where('userId', isEqualTo: userId)
           .orderBy('createdAt', descending: true)
           .snapshots()
@@ -37,6 +38,7 @@ class OrderService {
         return snapshot.docs.map((doc) => Orders.fromFirestore(doc)).toList();
       });
     } catch (e) {
+      print('Erreur lors de la récupération des commandes: $e');
       // Retourner un stream vide en cas d'erreur
       return Stream.value([]);
     }

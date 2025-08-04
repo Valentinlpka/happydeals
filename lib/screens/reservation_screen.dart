@@ -106,11 +106,13 @@ class _ReservationScreenState extends State<ReservationScreen> {
             amount: widget.deal.price * 100, // Convertir en centimes
             metadata: {
               'reservationId': _reservationId,
+              'orderId': _reservationId, // Ajouté pour l'unification
+              'dealId': widget.deal.id,
+              'postId': widget.deal.id,
               'price': widget.deal.price,
               'tva': widget.deal.tva,
               'basketType': widget.deal.basketType,
               'quantity': '1',
-              'postId': widget.deal.id,
               'title': widget.deal.title,
               'content': widget.deal.content,
               'pickupDate': widget.selectedPickupTime.toIso8601String(),
@@ -123,7 +125,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
               'timestamp': widget.deal.timestamp.toIso8601String(),
             },
             successUrl:
-                '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-success?reservationId=$_reservationId',
+                '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-success',
             cancelUrl:
                 '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-cancel',
           ),

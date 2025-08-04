@@ -51,21 +51,21 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
         }
       }
 
-      String? pendingId;
+      String? orderId;
       String successUrlWithParams = widget.successUrl;
 
-      // Créer le document en attente selon le type
+      // Créer le document en attente dans une collection unifiée
       switch (widget.type) {
         case 'order':
-          pendingId =
-              FirebaseFirestore.instance.collection('pending_orders').doc().id;
-          widget.metadata['orderId'] = pendingId;
-          successUrlWithParams = '${widget.successUrl}?orderId=$pendingId';
+          orderId = FirebaseFirestore.instance.collection('pending_orders').doc().id;
+          widget.metadata['orderId'] = orderId;
+          successUrlWithParams = '${widget.successUrl}?orderId=$orderId';
 
           await FirebaseFirestore.instance
               .collection('pending_orders')
-              .doc(pendingId)
+              .doc(orderId)
               .set({
+            'type': 'order',
             'userId': FirebaseAuth.instance.currentUser?.uid,
             'items': widget.orderData!['items'],
             'sellerId': widget.orderData!['sellerId'],
@@ -74,6 +74,7 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
             'promoCode': widget.orderData!['promoCode'],
             'discountAmount': widget.orderData!['discountAmount'],
             'totalPrice': widget.orderData!['totalPrice'],
+            'amount': widget.orderData!['totalPrice'], // Ajouter cette ligne
             'pickupAddress': widget.orderData!['pickupAddress'],
             'status': 'pending',
             'metadata': widget.metadata,
@@ -82,17 +83,25 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
           break;
 
         case 'express_deal':
-          pendingId = widget.metadata['reservationId'];
-          successUrlWithParams =
-              '${widget.successUrl}?reservationId=$pendingId';
+          orderId = widget.metadata['reservationId'];
+          widget.metadata['orderId'] = orderId;
+          successUrlWithParams = '${widget.successUrl}?orderId=$orderId';
+          
           await FirebaseFirestore.instance
-              .collection('pending_express_deals')
-              .doc(pendingId)
+              .collection('pending_orders')
+              .doc(orderId)
               .set({
+            'type': 'express_deal',
             'userId': FirebaseAuth.instance.currentUser?.uid,
             'dealId': widget.metadata['dealId'],
+            'postId': widget.metadata['postId'],
+            'companyId': widget.metadata['companyId'],
+            'pickupDate': widget.metadata['pickupDate'],
+            'basketType': widget.metadata['basketType'],
+            'companyName': widget.metadata['companyName'],
+            'pickupAddress': widget.metadata['pickupAddress'],
             'status': 'pending',
-            'amount': widget.amount / 100,
+            'amount': widget.amount / 100, // S'assurer que c'est défini
             'tva': widget.metadata['tva'],
             'metadata': widget.metadata,
             'createdAt': FieldValue.serverTimestamp(),
@@ -100,21 +109,26 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
           break;
 
         case 'service':
-          pendingId = widget.metadata['bookingId'];
-          successUrlWithParams = '${widget.successUrl}?bookingId=$pendingId';
+          orderId = widget.metadata['bookingId'];
+          widget.metadata['orderId'] = orderId;
+          successUrlWithParams = '${widget.successUrl}?orderId=$orderId';
+          
           await FirebaseFirestore.instance
-              .collection('pending_services')
-              .doc(pendingId)
+              .collection('pending_orders')
+              .doc(orderId)
               .set({
+            'type': 'service',
             'userId': FirebaseAuth.instance.currentUser?.uid,
             'serviceId': widget.metadata['serviceId'],
             'serviceName': widget.metadata['serviceName'],
             'bookingDateTime': widget.metadata['bookingDateTime'],
             'professionalId': widget.metadata['professionalId'],
-            'amount': widget.amount / 100,
+            'duration': widget.metadata['duration'],
+            'amount': widget.amount / 100, // S'assurer que c'est défini
             'tva': widget.metadata['tva'],
             'priceTTC': widget.metadata['priceTTC'],
             'priceHT': widget.metadata['priceHT'],
+            'adresse': widget.metadata['adresse'],
             'status': 'pending',
             'createdAt': FieldValue.serverTimestamp(),
             'hasPromotion': widget.metadata['hasPromotion'] ?? false,
@@ -154,32 +168,25 @@ class _UnifiedPaymentButtonState extends State<UnifiedPaymentButton> {
       } else {
         // Version mobile
         try {
-          // Stocker le contexte actuel
           final BuildContext currentContext = context;
 
           await Stripe.instance.initPaymentSheet(
             paymentSheetParameters: SetupPaymentSheetParameters(
-              merchantDisplayName: 'Happy Deals',
+              merchantDisplayName: 'Up',
               paymentIntentClientSecret: result.data['clientSecret'],
             ),
           );
 
-          // Afficher le formulaire de paiement
           await Stripe.instance.presentPaymentSheet();
-
-          // Attendre un peu que le webhook traite le paiement
           await Future.delayed(const Duration(seconds: 3));
 
           if (mounted) {
-            // Redirection vers la page de succès
             if (context.mounted) {
               await Navigator.of(currentContext).pushAndRemoveUntil(
                 MaterialPageRoute(
                   builder: (context) => UnifiedPaymentSuccessScreen(
                     sessionId: result.data['sessionId'],
-                    orderId: widget.metadata['orderId'],
-                    reservationId: widget.metadata['reservationId'],
-                    bookingId: widget.metadata['bookingId'],
+                    orderId: orderId,
                   ),
                 ),
                 (route) => false,

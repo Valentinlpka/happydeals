@@ -67,7 +67,10 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return const Center(child: Text('Une erreur est survenue'));
+            print('Erreur lors de la récupération des commandes: ${snapshot.error}');
+            return Center(
+                child: Text(
+                    'Une erreur est survenue lors de la récupération des commandes ${snapshot.error}'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
               child: Text('Vous n\'avez pas encore de commandes'),

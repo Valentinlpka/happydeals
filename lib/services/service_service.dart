@@ -30,11 +30,43 @@ class ServiceClientService {
   }
 
   Future<ServiceModel> getServiceByIds(String serviceId) async {
-    final doc = await _firestore.collection('services').doc(serviceId).get();
-    if (!doc.exists) {
+    print('🔍 ServiceClientService.getServiceByIds - serviceId: $serviceId');
+    
+    try {
+      // D'abord essayer dans la collection 'services'
+      print('📋 Recherche dans la collection "services"...');
+      final serviceDoc = await _firestore.collection('services').doc(serviceId).get();
+      
+      if (serviceDoc.exists) {
+        print('✅ Service trouvé dans la collection "services"');
+        print('📋 Service data: ${serviceDoc.data()}');
+        return ServiceModel.fromMap(serviceDoc.data()!);
+      }
+      
+      // Si pas trouvé, essayer dans la collection 'posts'
+      print('📋 Service non trouvé dans "services", recherche dans "posts"...');
+      final postDoc = await _firestore.collection('posts').doc(serviceId).get();
+      
+      if (postDoc.exists) {
+        final data = postDoc.data()!;
+        print('✅ Service trouvé dans la collection "posts"');
+        print('📋 Post data: $data');
+        
+        if (data['type'] == 'service') {
+          return ServiceModel.fromMap(data);
+        } else {
+          print('❌ Le document trouvé n\'est pas un service: type = ${data['type']}');
+          throw Exception('Le document trouvé n\'est pas un service');
+        }
+      }
+      
+      print('❌ Service non trouvé dans les deux collections');
       throw Exception('Service non trouvé');
+    } catch (e, stackTrace) {
+      print('❌ Erreur dans getServiceByIds: $e');
+      print('❌ Stack trace: $stackTrace');
+      rethrow;
     }
-    return ServiceModel.fromMap(doc.data()!);
   }
 
   // Récupérer un service spécifique

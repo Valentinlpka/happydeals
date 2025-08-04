@@ -210,7 +210,7 @@ class NotificationsPage extends StatelessWidget {
         return Colors.orange;
       case NotificationType.dealExpress:
         return Colors.green;
-      case NotificationType.booking:
+      case NotificationType.service:
         return Colors.blue;
     }
   }
@@ -221,7 +221,7 @@ class NotificationsPage extends StatelessWidget {
         return Icons.shopping_bag_outlined;
       case NotificationType.dealExpress:
         return Icons.eco_outlined;
-      case NotificationType.booking:
+      case NotificationType.service:
         return Icons.event_outlined;
     }
   }
@@ -239,7 +239,7 @@ class NotificationsPage extends StatelessWidget {
         AppRouter.navigateTo(context, AppRouter.reservationDetails,
             arguments: notification.targetId);
         break;
-      case NotificationType.booking:
+      case NotificationType.service:
         AppRouter.navigateTo(context, AppRouter.bookingDetails,
             arguments: notification.targetId);
         break;

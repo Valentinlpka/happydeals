@@ -27,18 +27,25 @@ class BookingService {
     try {
       await _firestore.runTransaction((transaction) async {
         final bookingDoc = await transaction
-            .get(_firestore.collection('bookings').doc(bookingId));
+            .get(_firestore.collection('orders').doc(bookingId));
 
         if (!bookingDoc.exists) {
           throw Exception('Réservation non trouvée');
         }
 
+        final data = bookingDoc.data() as Map<String, dynamic>;
+        
+        // Vérifier que c'est bien une commande de service
+        if (data['type'] != 'service') {
+          throw Exception('Ce n\'est pas une réservation de service');
+        }
+
         // Mettre à jour le statut de la réservation
         transaction.update(
-          _firestore.collection('bookings').doc(bookingId),
+          _firestore.collection('orders').doc(bookingId),
           {
             'status': 'cancelled',
-            'updatedAt': DateTime.now(),
+            'updatedAt': FieldValue.serverTimestamp(),
           },
         );
       });
@@ -49,13 +56,41 @@ class BookingService {
 
   // Récupérer les réservations d'un utilisateur
   Stream<List<BookingModel>> getUserBookings(String userId) {
+    print('🔍 BookingService.getUserBookings - userId: $userId');
+    
     return FirebaseFirestore.instance
-        .collection('bookings')
+        .collection('orders')
+        .where('type', isEqualTo: 'service')
         .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => BookingModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          print('📊 BookingService - Snapshot reçu: ${snapshot.docs.length} documents');
+          
+          final bookings = <BookingModel>[];
+          
+          for (var doc in snapshot.docs) {
+            try {
+              print('📋 Document: ${doc.id}');
+              print('📋 Data: ${doc.data()}');
+              
+              final booking = BookingModel.fromFirestore(doc);
+              bookings.add(booking);
+              print('✅ Booking ajouté: ${booking.id}');
+            } catch (e, stackTrace) {
+              print('❌ Erreur lors de la conversion du document ${doc.id}: $e');
+              print('❌ Stack trace: $stackTrace');
+              print('❌ Document data: ${doc.data()}');
+            }
+          }
+          
+          print('📦 Total bookings créés: ${bookings.length}');
+          return bookings;
+        })
+        .handleError((error, stackTrace) {
+          print('❌ Erreur dans le stream getUserBookings: $error');
+          print('❌ Stack trace: $stackTrace');
+        });
   }
 
   List<DateTime> generateTimeSlotsForDay(
@@ -310,18 +345,20 @@ class BookingService {
     });
   }
 
-  Future<int> _getExistingBookings(String businessId, DateTime slot) async {
+  Future<int> _getExistingBookings(String serviceId, DateTime slot) async {
     try {
-      // Vérifier uniquement les réservations pour ce service et avec des statuts valides
+      // Chercher dans la collection 'orders' avec le type 'service'
       final bookings = await _firestore
-          .collection('bookings')
-          .where('serviceId', isEqualTo: businessId)
+          .collection('orders')
+          .where('type', isEqualTo: 'service')
+          .where('serviceId', isEqualTo: serviceId)
           .where('bookingDateTime', isEqualTo: Timestamp.fromDate(slot))
-          .where('status', whereIn: ['confirmed', 'pending']).get();
+          .where('status', whereIn: ['confirmed', 'pending'])
+          .get();
 
       return bookings.docs.length;
     } catch (e) {
-      if (e is AssertionError) {}
+      print('Erreur lors de la récupération des réservations: $e');
       return 0;
     }
   }
@@ -412,7 +449,7 @@ class BookingService {
     double finalPrice,
   ) async {
     try {
-      final bookingRef = _firestore.collection('bookings').doc();
+      final bookingRef = _firestore.collection('orders').doc();
 
       final bookingData = {
         'id': bookingRef.id,

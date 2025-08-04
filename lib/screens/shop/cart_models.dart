@@ -153,7 +153,7 @@ class Cart {
         final itemsData = data['items'] as List<dynamic>;
         for (var itemData in itemsData) {
           final productDoc = await FirebaseFirestore.instance
-              .collection('products')
+              .collection('posts')
               .doc(itemData['productId'] as String?)
               .get();
 

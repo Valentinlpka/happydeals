@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "289031542511",
+    "project_id": "happy-deals-3f03d",
+    "storage_bucket": "happy-deals-3f03d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289031542511:android:92497c4778d0435a8b6d1a",
+        "android_client_info": {
+          "package_name": "com.example.happy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "289031542511-qmck135q90i1crsuk2lkb22rhodieo49.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCN5p1yVmLO4ulDEgAsxQKiBVum8G1ZIAY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "289031542511-qmck135q90i1crsuk2lkb22rhodieo49.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "289031542511-5qhiqhearlo85l9cnk2r0k4vp6kcj40o.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.happy"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289031542511:android:54b88775765ba71a8b6d1a",
+        "android_client_info": {
+          "package_name": "com.example.happy_deals_pro"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "289031542511-qmck135q90i1crsuk2lkb22rhodieo49.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCN5p1yVmLO4ulDEgAsxQKiBVum8G1ZIAY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "289031542511-qmck135q90i1crsuk2lkb22rhodieo49.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "289031542511-5qhiqhearlo85l9cnk2r0k4vp6kcj40o.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.happy"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

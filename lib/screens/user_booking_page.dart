@@ -16,6 +16,7 @@ class ClientBookingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser!.uid;
+    print('🔍 ClientBookingsPage - userId: $userId');
 
     return Scaffold(
       appBar: const CustomAppBar(
@@ -25,17 +26,36 @@ class ClientBookingsPage extends StatelessWidget {
       body: StreamBuilder<List<BookingModel>>(
         stream: BookingService().getUserBookings(userId),
         builder: (context, snapshot) {
+          print('🔍 StreamBuilder - connectionState: ${snapshot.connectionState}');
+          print('🔍 StreamBuilder - hasError: ${snapshot.hasError}');
+          print('🔍 StreamBuilder - hasData: ${snapshot.hasData}');
+          
           if (snapshot.hasError) {
+            print('❌ Erreur lors de la récupération des réservations: ${snapshot.error}');
+            print('❌ Stack trace: ${snapshot.stackTrace}');
             return Center(child: Text('Erreur: ${snapshot.error}'));
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
+            print('⏳ En attente de la récupération des réservations');
             return const Center(child: CircularProgressIndicator());
           }
 
+          if (!snapshot.hasData) {
+            print('⚠️ Pas de données dans le snapshot');
+            return const Center(child: Text('Aucune donnée disponible'));
+          }
+
           final bookings = snapshot.data!;
+          print('✅ Réservations récupérées: ${bookings.length}');
+          
+          for (int i = 0; i < bookings.length; i++) {
+            final booking = bookings[i];
+            print('📋 Réservation $i: id=${booking.id}, serviceId=${booking.serviceId}, status=${booking.status}');
+          }
 
           if (bookings.isEmpty) {
+            print('📭 Aucune réservation trouvée');
             return const Center(
               child: Text('Vous n\'avez pas encore de réservation'),
             );
@@ -45,6 +65,7 @@ class ClientBookingsPage extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             itemCount: bookings.length,
             itemBuilder: (context, index) {
+              print('🏗️ Construction de la carte pour la réservation $index');
               return _BookingCard(booking: bookings[index]);
             },
           );
@@ -61,17 +82,68 @@ class _BookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('🎯 _BookingCard - Construction pour booking.id: ${booking.id}');
+    print('🎯 _BookingCard - serviceId: ${booking.serviceId}');
+    
     return FutureBuilder<ServiceModel>(
       future: ServiceClientService().getServiceByIds(booking.serviceId),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        print('🔍 FutureBuilder Service - connectionState: ${snapshot.connectionState}');
+        print('🔍 FutureBuilder Service - hasError: ${snapshot.hasError}');
+        print('🔍 FutureBuilder Service - hasData: ${snapshot.hasData}');
+        
+        if (snapshot.hasError) {
+          print('❌ Erreur lors de la récupération du service: ${snapshot.error}');
+          print('❌ Stack trace: ${snapshot.stackTrace}');
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red, width: 1),
+            ),
+            child: Column(
+              children: [
+                Text('Erreur: ${snapshot.error}'),
+                const SizedBox(height: 8),
+                Text('Service ID: ${booking.serviceId}'),
+                Text('Booking ID: ${booking.id}'),
+              ],
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          print('⏳ En attente de la récupération du service ${booking.serviceId}');
           return const SizedBox(
             height: 200,
             child: Center(child: CircularProgressIndicator()),
           );
         }
 
+        if (!snapshot.hasData) {
+          print('⚠️ Pas de données de service pour ${booking.serviceId}');
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange, width: 1),
+            ),
+            child: Column(
+              children: [
+                const Text('Service non trouvé'),
+                Text('Service ID: ${booking.serviceId}'),
+                Text('Booking ID: ${booking.id}'),
+              ],
+            ),
+          );
+        }
+
         final service = snapshot.data!;
+        print('✅ Service récupéré: ${service.name}');
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
@@ -89,6 +161,7 @@ class _BookingCard extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
+                print('👆 Tap sur la réservation ${booking.id}');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -154,8 +227,7 @@ class _BookingCard extends StatelessWidget {
                           _buildInfoItem(
                             icon: Icons.euro,
                             label: 'Prix',
-                            value:
-                                '${(booking.price / 100).toStringAsFixed(2)} €',
+                            value: '${booking.price.toStringAsFixed(2)} €',
                           ),
                           const Spacer(),
                           Icon(

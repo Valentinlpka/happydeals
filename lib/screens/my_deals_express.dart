@@ -16,9 +16,10 @@ class ReservationListDealExpress extends StatelessWidget {
       appBar: const CustomAppBarBack(title: 'Mes réservations'),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('reservations')
-            .where('buyerId', isEqualTo: user?.uid)
-            .orderBy('timestamp', descending: true)
+            .collection('orders')
+            .where('type', isEqualTo: 'express_deal')
+            .where('userId', isEqualTo: user?.uid)
+            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -92,7 +93,7 @@ class ReservationListDealExpress extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           DateFormat('dd/MM/yyyy HH:mm').format(
-                              (data['timestamp'] as Timestamp).toDate()),
+                              (data['createdAt'] as Timestamp).toDate()),
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 13,

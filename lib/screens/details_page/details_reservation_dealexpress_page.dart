@@ -19,7 +19,7 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
   void initState() {
     super.initState();
     _reservationStream = FirebaseFirestore.instance
-        .collection('reservations')
+        .collection('orders')
         .doc(widget.reservationId)
         .snapshots();
   }
@@ -168,7 +168,7 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildDetailRow('Type de panier', reservation['basketType']),
-          _buildDetailRow('Quantité', '${reservation['quantity']}'),
+          _buildDetailRow('Quantité', ' 1'),
           if (reservation['companyName'] != null)
             _buildDetailRow('Commerce', reservation['companyName']),
         ],
@@ -204,7 +204,7 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
         children: [
           const Text('Total payé'),
           Text(
-            '${reservation['price'].toStringAsFixed(2)}€',
+            '${reservation['amount'].toStringAsFixed(2)}€',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -260,8 +260,9 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        spacing: 5,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: TextStyle(color: Colors.grey[600])),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),

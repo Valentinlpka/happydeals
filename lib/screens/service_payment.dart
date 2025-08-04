@@ -140,6 +140,7 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                     amount: (_finalPrice * 100).round(),
                     metadata: {
                       "bookingId": _bookingId!,
+                      "orderId": _bookingId!,
                       'amount': (_finalPrice * 100).round().toString(),
                       'serviceId': widget.service.id,
                       'duration': widget.service.duration,

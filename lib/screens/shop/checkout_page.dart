@@ -381,7 +381,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'pickupAddress': _pickupAddress,
                 },
                 successUrl:
-                    '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-success?orderId=$_orderId',
+                    '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-success',
                 cancelUrl:
                     '${kIsWeb ? Uri.base.origin : 'https://happy-deals.web.app'}/#/payment-cancel',
                 onBeforePayment: () => _verifyBeforePayment(),
@@ -629,7 +629,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // 1. Vérifier le stock de chaque article
       for (var item in _cart.items) {
         final productDoc =
-            await _firestore.collection('products').doc(item.product.id).get();
+            await _firestore.collection('posts').doc(item.product.id).get();
 
         if (!productDoc.exists) {
           if (!mounted) return false;

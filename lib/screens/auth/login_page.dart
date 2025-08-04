@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users_provider.dart';
+import 'package:happy/screens/auth/auth_wrapper.dart';
+import 'package:happy/screens/auth/phone_auth_page.dart';
 import 'package:happy/screens/auth/register_page.dart';
 import 'package:happy/screens/complete_profile_page.dart';
 import 'package:happy/screens/main_container.dart';
@@ -19,7 +21,7 @@ class Login extends StatefulWidget {
   State<Login> createState() => _LoginState();
 }
 
-class _LoginState extends State<Login> {
+class _LoginState extends State<Login> with TickerProviderStateMixin {
   final AnalyticsService _analytics = AnalyticsService();
   bool _passwordVisible = false;
   final AuthService _auth = AuthService();
@@ -27,6 +29,38 @@ class _LoginState extends State<Login> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _isInitialized = false;
+  bool _isPhoneAuth = false; // Nouveau: pour choisir entre email et téléphone
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    _animationController.forward();
+  }
 
   @override
   void didChangeDependencies() {
@@ -43,6 +77,7 @@ class _LoginState extends State<Login> {
 
   @override
   void dispose() {
+    _animationController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -84,11 +119,12 @@ class _LoginState extends State<Login> {
         bool isComplete = await userModel.isProfileComplete();
         if (isComplete) {
           if (!mounted) return;
-          Navigator.push(
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
               builder: (context) => const MainContainer(),
             ),
+            (route) => false, // Supprime toute la pile de navigation
           );
         } else {
           _showProfileCompletionDialog();
@@ -119,6 +155,15 @@ class _LoginState extends State<Login> {
     }
   }
 
+  void _signInWithPhone() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PhoneAuthPage(isLogin: true),
+      ),
+    );
+  }
+
   void _showProfileCompletionDialog() {
     showDialog(
       context: context,
@@ -132,11 +177,12 @@ class _LoginState extends State<Login> {
               child: const Text('Plus tard'),
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.push(
+                Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const MainContainer(),
                   ),
+                  (route) => false, // Supprime toute la pile de navigation
                 );
               },
             ),
@@ -144,11 +190,12 @@ class _LoginState extends State<Login> {
               child: const Text('Compléter'),
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.push(
+                Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const CompleteProfilePage(),
                   ),
+                  (route) => false, // Supprime toute la pile de navigation
                 );
               },
             ),
@@ -161,7 +208,7 @@ class _LoginState extends State<Login> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -171,83 +218,175 @@ class _LoginState extends State<Login> {
                   minHeight: constraints.maxHeight,
                 ),
                 child: IntrinsicHeight(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24.w),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            SizedBox(height: 20.h),
-                            Hero(
-                              tag: 'logo',
-                              child: Image.asset(
-                                'assets/mon_logo.png',
-                                height: 80.h,
-                              ),
-                            ),
-                            SizedBox(height: 20.h),
-                            Text(
-                              'Bienvenue !',
-                              style: TextStyle(
-                                fontSize: 28.sp,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1E3799),
-                              ),
-                            ),
-                            SizedBox(height: 8.h),
-                            Text(
-                              'Connectez-vous pour découvrir les meilleures offres',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            SizedBox(height: 24.h),
-                            _buildInputField(
-                              controller: _emailController,
-                              hint: "E-mail",
-                              icon: Icons.email_outlined,
-                            ),
-                            SizedBox(height: 12.h),
-                            _buildInputField(
-                              controller: _passwordController,
-                              hint: "Mot de passe",
-                              icon: Icons.lock_outline,
-                              isPassword: true,
-                              isPasswordVisible: _passwordVisible,
-                              onPasswordVisibilityChanged: () {
-                                setState(
-                                    () => _passwordVisible = !_passwordVisible);
-                              },
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () {
-                                  // Logique mot de passe oublié
-                                },
-                                child: Text(
-                                  'Mot de passe oublié ?',
-                                  style: TextStyle(
-                                    color: Colors.blue[700],
-                                    fontSize: 12.sp,
+                            Column(
+                              children: [
+                                SizedBox(height: 40.h),
+                                
+                                // Logo et titre dans un conteneur moderne
+                                Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Hero(
+                                        tag: 'logo',
+                                        child: Image.asset(
+                                          'assets/mon_logo.png',
+                                          height: 60.h,
+                                        ),
+                                      ),
+                                      SizedBox(height: 20.h),
+                                      Text(
+                                        'Bienvenue !',
+                                        style: TextStyle(
+                                          fontSize: 28.sp,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF1F2937),
+                                        ),
+                                      ),
+                                      SizedBox(height: 8.h),
+                                      Text(
+                                        'Connectez-vous pour découvrir les meilleures offres',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 16.sp,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
+                                
+                                SizedBox(height: 32.h),
+                                
+                                // Sélecteur de méthode de connexion
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () => setState(() => _isPhoneAuth = false),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: !_isPhoneAuth ? Colors.white : Colors.transparent,
+                                              borderRadius: BorderRadius.circular(8),
+                                              boxShadow: !_isPhoneAuth ? [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.1),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ] : null,
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.email_outlined,
+                                                  size: 20,
+                                                  color: !_isPhoneAuth ? Colors.blue[700] : Colors.grey[600],
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Email',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: !_isPhoneAuth ? Colors.blue[700] : Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () => setState(() => _isPhoneAuth = true),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: _isPhoneAuth ? Colors.white : Colors.transparent,
+                                              borderRadius: BorderRadius.circular(8),
+                                              boxShadow: _isPhoneAuth ? [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.1),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ] : null,
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.phone_outlined,
+                                                  size: 20,
+                                                  color: _isPhoneAuth ? Colors.blue[700] : Colors.grey[600],
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Téléphone',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: _isPhoneAuth ? Colors.blue[700] : Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                
+                                SizedBox(height: 24.h),
+                                
+                                // Formulaire conditionnel
+                                if (!_isPhoneAuth) ...[
+                                  // Connexion par email
+                                  _buildEmailForm(),
+                                ] else ...[
+                                  // Connexion par téléphone
+                                  _buildPhoneForm(),
+                                ],
+                                
+                                SizedBox(height: 16.h),
+                                _buildGoogleButton(),
+                                SizedBox(height: 16.h),
+                                _buildDivider(),
+                                SizedBox(height: 16.h),
+                                _buildSignUpLink(),
+                              ],
                             ),
-                            SizedBox(height: 16.h),
-                            _buildLoginButton(),
-                            SizedBox(height: 16.h),
-                            _buildGoogleButton(),
-                            SizedBox(height: 16.h),
-                            _buildDivider(),
-                            SizedBox(height: 16.h),
-                            _buildSignUpLink(),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -256,6 +395,117 @@ class _LoginState extends State<Login> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildEmailForm() {
+    return Column(
+      children: [
+        _buildInputField(
+          controller: _emailController,
+          hint: "E-mail",
+          icon: Icons.email_outlined,
+        ),
+        SizedBox(height: 12.h),
+        _buildInputField(
+          controller: _passwordController,
+          hint: "Mot de passe",
+          icon: Icons.lock_outline,
+          isPassword: true,
+          isPasswordVisible: _passwordVisible,
+          onPasswordVisibilityChanged: () {
+            setState(() => _passwordVisible = !_passwordVisible);
+          },
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () {
+              // Logique mot de passe oublié
+            },
+            child: Text(
+              'Mot de passe oublié ?',
+              style: TextStyle(
+                color: Colors.blue[700],
+                fontSize: 12.sp,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 16.h),
+        _buildLoginButton(),
+      ],
+    );
+  }
+
+  Widget _buildPhoneForm() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Icon(
+                Icons.phone_android_rounded,
+                size: 64,
+                color: Colors.blue[700],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Connexion par téléphone',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Un code de vérification vous sera envoyé par SMS',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 24),
+        
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[700],
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            onPressed: _signInWithPhone,
+            child: const Text(
+              'Continuer avec le téléphone',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -397,19 +647,21 @@ class _LoginState extends State<Login> {
       final result = await _auth.signInWithGoogle();
       if (result == 'new_user') {
         if (!mounted) return;
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (context) => const CompleteProfilePage(),
+            builder: (context) => const AuthWrapper(),
           ),
+          (route) => false, // Supprime toute la pile de navigation
         );
       } else if (result == 'success') {
         if (!mounted) return;
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
             builder: (context) => const NearbyEntitiesPage(),
           ),
+          (route) => false, // Supprime toute la pile de navigation
         );
       }
     } catch (e) {

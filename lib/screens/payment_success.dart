@@ -53,38 +53,16 @@ class _UnifiedPaymentSuccessScreenState
 
         if (params['orderId'] != null) {
           _paymentDetails = {
-            'type': 'order',
-            'metadata': {'orderId': params['orderId']},
-          };
-        } else if (params['reservationId'] != null) {
-          _paymentDetails = {
-            'type': 'express_deal',
-            'metadata': {'reservationId': params['reservationId']},
-          };
-        } else if (params['bookingId'] != null) {
-          _paymentDetails = {
-            'type': 'service',
-            'metadata': {'bookingId': params['bookingId']},
+            'orderId': params['orderId'],
           };
         }
       }
 
-      // Pour mobile, vérifier les IDs passés en paramètres
+      // Pour mobile, vérifier l'ID passé en paramètre
       if (_paymentDetails == null) {
         if (widget.orderId != null) {
           _paymentDetails = {
-            'type': 'order',
-            'metadata': {'orderId': widget.orderId},
-          };
-        } else if (widget.reservationId != null) {
-          _paymentDetails = {
-            'type': 'express_deal',
-            'metadata': {'reservationId': widget.reservationId},
-          };
-        } else if (widget.bookingId != null) {
-          _paymentDetails = {
-            'type': 'service',
-            'metadata': {'bookingId': widget.bookingId},
+            'orderId': widget.orderId,
           };
         }
       }
@@ -109,23 +87,7 @@ class _UnifiedPaymentSuccessScreenState
         throw Exception('Détails du paiement non trouvés');
       }
 
-      _paymentType = _paymentDetails!['type'];
-
-      switch (_paymentType) {
-        case 'order':
-          await _handleOrderSuccess(_paymentDetails!['metadata']['orderId']);
-          break;
-        case 'express_deal':
-          await _handleExpressDealSuccess(
-              _paymentDetails!['metadata']['reservationId']);
-          break;
-        case 'service':
-          await _handleServiceSuccess(
-              _paymentDetails!['metadata']['bookingId']);
-          break;
-        default:
-          throw Exception('Type de paiement inconnu');
-      }
+      await _handleOrderSuccess(_paymentDetails!['orderId']);
     } catch (e) {
       _handleError('Erreur lors de la vérification: $e');
     }
@@ -133,56 +95,44 @@ class _UnifiedPaymentSuccessScreenState
 
   Future<void> _handleOrderSuccess(String orderId) async {
     try {
+      // Attendre que la commande soit créée dans la collection orders
       await _waitForDocument('orders', orderId);
 
-      // Supprimer le panier après une commande réussie
-      if (!mounted) return;
-      final cartService = Provider.of<CartService>(context, listen: false);
+      // Récupérer les détails de la commande pour déterminer le type
       final orderDoc = await _firestore.collection('orders').doc(orderId).get();
-      if (orderDoc.exists) {
-        final orderData = orderDoc.data() as Map<String, dynamic>;
+      if (!orderDoc.exists) {
+        throw Exception('Commande non trouvée');
+      }
+
+      final orderData = orderDoc.data() as Map<String, dynamic>;
+      final orderType = orderData['type'] as String;
+
+      // Supprimer le panier si c'est une commande classique
+      if (orderType == 'order') {
+        final cartService = Provider.of<CartService>(context, listen: false);
         final sellerId = orderData['sellerId'] as String;
         await cartService.deleteCart(sellerId);
       }
 
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (context) => OrderDetailPage(orderId: orderId),
-          ),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      _handleError('Erreur lors de la redirection: $e');
-    }
-  }
+        // Rediriger vers la page de détails appropriée selon le type
+        Widget detailPage;
+        switch (orderType) {
+          case 'order':
+            detailPage = OrderDetailPage(orderId: orderId);
+            break;
+          case 'express_deal':
+            detailPage = ReservationDetailsPage(reservationId: orderId);
+            break;
+          case 'service':
+            detailPage = BookingDetailPage(bookingId: orderId);
+            break;
+          default:
+            detailPage = OrderDetailPage(orderId: orderId);
+        }
 
-  Future<void> _handleExpressDealSuccess(String reservationId) async {
-    try {
-      await _waitForDocument('reservations', reservationId);
-      if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (context) =>
-                ReservationDetailsPage(reservationId: reservationId),
-          ),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      _handleError('Erreur lors de la redirection: $e');
-    }
-  }
-
-  Future<void> _handleServiceSuccess(String bookingId) async {
-    try {
-      await _waitForDocument('bookings', bookingId);
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (context) => BookingDetailPage(bookingId: bookingId),
-          ),
+          MaterialPageRoute(builder: (context) => detailPage),
           (route) => false,
         );
       }
@@ -206,8 +156,7 @@ class _UnifiedPaymentSuccessScreenState
       attempts++;
     }
 
-    throw Exception(
-        'Document non trouvé après ${maxAttempts * delaySeconds} secondes');
+    throw Exception('Document non trouvé après ${maxAttempts * delaySeconds} secondes');
   }
 
   void _handleError(String message) {
@@ -240,62 +189,35 @@ class _UnifiedPaymentSuccessScreenState
   }
 
   Widget _buildSuccessContent() {
-    final IconData icon;
-    final String title;
-    final String subtitle;
-
-    switch (_paymentType) {
-      case 'order':
-        icon = Icons.shopping_bag_outlined;
-        title = 'Commande confirmée !';
-        subtitle = 'Votre commande a été enregistrée avec succès.';
-        break;
-      case 'express_deal':
-        icon = Icons.flash_on;
-        title = 'Réservation express confirmée !';
-        subtitle = 'Votre panier vous attend au point de retrait.';
-        break;
-      case 'service':
-        icon = Icons.event_available;
-        title = 'Réservation confirmée !';
-        subtitle = 'Votre rendez-vous a été enregistré.';
-        break;
-      default:
-        icon = Icons.check_circle_outline;
-        title = 'Paiement confirmé !';
-        subtitle = 'Merci pour votre confiance.';
-    }
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
+          const Icon(
+            Icons.check_circle_outline,
             size: 64,
             color: Colors.green,
           ),
           const SizedBox(height: 24),
-          Text(
-            title,
-            style: const TextStyle(
+          const Text(
+            'Commande confirmée !',
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            subtitle,
+          const Text(
+            'Votre commande a été enregistrée avec succès.',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               color: Colors.grey,
             ),
           ),
           const SizedBox(height: 32),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.of(context).pushReplacementNamed('/home'),
+            onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
             child: const Text('Retourner à l\'accueil'),
           ),
         ],

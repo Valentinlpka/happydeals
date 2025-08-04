@@ -185,6 +185,12 @@ class ServiceModel {
       discount = ServiceDiscount.fromMap(map['discount'] as Map<String, dynamic>);
     }
 
+    DateTime parseTimestamp(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      return DateTime.now();
+    }
+
     return ServiceModel(
       id: map['id'] ?? '',
       name: map['name'] ?? '',
@@ -192,13 +198,13 @@ class ServiceModel {
       description: map['description'] ?? '',
       price: price,
       duration: duration,
-      professionalId: map['companyId'] ?? '',
+      professionalId: map['companyId'] ?? map['professionalId'] ?? '',
       images: List<String>.from(map['images'] ?? []),
       isActive: map['isActive'] ?? true,
       stripeProductId: map['stripeProductId'] ?? '',
       stripePriceId: map['stripePriceId'] ?? '',
-      timestamp: (map['timestamp'] as Timestamp).toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      timestamp: parseTimestamp(map['timestamp'] ?? map['createdAt']),
+      updatedAt: parseTimestamp(map['updatedAt']),
       discount: discount,
       companyName: map['companyName'] ?? '',
       companyLogo: map['companyLogo'] ?? '',

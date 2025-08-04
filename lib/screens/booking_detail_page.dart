@@ -27,12 +27,27 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       throw ArgumentError('bookingId cannot be empty');
     }
     _bookingFuture =
-        _firestore.collection('bookings').doc(widget.bookingId).get();
-    _serviceFuture = _bookingFuture.then((bookingDoc) {
-      return _firestore
-          .collection('services')
-          .doc(bookingDoc['serviceId'])
-          .get();
+        _firestore.collection('orders').doc(widget.bookingId).get();
+    _serviceFuture = _bookingFuture.then((bookingDoc) async {
+      try {
+        if (!bookingDoc.exists) {
+          // Retourner un document vide si la réservation n'existe pas
+          return _firestore.collection('posts').doc('non-existent').get();
+        }
+        
+        final bookingData = bookingDoc.data() as Map<String, dynamic>?;
+        final serviceId = bookingData?['serviceId'];
+        
+        if (serviceId == null) {
+          // Retourner un document vide si pas de serviceId
+          return _firestore.collection('posts').doc('non-existent').get();
+        }
+        
+        return await _firestore.collection('posts').doc(serviceId).get();
+      } catch (e) {
+        // En cas d'erreur, retourner un document vide
+        return _firestore.collection('posts').doc('non-existent').get();
+      }
     });
   }
 
@@ -75,12 +90,25 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
             return _buildErrorState();
           }
 
-          if (!snapshot.hasData) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return _buildNotFoundState();
           }
 
-          final bookingData = snapshot.data![0].data() as Map<String, dynamic>;
-          final serviceData = snapshot.data![1].data() as Map<String, dynamic>;
+          final bookingDoc = snapshot.data![0];
+          final serviceDoc = snapshot.data![1];
+          
+          // Vérifier que les documents existent
+          if (!bookingDoc.exists) {
+            return _buildNotFoundState();
+          }
+          
+          final bookingData = bookingDoc.data() as Map<String, dynamic>;
+          
+          // Gérer le cas où le service n'existe pas
+          Map<String, dynamic>? serviceData;
+          if (serviceDoc.exists && serviceDoc.data() != null) {
+            serviceData = serviceDoc.data() as Map<String, dynamic>;
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -89,7 +117,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                 const SizedBox(height: 20),
                 _buildStatusBanner(bookingData),
                 const SizedBox(height: 24),
-                _buildServiceSection(serviceData),
+                _buildServiceSection(serviceData, bookingData),
                 const SizedBox(height: 24),
                 _buildDateTimeSection(bookingData),
                 const SizedBox(height: 24),
@@ -158,7 +186,12 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     );
   }
 
-  Widget _buildServiceSection(Map<String, dynamic> serviceData) {
+  Widget _buildServiceSection(Map<String, dynamic>? serviceData, Map<String, dynamic> bookingData) {
+    // Utiliser les données du service si disponible, sinon fallback sur les données de réservation
+    final serviceName = serviceData?['name'] ?? bookingData['serviceName'] ?? 'Service non disponible';
+    final serviceDuration = serviceData?['duration'] ?? bookingData['duration'] ?? 0;
+    final serviceDescription = serviceData?['description'];
+    
     return _buildSection(
       title: 'Service réservé',
       icon: Icons.spa,
@@ -166,7 +199,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            serviceData['name'],
+            serviceName,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -178,15 +211,15 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               const Icon(Icons.timer_outlined, size: 16, color: Colors.grey),
               const SizedBox(width: 4),
               Text(
-                '${serviceData['duration']} minutes',
+                '$serviceDuration minutes',
                 style: const TextStyle(color: Colors.grey),
               ),
             ],
           ),
-          if (serviceData['description'] != null) ...[
+          if (serviceDescription != null) ...[
             const SizedBox(height: 8),
             Text(
-              serviceData['description'],
+              serviceDescription,
               style: const TextStyle(color: Colors.grey),
             ),
           ],
@@ -282,7 +315,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               children: [
                 const Text('Prix initial'),
                 Text(
-                  '${(bookingData['originalPrice']).toStringAsFixed(2)}€',
+                  '${(bookingData['priceTTC']).toStringAsFixed(2)}€',
                   style: TextStyle(
                     color: Colors.grey[600],
                     decoration: TextDecoration.lineThrough,
@@ -299,7 +332,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                   style: TextStyle(color: Colors.green[700]),
                 ),
                 Text(
-                  '-${(bookingData['discountAmount']).toStringAsFixed(2)}€',
+                  '-${(bookingData['priceTTC'] - bookingData['amount']).toStringAsFixed(2)}€',
                   style: TextStyle(
                     color: Colors.green[700],
                     fontWeight: FontWeight.w500,
@@ -314,7 +347,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
             children: [
               const Text('Total payé'),
               Text(
-                '${(bookingData['finalPrice'] ?? bookingData['amount'] / 100).toStringAsFixed(2)}€',
+                '${(bookingData['finalPrice'] ?? bookingData['amount']).toStringAsFixed(2)}€',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

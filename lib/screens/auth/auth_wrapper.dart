@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/ads_provider.dart';
@@ -6,6 +7,7 @@ import 'package:happy/providers/home_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/auth_page.dart';
 import 'package:happy/screens/auth/email_verification_page.dart';
+import 'package:happy/screens/auth/onboarding_questionnaire_page.dart';
 import 'package:happy/screens/main_container.dart';
 import 'package:provider/provider.dart';
 
@@ -23,41 +25,65 @@ class AuthWrapper extends StatelessWidget {
           return const AuthPage();
         }
 
-        // Si l'utilisateur n'est pas vérifié, afficher la page de vérification
-        if (!snapshot.data!.emailVerified) {
+        final user = snapshot.data!;
+        
+        // Vérifier si l'utilisateur doit vérifier son email
+        // Si l'utilisateur a un téléphone vérifié, pas besoin de vérifier l'email
+        // Si l'utilisateur s'est inscrit par email, il doit vérifier son email
+        bool needsEmailVerification = user.email != null && 
+                                    user.email!.isNotEmpty && 
+                                    !user.emailVerified && 
+                                    (user.phoneNumber == null || user.phoneNumber!.isEmpty);
+        
+        if (needsEmailVerification) {
           return const EmailVerificationPage();
         }
 
-        // Pour les utilisateurs connectés et vérifiés
-        return FutureBuilder(
-          future: _initializeUserData(context),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        // Pour les utilisateurs connectés et vérifiés (email ou téléphone)
+        return FutureBuilder<bool>(
+          future: _checkOnboardingStatus(user),
+          builder: (context, onboardingSnapshot) {
+            if (onboardingSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text('Erreur: ${snapshot.error}'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const AuthWrapper()),
-                      ),
-                      child: const Text('Réessayer'),
-                    ),
-                  ],
-                ),
-              );
+            // Si l'utilisateur n'a pas terminé l'onboarding, le rediriger
+            if (onboardingSnapshot.data == false) {
+              return const OnboardingQuestionnairePage();
             }
 
-            return const MainContainer();
+            // Si l'onboarding est terminé, initialiser les données utilisateur
+            return FutureBuilder(
+              future: _initializeUserData(context),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Erreur: ${snapshot.error}'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                          ),
+                          child: const Text('Réessayer'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return const MainContainer();
+              },
+            );
           },
         );
       },
@@ -100,6 +126,28 @@ class AuthWrapper extends StatelessWidget {
       debugPrint(
           'Erreur lors de l\'initialisation des données utilisateur: $e');
       rethrow;
+    }
+  }
+
+  /// Vérifie si l'utilisateur a terminé son onboarding
+  Future<bool> _checkOnboardingStatus(User user) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      
+      // Si le document n'existe pas, l'utilisateur n'a pas terminé l'onboarding
+      if (!userDoc.exists) {
+        return false;
+      }
+      
+      final userData = userDoc.data() as Map<String, dynamic>;
+      // Vérifier si l'onboarding est marqué comme terminé
+      return userData['onboardingCompleted'] == true;
+    } catch (e) {
+      // En cas d'erreur, on considère que l'onboarding n'est pas terminé
+      return false;
     }
   }
 }
