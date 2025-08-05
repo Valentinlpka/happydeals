@@ -92,6 +92,77 @@ class NutritionInfo {
   }
 }
 
+class MenuItemVariantOption {
+  final String id;
+  final String name;
+  final double priceModifier;
+  final bool isDefault;
+
+  MenuItemVariantOption({
+    required this.id,
+    required this.name,
+    required this.priceModifier,
+    required this.isDefault,
+  });
+
+  factory MenuItemVariantOption.fromMap(Map<String, dynamic> map) {
+    return MenuItemVariantOption(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      priceModifier: (map['priceModifier'] ?? 0.0).toDouble(),
+      isDefault: map['isDefault'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'priceModifier': priceModifier,
+      'isDefault': isDefault,
+    };
+  }
+}
+
+class MenuItemVariant {
+  final String id;
+  final String name;
+  final bool isRequired;
+  final List<MenuItemVariantOption> options;
+
+  MenuItemVariant({
+    required this.id,
+    required this.name,
+    required this.isRequired,
+    required this.options,
+  });
+
+  factory MenuItemVariant.fromMap(Map<String, dynamic> map) {
+    List<MenuItemVariantOption> options = [];
+    if (map['options'] != null) {
+      options = (map['options'] as List)
+          .map((o) => MenuItemVariantOption.fromMap(o as Map<String, dynamic>))
+          .toList();
+    }
+
+    return MenuItemVariant(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      isRequired: map['isRequired'] ?? false,
+      options: options,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'isRequired': isRequired,
+      'options': options.map((o) => o.toMap()).toList(),
+    };
+  }
+}
+
 class MenuItem {
   final String id;
   final String companyId;
@@ -110,6 +181,7 @@ class MenuItem {
   final bool isAvailable;
   final int sortOrder;
   final DateTime createdAt;
+  final List<MenuItemVariant>? variants;
 
   MenuItem({
     required this.id,
@@ -129,10 +201,18 @@ class MenuItem {
     required this.isAvailable,
     required this.sortOrder,
     required this.createdAt,
+    this.variants,
   });
 
   factory MenuItem.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    List<MenuItemVariant>? variants;
+    if (data['variants'] != null) {
+      variants = (data['variants'] as List)
+          .map((v) => MenuItemVariant.fromMap(v as Map<String, dynamic>))
+          .toList();
+    }
     
     return MenuItem(
       id: doc.id,
@@ -156,6 +236,7 @@ class MenuItem {
           : data['createdAt'] is Timestamp
               ? (data['createdAt'] as Timestamp).toDate()
               : DateTime.now(),
+      variants: variants,
     );
   }
 
@@ -177,6 +258,7 @@ class MenuItem {
       'isAvailable': isAvailable,
       'sortOrder': sortOrder,
       'createdAt': createdAt.toIso8601String(),
+      'variants': variants?.map((v) => v.toMap()).toList(),
     };
   }
 

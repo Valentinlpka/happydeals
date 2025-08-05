@@ -174,25 +174,93 @@ class RestaurantMenuProvider extends ChangeNotifier {
     }
   }
 
-  // Charger un template depuis Firebase
+  // Charger un template depuis Firebase avec fallback sur différentes collections
   Future<Template?> getTemplate(String templateId) async {
     try {
+      print('Recherche template: $templateId');
+      
+      // Utiliser la même collection que Next.js
       final doc = await FirebaseFirestore.instance
           .collection('menuTemplates')
           .doc(templateId)
           .get();
 
-      if (!doc.exists) return null;
+      if (!doc.exists) {
+        print('✗ Template non trouvé dans menuTemplates: $templateId');
+        
+        // Essayer dans une sous-collection
+        try {
+          final subCollectionDoc = await FirebaseFirestore.instance
+              .collection('menuTemplates')
+              .doc('variants')
+              .collection('templates')
+              .doc(templateId)
+              .get();
+              
+          if (subCollectionDoc.exists) {
+            print('✓ Template trouvé dans sous-collection variants/templates');
+            final data = subCollectionDoc.data() as Map<String, dynamic>;
+            final type = data['type']?.toString() ?? '';
+            
+            if (type == 'variant' || data.containsKey('referencedItems')) {
+              final template = VariantTemplate.fromFirestore(subCollectionDoc);
+              print('✓ Template de variante créé depuis sous-collection: ${template.name}');
+              return template;
+            }
+          }
+        } catch (e) {
+          print('Erreur lors de la recherche dans sous-collection: $e');
+        }
+        
+        // Essayer dans une collection séparée pour les variantes
+        try {
+          final variantDoc = await FirebaseFirestore.instance
+              .collection('variantTemplates')
+              .doc(templateId)
+              .get();
+              
+          if (variantDoc.exists) {
+            print('✓ Template trouvé dans collection variantTemplates');
+            final data = variantDoc.data() as Map<String, dynamic>;
+            final template = VariantTemplate.fromFirestore(variantDoc);
+            print('✓ Template de variante créé depuis variantTemplates: ${template.name}');
+            return template;
+          }
+        } catch (e) {
+          print('Erreur lors de la recherche dans variantTemplates: $e');
+        }
+        
+        return null;
+      }
 
       final data = doc.data() as Map<String, dynamic>;
       final type = data['type']?.toString() ?? '';
+      print('Template trouvé - Type: $type, Nom: ${data['name']}');
 
+      // Créer le template selon le type, comme dans Next.js
       if (type == 'menu') {
-        return MenuTemplate.fromFirestore(doc);
+        final template = MenuTemplate.fromFirestore(doc);
+        print('✓ Template de menu créé: ${template.name}');
+        return template;
       } else if (type == 'variant') {
-        return VariantTemplate.fromFirestore(doc);
+        final template = VariantTemplate.fromFirestore(doc);
+        print('✓ Template de variante créé: ${template.name}');
+        return template;
+      } else {
+        // Si le type n'est pas spécifié, essayer de déterminer le type
+        // en regardant la structure des données
+        if (data.containsKey('includedVariantTemplates')) {
+          final template = MenuTemplate.fromFirestore(doc);
+          print('✓ Template de menu créé (détecté par structure): ${template.name}');
+          return template;
+        } else if (data.containsKey('referencedItems')) {
+          final template = VariantTemplate.fromFirestore(doc);
+          print('✓ Template de variante créé (détecté par structure): ${template.name}');
+          return template;
+        }
       }
 
+      print('⚠ Type de template non reconnu: $type');
       return Template.fromFirestore(doc);
     } catch (e) {
       print('Erreur lors du chargement du template $templateId: $e');
@@ -203,21 +271,74 @@ class RestaurantMenuProvider extends ChangeNotifier {
   // Charger le template de menu et tous ses templates de variantes
   Future<Map<String, dynamic>?> loadMenuTemplates(String menuTemplateId) async {
     try {
+      print('=== CHARGEMENT TEMPLATES ===');
+      print('Template ID demandé: $menuTemplateId');
+      
       final menuTemplate = await getTemplate(menuTemplateId);
       if (menuTemplate == null || !isMenuTemplate(menuTemplate)) {
+        print('Template de menu non trouvé ou invalide');
         return null;
       }
 
       final menuTemplateTyped = menuTemplate as MenuTemplate;
+      print('Template de menu trouvé: ${menuTemplateTyped.name}');
+      print('Templates de variantes inclus: ${menuTemplateTyped.includedVariantTemplates.length}');
+      
+      // Afficher les détails des templates de variantes inclus
+      for (int i = 0; i < menuTemplateTyped.includedVariantTemplates.length; i++) {
+        final template = menuTemplateTyped.includedVariantTemplates[i];
+        print('  Template $i: ID=${template.templateId}, Label=${template.label}, Required=${template.isRequired}, Order=${template.order}');
+      }
+      
+      // Afficher la structure complète des données du template de menu
+      print('=== STRUCTURE DU TEMPLATE DE MENU ===');
+      final doc = await FirebaseFirestore.instance
+          .collection('menuTemplates')
+          .doc(menuTemplateId)
+          .get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        print('Données complètes du template:');
+        data.forEach((key, value) {
+          print('  $key: $value');
+        });
+      }
+      
       final Map<String, VariantTemplate> variantTemplates = {};
 
       // Charger tous les templates de variantes
       for (final includedTemplate in menuTemplateTyped.includedVariantTemplates) {
+        print('Chargement template de variante: ${includedTemplate.templateId} (${includedTemplate.label})');
         final variantTemplate = await getTemplate(includedTemplate.templateId);
         if (variantTemplate != null && isVariantTemplate(variantTemplate)) {
           variantTemplates[includedTemplate.templateId] = variantTemplate as VariantTemplate;
+          print('✓ Template de variante chargé: ${variantTemplate.name}');
+        } else {
+          print('✗ Template de variante non trouvé ou invalide: ${includedTemplate.templateId}');
+          
+          // Essayer de charger directement depuis Firestore pour voir ce qui se passe
+          try {
+            final variantDoc = await FirebaseFirestore.instance
+                .collection('menuTemplates')
+                .doc(includedTemplate.templateId)
+                .get();
+            if (variantDoc.exists) {
+              final variantData = variantDoc.data() as Map<String, dynamic>;
+              print('  Données du template de variante trouvé:');
+              variantData.forEach((key, value) {
+                print('    $key: $value');
+              });
+            } else {
+              print('  ✗ Template de variante n\'existe pas dans Firestore');
+            }
+          } catch (e) {
+            print('  Erreur lors de la vérification du template de variante: $e');
+          }
         }
       }
+
+      print('Templates de variantes chargés: ${variantTemplates.length}');
+      print('IDs des templates chargés: ${variantTemplates.keys.toList()}');
 
       return {
         'menuTemplate': menuTemplateTyped,

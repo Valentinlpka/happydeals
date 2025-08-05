@@ -5,10 +5,12 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/providers/users_provider.dart';
+import 'package:happy/services/auth_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 class ProfilePage extends StatefulWidget {
+
   const ProfilePage({super.key});
 
   @override
@@ -16,6 +18,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
@@ -47,6 +50,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = AuthService(); // Instanciation de AuthService
+
     return Scaffold(
       backgroundColor: CupertinoColors.systemBackground,
       appBar: AppBar(
@@ -96,7 +101,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 32),
                       _buildChangePasswordButton(),
                       const SizedBox(height: 16),
-                      _buildSignOutButton(),
+                      _buildSignOutButton(authService),
                     ],
                   ),
                 );
@@ -196,11 +201,11 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildSignOutButton() {
+  Widget _buildSignOutButton(AuthService authService) {
     return SizedBox(
       width: double.infinity,
       child: CupertinoButton(
-        onPressed: _signOut,
+        onPressed: () => authService.signOut(context),
         color: CupertinoColors.destructiveRed,
         borderRadius: BorderRadius.circular(8),
         padding: const EdgeInsets.symmetric(vertical: 14),
