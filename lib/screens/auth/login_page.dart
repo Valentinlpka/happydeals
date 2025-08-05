@@ -168,6 +168,9 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+  debugPrint('🔍 Login: build() appelé');
+  debugPrint('🔍 Login: ScreenUtil initialisé = $_isInitialized');
+        
         return AlertDialog(
           title: const Text('Compléter votre profil'),
           content:

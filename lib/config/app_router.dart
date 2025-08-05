@@ -18,6 +18,9 @@ import 'package:happy/screens/payment_cancel.dart';
 import 'package:happy/screens/payment_success.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/promo_code_detail.dart';
+import 'package:happy/screens/restaurants/restaurant_detail_wrapper.dart';
+import 'package:happy/screens/restaurants/restaurant_test_page.dart';
+import 'package:happy/screens/restaurants/restaurants_page.dart';
 import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
@@ -52,6 +55,9 @@ class AppRouter {
   static const String promoCodeDetails = '/promo-code';
   static const String jobDetails = '/job';
   static const String userProfile = '/user-profile';
+  static const String restaurants = '/restaurants';
+  static const String restaurantsTest = '/restaurants-test';
+  static const String restaurantDetails = '/restaurant';
 
   /// Routes nommées statiques
   static Map<String, WidgetBuilder> get routes => {
@@ -61,6 +67,8 @@ class AppRouter {
         profileCompletion: (context) => const ProfileCompletionPage(),
         cart: (context) => const CartScreen(),
         paymentCancel: (context) => const PaymentCancel(),
+        restaurants: (context) => const RestaurantsPage(),
+        restaurantsTest: (context) => const RestaurantTestPage(),
       };
 
   /// Détermine la page d'accueil
@@ -239,6 +247,20 @@ class AppRouter {
           userId = args as String;
         }
         return getRoute(Profile(userId: userId));
+
+      // Restaurants
+      case restaurants:
+        return getRoute(const RestaurantsPage());
+      case restaurantsTest:
+        return getRoute(const RestaurantTestPage());
+      case restaurantDetails:
+        final String restaurantId;
+        if (kIsWeb) {
+          restaurantId = uri.pathSegments.last;
+        } else {
+          restaurantId = args as String;
+        }
+        return getRoute(RestaurantDetailWrapper(restaurantId: restaurantId));
     }
 
     // Route par défaut si aucune correspondance n'est trouvée

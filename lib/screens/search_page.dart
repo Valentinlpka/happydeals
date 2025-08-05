@@ -314,6 +314,14 @@ class _SearchPageState extends State<SearchPage> {
               MaterialPageRoute(builder: (context) => const ServiceListPage()),
             ),
           ),
+          DiscoverItem(
+            onTap: () => (Navigator.pushNamed(context, '/restaurants')),
+            title: 'Restaurants',
+            icon: Icons.restaurant,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+            ),
+          ),
         ],
       ),
       Category(

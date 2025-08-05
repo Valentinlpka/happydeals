@@ -8,9 +8,10 @@ allprojects {
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
 // The below script
 subprojects {
-   afterEvaluate { project ->
+    afterEvaluate { project ->
         if (project.hasProperty('android')) {
             project.android {
                 if (namespace == null) {
@@ -21,14 +22,17 @@ subprojects {
     }
 }
 // till here
+
 subprojects {
     project.evaluationDependsOn(':app')
 }
 
 rootProject.buildDir = '../build'
+
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
 subprojects {
     project.evaluationDependsOn(':app')
 }
@@ -43,9 +47,10 @@ buildscript {
         google()
         mavenCentral()
     }
-
     dependencies {
         classpath 'com.android.tools.build:gradle:8.1.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        // ✅ AJOUTEZ CETTE LIGNE pour Firebase
+        classpath 'com.google.gms:google-services:4.3.15'
     }
 }
