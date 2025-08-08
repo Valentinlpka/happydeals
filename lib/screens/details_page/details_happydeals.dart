@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/classes/happydeal.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product.dart';
@@ -8,6 +7,7 @@ import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
+import 'package:happy/widgets/company_info_card.dart';
 import 'package:happy/widgets/share_confirmation_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -27,30 +27,20 @@ class DetailsHappyDeals extends StatefulWidget {
 class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   late Future<Product?> _productFuture;
   final ScrollController _scrollController = ScrollController();
-  bool _isInitialized = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_isInitialized) {
-      ScreenUtil.init(
-        context,
-        designSize: const Size(375, 812),
-      );
-      _isInitialized = true;
-    }
-  }
+  bool isDescriptionExpanded = false;
+  bool isExpired = false;
 
   @override
   void initState() {
     super.initState();
     _productFuture = _fetchProduct();
+    isExpired = widget.happydeal.endDate.isBefore(DateTime.now());
   }
 
   Future<Product?> _fetchProduct() async {
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('products')
+          .collection('posts')
           .doc(widget.happydeal.productId)
           .get();
       return doc.exists ? Product.fromFirestore(doc) : null;
@@ -59,10 +49,8 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
     }
   }
 
-
-
   String _formatDateTime(DateTime dateTime) {
-    return DateFormat('d MMMM yyyy', 'fr_FR').format(dateTime);
+    return DateFormat('dd/MM/yyyy').format(dateTime);
   }
 
   String _getRemainingTime() {
@@ -87,13 +75,19 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.white,
       body: CustomScrollView(
         controller: _scrollController,
-        physics: const BouncingScrollPhysics(),
         slivers: [
           _buildAppBar(),
-          _buildContent(),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _buildDealHeader(),
+                _buildMainContent(),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -101,97 +95,156 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 300.h,
+      expandedHeight: 0,
+      floating: true,
       pinned: true,
-      stretch: true,
-      backgroundColor: Colors.white,
-      leadingWidth: 200.w,
-      leading: Row(
+      backgroundColor: Colors.grey[50],
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+        onPressed: () => Navigator.pop(context),
+      ),
+      centerTitle: true,
+      title: Text(
+        widget.happydeal.title,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      actions: [
+        Consumer<UserModel>(
+          builder: (context, userModel, _) {
+            final isLiked = userModel.likedPosts.contains(widget.happydeal.id);
+            return IconButton(
+              icon: Icon(
+                isLiked ? Icons.favorite : Icons.favorite_border,
+                color: isLiked ? Colors.red : Colors.black,
+              ),
+              onPressed: () async => await userModel.handleLike(widget.happydeal),
+            );
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.share_outlined, color: Colors.black),
+          onPressed: () => _showShareOptions(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDealHeader() {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildBackButton(),
-          _buildLikeButton(),
-          _buildShareButton(),
+          _buildImageSection(),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatusBadge(),
+                const SizedBox(height: 16),
+                _buildTitleSection(),
+                const SizedBox(height: 16),
+                _buildPriceSection(),
+                const SizedBox(height: 16),
+                _buildTimeSection(),
+                if (widget.happydeal.description.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _buildDescriptionSection(),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
-      flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildHeroImage(),
-            _buildGradientOverlay(),
-            _buildDealBadge(),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildBackButton() {
-    return IconButton(
-      icon: Container(
-        padding: EdgeInsets.all(8.w),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8.r,
-              offset: const Offset(0, 2),
+  Widget _buildImageSection() {
+    return Stack(
+      children: [
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: FutureBuilder<Product?>(
+            future: _productFuture,
+            builder: (context, snapshot) {
+              bool hasValidImage = snapshot.hasData && 
+                                 snapshot.data!.variants.isNotEmpty && 
+                                 snapshot.data!.variants.first.images.isNotEmpty &&
+                                 snapshot.data!.variants.first.images.first.isNotEmpty &&
+                                 (snapshot.data!.variants.first.images.first.startsWith('http://') ||
+                                  snapshot.data!.variants.first.images.first.startsWith('https://'));
+
+              return Container(
+                width: double.infinity,
+                color: Colors.grey[50],
+                child: hasValidImage
+                    ? Image.network(
+                        snapshot.data!.variants.first.images.first,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildDefaultImage();
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: Colors.grey[200],
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : _buildDefaultImage(),
+              );
+            },
+          ),
+        ),
+        if (isExpired)
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.6),
             ),
-          ],
-        ),
-        child: Icon(Icons.arrow_back, color: Colors.black87, size: 20.w),
-      ),
-      onPressed: () => Navigator.pop(context),
-    );
-  }
-
-  Widget _buildHeroImage() {
-    return FutureBuilder<Product?>(
-      future: _productFuture,
-      builder: (context, snapshot) {
-        // Vérification de la validité de l'URL de l'image
-        bool hasValidImage = snapshot.hasData && 
-                           snapshot.data!.variants.isNotEmpty && 
-                           snapshot.data!.variants.first.images.isNotEmpty &&
-                           snapshot.data!.variants.first.images.first.isNotEmpty &&
-                           (snapshot.data!.variants.first.images.first.startsWith('http://') ||
-                            snapshot.data!.variants.first.images.first.startsWith('https://'));
-
-        return Hero(
-          tag: 'deal-${widget.happydeal.id}',
-          child: hasValidImage
-              ? Image.network(
-                  snapshot.data!.variants.first.images.first,
-            fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildDefaultImage(),
-                )
-              : _buildDefaultImage(),
-        );
-      },
+            child: const Center(
+              child: Text(
+                'OFFRE TERMINÉE',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildDefaultImage() {
     return Container(
       color: Colors.grey[200],
-      child: Center(
+      child: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.image_not_supported_outlined,
-              color: Colors.grey[400],
-              size: 50.w,
-            ),
-            SizedBox(height: 8.h),
+            Icon(Icons.image_not_supported_outlined, size: 40, color: Colors.grey),
+            SizedBox(height: 8),
             Text(
               'Image non disponible',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14.sp,
-              ),
+              style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
           ],
         ),
@@ -199,111 +252,380 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
     );
   }
 
-  Widget _buildGradientOverlay() {
+  Widget _buildStatusBadge() {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            Colors.black.withAlpha(70),
-          ],
+        color: isExpired 
+            ? Colors.grey 
+            : Colors.red,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        isExpired
+            ? 'TERMINÉE'
+            : '-${widget.happydeal.discountPercentage.toStringAsFixed(0)}%',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
         ),
       ),
     );
   }
 
-  Widget _buildDealBadge() {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 16.h,
-      right: 16.w,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-        decoration: BoxDecoration(
-          color: Colors.red[600],
-          borderRadius: BorderRadius.circular(25.r),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8.r,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.local_offer, color: Colors.white, size: 18.w),
-            SizedBox(width: 4.w),
-            Text(
-              '-${widget.happydeal.discountPercentage.toStringAsFixed(0)}%',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18.sp,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLikeButton() {
-    return Consumer<UserModel>(
-      builder: (context, userModel, _) {
-        final isLiked = userModel.likedPosts.contains(widget.happydeal.id);
-        return Container(
-          margin: EdgeInsets.symmetric(horizontal: 4.w),
-          child: IconButton(
-            icon: Container(
-              padding: EdgeInsets.all(8.w),
-              decoration: BoxDecoration(
-                color: isLiked ? Colors.red[50] : Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8.r,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border,
-                color: isLiked ? Colors.red : Colors.black87,
-                size: 20.w,
-              ),
-            ),
-            onPressed: () async => await userModel.handleLike(widget.happydeal),
+  Widget _buildTitleSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.happydeal.title,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: isExpired ? Colors.grey : Colors.black,
+            height: 1.3,
           ),
-        );
-      },
+          maxLines: isDescriptionExpanded ? null : 2,
+          overflow: isDescriptionExpanded ? null : TextOverflow.ellipsis,
+        ),
+        if (widget.happydeal.title.length > 50)
+          GestureDetector(
+            onTap: () => setState(() => isDescriptionExpanded = !isDescriptionExpanded),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                isDescriptionExpanded ? 'Voir moins' : 'Voir plus',
+                style: TextStyle(
+                  color: Colors.blue[600],
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _buildShareButton() {
+  Widget _buildPriceSection() {
     return Container(
-      margin: EdgeInsets.only(right: 4.w),
-      child: IconButton(
-        icon: Container(
-          padding: EdgeInsets.all(8.w),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${widget.happydeal.newPrice.toStringAsFixed(2)}€',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: isExpired ? Colors.grey : Colors.blue,
+                ),
+              ),
+              Text(
+                '${widget.happydeal.oldPrice.toStringAsFixed(2)}€',
+                style: const TextStyle(
+                  fontSize: 16,
+                  decoration: TextDecoration.lineThrough,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.red[50],
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Économisez ${(widget.happydeal.oldPrice - widget.happydeal.newPrice).toStringAsFixed(2)}€',
+              style: TextStyle(
+                color: Colors.red[700],
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.timer_outlined, 
+            size: 24, 
+            color: isExpired ? Colors.red : Colors.blue[800]
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _getRemainingTime(),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isExpired ? Colors.red : Colors.black87,
+                  ),
+                ),
+                Text(
+                  isExpired
+                      ? 'Terminée le ${_formatDateTime(widget.happydeal.endDate)}'
+                      : 'Du ${_formatDateTime(widget.happydeal.startDate)} au ${_formatDateTime(widget.happydeal.endDate)}',
+                  style: TextStyle(
+                    color: isExpired ? Colors.red : Colors.grey[600],
+                    fontSize: 14,
+                    fontWeight: isExpired ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Description',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.white,
-            shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8.r,
+                color: Colors.grey.withAlpha(8),
+                spreadRadius: 0,
+                blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: Icon(Icons.share, color: Colors.blue[800], size: 20.w),
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            widget.happydeal.description,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[800],
+              height: 1.5,
+            ),
+          ),
         ),
-        onPressed: () => _showShareOptions(context),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildMainContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              _buildProductSection(),
+              const SizedBox(height: 16),
+              _buildCompanySection(),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProductSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Produit associé',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        FutureBuilder<Product?>(
+          future: _productFuture,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withAlpha(8),
+                      spreadRadius: 0,
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.hourglass_empty, color: Colors.grey),
+                    SizedBox(width: 12),
+                    Text('Chargement du produit...'),
+                  ],
+                ),
+              );
+            }
+
+            final product = snapshot.data!;
+            bool hasValidImage = product.variants.isNotEmpty && 
+                               product.variants.first.images.isNotEmpty &&
+                               product.variants.first.images.first.isNotEmpty;
+
+            return InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ModernProductDetailPage(product: product),
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withAlpha(8),
+                      spreadRadius: 0,
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: hasValidImage
+                          ? Image.network(
+                              product.variants.first.images.first,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 80,
+                                height: 80,
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: Colors.grey,
+                                  size: 30,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Colors.grey,
+                                size: 30,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Voir le produit',
+                            style: TextStyle(
+                              color: Colors.blue[800],
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, color: Colors.blue[800], size: 16),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompanySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Entreprise',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        CompanyInfoCard(
+          name: widget.happydeal.companyName,
+          logo: widget.happydeal.companyLogo,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DetailsEntreprise(
+                    entrepriseId: widget.happydeal.companyId,
+                  ),
+                ),
+              ),
+        ),
+      
+      ],
     );
   }
 
@@ -356,8 +678,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content:
-                                    Text('Publication partagée avec succès!'),
+                                content: Text('Publication partagée avec succès!'),
                                 behavior: SnackBarBehavior.floating,
                                 duration: Duration(seconds: 2),
                               ),
@@ -425,22 +746,20 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                   child: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('users')
-                        .where(FieldPath.documentId,
-                            whereIn: users.followedUsers)
+                        .where(FieldPath.documentId, whereIn: users.followedUsers)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.hasError) {
-                        return const Center(
-                            child: Text('Une erreur est survenue'));
+                        return const Center(child: Text('Une erreur est survenue'));
                       }
 
                       if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
 
-                      final users = snapshot.data!.docs;
+                      final usersList = snapshot.data!.docs;
 
-                      if (users.isEmpty) {
+                      if (usersList.isEmpty) {
                         return const Center(
                           child: Text('Vous ne suivez aucun utilisateur'),
                         );
@@ -448,17 +767,14 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
 
                       return ListView.builder(
                         controller: scrollController,
-                        itemCount: users.length,
+                        itemCount: usersList.length,
                         itemBuilder: (context, index) {
-                          final userData =
-                              users[index].data() as Map<String, dynamic>;
+                          final userData = usersList[index].data() as Map<String, dynamic>;
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundImage:
-                                  NetworkImage(userData['image_profile'] ?? ''),
+                              backgroundImage: NetworkImage(userData['image_profile'] ?? ''),
                             ),
-                            title: Text(
-                                '${userData['firstName']} ${userData['lastName']}'),
+                            title: Text('${userData['firstName']} ${userData['lastName']}'),
                             onTap: () async {
                               try {
                                 final post = Post(
@@ -470,13 +786,10 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                                   type: 'happydeal',
                                 );
 
-                                await Provider.of<ConversationService>(context,
-                                        listen: false)
+                                await Provider.of<ConversationService>(context, listen: false)
                                     .sharePostInConversation(
-                                  senderId: Provider.of<UserModel>(context,
-                                          listen: false)
-                                      .userId,
-                                  receiverId: users[index].id,
+                                  senderId: Provider.of<UserModel>(context, listen: false).userId,
+                                  receiverId: usersList[index].id,
                                   post: post,
                                 );
 
@@ -484,8 +797,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content:
-                                          Text('Message envoyé avec succès!'),
+                                      content: Text('Message envoyé avec succès!'),
                                       behavior: SnackBarBehavior.floating,
                                     ),
                                   );
@@ -494,8 +806,7 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content:
-                                          Text('Erreur lors de l\'envoi: $e'),
+                                      content: Text('Erreur lors de l\'envoi: $e'),
                                       behavior: SnackBarBehavior.floating,
                                     ),
                                   );
@@ -516,309 +827,9 @@ class _DetailsHappyDealsState extends State<DetailsHappyDeals> {
     );
   }
 
-  Widget _buildContent() {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTitle(),
-            SizedBox(height: 24.h),
-            _buildPriceSection(),
-            SizedBox(height: 24.h),
-            _buildTimeSection(),
-            SizedBox(height: 24.h),
-            _buildDescription(),
-            SizedBox(height: 24.h),
-            _buildProductSection(),
-            SizedBox(height: 32.h),
-            _buildCompanySection(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTitle() {
-    return Text(
-      widget.happydeal.title,
-      style: TextStyle(
-        fontSize: 24.sp,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
-      ),
-    );
-  }
-
-  Widget _buildPriceSection() {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13),
-            blurRadius: 10.r,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${widget.happydeal.newPrice.toStringAsFixed(2)} €',
-                style: TextStyle(
-                  fontSize: 28.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue[800],
-                ),
-              ),
-              Text(
-                '${widget.happydeal.oldPrice.toStringAsFixed(2)} €',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  decoration: TextDecoration.lineThrough,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-            decoration: BoxDecoration(
-              color: Colors.red[50],
-              borderRadius: BorderRadius.circular(20.r),
-            ),
-            child: Text(
-              'Économisez ${(widget.happydeal.oldPrice - widget.happydeal.newPrice).toStringAsFixed(2)} €',
-              style: TextStyle(
-                color: Colors.red[700],
-                fontWeight: FontWeight.bold,
-                fontSize: 14.sp,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeSection() {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13),
-            blurRadius: 10.r,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.timer_outlined, color: Colors.blue[800], size: 24.w),
-          SizedBox(width: 12.w),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _getRemainingTime(),
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              Text(
-                'Du ${_formatDateTime(widget.happydeal.startDate)} au ${_formatDateTime(widget.happydeal.endDate)}',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14.sp,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDescription() {
-    return Text(
-      widget.happydeal.description,
-      style: TextStyle(
-        fontSize: 16.sp,
-        color: Colors.black87,
-        height: 1.5,
-      ),
-    );
-  }
-
-  Widget _buildProductSection() {
-    return FutureBuilder<Product?>(
-      future: _productFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-
-        final product = snapshot.data!;
-        bool hasValidImage = product.variants.isNotEmpty && 
-                           product.variants.first.images.isNotEmpty &&
-                           product.variants.first.images.first.isNotEmpty;
-
-        return InkWell(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ModernProductDetailPage(product: product),
-            ),
-          ),
-          child: Container(
-            padding: EdgeInsets.all(16.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(13),
-                  blurRadius: 10.r,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8.r),
-                  child: hasValidImage
-                      ? Image.network(
-                      product.variants.first.images.first,
-                      width: 80.w,
-                      height: 80.h,
-                      fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 80.w,
-                            height: 80.h,
-                            color: Colors.grey[200],
-                            child: Icon(
-                              Icons.image_not_supported_outlined,
-                              color: Colors.grey[400],
-                              size: 30.w,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          width: 80.w,
-                          height: 80.h,
-                          color: Colors.grey[200],
-                          child: Icon(
-                            Icons.image_not_supported_outlined,
-                            color: Colors.grey[400],
-                            size: 30.w,
-                          ),
-                    ),
-                  ),
-                SizedBox(width: 16.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product.name,
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8.h),
-                      Text(
-                        'Voir le produit',
-                        style: TextStyle(
-                          color: Colors.blue[800],
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14.sp,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios,
-                    color: Colors.blue[800], size: 16.w),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCompanySection() {
-    bool hasValidLogo = widget.happydeal.companyLogo.isNotEmpty && 
-                       (widget.happydeal.companyLogo.startsWith('http://') || 
-                        widget.happydeal.companyLogo.startsWith('https://'));
-
-        return InkWell(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DetailsEntreprise(
-                entrepriseId: widget.happydeal.companyId,
-              ),
-            ),
-          ),
-          child: Container(
-            padding: EdgeInsets.all(16.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(13),
-                  blurRadius: 10.r,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 24.r,
-                  backgroundColor: Colors.blue[700],
-                  child: CircleAvatar(
-                    radius: 22.r,
-                backgroundImage: hasValidLogo
-                    ? NetworkImage(widget.happydeal.companyLogo)
-                        : null,
-                    backgroundColor: Colors.white,
-                child: !hasValidLogo
-                        ? Icon(Icons.business,
-                            color: Colors.blue[700], size: 20.w)
-                        : null,
-                  ),
-                ),
-                SizedBox(width: 16.w),
-                Expanded(
-              child: Text(
-                widget.happydeal.companyName,
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios,
-                    color: Colors.grey[400], size: 16.w),
-              ],
-            ),
-          ),
-    );
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }

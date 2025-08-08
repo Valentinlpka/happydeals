@@ -2,11 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/dealexpress.dart';
+import 'package:happy/providers/location_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
-import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/current_location_display.dart';
 import 'package:happy/widgets/postwidget.dart';
+import 'package:happy/widgets/unified_location_filter.dart';
 import 'package:provider/provider.dart';
 
 class DealExpressPage extends StatefulWidget {
@@ -22,11 +24,6 @@ class _DealExpressPageState extends State<DealExpressPage> {
   String _searchQuery = '';
   String _selectedCategory = 'Toutes';
   List<String> _categories = ['Toutes'];
-  double? _selectedLat;
-  double? _selectedLng;
-  double _selectedRadius = 15.0;
-  String _selectedAddress = '';
-  bool _isLocationFilterActive = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -37,15 +34,10 @@ class _DealExpressPageState extends State<DealExpressPage> {
   }
 
   Future<void> _initializeLocation() async {
-    final userProvider = Provider.of<UserModel>(context, listen: false);
-    if (userProvider.latitude != 0.0 && userProvider.longitude != 0.0) {
-      setState(() {
-        _selectedLat = userProvider.latitude;
-        _selectedLng = userProvider.longitude;
-        _selectedAddress = '${userProvider.city}, ${userProvider.zipCode}';
-        _isLocationFilterActive = true;
-      });
-    }
+    final userModel = Provider.of<UserModel>(context, listen: false);
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    await locationProvider.initializeLocation(userModel);
   }
 
   Future<void> _loadCategories() async {
@@ -62,67 +54,72 @@ class _DealExpressPageState extends State<DealExpressPage> {
   }
 
   void _showLocationFilterBottomSheet() async {
-    await LocationFilterBottomSheet.show(
+    await UnifiedLocationFilter.show(
       context: context,
-      onLocationSelected: (lat, lng, radius, address) {
+      onLocationChanged: () {
         setState(() {
-          _selectedLat = lat;
-          _selectedLng = lng;
-          _selectedRadius = radius;
-          _selectedAddress = address;
+          // La localisation a été mise à jour via le provider
         });
       },
-      currentLat: _selectedLat,
-      currentLng: _selectedLng,
-      currentRadius: _selectedRadius,
-      currentAddress: _selectedAddress,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Deal Express',
-        align: Alignment.center,
-        actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.location_on,
-                  color:
-                      _isLocationFilterActive ? const Color(0xFF4B88DA) : null,
-                ),
-                onPressed: _showLocationFilterBottomSheet,
-              ),
-              if (_isLocationFilterActive)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
+    return Consumer2<LocationProvider, UserModel>(
+      builder: (context, locationProvider, userModel, child) {
+        return Scaffold(
+          appBar: CustomAppBar(
+            title: 'Deal Express',
+            align: Alignment.center,
+            actions: [
+              Stack(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.location_on,
+                      color: locationProvider.hasLocation 
+                          ? const Color(0xFF4B88DA) 
+                          : null,
                     ),
+                    onPressed: _showLocationFilterBottomSheet,
                   ),
-                ),
+                  if (locationProvider.hasLocation)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4B88DA),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: _showFilterBottomSheet,
+              ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterBottomSheet,
+          body: Column(
+            children: [
+              CurrentLocationDisplay(
+                onLocationChanged: () {
+                  setState(() {
+                    // La localisation a été mise à jour
+                  });
+                },
+              ),
+              _buildSearchBar(),
+              _buildDealsList(locationProvider),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          _buildDealsList(),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -263,7 +260,7 @@ class _DealExpressPageState extends State<DealExpressPage> {
     );
   }
 
-  Widget _buildDealsList() {
+  Widget _buildDealsList(LocationProvider locationProvider) {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('posts')
@@ -293,24 +290,27 @@ class _DealExpressPageState extends State<DealExpressPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDealsSection(
-                  deals,
-                  title: 'Près de chez vous',
-                  isNearby: true,
-                  showVertical: true,
-                ),
-                if (_selectedLat != null && _selectedLng != null)
+                                  _buildDealsSection(
+                    deals,
+                    title: 'Près de chez vous',
+                    isNearby: true,
+                    showVertical: true,
+                    locationProvider: locationProvider,
+                  ),
+                if (locationProvider.hasLocation)
                   _buildDealsSection(
                     deals,
                     title: 'Un peu plus loin',
                     isNearby: false,
                     showVertical: false,
+                    locationProvider: locationProvider,
                   ),
                 _buildDealsSection(
                   deals,
                   title: 'Plus disponible actuellement',
                   showUnavailable: true,
                   showVertical: false,
+                  locationProvider: locationProvider,
                 ),
               ],
             ),
@@ -325,6 +325,7 @@ class _DealExpressPageState extends State<DealExpressPage> {
     bool isNearby,
     bool showUnavailable,
     bool showVertical,
+    LocationProvider locationProvider,
   ) async {
     List<Widget> processedDeals = [];
 
@@ -387,16 +388,15 @@ class _DealExpressPageState extends State<DealExpressPage> {
 
         // Gestion de la distance
         bool isInRadius = false;
-        if (_selectedLat != null &&
-            _selectedLng != null &&
+        if (locationProvider.hasLocation &&
             companyLat != null &&
             companyLng != null) {
           isInRadius = LocationUtils.isWithinRadius(
-            _selectedLat!,
-            _selectedLng!,
+            locationProvider.latitude!,
+            locationProvider.longitude!,
             companyLat,
             companyLng,
-            _selectedRadius,
+            locationProvider.radius,
           );
 
           if (isNearby != isInRadius && !showUnavailable) {
@@ -444,9 +444,10 @@ class _DealExpressPageState extends State<DealExpressPage> {
     bool isNearby = false,
     bool showUnavailable = false,
     bool showVertical = false,
+    required LocationProvider locationProvider,
   }) {
-    return FutureBuilder<List<Widget>>(
-      future: _processDeals(deals, isNearby, showUnavailable, showVertical),
+          return FutureBuilder<List<Widget>>(
+        future: _processDeals(deals, isNearby, showUnavailable, showVertical, locationProvider),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();

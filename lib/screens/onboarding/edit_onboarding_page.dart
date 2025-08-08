@@ -6,9 +6,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar_back.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
 class EditOnboardingPage extends StatefulWidget {
   const EditOnboardingPage({super.key});
@@ -196,15 +198,6 @@ class _EditOnboardingPageState extends State<EditOnboardingPage> with TickerProv
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // Upload de l'image de profil si elle a été modifiée
-        String? newProfileImageUrl;
-        if (_profileImage != null) {
-          newProfileImageUrl = await _uploadProfileImage();
-          if (newProfileImageUrl == null) {
-            throw Exception('Erreur lors de l\'upload de l\'image de profil');
-          }
-        }
-        
         // Préparer les données à mettre à jour
         final updateData = {
           'firstName': _firstNameController.text,
@@ -244,14 +237,20 @@ class _EditOnboardingPageState extends State<EditOnboardingPage> with TickerProv
         };
         
         // Ajouter l'URL de la photo de profil si elle a été modifiée
-        if (newProfileImageUrl != null) {
-          updateData['profileUrl'] = newProfileImageUrl;
+        if (_profileImageUrl != null && _profileImageUrl!.isNotEmpty) {
+          updateData['image_profile'] = _profileImageUrl;
         }
         
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .update(updateData);
+        
+        // Mettre à jour le UserModel pour refléter les changements partout
+        if (mounted) {
+          final userModel = Provider.of<UserModel>(context, listen: false);
+          await userModel.loadUserData();
+        }
         
         if (mounted) {
           _showSuccessSnackBar('Informations mises à jour avec succès');
@@ -317,6 +316,9 @@ class _EditOnboardingPageState extends State<EditOnboardingPage> with TickerProv
         setState(() {
           _profileImage = File(image.path);
         });
+        
+        // Upload immédiat de l'image
+        await _uploadProfileImage();
       }
     } catch (e) {
       debugPrint('Erreur lors de la sélection de l\'image: $e');
@@ -339,6 +341,9 @@ class _EditOnboardingPageState extends State<EditOnboardingPage> with TickerProv
         setState(() {
           _profileImage = File(image.path);
         });
+        
+        // Upload immédiat de l'image
+        await _uploadProfileImage();
       }
     } catch (e) {
       debugPrint('Erreur lors de la prise de photo: $e');
@@ -377,6 +382,12 @@ class _EditOnboardingPageState extends State<EditOnboardingPage> with TickerProv
         _profileImageUrl = downloadUrl;
         _isUploadingImage = false;
       });
+      
+      // Mettre à jour le UserModel immédiatement après l'upload
+      if (mounted) {
+        final userModel = Provider.of<UserModel>(context, listen: false);
+        await userModel.updateProfileImage(downloadUrl);
+      }
       
       return downloadUrl;
     } catch (e) {
@@ -471,7 +482,7 @@ class _EditOnboardingPageState extends State<EditOnboardingPage> with TickerProv
                           width: double.infinity,
                           height: double.infinity,
                         )
-                      : _profileImageUrl != null
+                      : _profileImageUrl != null && _profileImageUrl!.isNotEmpty
                           ? Image.network(
                               _profileImageUrl!,
                               fit: BoxFit.cover,
@@ -486,6 +497,13 @@ class _EditOnboardingPageState extends State<EditOnboardingPage> with TickerProv
                                             loadingProgress.expectedTotalBytes!
                                         : null,
                                   ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Colors.grey[400],
                                 );
                               },
                             )
@@ -523,7 +541,7 @@ class _EditOnboardingPageState extends State<EditOnboardingPage> with TickerProv
                     border: Border.all(color: Colors.white, width: 2),
                   ),
                   child: Icon(
-                    _profileImage != null || _profileImageUrl != null 
+                    _profileImage != null || (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
                         ? Icons.edit 
                         : Icons.add_a_photo,
                     size: 16,

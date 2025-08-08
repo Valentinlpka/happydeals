@@ -46,6 +46,7 @@ class PromoCodePost extends Post {
   final bool isPublic;
   final String? sellerId;
   final DateTime? createdAt;
+  @override
   final DateTime? updatedAt;
   final List<dynamic> usageHistory;
 

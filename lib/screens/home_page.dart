@@ -3,17 +3,17 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/combined_item.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/home_provider.dart';
+import 'package:happy/providers/location_provider.dart';
 import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/match_market/match_market_intro_page.dart';
 import 'package:happy/screens/post_type_page/code_promo_page.dart';
-import 'package:happy/screens/post_type_page/companys_page.dart';
+import 'package:happy/screens/post_type_page/companys_page_unified.dart';
 import 'package:happy/screens/post_type_page/deal_express_page.dart';
 import 'package:happy/screens/post_type_page/happy_deals_page.dart';
 import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
@@ -51,7 +51,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     NavigationItem(
       title: 'Annuaire',
       icon: Icons.business_center, // Icône d'entreprise/business
-      page: const CompaniesPage(),
+      page: const CompaniesPageUnified(),
     ),
     NavigationItem(
       title: 'Publications',
@@ -117,9 +117,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     _scrollController.addListener(_onScroll);
     _logScreenView();
 
-    // Demander la permission de localisation
-    _requestLocationPermission();
-
     // Initialisation différée optimisée
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeFeed();
@@ -134,62 +131,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
 
     // Pour le titre de la page web
     await _analytics.updateWebPageTitle('Accueil');
-  }
-
-  Future<void> _requestLocationPermission() async {
-    try {
-      // Vérifier si le service de localisation est activé
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Veuillez activer la localisation pour voir les entreprises proches'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        return;
-      }
-
-      // Vérifier les permissions
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Les permissions de localisation sont nécessaires pour voir les entreprises proches'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Les permissions de localisation sont définitivement refusées. Veuillez les activer dans les paramètres.'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        return;
-      }
-
-      // Récupérer la position actuelle
-      Position position = await Geolocator.getCurrentPosition();
-
-      // Mettre à jour la position dans le UserModel
-      final userProvider = Provider.of<UserModel>(context, listen: false);
-      userProvider.updateLocation(
-        latitude: position.latitude,
-        longitude: position.longitude,
-      );
-    } catch (e) {
-      debugPrint('Erreur lors de la récupération de la position: $e');
-    }
   }
 
   Future<void> _initializeFeed() async {
@@ -240,9 +181,10 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
   Future<void> _showNearbyCompanies() async {
     try {
       final userProvider = Provider.of<UserModel>(context, listen: false);
+      final locationProvider = Provider.of<LocationProvider>(context, listen: false);
 
       // Vérifier si nous avons la localisation de l'utilisateur
-      if (userProvider.latitude == 0.0 || userProvider.longitude == 0.0) {
+      if (!locationProvider.hasLocation) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -857,6 +799,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                       ConstrainedBox(
                         constraints: BoxConstraints(
                           minHeight: MediaQuery.of(context).size.width * 0.08,
+                          maxWidth: MediaQuery.of(context).size.width * 0.6,
                         ),
                         child: Text(
                           usersProvider.dailyQuote,
@@ -865,8 +808,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                             fontSize: MediaQuery.of(context).size.width * 0.035,
                             height: 1.2,
                           ),
-                          maxLines: null,
-                          overflow: TextOverflow.visible,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -877,11 +820,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
                   height: MediaQuery.of(context).size.width * 0.12,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Colors.pink, Colors.blue],
-                    ),
+                    color: Colors.blue[700],
+                    
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.withAlpha(5),

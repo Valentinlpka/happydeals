@@ -60,6 +60,7 @@ class ServiceModel {
   final String companyName;
   final String companyLogo;
   final Map<String, dynamic> companyAddress;
+  final String companyId;
   final String executionLocation;
   final double? travelRadius;
   final int minParticipants;
@@ -80,6 +81,7 @@ class ServiceModel {
     required this.tva,
     required this.duration,
     required this.professionalId,
+    required this.companyId,
     required this.images,
     this.isActive = true,
     required this.stripeProductId,
@@ -153,6 +155,7 @@ class ServiceModel {
       'discount': discount?.toMap(),
       'companyName': companyName,
       'companyLogo': companyLogo,
+      'companyId': companyId,
       'companyAddress': companyAddress,
       'executionLocation': executionLocation,
       'travelRadius': travelRadius,
@@ -198,6 +201,7 @@ class ServiceModel {
       description: map['description'] ?? '',
       price: price,
       duration: duration,
+      companyId: map['companyId'] ?? '',
       professionalId: map['companyId'] ?? map['professionalId'] ?? '',
       images: List<String>.from(map['images'] ?? []),
       isActive: map['isActive'] ?? true,

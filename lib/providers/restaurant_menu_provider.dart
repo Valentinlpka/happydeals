@@ -221,7 +221,6 @@ class RestaurantMenuProvider extends ChangeNotifier {
               
           if (variantDoc.exists) {
             print('✓ Template trouvé dans collection variantTemplates');
-            final data = variantDoc.data() as Map<String, dynamic>;
             final template = VariantTemplate.fromFirestore(variantDoc);
             print('✓ Template de variante créé depuis variantTemplates: ${template.name}');
             return template;

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/classes/restaurant.dart';
+import 'package:happy/providers/location_provider.dart';
 import 'package:happy/providers/restaurant_provider.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/restaurants/restaurant_detail_page.dart';
 import 'package:happy/screens/restaurants/restaurant_filters_modal.dart';
 import 'package:happy/widgets/cards/restaurant_card.dart';
+import 'package:happy/widgets/unified_location_filter.dart';
 import 'package:provider/provider.dart';
 
 class RestaurantsPage extends StatefulWidget {
@@ -22,6 +25,7 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeLocation();
       context.read<RestaurantProvider>().initialize();
     });
   }
@@ -31,6 +35,24 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeLocation() async {
+    final userModel = Provider.of<UserModel>(context, listen: false);
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    await locationProvider.initializeLocation(userModel);
+  }
+
+  void _showLocationFilterBottomSheet() async {
+    await UnifiedLocationFilter.show(
+      context: context,
+      onLocationChanged: () {
+        setState(() {
+          // La localisation a été mise à jour via le provider
+        });
+      },
+    );
   }
 
   @override
@@ -69,6 +91,12 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
           // Titre et localisation
           Row(
             children: [
+              // Bouton retour
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new),
+                onPressed: () => Navigator.pop(context),
+                color: Colors.grey[800],
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,9 +110,9 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
                       ),
                     ),
                     SizedBox(height: 4.h),
-                    Consumer<RestaurantProvider>(
-                      builder: (context, provider, child) {
-                        if (provider.isLocationLoading) {
+                    Consumer2<LocationProvider, RestaurantProvider>(
+                      builder: (context, locationProvider, restaurantProvider, child) {
+                        if (locationProvider.isLoading) {
                           return Row(
                             children: [
                               SizedBox(
@@ -107,28 +135,41 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
                           );
                         }
                         
-                        if (provider.hasLocation) {
-                          return Row(
-                            children: [
-                              Icon(
-                                Icons.location_on,
-                                size: 16.sp,
-                                color: Colors.green,
-                              ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                'Près de vous',
-                                style: TextStyle(
-                                  fontSize: 14.sp,
+                        if (locationProvider.hasLocation) {
+                          return GestureDetector(
+                            onTap: _showLocationFilterBottomSheet,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 16.sp,
+                                  color: Colors.green,
+                                ),
+                                SizedBox(width: 4.w),
+                                Expanded(
+                                  child: Text(
+                                    locationProvider.address.isNotEmpty 
+                                        ? locationProvider.address 
+                                        : 'Près de vous',
+                                    style: TextStyle(
+                                      fontSize: 14.sp,
+                                      color: Colors.grey[600],
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.keyboard_arrow_down,
+                                  size: 16.sp,
                                   color: Colors.grey[600],
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           );
                         }
                         
                         return GestureDetector(
-                          onTap: () => provider.initialize(),
+                          onTap: _showLocationFilterBottomSheet,
                           child: Row(
                             children: [
                               Icon(
@@ -138,7 +179,7 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
                               ),
                               SizedBox(width: 4.w),
                               Text(
-                                'Activer la localisation',
+                                'Définir ma localisation',
                                 style: TextStyle(
                                   fontSize: 14.sp,
                                   color: Colors.orange,
@@ -153,16 +194,7 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
                   ],
                 ),
               ),
-              // Menu utilisateur
-              CircleAvatar(
-                radius: 20.r,
-                backgroundColor: Colors.grey[200],
-                child: Icon(
-                  Icons.person,
-                  size: 20.sp,
-                  color: Colors.grey[600],
-                ),
-              ),
+             
             ],
           ),
           
@@ -341,15 +373,22 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
   }
 
   Widget _buildRestaurantsList() {
-    return Consumer<RestaurantProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
+    return Consumer2<RestaurantProvider, LocationProvider>(
+      builder: (context, restaurantProvider, locationProvider, child) {
+        // Appliquer les filtres avec la localisation quand elle change
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (locationProvider.hasLocation) {
+            restaurantProvider.applyFiltersWithLocation(locationProvider);
+          }
+        });
+
+        if (restaurantProvider.isLoading) {
           return const Center(
             child: CircularProgressIndicator(),
           );
         }
 
-        if (provider.error != null) {
+        if (restaurantProvider.error != null) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -361,7 +400,7 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
                 ),
                 SizedBox(height: 16.h),
                 Text(
-                  provider.error!,
+                  restaurantProvider.error!,
                   style: TextStyle(
                     fontSize: 16.sp,
                     color: Colors.grey[600],
@@ -370,7 +409,7 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
                 ),
                 SizedBox(height: 16.h),
                 ElevatedButton(
-                  onPressed: () => provider.refresh(),
+                  onPressed: () => restaurantProvider.refresh(),
                   child: const Text('Réessayer'),
                 ),
               ],
@@ -378,7 +417,7 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
           );
         }
 
-        if (provider.restaurants.isEmpty) {
+        if (restaurantProvider.restaurants.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -412,14 +451,14 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
         }
 
         return RefreshIndicator(
-          onRefresh: provider.refresh,
+          onRefresh: restaurantProvider.refresh,
           child: ListView.builder(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.only(bottom: 16.h),
-            itemCount: provider.restaurants.length,
+            itemCount: restaurantProvider.restaurants.length,
             itemBuilder: (context, index) {
-              final restaurant = provider.restaurants[index];
+              final restaurant = restaurantProvider.restaurants[index];
               return RestaurantCard(
                 restaurant: restaurant,
                 onTap: () => _navigateToRestaurantDetail(restaurant),

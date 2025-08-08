@@ -2,8 +2,10 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/service.dart';
+import 'package:happy/screens/details_page/details_company_page.dart';
 import 'package:happy/screens/service_payment.dart';
 import 'package:happy/services/service_service.dart';
+import 'package:happy/widgets/company_info_card.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/booking_service.dart';
@@ -542,6 +544,38 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     );
   }
 
+    Widget _buildCompanySection(ServiceModel service) {
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Entreprise',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+       CompanyInfoCard(
+            name: service.companyName,
+            logo: service.companyLogo,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailsEntreprise(
+                      entrepriseId: service.companyId,
+                    ),
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getCancellationPolicyText(String policy) {
     switch (policy) {
       case 'flexible':
@@ -672,6 +706,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     _buildServiceInfo(service),
                     _buildAvailabilitySection(service),
                     _buildAdditionalInfo(service),
+                    _buildCompanySection(service),
                   ],
                 ),
               ),

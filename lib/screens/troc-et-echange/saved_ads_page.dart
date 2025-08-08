@@ -110,7 +110,11 @@ class _SavedAdsPageState extends State<SavedAdsPage> {
               ? const Center(child: Text('Aucune annonce sauvegardée'))
               : RefreshIndicator(
                   onRefresh: _loadSavedAds,
-                  child: ListView.builder(
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.6,
+                    ),
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: _savedAds.length,

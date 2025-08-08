@@ -12,7 +12,6 @@ import 'package:happy/screens/my_deals_express.dart';
 import 'package:happy/screens/onboarding/edit_onboarding_page.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/referral_code_page.dart';
-import 'package:happy/screens/savings_page.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/screens/user_applications_page.dart';
 import 'package:happy/screens/user_booking_page.dart';
@@ -81,11 +80,11 @@ final List<_Category> _categories = [
     title: 'Économies',
     items: [
       _ServiceItem(
-        icon: Icons.account_balance_wallet,
-        title: 'Mes économies',
+        icon: Icons.currency_exchange,
+        title: 'Cagnotte Up!',
         onTap: (context, _) => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const SavingsPage()),
+          MaterialPageRoute(builder: (context) => const LoyaltyPointsPage()),
         ),
       ),
       _ServiceItem(
@@ -94,14 +93,6 @@ final List<_Category> _categories = [
         onTap: (context, _) => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => LoyaltyCardsPage()),
-        ),
-      ),
-      _ServiceItem(
-        icon: Icons.currency_exchange,
-        title: 'Cagnotte Up!',
-        onTap: (context, _) => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const LoyaltyPointsPage()),
         ),
       ),
     ],

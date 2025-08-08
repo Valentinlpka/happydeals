@@ -232,8 +232,8 @@ class _UserOrdersPagesState extends State<UserOrdersPages> {
     IconData icon;
 
     switch (status) {
-      case 'paid':
-        text = "Payée";
+      case 'confirmed':
+        text = "Confirmée";
         backgroundColor = Colors.blue[50]!;
         textColor = Colors.blue[700]!;
         icon = Icons.payment;

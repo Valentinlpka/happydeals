@@ -57,7 +57,7 @@ class MyAdsPage extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => _navigateToAdCreation(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[900],
+                      backgroundColor: Colors.blue[700],
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
@@ -70,6 +70,7 @@ class MyAdsPage extends StatelessWidget {
                     child: const Text(
                       'Créer une annonce',
                       style: TextStyle(
+                        
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -114,11 +115,7 @@ class MyAdsPage extends StatelessWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToAdCreation(context),
-        backgroundColor: Colors.grey[900],
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      
     );
   }
 

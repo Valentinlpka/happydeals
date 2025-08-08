@@ -111,6 +111,8 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
 
     final isLiked =
         context.watch<UserModel>().likedPosts.contains(widget.post.id);
+    final isExpired = fullPromoCode!.expiresAt != null && 
+                     fullPromoCode!.expiresAt!.isBefore(DateTime.now());
 
     return Scaffold(
       appBar: CustomAppBar(
@@ -158,18 +160,23 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _copyToClipboard(context, fullPromoCode!.code),
-        backgroundColor: Colors.blue[800],
+        onPressed: isExpired ? null : () => _copyToClipboard(context, fullPromoCode!.code),
+        backgroundColor: isExpired ? Colors.grey[400] : Colors.blue[800],
         elevation: 2,
-        label: const Row(
+        label: Row(
           children: [
-            Icon(Icons.copy, size: 20),
-            SizedBox(width: 8),
+            Icon(
+              isExpired ? Icons.block : Icons.copy, 
+              size: 20,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 8),
             Text(
-              'Copier le code',
-              style: TextStyle(
+              isExpired ? 'Code expiré' : 'Copier le code',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ],
@@ -180,66 +187,114 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
   }
 
   Widget _buildPromoCodeCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+    final isExpired = fullPromoCode!.expiresAt != null && 
+                     fullPromoCode!.expiresAt!.isBefore(DateTime.now());
+    
+    return Stack(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(13),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  fullPromoCode!.code,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isExpired ? Colors.grey[200] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                  border: isExpired ? Border.all(color: Colors.grey[400]!) : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      fullPromoCode!.code,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        color: isExpired ? Colors.grey[600] : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: Icon(
+                        Icons.copy,
+                        color: isExpired ? Colors.grey[400] : Colors.blue[700],
+                      ),
+                      onPressed: isExpired ? null : () =>
+                          _copyToClipboard(context, fullPromoCode!.code),
+                      tooltip: isExpired ? 'Code expiré' : 'Copier le code',
+                    ),
+                  ],
+                ),
+              ),
+              if (fullPromoCode!.maxUses != null) ...[
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: fullPromoCode!.currentUses.toDouble() /
+                      (int.parse(fullPromoCode!.maxUses!) * 1.0),
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isExpired ? Colors.grey[400]! : Colors.blue[700]!,
                   ),
                 ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Icons.copy),
-                  color: Colors.blue[700],
-                  onPressed: () =>
-                      _copyToClipboard(context, fullPromoCode!.code),
+                const SizedBox(height: 8),
+                Text(
+                  'Utilisé ${fullPromoCode!.currentUses} fois sur ${fullPromoCode!.maxUses}',
+                  style: TextStyle(
+                    color: isExpired ? Colors.grey[500] : Colors.grey[600], 
+                    fontSize: 12,
+                  ),
                 ),
               ],
+            ],
+          ),
+        ),
+        // Badge d'expiration
+        if (isExpired)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.red[600],
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(25),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Text(
+                'EXPIRÉ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
-          if (fullPromoCode!.maxUses != null) ...[
-            const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: fullPromoCode!.currentUses.toDouble() /
-                  (int.parse(fullPromoCode!.maxUses!) * 1.0),
-              backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[700]!),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Utilisé ${fullPromoCode!.currentUses} fois sur ${fullPromoCode!.maxUses}',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-          ],
-        ],
-      ),
+      ],
     );
   }
 
@@ -306,6 +361,9 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
   }
 
   Widget _buildDetailsSection() {
+    final isExpired = fullPromoCode!.expiresAt != null && 
+                     fullPromoCode!.expiresAt!.isBefore(DateTime.now());
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -331,13 +389,49 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
           ),
           child: Column(
             children: [
-              if (fullPromoCode!.expiresAt != null)
+              if (fullPromoCode!.expiresAt != null) ...[
                 _buildInfoRow(
                   'Date d\'expiration',
                   DateFormat('dd/MM/yyyy à HH:mm')
                       .format(fullPromoCode!.expiresAt!),
                   Icons.calendar_today,
+                  isExpired: isExpired,
                 ),
+                if (isExpired) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red[600],
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Ce code promo a expiré et ne peut plus être utilisé',
+                            style: TextStyle(
+                              color: Colors.red[700],
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
               _buildInfoRow(
                 'Créé le',
                 DateFormat('dd/MM/yyyy à HH:mm')
@@ -502,7 +596,7 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, IconData icon) {
+  Widget _buildInfoRow(String label, String value, IconData icon, {bool isExpired = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -518,9 +612,10 @@ class _PromoCodeDetailsState extends State<PromoCodeDetails> {
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
+              color: isExpired ? Colors.red[700] : Colors.black,
             ),
           ),
         ],

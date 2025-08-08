@@ -1,11 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/joboffer.dart';
+import 'package:happy/providers/location_provider.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
-import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/current_location_display.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/search_bar.dart';
+import 'package:happy/widgets/unified_location_filter.dart';
+import 'package:provider/provider.dart';
 
 class JobOffersPage extends StatefulWidget {
   const JobOffersPage({super.key});
@@ -22,16 +26,20 @@ class _JobOffersPageState extends State<JobOffersPage> {
   List<String> _locations = ['Tous'];
   List<String> _sectors = ['Tous'];
 
-  // Variables pour la localisation
-  double? _selectedLat;
-  double? _selectedLng;
-  double _selectedRadius = 5.0;
-  String _selectedAddress = '';
+  // Variables pour la localisation (maintenant gérées par LocationProvider)
 
   @override
   void initState() {
     super.initState();
     _loadFilters();
+    _initializeLocation();
+  }
+
+  Future<void> _initializeLocation() async {
+    final userModel = Provider.of<UserModel>(context, listen: false);
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    await locationProvider.initializeLocation(userModel);
   }
 
   Future<void> _loadFilters() async {
@@ -62,55 +70,78 @@ class _JobOffersPageState extends State<JobOffersPage> {
   }
 
   void _showLocationFilterBottomSheet() async {
-    await LocationFilterBottomSheet.show(
+    await UnifiedLocationFilter.show(
       context: context,
-      onLocationSelected: (lat, lng, radius, address) {
+      onLocationChanged: () {
         setState(() {
-          _selectedLat = lat;
-          _selectedLng = lng;
-          _selectedRadius = radius;
-          _selectedAddress = address;
+          // La localisation a été mise à jour via le provider
         });
       },
-      currentLat: _selectedLat,
-      currentLng: _selectedLng,
-      currentRadius: _selectedRadius,
-      currentAddress: _selectedAddress,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Offres d\'emploi',
-        align: Alignment.center,
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.location_on,
-              color: _selectedLat != null ? const Color(0xFF4B88DA) : null,
-            ),
-            onPressed: _showLocationFilterBottomSheet,
+    return Consumer2<LocationProvider, UserModel>(
+      builder: (context, locationProvider, userModel, child) {
+        return Scaffold(
+          appBar: CustomAppBar(
+            title: 'Offres d\'emploi',
+            align: Alignment.center,
+            actions: [
+              Stack(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.location_on,
+                      color: locationProvider.hasLocation 
+                          ? const Color(0xFF4B88DA) 
+                          : null,
+                    ),
+                    onPressed: _showLocationFilterBottomSheet,
+                  ),
+                  if (locationProvider.hasLocation)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4B88DA),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: _showFilterBottomSheet,
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterBottomSheet,
+          body: Column(
+            children: [
+              CurrentLocationDisplay(
+                onLocationChanged: () {
+                  setState(() {
+                    // La localisation a été mise à jour
+                  });
+                },
+              ),
+              _buildSearchAndFilters(locationProvider),
+              Expanded(
+                child: _buildJobOffersList(locationProvider),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildSearchAndFilters(),
-          Expanded(
-            child: _buildJobOffersList(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSearchAndFilters() {
+  Widget _buildSearchAndFilters(LocationProvider locationProvider) {
     return Column(
       children: [
         CustomSearchBar(
@@ -123,86 +154,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
             setState(() {});
           },
         ),
-        if (_selectedLocation != 'Tous' ||
-            _selectedSector != 'Tous' ||
-            _selectedAddress.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                if (_selectedLocation != 'Tous')
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(_selectedLocation),
-                      onSelected: (_) {},
-                      selected: true,
-                      onDeleted: () {
-                        setState(() {
-                          _selectedLocation = 'Tous';
-                        });
-                      },
-                      deleteIcon: const Icon(Icons.close,
-                          size: 18, color: Colors.white),
-                      backgroundColor: const Color(0xFF4B88DA),
-                      selectedColor: const Color(0xFF4B88DA),
-                      labelStyle: const TextStyle(color: Colors.white),
-                      showCheckmark: false,
-                    ),
-                  ),
-                if (_selectedSector != 'Tous')
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(_selectedSector),
-                      onSelected: (_) {},
-                      selected: true,
-                      onDeleted: () {
-                        setState(() {
-                          _selectedSector = 'Tous';
-                        });
-                      },
-                      deleteIcon: const Icon(Icons.close,
-                          size: 18, color: Colors.white),
-                      backgroundColor: const Color(0xFF4B88DA),
-                      selectedColor: const Color(0xFF4B88DA),
-                      labelStyle: const TextStyle(color: Colors.white),
-                      showCheckmark: false,
-                    ),
-                  ),
-                if (_selectedAddress.isNotEmpty)
-                  FilterChip(
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.location_on,
-                            size: 16, color: Colors.white),
-                        const SizedBox(width: 4),
-                        Text(
-                            '${_selectedRadius.toInt()} km - $_selectedAddress'),
-                      ],
-                    ),
-                    onSelected: (_) {},
-                    selected: true,
-                    onDeleted: () {
-                      setState(() {
-                        _selectedLat = null;
-                        _selectedLng = null;
-                        _selectedAddress = '';
-                      });
-                    },
-                    deleteIcon:
-                        const Icon(Icons.close, size: 18, color: Colors.white),
-                    backgroundColor: const Color(0xFF4B88DA),
-                    selectedColor: const Color(0xFF4B88DA),
-                    labelStyle: const TextStyle(color: Colors.white),
-                    showCheckmark: false,
-                  ),
-              ],
-            ),
-          ),
+      
       ],
     );
   }
@@ -326,7 +278,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
     );
   }
 
-  Widget _buildJobOffersList() {
+  Widget _buildJobOffersList(LocationProvider locationProvider) {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('posts')
@@ -382,21 +334,38 @@ class _JobOffersPageState extends State<JobOffersPage> {
                       companyData['adress'] as Map<String, dynamic>?;
 
                   // Vérification de la distance si un filtre de localisation est actif
-                  if (_selectedLat != null &&
-                      _selectedLng != null &&
+                  if (locationProvider.hasLocation &&
                       companyAddress != null &&
                       companyAddress['latitude'] != null &&
                       companyAddress['longitude'] != null) {
-                    final companyLat = companyAddress['latitude'] as double;
-                    final companyLng = companyAddress['longitude'] as double;
-
-                    if (!LocationUtils.isWithinRadius(
-                      _selectedLat!,
-                      _selectedLng!,
-                      companyLat,
-                      companyLng,
-                      _selectedRadius,
-                    )) {
+                    // Conversion sécurisée des coordonnées
+                    double? companyLat;
+                    double? companyLng;
+                    
+                    if (companyAddress['latitude'] != null) {
+                      if (companyAddress['latitude'] is num) {
+                        companyLat = (companyAddress['latitude'] as num).toDouble();
+                      } else if (companyAddress['latitude'] is String) {
+                        companyLat = double.tryParse(companyAddress['latitude']);
+                      }
+                    }
+                    
+                    if (companyAddress['longitude'] != null) {
+                      if (companyAddress['longitude'] is num) {
+                        companyLng = (companyAddress['longitude'] as num).toDouble();
+                      } else if (companyAddress['longitude'] is String) {
+                        companyLng = double.tryParse(companyAddress['longitude']);
+                      }
+                    }
+                    
+                    if (companyLat != null && companyLng != null &&
+                        !LocationUtils.isWithinRadius(
+                          locationProvider.latitude!,
+                          locationProvider.longitude!,
+                          companyLat,
+                          companyLng,
+                          locationProvider.radius,
+                        )) {
                       return const SizedBox.shrink();
                     }
                   }

@@ -58,8 +58,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               actions: [
                 IconButton(
                   icon: const Icon(Icons.home),
-                  onPressed: () => Navigator.of(context)
-                      .pushNamedAndRemoveUntil('/home', (route) => false),
+                  onPressed: () {
+                    // Revenir à la page d'accueil existante sans rechargement
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
                   tooltip: 'Retour à l\'accueil',
                 ),
                 IconButton(
@@ -450,7 +452,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'paid':
+      case 'confirmed':
         return Colors.blue;
       case 'en préparation':
         return Colors.orange;
@@ -465,8 +467,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   String _getStatusText(String status) {
     switch (status) {
-      case 'paid':
-        return "Payée";
+      case 'confirmed':
+        return "Confirmée";
       case 'en préparation':
         return "En préparation";
       case 'prête à être retirée':

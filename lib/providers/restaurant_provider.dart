@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:happy/classes/restaurant.dart';
+import 'package:happy/providers/location_provider.dart';
 
 enum RestaurantSortBy {
   distance,
@@ -72,10 +73,8 @@ class RestaurantProvider extends ChangeNotifier {
   List<Restaurant> _restaurants = [];
   List<Restaurant> _filteredRestaurants = [];
   List<String> _availableCategories = [];
-  Position? _userPosition;
   
   bool _isLoading = false;
-  bool _isLocationLoading = false;
   String _searchQuery = '';
   RestaurantFilters _filters = RestaurantFilters();
   RestaurantSortBy _sortBy = RestaurantSortBy.distance;
@@ -84,255 +83,195 @@ class RestaurantProvider extends ChangeNotifier {
   // Getters
   List<Restaurant> get restaurants => _filteredRestaurants;
   List<String> get availableCategories => _availableCategories;
-  Position? get userPosition => _userPosition;
   bool get isLoading => _isLoading;
-  bool get isLocationLoading => _isLocationLoading;
   String get searchQuery => _searchQuery;
   RestaurantFilters get filters => _filters;
   RestaurantSortBy get sortBy => _sortBy;
   String? get error => _error;
-  bool get hasLocation => _userPosition != null;
 
   // Initialisation
   Future<void> initialize() async {
-    await Future.wait([
-      _requestLocationPermission(),
-      fetchRestaurants(),
-      _fetchAvailableCategories(),
-    ]);
-  }
-
-  // Gestion de la localisation
-  Future<void> _requestLocationPermission() async {
-    _isLocationLoading = true;
-    notifyListeners();
-
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        debugPrint('Les services de localisation sont désactivés');
-        _isLocationLoading = false;
-        notifyListeners();
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          debugPrint('Les permissions de localisation sont refusées');
-          _isLocationLoading = false;
-          notifyListeners();
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        debugPrint('Les permissions de localisation sont définitivement refusées');
-        _isLocationLoading = false;
-        notifyListeners();
-        return;
-      }
-
-      _userPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      
-      debugPrint('Position obtenue: ${_userPosition?.latitude}, ${_userPosition?.longitude}');
-      
-      // Recalculer les distances
-      _calculateDistances();
-      _applySortingAndFilters();
-      
-    } catch (e) {
-      debugPrint('Erreur lors de l\'obtention de la position: $e');
-      _error = 'Impossible d\'obtenir votre position';
-    } finally {
-      _isLocationLoading = false;
-      notifyListeners();
-    }
+    await fetchRestaurants();
   }
 
   // Récupération des restaurants
   Future<void> fetchRestaurants() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      final querySnapshot = await _firestore
-          .collection('companys')
-          .where('categorie', isEqualTo: 'Restauration')
-          .get();
-
-      _restaurants = querySnapshot.docs
-          .map((doc) => Restaurant.fromFirestore(doc))
-          .toList();
-
-      _calculateDistances();
-      _applySortingAndFilters();
-
-      _error = null;
-      debugPrint('${_restaurants.length} restaurants récupérés');
-    } catch (e) {
-      debugPrint('Erreur lors de la récupération des restaurants: $e');
-      _error = 'Impossible de charger les restaurants';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // Récupération des catégories disponibles
-  Future<void> _fetchAvailableCategories() async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('companys')
-          .where('categorie', isEqualTo: 'Restauration')
-          .get();
-
+      final snapshot = await _firestore.collection('companys').where('categorie', isEqualTo: 'Restauration').get();
+      final restaurants = <Restaurant>[];
       final categories = <String>{};
-      for (final doc in querySnapshot.docs) {
-        final data = doc.data();
-        final category = data['categorie'] as String?;
-        if (category != null && category.isNotEmpty) {
-          categories.add(category);
+
+      for (var doc in snapshot.docs) {
+        try {
+          final restaurant = Restaurant.fromFirestore(doc);
+          restaurants.add(restaurant);
+          
+          if (restaurant.category.isNotEmpty) {
+            categories.add(restaurant.category);
+          }
+          if (restaurant.subCategory.isNotEmpty) {
+            categories.add(restaurant.subCategory);
+          }
+        } catch (e) {
+          debugPrint('Erreur lors du parsing du restaurant ${doc.id}: $e');
         }
       }
 
+      _restaurants = restaurants;
       _availableCategories = categories.toList()..sort();
-      notifyListeners();
+      
+      _applySortingAndFilters(null);
+      
     } catch (e) {
-      debugPrint('Erreur lors de la récupération des catégories: $e');
+      debugPrint('Erreur lors de la récupération des restaurants: $e');
+      _setError('Erreur lors de la récupération des restaurants');
+    } finally {
+      _setLoading(false);
     }
   }
 
-  // Calcul des distances
-  void _calculateDistances() {
-    if (_userPosition == null) return;
+  // Calcul des distances en utilisant le LocationProvider
+  void _calculateDistances(LocationProvider locationProvider) {
+    if (!locationProvider.hasLocation) return;
 
-    for (final restaurant in _restaurants) {
-      restaurant.distance = Geolocator.distanceBetween(
-        _userPosition!.latitude,
-        _userPosition!.longitude,
+    for (var restaurant in _restaurants) {
+      final distance = _calculateDistance(
+        locationProvider.latitude!,
+        locationProvider.longitude!,
         restaurant.address.latitude,
         restaurant.address.longitude,
-      ) / 1000; // Convertir en kilomètres
+      );
+      restaurant.distance = distance;
     }
   }
 
-  // Recherche
-  void search(String query) {
-    _searchQuery = query.toLowerCase();
-    _applySortingAndFilters();
+  // Calcul de distance entre deux points
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000; // en km
   }
 
-  // Filtres
-  void updateFilters(RestaurantFilters newFilters) {
-    _filters = newFilters;
-    _applySortingAndFilters();
-  }
-
-  void clearFilters() {
-    _filters = RestaurantFilters();
-    _applySortingAndFilters();
-  }
-
-  // Tri
-  void updateSorting(RestaurantSortBy sortBy) {
-    _sortBy = sortBy;
-    _applySortingAndFilters();
-  }
-
-  // Application des filtres et du tri
-  void _applySortingAndFilters() {
+  // Application du tri et des filtres
+  void _applySortingAndFilters(LocationProvider? locationProvider) {
     var filtered = List<Restaurant>.from(_restaurants);
 
-    // Application de la recherche
-    if (_searchQuery.isNotEmpty) {
+    // Calculer les distances si on a une localisation
+    if (locationProvider != null && locationProvider.hasLocation) {
+      _calculateDistances(locationProvider);
+    }
+
+    // Appliquer les filtres
+    if (_filters.categories.isNotEmpty) {
       filtered = filtered.where((restaurant) {
-        return restaurant.name.toLowerCase().contains(_searchQuery) ||
-            restaurant.description.toLowerCase().contains(_searchQuery) ||
-            restaurant.category.toLowerCase().contains(_searchQuery) ||
-            restaurant.tags.any((tag) => tag.toLowerCase().contains(_searchQuery));
+        return _filters.categories.contains(restaurant.category) ||
+               _filters.categories.contains(restaurant.subCategory);
       }).toList();
     }
 
-    // Application des filtres
-    filtered = filtered.where((restaurant) {
-      // Filtre par catégorie
-      if (_filters.categories.isNotEmpty &&
-          !_filters.categories.contains(restaurant.category)) {
-        return false;
-      }
+    if (_filters.minRating != null) {
+      filtered = filtered.where((restaurant) => 
+          restaurant.rating >= _filters.minRating!).toList();
+    }
 
-      // Filtre par note minimale
-      if (_filters.minRating != null &&
-          restaurant.rating < _filters.minRating!) {
-        return false;
-      }
+    if (_filters.maxDistance != null && locationProvider?.hasLocation == true) {
+      filtered = filtered.where((restaurant) => 
+          restaurant.distance != null && restaurant.distance! <= _filters.maxDistance!).toList();
+    }
 
-      // Filtre par distance maximale
-      if (_filters.maxDistance != null &&
-          restaurant.distance != null &&
-          restaurant.distance! > _filters.maxDistance!) {
-        return false;
-      }
+    if (_filters.minPrice != null) {
+      filtered = filtered.where((restaurant) => 
+          restaurant.averageOrderValue >= _filters.minPrice!).toList();
+    }
 
-      // Filtre ouvert maintenant
-      if (_filters.openNow && !restaurant.isOpen) {
-        return false;
-      }
+    if (_filters.maxPrice != null) {
+      filtered = filtered.where((restaurant) => 
+          restaurant.averageOrderValue <= _filters.maxPrice!).toList();
+    }
 
-      // Filtre prix minimum
-      if (_filters.minPrice != null &&
-          restaurant.averageOrderValue < _filters.minPrice!) {
-        return false;
-      }
+    if (_filters.maxPreparationTime != null) {
+      filtered = filtered.where((restaurant) => 
+          restaurant.preparationTime <= _filters.maxPreparationTime!).toList();
+    }
 
-      // Filtre prix maximum
-      if (_filters.maxPrice != null &&
-          restaurant.averageOrderValue > _filters.maxPrice!) {
-        return false;
-      }
+    if (_filters.openNow) {
+      filtered = filtered.where((restaurant) => restaurant.isOpen).toList();
+    }
 
-      // Filtre temps de préparation maximum
-      if (_filters.maxPreparationTime != null &&
-          restaurant.preparationTime > _filters.maxPreparationTime!) {
-        return false;
-      }
+    if (_filters.hasPromotions) {
+      // Logique pour les restaurants avec promotions
+      // À implémenter selon vos besoins
+    }
 
-      return true;
-    }).toList();
+    // Appliquer la recherche
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((restaurant) {
+        return restaurant.name.toLowerCase().contains(query) ||
+               restaurant.description.toLowerCase().contains(query) ||
+               restaurant.category.toLowerCase().contains(query) ||
+               restaurant.subCategory.toLowerCase().contains(query) ||
+               restaurant.tags.any((tag) => tag.toLowerCase().contains(query));
+      }).toList();
+    }
 
-    // Application du tri
-    filtered.sort((a, b) {
-      switch (_sortBy) {
-        case RestaurantSortBy.distance:
-          if (a.distance == null && b.distance == null) return 0;
-          if (a.distance == null) return 1;
-          if (b.distance == null) return -1;
-          return a.distance!.compareTo(b.distance!);
-        
-        case RestaurantSortBy.rating:
-          return b.rating.compareTo(a.rating);
-        
-        case RestaurantSortBy.preparationTime:
-          return a.preparationTime.compareTo(b.preparationTime);
-        
-        case RestaurantSortBy.averagePrice:
-          return a.averageOrderValue.compareTo(b.averageOrderValue);
-        
-        case RestaurantSortBy.popularity:
-          return b.totalReviews.compareTo(a.totalReviews);
-      }
-    });
+    // Appliquer le tri
+    switch (_sortBy) {
+      case RestaurantSortBy.distance:
+        if (locationProvider?.hasLocation == true) {
+          filtered.sort((a, b) => (a.distance ?? double.infinity)
+              .compareTo(b.distance ?? double.infinity));
+        }
+        break;
+      case RestaurantSortBy.rating:
+        filtered.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
+      case RestaurantSortBy.preparationTime:
+        filtered.sort((a, b) => a.preparationTime.compareTo(b.preparationTime));
+        break;
+      case RestaurantSortBy.averagePrice:
+        filtered.sort((a, b) => a.averageOrderValue.compareTo(b.averageOrderValue));
+        break;
+      case RestaurantSortBy.popularity:
+        filtered.sort((a, b) => b.totalReviews.compareTo(a.totalReviews));
+        break;
+    }
 
     _filteredRestaurants = filtered;
     notifyListeners();
   }
 
-  // Actualisation
+  // Méthode publique pour appliquer les filtres avec le LocationProvider
+  void applyFiltersWithLocation(LocationProvider locationProvider) {
+    _applySortingAndFilters(locationProvider);
+  }
+
+  // Recherche
+  void search(String query) {
+    _searchQuery = query;
+    _applySortingAndFilters(null);
+  }
+
+  // Mise à jour des filtres
+  void updateFilters(RestaurantFilters filters) {
+    _filters = filters;
+    _applySortingAndFilters(null);
+  }
+
+  // Mise à jour du tri
+  void updateSorting(RestaurantSortBy sortBy) {
+    _sortBy = sortBy;
+    _applySortingAndFilters(null);
+  }
+
+  // Effacer les filtres
+  void clearFilters() {
+    _filters = RestaurantFilters();
+    _applySortingAndFilters(null);
+  }
+
+  // Actualiser
   Future<void> refresh() async {
     await fetchRestaurants();
   }
@@ -351,5 +290,19 @@ class RestaurantProvider extends ChangeNotifier {
     }
   }
 
-  // Nettoyer les ressources
+  // Méthodes privées
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void _setError(String error) {
+    _error = error;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    _error = null;
+    notifyListeners();
+  }
 } 

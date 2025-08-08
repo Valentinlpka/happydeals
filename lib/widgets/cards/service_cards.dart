@@ -51,6 +51,7 @@ class _ServiceCardsState extends State<ServiceCards> {
         companyName: widget.post.companyName,
         companyLogo: widget.post.companyLogo,
         companyAddress: widget.post.companyAddress ?? {},
+        companyId: widget.post.companyId, 
       ));
     } else {
       serviceFuture = _getService(widget.post.serviceId);

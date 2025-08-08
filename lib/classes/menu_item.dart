@@ -788,12 +788,15 @@ class IncludedVariantTemplate {
   final String? label;
   final int order;
   final bool isRequired;
+  // Alignement Next.js: catégorie (facultatif)
+  final String? category;
 
   IncludedVariantTemplate({
     required this.templateId,
     this.label,
     required this.order,
     required this.isRequired,
+    this.category,
   });
 
   factory IncludedVariantTemplate.fromMap(Map<String, dynamic> map) {
@@ -802,6 +805,7 @@ class IncludedVariantTemplate {
       label: map['label']?.toString(),
       order: map['order'] ?? 0,
       isRequired: map['isRequired'] ?? false,
+      category: map['category']?.toString(),
     );
   }
 }
@@ -870,10 +874,13 @@ class ReferencedItem {
 class TemplateOverride {
   final Map<String, double>? priceOverrides;
   final Map<String, String>? displayOverrides;
+  // Alignement Next.js: possibilité d'exclure certains items d'un template
+  final List<String>? excludeItems;
 
   TemplateOverride({
     this.priceOverrides,
     this.displayOverrides,
+    this.excludeItems,
   });
 
   factory TemplateOverride.fromMap(Map<String, dynamic> map) {
@@ -891,9 +898,19 @@ class TemplateOverride {
       displayOverrides = Map<String, String>.from(map['displayOverrides']);
     }
 
+    List<String>? excludeItems;
+    if (map['excludeItems'] != null) {
+      try {
+        excludeItems = List<String>.from(map['excludeItems']);
+      } catch (_) {
+        excludeItems = null;
+      }
+    }
+
     return TemplateOverride(
       priceOverrides: priceOverrides,
       displayOverrides: displayOverrides,
+      excludeItems: excludeItems,
     );
   }
 }

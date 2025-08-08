@@ -12,6 +12,7 @@ import 'package:happy/config/app_router.dart';
 import 'package:happy/providers/ads_provider.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/home_provider.dart';
+import 'package:happy/providers/location_provider.dart';
 import 'package:happy/providers/notification_provider.dart';
 import 'package:happy/providers/restaurant_menu_provider.dart';
 import 'package:happy/providers/restaurant_provider.dart';
@@ -213,6 +214,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SearchProvider()),
         ChangeNotifierProvider(create: (_) => RestaurantProvider()),
         ChangeNotifierProvider(create: (_) => RestaurantMenuProvider()),
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
       ],
       child: MaterialApp(
         navigatorKey: AppRouter.navigatorKey,

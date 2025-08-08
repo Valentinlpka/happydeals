@@ -1,7 +1,6 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:happy/classes/company.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/providers/conversation_provider.dart';
@@ -29,32 +28,19 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
   int quantity = 1;
   ProductVariant? selectedVariant;
   Map<String, String> selectedAttributes = {};
-  late Future<Company> companyFuture;
   final ScrollController _scrollController = ScrollController();
   bool isNameExpanded = false;
 
   @override
   void initState() {
     super.initState();
-    companyFuture = _loadCompanyData();
     if (widget.product.variants.isNotEmpty) {
       selectedVariant = widget.product.variants[0];
       selectedAttributes = Map.from(selectedVariant!.attributes);
     }
   }
 
-  Future<Company> _loadCompanyData() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('companys')
-        .doc(widget.product.companyId)
-        .get();
 
-    if (!doc.exists) {
-      throw Exception('Company not found');
-    }
-
-    return Company.fromDocument(doc);
-  }
 
   void _updateSelectedVariant() {
     selectedVariant = widget.product.variants.firstWhere(

@@ -55,10 +55,31 @@ class DealsExpressCard extends StatelessWidget {
     }
   }
 
+  // Méthode pour vérifier si les créneaux sont valides
+  bool _hasValidTimeSlots() {
+    final now = DateTime.now();
+    return post.pickupTimeSlots.any((slot) => slot.date.isAfter(now));
+  }
+
+  // Méthode pour obtenir le prochain créneau valide
+  PickupTimeSlot? _getNextValidTimeSlot() {
+    final now = DateTime.now();
+    final validSlots = post.pickupTimeSlots
+        .where((slot) => slot.date.isAfter(now))
+        .toList();
+    
+    if (validSlots.isEmpty) return null;
+    
+    // Trier par date et retourner le plus proche
+    validSlots.sort((a, b) => a.date.compareTo(b.date));
+    return validSlots.first;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bool isActive = post.basketCount > 0;
-    final timeRemaining = _getTimeRemaining(post.pickupTimes[0]);
+    final bool isActive = post.basketCount > 0 && _hasValidTimeSlots();
+    final nextValidSlot = _getNextValidTimeSlot();
+    final timeRemaining = nextValidSlot != null ? _getTimeRemaining(nextValidSlot.date) : 'Expiré';
 
     if (isHorizontal) {
       return Container(
@@ -392,11 +413,15 @@ class DealsExpressCard extends StatelessWidget {
                                 color: Colors.grey,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                "À récupérer ${_formatDateTime(post.pickupTimes[0])}",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
+                              Expanded(
+                                child: Text(
+                                  nextValidSlot != null 
+                                      ? "À récupérer ${_formatDateTime(nextValidSlot.date)}"
+                                      : "Aucun créneau disponible",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: nextValidSlot != null ? Colors.grey : Colors.red[600],
+                                  ),
                                 ),
                               ),
                             ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:happy/providers/location_provider.dart';
 import 'package:happy/providers/restaurant_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -37,6 +38,7 @@ class _RestaurantFiltersModalState extends State<RestaurantFiltersModal> {
             child: SingleChildScrollView(
               padding: EdgeInsets.all(20.w),
               child: Column(
+
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Catégories
@@ -139,43 +141,45 @@ class _RestaurantFiltersModalState extends State<RestaurantFiltersModal> {
               ),
             ),
             SizedBox(height: 12.h),
-            Wrap(
-              spacing: 8.w,
-              runSpacing: 8.h,
-              children: provider.availableCategories.map((category) {
-                final isSelected = _currentFilters.categories.contains(category);
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      final newCategories = List<String>.from(_currentFilters.categories);
-                      if (isSelected) {
-                        newCategories.remove(category);
-                      } else {
-                        newCategories.add(category);
-                      }
-                      _currentFilters = _currentFilters.copyWith(categories: newCategories);
-                    });
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                    decoration: BoxDecoration(
-                      color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: isSelected
-                          ? null
-                          : Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: Text(
-                      category,
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected ? Colors.white : Colors.grey[700],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: provider.availableCategories.map((category) {
+                  final isSelected = _currentFilters.categories.contains(category);
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        final newCategories = List<String>.from(_currentFilters.categories);
+                        if (isSelected) {
+                          newCategories.remove(category);
+                        } else {
+                          newCategories.add(category);
+                        }
+                        _currentFilters = _currentFilters.copyWith(categories: newCategories);
+                      });
+                    },
+                    child: Container(
+                      margin: EdgeInsets.only(right: 8.w),
+                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: isSelected
+                            ? null
+                            : Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Text(
+                        category,
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w500,
+                          color: isSelected ? Colors.white : Colors.grey[700],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ],
         );
@@ -196,58 +200,61 @@ class _RestaurantFiltersModalState extends State<RestaurantFiltersModal> {
           ),
         ),
         SizedBox(height: 12.h),
-        Row(
-          children: [1.0, 2.0, 3.0, 4.0, 4.5].map((rating) {
-            final isSelected = _currentFilters.minRating == rating;
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _currentFilters = _currentFilters.copyWith(
-                    minRating: isSelected ? null : rating,
-                  );
-                });
-              },
-              child: Container(
-                margin: EdgeInsets.only(right: 12.w),
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(20.r),
-                  border: isSelected
-                      ? null
-                      : Border.all(color: Colors.grey[300]!),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.star,
-                      size: 16.sp,
-                      color: isSelected ? Colors.white : Colors.amber,
-                    ),
-                    SizedBox(width: 4.w),
-                    Text(
-                      rating.toString(),
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected ? Colors.white : Colors.grey[700],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [1.0, 2.0, 3.0, 4.0, 4.5].map((rating) {
+              final isSelected = _currentFilters.minRating == rating;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _currentFilters = _currentFilters.copyWith(
+                      minRating: isSelected ? null : rating,
+                    );
+                  });
+                },
+                child: Container(
+                  margin: EdgeInsets.only(right: 12.w),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: isSelected
+                        ? null
+                        : Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.star,
+                        size: 16.sp,
+                        color: isSelected ? Colors.white : Colors.amber,
                       ),
-                    ),
-                  ],
+                      SizedBox(width: 4.w),
+                      Text(
+                        rating.toString(),
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w500,
+                          color: isSelected ? Colors.white : Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildDistanceFilter() {
-    return Consumer<RestaurantProvider>(
-      builder: (context, provider, child) {
-        if (!provider.hasLocation) {
+    return Consumer<LocationProvider>(
+      builder: (context, locationProvider, child) {
+        if (!locationProvider.hasLocation) {
           return const SizedBox.shrink();
         }
 
@@ -263,38 +270,41 @@ class _RestaurantFiltersModalState extends State<RestaurantFiltersModal> {
               ),
             ),
             SizedBox(height: 12.h),
-            Row(
-              children: [1.0, 2.0, 5.0, 10.0, 20.0].map((distance) {
-                final isSelected = _currentFilters.maxDistance == distance;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _currentFilters = _currentFilters.copyWith(
-                        maxDistance: isSelected ? null : distance,
-                      );
-                    });
-                  },
-                  child: Container(
-                    margin: EdgeInsets.only(right: 12.w),
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                    decoration: BoxDecoration(
-                      color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: isSelected
-                          ? null
-                          : Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: Text(
-                      '${distance.toInt()} km',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected ? Colors.white : Colors.grey[700],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [1.0, 2.0, 5.0, 10.0, 20.0].map((distance) {
+                  final isSelected = _currentFilters.maxDistance == distance;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _currentFilters = _currentFilters.copyWith(
+                          maxDistance: isSelected ? null : distance,
+                        );
+                      });
+                    },
+                    child: Container(
+                      margin: EdgeInsets.only(right: 12.w),
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: isSelected
+                            ? null
+                            : Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Text(
+                        '${distance.toInt()} km',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w500,
+                          color: isSelected ? Colors.white : Colors.grey[700],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ],
         );
@@ -394,38 +404,41 @@ class _RestaurantFiltersModalState extends State<RestaurantFiltersModal> {
           ),
         ),
         SizedBox(height: 12.h),
-        Row(
-          children: [15, 30, 45, 60].map((time) {
-            final isSelected = _currentFilters.maxPreparationTime == time;
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _currentFilters = _currentFilters.copyWith(
-                    maxPreparationTime: isSelected ? null : time,
-                  );
-                });
-              },
-              child: Container(
-                margin: EdgeInsets.only(right: 12.w),
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(20.r),
-                  border: isSelected
-                      ? null
-                      : Border.all(color: Colors.grey[300]!),
-                ),
-                child: Text(
-                  '$time min',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    color: isSelected ? Colors.white : Colors.grey[700],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [15, 30, 45, 60].map((time) {
+              final isSelected = _currentFilters.maxPreparationTime == time;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _currentFilters = _currentFilters.copyWith(
+                      maxPreparationTime: isSelected ? null : time,
+                    );
+                  });
+                },
+                child: Container(
+                  margin: EdgeInsets.only(right: 12.w),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: isSelected
+                        ? null
+                        : Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Text(
+                    '$time min',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected ? Colors.white : Colors.grey[700],
+                    ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
@@ -487,6 +500,7 @@ class _RestaurantFiltersModalState extends State<RestaurantFiltersModal> {
             ),
           ),
           Switch(
+            inactiveTrackColor: Colors.grey[300],
             value: value,
             onChanged: onChanged,
             activeColor: Theme.of(context).primaryColor,

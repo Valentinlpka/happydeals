@@ -5,13 +5,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/classes/category_product.dart';
 import 'package:happy/classes/product.dart';
+import 'package:happy/providers/location_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/shop/category_products_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
 import 'package:happy/screens/shop/products_list_page.dart';
 import 'package:happy/services/algolia_service.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
-import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/current_location_display.dart';
+import 'package:happy/widgets/unified_location_filter.dart';
 import 'package:provider/provider.dart';
 
 String formatCategoryName(String categoryId) {
@@ -50,11 +52,7 @@ class _ProductsPageState extends State<ProductsPage> {
   List<Map<String, dynamic>> _algoliaResults = [];
   bool _isSearching = false;
 
-  // Variables pour la localisation
-  double? _selectedLat;
-  double? _selectedLng;
-  double _selectedRadius = 20.0;
-  String _selectedAddress = '';
+  // Variables pour la localisation (maintenant gérées par LocationProvider)
 
   @override
   void initState() {
@@ -137,100 +135,325 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Future<void> _initializeLocation() async {
-    final userProvider = Provider.of<UserModel>(context, listen: false);
-    if (userProvider.latitude != 0.0 && userProvider.longitude != 0.0) {
-      setState(() {
-        _selectedLat = userProvider.latitude;
-        _selectedLng = userProvider.longitude;
-        _selectedAddress = userProvider.city;
-      });
-    }
+    final userModel = Provider.of<UserModel>(context, listen: false);
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    await locationProvider.initializeLocation(userModel);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: CustomAppBar(
-        title: 'Produits',
-        align: Alignment.center,
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.location_on,
-              color: _selectedLat != null ? const Color(0xFF4B88DA) : null,
-            ),
-            onPressed: _showLocationFilterBottomSheet,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Barre de recherche
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Rechercher un produit...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF4B88DA)),
-                ),
-                filled: true,
-                fillColor: Colors.white,
+    return Consumer2<LocationProvider, UserModel>(
+      builder: (context, locationProvider, userModel, child) {
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: CustomAppBar(
+            title: 'Produits',
+            align: Alignment.center,
+            actions: [
+              Stack(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.location_on,
+                      color: locationProvider.hasLocation 
+                          ? const Color(0xFF4B88DA) 
+                          : null,
+                    ),
+                    onPressed: _showLocationFilterBottomSheet,
+                  ),
+                  if (locationProvider.hasLocation)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4B88DA),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              onChanged: (value) {
-                setState(() {});
-              },
-            ),
+            ],
           ),
+          body: Column(
+            children: [
+              CurrentLocationDisplay(
+                onLocationChanged: () {
+                  setState(() {
+                    // La localisation a été mise à jour
+                  });
+                },
+              ),
+              // Barre de recherche
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher un produit...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF4B88DA)),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  onChanged: (value) {
+                    setState(() {});
+                  },
+                ),
+              ),
 
-          // Contenu principal
-          Expanded(
-            child: _searchQuery.isNotEmpty
-                ? _buildSearchResults()
-                : SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // Liste horizontale des catégories
-                        if (!_isLoading && _mainCategories.isNotEmpty)
-                          Container(
-                            height: 40,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
+              // Contenu principal
+              Expanded(
+                child: _searchQuery.isNotEmpty
+                    ? _buildSearchResults()
+                    : SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Liste horizontale des catégories
+                            if (!_isLoading && _mainCategories.isNotEmpty)
+                              Container(
+                                height: 40,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _mainCategories.length,
+                                  itemBuilder: (context, index) {
+                                    final category = _mainCategories[index];
+                                    final isSelected =
+                                        _selectedCategory?.id == category.id;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 12),
+                                      child: InkWell(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  CategoryProductsPage(
+                                                categoryName: category.name,
+                                                categoryId: category.id,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? const Color(0xFF4B88DA)
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? const Color(0xFF4B88DA)
+                                                  : Colors.grey[300]!,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                category.name,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : Colors.black87,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            const SizedBox(height: 24),
+
+                            // Sections de produits
+                            if (locationProvider.hasLocation)
+                              FutureBuilder<List<String>>(
+                                future: _getNearbyCompanies(locationProvider),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                        child: CircularProgressIndicator());
+                                  }
+
+                                  if (snapshot.hasError ||
+                                      snapshot.data?.isEmpty == true) {
+                                    return const SizedBox();
+                                  }
+
+                                  return _buildProductSection(
+                                    title: 'Produits près de chez vous',
+                                    stream: FirebaseFirestore.instance
+                                        .collection('posts')
+                                        .where('isActive', isEqualTo: true)
+                                        .where('companyId', whereIn: snapshot.data)
+                                        .where('type', isEqualTo: 'product')
+                                        .limit(10)
+                                        .snapshots(),
+                                    onSeeMorePressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ProductsListPage(
+                                            title: 'Produits près de chez vous',
+                                            query: FirebaseFirestore.instance
+                                                .collection('posts')
+                                                .where('isActive', isEqualTo: true)
+                                                .where('type', isEqualTo: 'product')
+                                                .where('companyId',
+                                                    whereIn: snapshot.data),
+                                            showDistance: true,
+                                            userLat: locationProvider.latitude,
+                                            userLng: locationProvider.longitude,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    locationProvider: locationProvider,
+                                  );
+                                },
+                              ),
+                            const SizedBox(height: 32),
+
+                            // Autres sections existantes...
+                            _buildProductSection(
+                              title: 'Nouveautés',
+                              stream: FirebaseFirestore.instance
+                                  .collection('posts')
+                                  .where('type', isEqualTo: 'product')
+                                  .where('isActive', isEqualTo: true)
+                                  .orderBy('timestamp', descending: true)
+                                  .limit(10)
+                                  .snapshots(),
+                              onSeeMorePressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProductsListPage(
+                                      title: 'Nouveautés',
+                                      query: FirebaseFirestore.instance
+                                          .collection('posts')
+                                          .where('type', isEqualTo: 'product')
+                                          .where('isActive', isEqualTo: true)
+                                          .orderBy('timestamp', descending: true),
+                                      showDistance: true,
+                                      userLat: locationProvider.latitude,
+                                      userLng: locationProvider.longitude,
+                                    ),
+                                  ),
+                                );
+                              },
+                              locationProvider: locationProvider,
                             ),
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: _mainCategories.length,
-                              itemBuilder: (context, index) {
-                                final category = _mainCategories[index];
-                                final isSelected =
-                                    _selectedCategory?.id == category.id;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: InkWell(
-                                    onTap: () {
+                            const SizedBox(height: 32),
+
+                            // Section Produits les plus vendus
+                            _buildProductSection(
+                              title: 'Les plus populaires',
+                              stream: FirebaseFirestore.instance
+                                  .collection('posts')
+                                  .where('type', isEqualTo: 'product')
+                                  .where('isActive', isEqualTo: true)
+                                  .orderBy('views', descending: true)
+                                  .limit(10)
+                                  .snapshots(),
+                              onSeeMorePressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProductsListPage(
+                                      title: 'Les plus populaires',
+                                      query: FirebaseFirestore.instance
+                                          .collection('posts')
+                                          .where('type', isEqualTo: 'product')
+                                          .where('isActive', isEqualTo: true)
+                                          .orderBy('views', descending: true),
+                                      showDistance: true,
+                                      userLat: locationProvider.latitude,
+                                      userLng: locationProvider.longitude,
+                                    ),
+                                  ),
+                                );
+                              },
+                              locationProvider: locationProvider,
+                            ),
+                            const SizedBox(height: 32),
+
+                            // Sections par catégorie
+                            ..._mainCategories.map(
+                              (category) => StreamBuilder<QuerySnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('posts')
+                                    .where('type', isEqualTo: 'product')
+                                    .where('isActive', isEqualTo: true)
+                                    .where('categoryPath',
+                                        arrayContains: category.id)
+                                    .limit(10)
+                                    .snapshots(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const SizedBox();
+                                  }
+
+                                  if (snapshot.hasError || !snapshot.hasData) {
+                                    return const SizedBox();
+                                  }
+
+                                  final posts = snapshot.data!.docs;
+
+                                  if (posts.isEmpty) {
+                                    return const SizedBox();
+                                  }
+
+                                  return _buildProductSection(
+                                    title: category.name,
+                                    stream: FirebaseFirestore.instance
+                                        .collection('posts')
+                                        .where('type', isEqualTo: 'product')
+                                        .where('isActive', isEqualTo: true)
+                                        .where('categoryPath',
+                                            arrayContains: category.id)
+                                        .limit(10)
+                                        .snapshots(),
+                                    onSeeMorePressed: () {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
@@ -242,232 +465,30 @@ class _ProductsPageState extends State<ProductsPage> {
                                         ),
                                       );
                                     },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? const Color(0xFF4B88DA)
-                                            : Colors.white,
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? const Color(0xFF4B88DA)
-                                              : Colors.grey[300]!,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            category.name,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : Colors.black87,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
+                                    locationProvider: locationProvider,
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                        const SizedBox(height: 24),
-
-                        // Sections de produits
-                        if (_selectedLat != null && _selectedLng != null)
-                          FutureBuilder<List<String>>(
-                            future: _getNearbyCompanies(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Center(
-                                    child: CircularProgressIndicator());
-                              }
-
-                              if (snapshot.hasError ||
-                                  snapshot.data?.isEmpty == true) {
-                                return const SizedBox();
-                              }
-
-                              return _buildProductSection(
-                                title: 'Produits près de chez vous',
-                                stream: FirebaseFirestore.instance
-                                    .collection('posts')
-                                    .where('isActive', isEqualTo: true)
-                                    .where('sellerId', whereIn: snapshot.data)
-                                    .limit(10)
-                                    .snapshots(),
-                                onSeeMorePressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ProductsListPage(
-                                        title: 'Produits près de chez vous',
-                                        query: FirebaseFirestore.instance
-                                            .collection('posts')
-                                            .where('isActive', isEqualTo: true)
-                                            .where('sellerId',
-                                                whereIn: snapshot.data),
-                                        showDistance: true,
-                                        userLat: _selectedLat,
-                                        userLng: _selectedLng,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        const SizedBox(height: 32),
-
-                        // Autres sections existantes...
-                        _buildProductSection(
-                          title: 'Nouveautés',
-                          stream: FirebaseFirestore.instance
-                              .collection('posts')
-                              .where('type', isEqualTo: 'product')
-                              .where('isActive', isEqualTo: true)
-                              .orderBy('timestamp', descending: true)
-                              .limit(10)
-                              .snapshots(),
-                          onSeeMorePressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProductsListPage(
-                                  title: 'Nouveautés',
-                                  query: FirebaseFirestore.instance
-                                      .collection('posts')
-                                      .where('type', isEqualTo: 'product')
-                                      .where('isActive', isEqualTo: true)
-                                      .orderBy('timestamp', descending: true),
-                                  showDistance: true,
-                                  userLat: _selectedLat,
-                                  userLng: _selectedLng,
-                                ),
-                              ),
-                            );
-                          },
+                          ],
                         ),
-                        const SizedBox(height: 32),
-
-                        // Section Produits les plus vendus
-                        _buildProductSection(
-                          title: 'Les plus populaires',
-                          stream: FirebaseFirestore.instance
-                              .collection('posts')
-                              .where('type', isEqualTo: 'product')
-                              .where('isActive', isEqualTo: true)
-                              .orderBy('views', descending: true)
-                              .limit(10)
-                              .snapshots(),
-                              
-                              
-                          onSeeMorePressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProductsListPage(
-                                  title: 'Les plus populaires',
-                                  query: FirebaseFirestore.instance
-                                      .collection('posts')
-                                      .where('type', isEqualTo: 'product')
-                                      .where('isActive', isEqualTo: true)
-                                      .orderBy('views', descending: true),
-                                  showDistance: true,
-                                  userLat: _selectedLat,
-                                  userLng: _selectedLng,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Sections par catégorie
-                        ..._mainCategories.map(
-                          (category) => StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('posts')
-                                .where('type', isEqualTo: 'product')
-                                .where('isActive', isEqualTo: true)
-                                .where('categoryPath',
-                                    arrayContains: category.id)
-                                .limit(10)
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const SizedBox();
-                              }
-
-                              if (snapshot.hasError || !snapshot.hasData) {
-                                return const SizedBox();
-                              }
-
-                              final posts = snapshot.data!.docs;
-
-                              if (posts.isEmpty) {
-                                return const SizedBox();
-                              }
-
-                              return _buildProductSection(
-                                title: category.name,
-                                stream: FirebaseFirestore.instance
-                                    .collection('posts')
-                                    .where('type', isEqualTo: 'product')
-                                    .where('isActive', isEqualTo: true)
-                                    .where('categoryPath',
-                                        arrayContains: category.id)
-                                    .limit(10)
-                                    .snapshots(),
-                                onSeeMorePressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          CategoryProductsPage(
-                                        categoryName: category.name,
-                                        categoryId: category.id,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _showLocationFilterBottomSheet() async {
-    await LocationFilterBottomSheet.show(
+    await UnifiedLocationFilter.show(
       context: context,
-      onLocationSelected: (lat, lng, radius, address) {
+      onLocationChanged: () {
         setState(() {
-          _selectedLat = lat;
-          _selectedLng = lng;
-          _selectedRadius = radius;
-          _selectedAddress = address;
+          // La localisation a été mise à jour via le provider
         });
       },
-      currentLat: _selectedLat,
-      currentLng: _selectedLng,
-      currentRadius: _selectedRadius,
-      currentAddress: _selectedAddress,
     );
   }
 
@@ -483,6 +504,7 @@ class _ProductsPageState extends State<ProductsPage> {
     required String title,
     required Stream<QuerySnapshot> stream,
     required VoidCallback onSeeMorePressed,
+    LocationProvider? locationProvider,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -810,8 +832,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                                 overflow:
                                                     TextOverflow.ellipsis,
                                               ),
-                                              if (_selectedLat != null &&
-                                                  _selectedLng != null)
+                                              if (locationProvider?.hasLocation == true)
                                                 Row(
                                                   children: [
                                                     Icon(
@@ -823,8 +844,8 @@ class _ProductsPageState extends State<ProductsPage> {
                                                     Text(
                                                       _formatDistance(
                                                           calculateDistance(
-                                                        _selectedLat!,
-                                                        _selectedLng!,
+                                                        locationProvider!.latitude,
+                                                        locationProvider.longitude,
                                                         product.pickupLatitude,
                                                         product.pickupLongitude,
                                                       )),
@@ -858,7 +879,7 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
-  Future<List<String>> _getNearbyCompanies() async {
+  Future<List<String>> _getNearbyCompanies(LocationProvider locationProvider) async {
     try {
       final companysSnapshot =
           await FirebaseFirestore.instance.collection('companys').get();
@@ -875,13 +896,13 @@ class _ProductsPageState extends State<ProductsPage> {
             }
 
             final distance = calculateDistance(
-              _selectedLat,
-              _selectedLng,
+              locationProvider.latitude,
+              locationProvider.longitude,
               address['latitude'],
               address['longitude'],
             );
 
-            return distance <= _selectedRadius;
+            return distance <= locationProvider.radius;
           })
           .map((doc) => doc.id)
           .toList();

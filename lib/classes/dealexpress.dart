@@ -91,6 +91,46 @@ class PickupAddress {
   }
 }
 
+class PickupTimeSlot {
+  final DateTime date;
+  final String startTime;
+  final String endTime;
+
+  PickupTimeSlot({
+    required this.date,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  factory PickupTimeSlot.fromMap(Map<String, dynamic> map) {
+    DateTime convertToDateTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is Map) {
+        return Timestamp(
+          value['_seconds'] ?? 0,
+          value['_nanoseconds'] ?? 0,
+        ).toDate();
+      }
+      return DateTime.now();
+    }
+
+    return PickupTimeSlot(
+      date: convertToDateTime(map['date']),
+      startTime: map['startTime'] as String? ?? '00:00',
+      endTime: map['endTime'] as String? ?? '00:00',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'date': Timestamp.fromDate(date),
+      'startTime': startTime,
+      'endTime': endTime,
+    };
+  }
+}
+
 class ExpressDeal extends Post {
   final String title;
   final String content;
@@ -116,7 +156,12 @@ class ExpressDeal extends Post {
   final int sharesCount;
   final bool isActive;
   final DateTime? createdAt;
+  @override
   final DateTime? updatedAt;
+
+  // Propriété pour récupérer les créneaux complets
+  late final List<PickupTimeSlot> _pickupTimeSlots;
+  List<PickupTimeSlot> get pickupTimeSlots => _pickupTimeSlots;
 
   ExpressDeal({
     required super.id,
@@ -154,9 +199,12 @@ class ExpressDeal extends Post {
     super.likedBy,
     super.commentsCount,
     super.comments,
+    List<PickupTimeSlot>? pickupTimeSlots,
   }) : super(
           type: 'express_deal',
-        );
+        ) {
+    _pickupTimeSlots = pickupTimeSlots ?? [];
+  }
 
   factory ExpressDeal.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -174,10 +222,52 @@ class ExpressDeal extends Post {
       return DateTime.now();
     }
 
-    // Convertir la liste des pickupTimes
+    // Convertir la liste des pickupTimes avec la nouvelle structure
     List<DateTime> convertPickupTimes(List<dynamic>? times) {
       if (times == null) return [];
-      return times.map((time) => convertToDateTime(time)).toList();
+      
+      return times.map((timeSlot) {
+        if (timeSlot is Map<String, dynamic>) {
+          // Nouvelle structure avec date, startTime, endTime
+          final date = convertToDateTime(timeSlot['date']);
+          final startTime = timeSlot['startTime'] as String? ?? '00:00';
+          
+          // Combiner la date avec l'heure de début
+          final timeParts = startTime.split(':');
+          final hour = int.tryParse(timeParts[0]) ?? 0;
+          final minute = timeParts.length > 1 ? int.tryParse(timeParts[1]) ?? 0 : 0;
+          
+          return DateTime(
+            date.year,
+            date.month,
+            date.day,
+            hour,
+            minute,
+          );
+        } else {
+          // Ancienne structure (DateTime direct)
+          return convertToDateTime(timeSlot);
+        }
+      }).toList();
+    }
+
+    // Convertir les créneaux complets
+    List<PickupTimeSlot> convertPickupTimeSlots(List<dynamic>? times) {
+      if (times == null) return [];
+      
+      return times.map((timeSlot) {
+        if (timeSlot is Map<String, dynamic>) {
+          return PickupTimeSlot.fromMap(timeSlot);
+        } else {
+          // Ancienne structure - créer un créneau par défaut
+          final date = convertToDateTime(timeSlot);
+          return PickupTimeSlot(
+            date: date,
+            startTime: '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}',
+            endTime: '${(date.hour + 1).toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}',
+          );
+        }
+      }).toList();
     }
 
     return ExpressDeal(
@@ -193,7 +283,7 @@ class ExpressDeal extends Post {
       originalValue: data['originalValue'] ?? 0,
       discountPercentage: data['discountPercentage'] ?? 0,
       tva: data['tva'] ?? 0,
-      imageUrl: data['imageUrl'] ?? 'https://solidarites.gouv.fr/sites/solidarite/files/2024-02/panier-colis-alimentaire.jpg',
+      imageUrl: data['imageUrl'] ?? data['images']?[0] ?? 'https://solidarites.gouv.fr/sites/solidarite/files/2024-02/panier-colis-alimentaire.jpg',
       pickupTimes: convertPickupTimes(data['pickupTimes']),
       pickupAddress: PickupAddress.fromMap(data['pickupAddress'] ?? {}),
       detailsSupplementaires: List<String>.from(data['detailsSupplementaires'] ?? []),
@@ -216,6 +306,7 @@ class ExpressDeal extends Post {
       likedBy: List<String>.from(data['likedBy'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
       comments: (data['comments'] as List<dynamic>?)?.map((commentData) => Comment.fromMap(commentData)).toList() ?? [],
+      pickupTimeSlots: convertPickupTimeSlots(data['pickupTimes']),
     );
   }
 

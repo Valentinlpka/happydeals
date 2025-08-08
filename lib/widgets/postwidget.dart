@@ -274,7 +274,7 @@ class _CompanyHeader extends StatelessWidget {
       case ServicePost:
         return 'Services';
       case ServicePromotion:
-        return 'Promotion';
+        return 'Promotion Service';
       default:
         return 'Publication';
     }

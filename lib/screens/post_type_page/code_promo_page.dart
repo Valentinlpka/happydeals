@@ -1,11 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:happy/providers/location_provider.dart';
+import 'package:happy/providers/users_provider.dart';
 import 'package:happy/utils/location_utils.dart';
 import 'package:happy/widgets/app_bar/custom_app_bar.dart';
-import 'package:happy/widgets/location_filter.dart';
+import 'package:happy/widgets/current_location_display.dart';
 import 'package:happy/widgets/postwidget.dart';
 import 'package:happy/widgets/search_bar.dart';
+import 'package:happy/widgets/unified_location_filter.dart';
+import 'package:provider/provider.dart';
 
 import '../../classes/promo_code_post.dart';
 
@@ -23,10 +27,6 @@ class _CodePromoPageState extends State<CodePromoPage> {
   String _searchQuery = '';
   String _selectedCompany = 'Toutes';
   List<String> _companies = ['Toutes'];
-  double? _selectedLat;
-  double? _selectedLng;
-  double _selectedRadius = 5.0;
-  String _selectedAddress = '';
   late String _currentUserId;
 
   @override
@@ -34,6 +34,14 @@ class _CodePromoPageState extends State<CodePromoPage> {
     super.initState();
     _loadCompanies();
     _currentUserId = _auth.currentUser?.uid ?? '';
+    _initializeLocation();
+  }
+
+  Future<void> _initializeLocation() async {
+    final userModel = Provider.of<UserModel>(context, listen: false);
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    await locationProvider.initializeLocation(userModel);
   }
 
   Future<void> _loadCompanies() async {
@@ -49,49 +57,72 @@ class _CodePromoPageState extends State<CodePromoPage> {
   }
 
   void _showLocationFilterBottomSheet() async {
-    await LocationFilterBottomSheet.show(
+    await UnifiedLocationFilter.show(
       context: context,
-      onLocationSelected: (lat, lng, radius, address) {
+      onLocationChanged: () {
         setState(() {
-          _selectedLat = lat;
-          _selectedLng = lng;
-          _selectedRadius = radius;
-          _selectedAddress = address;
+          // La localisation a été mise à jour via le provider
         });
       },
-      currentLat: _selectedLat,
-      currentLng: _selectedLng,
-      currentRadius: _selectedRadius,
-      currentAddress: _selectedAddress,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Code Promo',
-        align: Alignment.center,
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.location_on,
-              color: _selectedLat != null ? const Color(0xFF4B88DA) : null,
-            ),
-            onPressed: _showLocationFilterBottomSheet,
+    return Consumer2<LocationProvider, UserModel>(
+      builder: (context, locationProvider, userModel, child) {
+        return Scaffold(
+          appBar: CustomAppBar(
+            title: 'Code Promo',
+            align: Alignment.center,
+            actions: [
+              Stack(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.location_on,
+                      color: locationProvider.hasLocation 
+                          ? const Color(0xFF4B88DA) 
+                          : null,
+                    ),
+                    onPressed: _showLocationFilterBottomSheet,
+                  ),
+                  if (locationProvider.hasLocation)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4B88DA),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: _showFilterBottomSheet,
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterBottomSheet,
+          body: Column(
+            children: [
+              CurrentLocationDisplay(
+                onLocationChanged: () {
+                  setState(() {
+                    // La localisation a été mise à jour
+                  });
+                },
+              ),
+              _buildSearchAndFilters(),
+              _buildPromoCodesList(locationProvider),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildSearchAndFilters(),
-          _buildPromoCodesList(),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -217,7 +248,7 @@ class _CodePromoPageState extends State<CodePromoPage> {
     );
   }
 
-  Widget _buildPromoCodesList() {
+  Widget _buildPromoCodesList(LocationProvider locationProvider) {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('posts')
@@ -279,16 +310,37 @@ class _CodePromoPageState extends State<CodePromoPage> {
                   }
 
                   // Filtrer par localisation
-                  if (_selectedLat != null &&
-                      _selectedLng != null &&
-                      !LocationUtils.isWithinRadius(
-                        _selectedLat!,
-                        _selectedLng!,
-                        companyData['adress']['latitude'],
-                        companyData['adress']['longitude'],
-                        _selectedRadius,
-                      )) {
-                    return const SizedBox.shrink();
+                  if (locationProvider.hasLocation) {
+                    // Conversion sécurisée des coordonnées
+                    double? companyLat;
+                    double? companyLng;
+                    
+                    if (companyData['adress']['latitude'] != null) {
+                      if (companyData['adress']['latitude'] is num) {
+                        companyLat = (companyData['adress']['latitude'] as num).toDouble();
+                      } else if (companyData['adress']['latitude'] is String) {
+                        companyLat = double.tryParse(companyData['adress']['latitude']);
+                      }
+                    }
+                    
+                    if (companyData['adress']['longitude'] != null) {
+                      if (companyData['adress']['longitude'] is num) {
+                        companyLng = (companyData['adress']['longitude'] as num).toDouble();
+                      } else if (companyData['adress']['longitude'] is String) {
+                        companyLng = double.tryParse(companyData['adress']['longitude']);
+                      }
+                    }
+                    
+                    if (companyLat != null && companyLng != null &&
+                        !LocationUtils.isWithinRadius(
+                          locationProvider.latitude!,
+                          locationProvider.longitude!,
+                          companyLat,
+                          companyLng,
+                          locationProvider.radius,
+                        )) {
+                      return const SizedBox.shrink();
+                    }
                   }
 
                   return Padding(

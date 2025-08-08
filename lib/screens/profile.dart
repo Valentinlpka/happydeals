@@ -5,7 +5,8 @@ import 'package:happy/classes/ad.dart';
 import 'package:happy/classes/post.dart';
 import 'package:happy/classes/share_post.dart';
 import 'package:happy/providers/users_provider.dart';
-import 'package:happy/screens/post_type_page/professional_page.dart';
+import 'package:happy/screens/onboarding/edit_onboarding_page.dart';
+import 'package:happy/screens/post_type_page/job_search_profile_page.dart';
 import 'package:happy/screens/troc-et-echange/ad_card.dart';
 import 'package:happy/screens/troc-et-echange/ad_detail_page.dart';
 import 'package:happy/widgets/postwidget.dart';
@@ -321,10 +322,7 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
               fontWeight: FontWeight.bold,
             ),
           ),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const GeneralProfilePage()),
-          ),
+          onPressed: () => _showEditProfileBottomSheet(),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.grey[100],
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -354,6 +352,175 @@ class _ProfileState extends State<Profile> with SingleTickerProviderStateMixin {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+
+  void _showEditProfileBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle du bottom sheet
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Modifier mon profil',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.close, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Options
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    // Option 1: Informations personnelles
+                    _buildEditOption(
+                      icon: Icons.person_outline,
+                      title: 'Informations personnelles',
+                      subtitle: 'Modifier vos données de base, adresse, préférences...',
+                      color: Colors.blue[700]!,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const EditOnboardingPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Option 2: Profil d'emploi
+                    _buildEditOption(
+                      icon: Icons.work_outline,
+                      title: 'Profil d\'emploi',
+                      subtitle: 'Gérer votre CV, compétences, expériences...',
+                      color: Colors.green[700]!,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const JobSearchProfilePage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEditOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: color.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: color,
+              size: 16,
+            ),
+          ],
+        ),
       ),
     );
   }

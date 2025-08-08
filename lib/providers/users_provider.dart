@@ -276,7 +276,7 @@ class UserModel with ChangeNotifier {
       _workingHours = data['workingHours'] ?? '';
       _industrySector = data['industrySector'] ?? '';
       _city = data['city'] ?? '';
-      _zipCode = data['zipCode'] ?? '';
+      _zipCode = data['postalCode'] ?? '';
       _latitude = (data['latitude'] ?? 0.0).toDouble();
       _longitude = (data['longitude'] ?? 0.0).toDouble();
 
@@ -291,6 +291,12 @@ class UserModel with ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading user data: $e');
     }
+  }
+
+  // Méthode pour mettre à jour spécifiquement l'image de profil
+  Future<void> updateProfileImage(String imageUrl) async {
+    _profileUrl = imageUrl;
+    notifyListeners();
   }
 
   Future<void> _loadUserLists(Map<String, dynamic> data) async {
@@ -705,16 +711,26 @@ class UserModel with ChangeNotifier {
   Future<void> updateLocation({
     required double latitude,
     required double longitude,
+    String? city,
+    String? zipCode,
   }) async {
     _latitude = latitude;
     _longitude = longitude;
+    if (city != null) _city = city;
+    if (zipCode != null) _zipCode = zipCode;
 
     // Mettre à jour la position dans Firestore
     try {
-      await _firestore.collection('users').doc(userId).update({
+      final updateData = <String, dynamic>{
         'latitude': latitude,
         'longitude': longitude,
-      });
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      if (city != null) updateData['city'] = city;
+      if (zipCode != null) updateData['zipCode'] = zipCode;
+      
+      await _firestore.collection('users').doc(userId).update(updateData);
       notifyListeners();
     } catch (e) {
       debugPrint('Erreur lors de la mise à jour de la position: $e');

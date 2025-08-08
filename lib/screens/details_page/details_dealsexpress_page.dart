@@ -28,16 +28,31 @@ class DetailsDealsExpress extends StatefulWidget {
 }
 
 class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
-  DateTime? selectedPickupTime;
+  PickupTimeSlot? selectedPickupTime;
   final ScrollController _scrollController = ScrollController();
   bool _showTitle = false;
   late Future<Company> companyFuture;
 
+  // Méthode pour filtrer les créneaux valides (non passés)
+  List<PickupTimeSlot> get validPickupTimeSlots {
+    final now = DateTime.now();
+    return widget.post.pickupTimeSlots
+        .where((slot) => slot.date.isAfter(now))
+        .toList();
+  }
+
+  // Méthode pour vérifier si un créneau est valide
+  bool isTimeSlotValid(PickupTimeSlot slot) {
+    final now = DateTime.now();
+    return slot.date.isAfter(now);
+  }
+
   @override
   void initState() {
     super.initState();
-    selectedPickupTime =
-        widget.post.pickupTimes.isNotEmpty ? widget.post.pickupTimes[0] : null;
+    // Sélectionner le premier créneau valide
+    final validSlots = validPickupTimeSlots;
+    selectedPickupTime = validSlots.isNotEmpty ? validSlots[0] : null;
     _scrollController.addListener(_onScroll);
     companyFuture = _loadCompanyData();
   }
@@ -64,21 +79,21 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
     return Company.fromDocument(doc);
   }
 
-  String formatDateTime(DateTime dateTime) {
+  String formatDateTime(PickupTimeSlot timeSlot) {
     final now = DateTime.now();
     final timeFormat = DateFormat('HH:mm');
     final dateFormat = DateFormat('dd/MM/yyyy');
 
-    if (dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day) {
-      return 'Aujourd\'hui à ${timeFormat.format(dateTime)}';
-    } else if (dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day + 1) {
-      return 'Demain à ${timeFormat.format(dateTime)}';
+    if (timeSlot.date.year == now.year &&
+        timeSlot.date.month == now.month &&
+        timeSlot.date.day == now.day) {
+      return 'Aujourd\'hui de ${timeSlot.startTime} à ${timeSlot.endTime}';
+    } else if (timeSlot.date.year == now.year &&
+        timeSlot.date.month == now.month &&
+        timeSlot.date.day == now.day + 1) {
+      return 'Demain de ${timeSlot.startTime} à ${timeSlot.endTime}';
     } else {
-      return 'Le ${dateFormat.format(dateTime)} à ${timeFormat.format(dateTime)}';
+      return 'Le ${dateFormat.format(timeSlot.date)} de ${timeSlot.startTime} à ${timeSlot.endTime}';
     }
   }
 
@@ -141,7 +156,7 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (widget.post.pickupTimes.isNotEmpty) ...[
+          if (validPickupTimeSlots.isNotEmpty) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -149,10 +164,24 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    widget.post.pickupTimes.length == 1
-                        ? "À récupérer ${formatDateTime(widget.post.pickupTimes[0])}"
-                        : "${widget.post.pickupTimes.length} créneaux disponibles",
+                    validPickupTimeSlots.length == 1
+                        ? "À récupérer ${formatDateTime(validPickupTimeSlots[0])}"
+                        : "${validPickupTimeSlots.length} créneaux disponibles",
                     style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 16, color: Colors.red[600]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Aucun créneau disponible",
+                    style: TextStyle(color: Colors.red[600], fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -225,6 +254,51 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
   }
 
   Widget _buildPickupTimeSelector() {
+    final validSlots = validPickupTimeSlots;
+    
+    if (validSlots.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Créneaux de retrait:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.red[600],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.red[600]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Tous les créneaux sont passés. Ce deal n\'est plus disponible.',
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -239,18 +313,38 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
             ),
           ),
           const SizedBox(height: 8),
-          ...widget.post.pickupTimes.map((time) => Container(
+          ...validSlots.map((timeSlot) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
+                  border: Border.all(
+                    color: selectedPickupTime == timeSlot 
+                        ? Colors.blue[400]! 
+                        : Colors.grey[300]!,
+                  ),
                   borderRadius: BorderRadius.circular(8),
+                  color: selectedPickupTime == timeSlot 
+                      ? Colors.blue[50] 
+                      : Colors.white,
                 ),
-                child: RadioListTile<DateTime>(
-                  title: Text(formatDateTime(time)),
-                  value: time,
+                child: RadioListTile<PickupTimeSlot>(
+                  title: Text(formatDateTime(timeSlot)),
+                  subtitle: Text(
+                    isTimeSlotValid(timeSlot) 
+                        ? 'Disponible' 
+                        : 'Créneau passé',
+                    style: TextStyle(
+                      color: isTimeSlotValid(timeSlot) 
+                          ? Colors.green[600] 
+                          : Colors.red[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                  value: timeSlot,
                   groupValue: selectedPickupTime,
-                  onChanged: (value) =>
-                      setState(() => selectedPickupTime = value),
+                  onChanged: isTimeSlotValid(timeSlot) 
+                      ? (value) => setState(() => selectedPickupTime = value)
+                      : null,
+                  activeColor: Colors.blue[700],
                 ),
               )),
         ],
@@ -439,6 +533,9 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
   }
 
   Widget _buildBottomBar(ThemeData theme) {
+    final validSlots = validPickupTimeSlots;
+    final canReserve = validSlots.isNotEmpty && selectedPickupTime != null && isTimeSlotValid(selectedPickupTime!);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -479,28 +576,29 @@ class _DetailsDealsExpressState extends State<DetailsDealsExpress> {
             Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
+                  backgroundColor: canReserve ? theme.primaryColor : Colors.grey[400],
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: selectedPickupTime == null
-                    ? null
-                    : () => Navigator.push(
+                onPressed: canReserve
+                    ? () => Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => ReservationScreen(
                               deal: widget.post,
-                              selectedPickupTime: selectedPickupTime!,
+                              selectedPickupTime: selectedPickupTime!.date,
                             ),
                           ),
-                        ),
-                child: const Text(
-                  'Réserver',
+                        )
+                    : null,
+                child: Text(
+                  validSlots.isEmpty ? 'Indisponible' : 'Réserver',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
+                    color: canReserve ? Colors.white : Colors.grey[600],
                   ),
                 ),
               ),
