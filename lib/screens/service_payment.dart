@@ -145,6 +145,7 @@ class _ServicePaymentPageState extends State<ServicePaymentPage> {
                       'serviceId': widget.service.id,
                       'duration': widget.service.duration,
                       "priceTTC": widget.service.price,
+                      "companyId": widget.service.professionalId,
                       "tva": widget.service.tva,
                       "priceHT": widget.service.price /
                           (1 + (widget.service.tva / 100)),

@@ -212,6 +212,8 @@ class NotificationsPage extends StatelessWidget {
         return Colors.green;
       case NotificationType.service:
         return Colors.blue;
+      case NotificationType.restaurantOrder:
+        return Colors.red;
     }
   }
 
@@ -223,6 +225,8 @@ class NotificationsPage extends StatelessWidget {
         return Icons.eco_outlined;
       case NotificationType.service:
         return Icons.event_outlined;
+      case NotificationType.restaurantOrder:
+        return Icons.restaurant_outlined;
     }
   }
 
@@ -241,6 +245,10 @@ class NotificationsPage extends StatelessWidget {
         break;
       case NotificationType.service:
         AppRouter.navigateTo(context, AppRouter.bookingDetails,
+            arguments: notification.targetId);
+        break;
+      case NotificationType.restaurantOrder:
+        AppRouter.navigateTo(context, AppRouter.restaurantOrderDetails,
             arguments: notification.targetId);
         break;
     }

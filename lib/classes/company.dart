@@ -233,10 +233,15 @@ class OpeningHours {
       try {
         final [openTime, closeTime] =
             slot.split('-').map((e) => e.trim()).toList();
+        
+        // Normaliser les formats d'heure
+        final normalizedOpenTime = _normalizeTimeFormat(openTime);
+        final normalizedCloseTime = _normalizeTimeFormat(closeTime);
+        
         final [openHour, openMinute] =
-            openTime.split(':').map(int.parse).toList();
+            normalizedOpenTime.split(':').map(int.parse).toList();
         final [closeHour, closeMinute] =
-            closeTime.split(':').map(int.parse).toList();
+            normalizedCloseTime.split(':').map(int.parse).toList();
 
         final openTimeMinutes = openHour * 60 + openMinute;
         final closeTimeMinutes = closeHour * 60 + closeMinute;
@@ -245,12 +250,30 @@ class OpeningHours {
           return true;
         }
       } catch (e) {
-        debugPrint('Erreur lors du parsing des horaires: $e');
+        debugPrint('Erreur lors du parsing des horaires: $e pour le slot: $slot');
         continue;
       }
     }
 
     return false;
+  }
+
+  String _normalizeTimeFormat(String timeStr) {
+    // Supprimer les espaces
+    timeStr = timeStr.replaceAll(' ', '');
+    
+    // Remplacer H et h par :
+    timeStr = timeStr.replaceAll('H', ':').replaceAll('h', ':');
+    
+    // S'assurer qu'il y a bien des deux-points
+    if (!timeStr.contains(':')) {
+      // Si pas de deux-points, essayer de les ajouter (ex: "1330" -> "13:30")
+      if (timeStr.length == 4) {
+        timeStr = '${timeStr.substring(0, 2)}:${timeStr.substring(2)}';
+      }
+    }
+    
+    return timeStr;
   }
 
   String _getDayName(int day) {

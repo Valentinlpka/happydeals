@@ -6,7 +6,6 @@ import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/shop/cart_models.dart';
 import 'package:happy/screens/shop/checkout_page.dart';
 import 'package:happy/services/cart_service.dart';
-import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:provider/provider.dart';
 
 class CartScreen extends StatefulWidget {
@@ -168,10 +167,6 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(
-        align: Alignment.center,
-        title: 'Mes Paniers',
-      ),
       body: Consumer<CartService>(
         builder: (context, cartService, child) {
           final activeCarts = cartService.activeCarts;

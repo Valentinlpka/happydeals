@@ -31,14 +31,28 @@ class LocationProvider with ChangeNotifier {
   bool get hasError => _error != null && _error!.isNotEmpty;
 
   /// Initialise la localisation en utilisant les données du profil utilisateur
-  Future<void> initializeLocation(UserModel userModel) async {
+  /// Ne fait rien si une localisation est déjà définie (pour préserver les changements utilisateur)
+  Future<void> initializeLocation(UserModel userModel, {bool forceReload = false}) async {
+    // Si une localisation est déjà définie et qu'on ne force pas le rechargement, ne rien faire
+    if (hasLocation && !forceReload) {
+      debugPrint('Localisation déjà définie, initialisation ignorée');
+      // Charger quand même le rayon et les villes françaises si pas encore fait
+      await _loadFrenchCities();
+      await _loadUserRadius();
+      return;
+    }
+
     _setLoading(true);
     _clearError();
     
     try {
       // Charger les villes françaises
       await _loadFrenchCities();
-            // Si l'utilisateur a une ville et un code postal, essayer de géocoder
+      
+      // Charger le rayon de recherche sauvegardé
+      await _loadUserRadius();
+      
+      // Si l'utilisateur a une ville et un code postal, essayer de géocoder
       if (userModel.city.isNotEmpty && userModel.zipCode.isNotEmpty) {
         try {
           final addresses = await geocoding
@@ -78,8 +92,6 @@ class LocationProvider with ChangeNotifier {
         }
       }
 
-
-
       // Si aucune localisation n'est disponible, ne pas essayer la géolocalisation GPS automatiquement
       // L'utilisateur devra utiliser le bouton "Utiliser ma localisation" dans l'interface
       debugPrint('Aucune localisation disponible, l\'utilisateur devra la définir manuellement');
@@ -87,6 +99,26 @@ class LocationProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Erreur lors de l\'initialisation de la localisation: $e');
       _setError('Erreur lors de l\'initialisation de la localisation: $e');
+    }
+  }
+
+  /// Charge le rayon de recherche depuis le profil utilisateur
+  Future<void> _loadUserRadius() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        final savedRadius = data['searchRadius'];
+        if (savedRadius != null && savedRadius is num) {
+          _radius = savedRadius.toDouble();
+          debugPrint('Rayon de recherche chargé: ${_radius}km');
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du chargement du rayon: $e');
     }
   }
 
@@ -150,46 +182,7 @@ class LocationProvider with ChangeNotifier {
     }
   }
 
-  /// Obtient la localisation actuelle de l'utilisateur (méthode privée)
-  Future<void> _getCurrentLocation() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _setError('Veuillez activer les services de localisation');
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          _setError('Les permissions de localisation sont requises');
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _setError('Les permissions de localisation sont définitivement refusées');
-        return;
-      }
-
-      Position position = await Geolocator.getCurrentPosition();
-      _updateLocation(
-        latitude: position.latitude,
-        longitude: position.longitude,
-      );
-      
-      // Géocoder l'adresse à partir des coordonnées
-      await _reverseGeocode(position.latitude, position.longitude);
-      
-      debugPrint('Utilisation de la localisation actuelle: ${position.latitude}, ${position.longitude}');
-    } catch (e) {
-      debugPrint('Erreur de localisation: $e');
-      _setError('Erreur lors de la récupération de la localisation: $e');
-    }
-  }
-
-  /// Met à jour la localisation avec une nouvelle adresse
+  /// Met à jour la localisation avec une nouvelle adresse et la sauvegarde
   Future<void> updateLocation({
     required double latitude,
     required double longitude,
@@ -205,6 +198,22 @@ class LocationProvider with ChangeNotifier {
 
     // Mettre à jour la localisation dans le profil utilisateur
     await _updateUserLocation(latitude, longitude, address);
+  }
+
+  /// Met à jour la localisation temporairement (sans sauvegarder dans le profil)
+  void setTemporaryLocation({
+    required double latitude,
+    required double longitude,
+    required String address,
+    double? radius,
+  }) {
+    _updateLocation(
+      latitude: latitude,
+      longitude: longitude,
+      address: address,
+      radius: radius,
+    );
+    debugPrint('Localisation temporaire définie: $address ($latitude, $longitude)');
   }
 
   /// Met à jour la localisation dans Firestore
@@ -321,10 +330,29 @@ class LocationProvider with ChangeNotifier {
     }
   }
 
-  /// Met à jour le rayon de recherche
-  void updateRadius(double radius) {
+  /// Met à jour le rayon de recherche et le sauvegarde
+  Future<void> updateRadius(double radius) async {
     _radius = radius;
     notifyListeners();
+    
+    // Sauvegarder le rayon dans le profil utilisateur
+    await _updateUserRadius(radius);
+  }
+
+  /// Met à jour le rayon dans Firestore
+  Future<void> _updateUserRadius(double radius) async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      await _firestore.collection('users').doc(userId).update({
+        'searchRadius': radius,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      debugPrint('Rayon de recherche sauvegardé: ${radius}km');
+    } catch (e) {
+      debugPrint('Erreur lors de la sauvegarde du rayon: $e');
+    }
   }
 
   /// Efface la localisation
@@ -333,6 +361,58 @@ class LocationProvider with ChangeNotifier {
     _longitude = null;
     _address = '';
     _clearError();
+    notifyListeners();
+  }
+
+  /// Efface complètement la localisation et la supprime du profil utilisateur
+  Future<void> clearLocationPermanently() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId != null) {
+        await _firestore.collection('users').doc(userId).update({
+          'latitude': FieldValue.delete(),
+          'longitude': FieldValue.delete(),
+          'city': FieldValue.delete(),
+          'postalCode': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      
+      _latitude = null;
+      _longitude = null;
+      _address = '';
+      _clearError();
+      debugPrint('Localisation effacée définitivement');
+    } catch (e) {
+      debugPrint('Erreur lors de l\'effacement de la localisation: $e');
+    }
+  }
+
+  /// Force le rechargement de la localisation depuis le profil utilisateur
+  Future<void> reloadFromUserProfile() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        
+        // Créer un UserModel temporaire avec les données du profil
+        final userModel = UserModel();
+        userModel.city = data['city'] ?? '';
+        userModel.zipCode = data['zipCode'] ?? data['postalCode'] ?? '';
+        userModel.latitude = (data['latitude'] ?? 0.0).toDouble();
+        userModel.longitude = (data['longitude'] ?? 0.0).toDouble();
+        
+        // Forcer l'initialisation avec les données du profil
+        await initializeLocation(userModel, forceReload: true);
+        debugPrint('Localisation rechargée depuis le profil utilisateur');
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du rechargement depuis le profil: $e');
+      _setError('Erreur lors du rechargement de la localisation');
+    }
   }
 
   /// Calcule la distance entre deux points

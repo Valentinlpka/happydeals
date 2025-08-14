@@ -12,6 +12,7 @@ import 'package:happy/screens/my_deals_express.dart';
 import 'package:happy/screens/onboarding/edit_onboarding_page.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/referral_code_page.dart';
+import 'package:happy/screens/restaurant/user_restaurant_orders_page.dart';
 import 'package:happy/screens/shop/user_order_page.dart';
 import 'package:happy/screens/user_applications_page.dart';
 import 'package:happy/screens/user_booking_page.dart';
@@ -137,6 +138,13 @@ final List<_Category> _categories = [
         onTap: (context, _) => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const UserOrdersPages()),
+        ),
+      ),        _ServiceItem(
+        icon: Icons.restaurant,
+        title: 'Mes commandes restaurant',
+        onTap: (context, _) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UserRestaurantOrdersPage()),
         ),
       ),
       _ServiceItem(

@@ -20,6 +20,7 @@ import 'package:happy/screens/post_type_page/jeux_concours_page.dart';
 import 'package:happy/screens/post_type_page/job_offer_page.dart';
 import 'package:happy/screens/post_type_page/parrainage.dart';
 import 'package:happy/screens/post_type_page/publications_page.dart';
+import 'package:happy/screens/restaurants/restaurants_page.dart';
 import 'package:happy/screens/search_page.dart';
 import 'package:happy/screens/service_list_page.dart';
 import 'package:happy/screens/shop/products_page.dart';
@@ -54,14 +55,19 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
       page: const CompaniesPageUnified(),
     ),
     NavigationItem(
-      title: 'Publications',
-      icon: Icons.article_outlined,
-      page: const PublicationsPage(),
-    ),
-    NavigationItem(
       title: 'Produit',
       icon: Icons.shopping_bag_outlined, // Icône d'entreprise/business
       page: const ProductsPage(),
+    ),
+    NavigationItem(
+      title: 'Restaurants',
+      icon: Icons.restaurant, // Icône d'entreprise/business
+      page: const RestaurantsPage(),
+    ),
+    NavigationItem(
+      title: 'Publications',
+      icon: Icons.article_outlined,
+      page: const PublicationsPage(),
     ),
     NavigationItem(
       title: 'Deal Express',
@@ -588,6 +594,11 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
         end: Alignment.bottomRight,
       ),
       'Services': const LinearGradient(
+        colors: [Color(0xFF6B48FF), Color(0xFF8466FF)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      'Restaurants': const LinearGradient(
         colors: [Color(0xFF6B48FF), Color(0xFF8466FF)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,

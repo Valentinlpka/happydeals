@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:happy/screens/booking_detail_page.dart';
 import 'package:happy/screens/details_page/details_reservation_dealexpress_page.dart';
+import 'package:happy/screens/restaurant_order_waiting_page.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:provider/provider.dart';
@@ -12,14 +13,9 @@ import 'package:universal_html/html.dart' as html;
 class UnifiedPaymentSuccessScreen extends StatefulWidget {
   final String? sessionId;
   final String? orderId;
-  final String? reservationId;
-  final String? bookingId;
-
   const UnifiedPaymentSuccessScreen({
     this.sessionId,
     this.orderId,
-    this.reservationId,
-    this.bookingId,
     super.key,
   });
 
@@ -35,7 +31,7 @@ class _UnifiedPaymentSuccessScreenState
 
   bool _isLoading = true;
   String _statusMessage = 'Vérification du paiement...';
-  String? _paymentType;
+  String? _paymentType; // ignore: unused_field
   Map<String, dynamic>? _paymentDetails;
 
   @override
@@ -127,13 +123,18 @@ class _UnifiedPaymentSuccessScreenState
           case 'service':
             detailPage = BookingDetailPage(bookingId: orderId);
             break;
+          case 'restaurant_order':
+            detailPage = RestaurantOrderWaitingPage(
+              orderId: orderId,
+              orderData: orderData,
+            );
+            break;
           default:
             detailPage = OrderDetailPage(orderId: orderId);
         }
 
-        Navigator.of(context).pushAndRemoveUntil(
+        Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => detailPage),
-          (route) => false,
         );
       }
     } catch (e) {

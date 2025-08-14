@@ -20,6 +20,7 @@ import 'package:happy/providers/review_service.dart';
 import 'package:happy/providers/search_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/services/analytics_service.dart';
+import 'package:happy/services/cart_restaurant_service.dart';
 import 'package:happy/services/cart_service.dart';
 import 'package:happy/theme/app_theme.dart';
 import 'package:happy/widgets/analytics_navigator_observer.dart';
@@ -119,30 +120,36 @@ void _checkAndInitializePWA() async {
 }
 
 void _setupAuthStateListener() {
-  FirebaseAuth.instance.authStateChanges().listen((User? user) {
-    if (user == null && AppRouter.navigatorKey.currentContext != null) {
-      // Utiliser addPostFrameCallback pour éviter les problèmes de build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final context = AppRouter.navigatorKey.currentContext;
-        if (context != null && context.mounted) {
-          try {
-            // Réinitialiser les providers de manière sécurisée
-            final homeProvider = Provider.of<HomeProvider>(context, listen: false);
-            final userModel = Provider.of<UserModel>(context, listen: false);
-            final conversationService = Provider.of<ConversationService>(context, listen: false);
-            final savedAdsProvider = Provider.of<SavedAdsProvider>(context, listen: false);
-            
-            homeProvider.reset();
-            userModel.clearUserData();
-            conversationService.cleanUp();
-            savedAdsProvider.reset();
-          } catch (e) {
-            debugPrint('Erreur lors de la réinitialisation des providers: $e');
+  FirebaseAuth.instance.authStateChanges().listen(
+    (User? user) {
+      if (user == null && AppRouter.navigatorKey.currentContext != null) {
+        // Utiliser addPostFrameCallback pour éviter les problèmes de build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final context = AppRouter.navigatorKey.currentContext;
+          if (context != null && context.mounted) {
+            try {
+              // Réinitialiser les providers de manière sécurisée
+              final homeProvider = Provider.of<HomeProvider>(context, listen: false);
+              final userModel = Provider.of<UserModel>(context, listen: false);
+              final conversationService = Provider.of<ConversationService>(context, listen: false);
+              final savedAdsProvider = Provider.of<SavedAdsProvider>(context, listen: false);
+              
+              homeProvider.reset();
+              userModel.clearUserData();
+              conversationService.cleanUp();
+              savedAdsProvider.reset();
+            } catch (e) {
+              debugPrint('Erreur lors de la réinitialisation des providers: $e');
+            }
           }
-        }
-      });
-    }
-  });
+        });
+      }
+    },
+    onError: (error) {
+      debugPrint('Erreur dans authStateChanges: $error');
+      // Ne pas crasher l'application, juste logger l'erreur
+    },
+  );
 }
 
 Future<bool> _checkIfPWA() async {
@@ -209,6 +216,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ConversationService()),
         ChangeNotifierProvider(create: (_) => SavedAdsProvider()),
         ChangeNotifierProvider(create: (_) => CartService()),
+        ChangeNotifierProvider(create: (_) => CartRestaurantService()),
         ChangeNotifierProvider(create: (_) => ReviewService()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => SearchProvider()),

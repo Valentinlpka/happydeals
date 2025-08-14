@@ -159,12 +159,15 @@ class _UnifiedLocationFilterState extends State<UnifiedLocationFilter>
     
     try {
       final address = '${_capitalizeWords(city['label'])} (${city['zip_code']})';
+      final latitude = double.parse(city['latitude'].toString().trim().replaceAll(',', '.'));
+      final longitude = double.parse(city['longitude'].toString().trim().replaceAll(',', '.'));
       
-      // Mettre à jour la localisation temporairement
+      // Mettre à jour la localisation de manière persistante
       await locationProvider.updateLocation(
-        latitude: double.parse(city['latitude'].toString().trim().replaceAll(',', '.')),
-        longitude: double.parse(city['longitude'].toString().trim().replaceAll(',', '.')),
+        latitude: latitude,
+        longitude: longitude,
         address: address,
+        radius: locationProvider.radius, // Conserver le rayon actuel
       );
       
       // Mettre à jour le champ de recherche pour afficher la ville sélectionnée
@@ -173,8 +176,12 @@ class _UnifiedLocationFilterState extends State<UnifiedLocationFilter>
         _predictions = [];
       });
       
+      debugPrint('Ville sélectionnée et sauvegardée: $address');
+      debugPrint('Coordonnées: $latitude, $longitude');
+      
       // Ne pas fermer le bottom sheet, laisser l'utilisateur ajuster le rayon
     } catch (e) {
+      debugPrint('Erreur lors de la sélection de la ville: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -197,6 +204,9 @@ class _UnifiedLocationFilterState extends State<UnifiedLocationFilter>
           _searchController.text = locationProvider.address;
           _predictions = [];
         });
+        
+        debugPrint('Localisation actuelle utilisée et sauvegardée: ${locationProvider.address}');
+        debugPrint('Coordonnées: ${locationProvider.latitude}, ${locationProvider.longitude}');
         
         // Ne pas fermer le bottom sheet, laisser l'utilisateur ajuster le rayon
       } else if (locationProvider.hasError) {

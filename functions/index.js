@@ -3071,6 +3071,25 @@ function combineDateTime(date, time) {
 
 //TEST POUR LES COMMANDES : 
 
+function calculateApplicationFee(amount, planName) {
+  // Configuration des frais par plan (en pourcentage)
+  const feeConfig = {
+    'Master': 9.0,        // 9% pour le plan gratuit
+    'Booster': 11.0,       // 11% pour le plan basique
+    'default': 15.0,     // 15% par défaut
+  };
+
+  // Récupérer le pourcentage de frais pour le plan
+  const feePercentage = feeConfig[planName] || feeConfig['default'];
+  
+  // Calculer les frais en centimes (Stripe utilise les centimes)
+  const feeAmount = Math.round((amount * feePercentage) / 100);
+  
+
+  
+  return  feeAmount;
+}
+
 // Fonction permettant de créer un lien de paiement pour tous les types
 exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -3097,7 +3116,27 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
       );
     }
 
+    const stripeProfessionalSnapshot = await admin
+      .firestore()
+      .collection("users")
+      .doc(metadata.companyId)
+      .get();
+      
+    if (!stripeProfessionalSnapshot.exists) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Entreprise non trouvée."
+      );
+    }
+    
+    const companyData = stripeProfessionalSnapshot.data();
+    let stripeProfessionalId = stripeProfessionalSnapshot.data().stripeAccountId;
     const customerData = customerSnapshot.data();
+
+    //récupérer le plan de l'entrepris
+    const planName = companyData.planName || 'default';
+
+    const applicationFeeAmount = calculateApplicationFee(amount, planName);
 
     // Récupérer ou créer le client Stripe
     let stripeCustomerId = customerData.stripeCustomerId;
@@ -3108,6 +3147,7 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
         name: `${customerData.firstName} ${customerData.lastName}`,
         metadata: {
           firebaseUID: context.auth.uid,
+          
         },
       });
 
@@ -3152,14 +3192,15 @@ exports.createUnifiedPayment = functions.https.onCall(async (data, context) => {
                 amount,
                 currency: "eur",
                 customer: stripeCustomerId,
-                application_fee_amount: 100,
+                application_fee_amount: applicationFeeAmount,
                 metadata: {
                   type,
                   userId: context.auth.uid,
+                  applicationFeeAmount: applicationFeeAmount.toString(),
                   ...processedMetadata,
                 },
                 transfer_data: {
-                  destination: "acct_1RTLqPIEAfIDSsKq",
+                  destination: stripeProfessionalId,
                 },
               });
         
@@ -3190,6 +3231,8 @@ exports.handleStripeWebhook = functions.https.onRequest(async (request, response
       const metadata = paymentData.metadata || {};
       const type = metadata.type;
 
+      console.log("userId", paymentData.metadata.userId);
+
       if (!type) {
         console.error("No payment type found in metadata");
         response.json({ received: true });
@@ -3214,11 +3257,18 @@ exports.handleStripeWebhook = functions.https.onRequest(async (request, response
 });
 
 // Fonction unifiée pour traiter tous les types de paiement
-async function handleUnifiedPayment(paymentData, type) {
+async function handleUnifiedPayment(paymentData, type, ) {
   const metadata = paymentData.metadata;
   const orderId = metadata.orderId;
-  const userId = metadata.userId;
+  
+  // S'assurer que userId est défini
+  let userId = metadata.userId;
+  if (!userId) {
+    console.error("userId is undefined in metadata:", metadata);
+    throw new Error("userId is required but not provided");
+  }
 
+  console.log("Processing payment with metadata:", metadata);
   try {
     // Récupérer le document en attente
     const pendingOrderDoc = await admin
@@ -3233,6 +3283,7 @@ async function handleUnifiedPayment(paymentData, type) {
     }
 
     const pendingOrderData = pendingOrderDoc.data();
+    console.log("Pending order data:", pendingOrderData);
     
     // Déterminer le montant selon le type de commande
     let amount;
@@ -3246,21 +3297,31 @@ async function handleUnifiedPayment(paymentData, type) {
       case "service":
         amount = pendingOrderData.amount || 0;
         break;
+      case "restaurant_order":
+        amount = pendingOrderData.totalPrice || 0;
+        break;
       default:
         amount = pendingOrderData.amount || pendingOrderData.totalPrice || 0;
     }
     
     // Créer la structure commune pour tous les types
     const baseOrderData = {
-      userId: userId,
+      userId: userId, // Utiliser userId vérifié
       type: type,
-      status: "confirmed",
+      status: type === "restaurant_order" ? "pending" : "confirmed",
       paymentId: paymentData.id,
-      companyId: pendingOrderData.companyId || pendingOrderData.entrepriseId || pendingOrderData.professionalId,
+      companyId: pendingOrderData.companyId || pendingOrderData.entrepriseId || pendingOrderData.professionalId || pendingOrderData.restaurantId,
       amount: amount,
       createdAt: pendingOrderData.createdAt || admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
+
+    // Nettoyer les valeurs undefined dans baseOrderData
+    Object.keys(baseOrderData).forEach(key => {
+      if (baseOrderData[key] === undefined) {
+        delete baseOrderData[key];
+      }
+    });
 
     // Ajouter les champs spécifiques selon le type
     let specificOrderData = {};
@@ -3269,8 +3330,8 @@ async function handleUnifiedPayment(paymentData, type) {
       case "order":
         specificOrderData = {
           items: pendingOrderData.items || [],
-          sellerId: pendingOrderData.sellerId,
-          entrepriseId: pendingOrderData.entrepriseId,
+          sellerId: pendingOrderData.sellerId || null,
+          entrepriseId: pendingOrderData.entrepriseId || null,
           subtotal: pendingOrderData.subtotal || 0,
           promoCode: pendingOrderData.promoCode || null,
           discountAmount: pendingOrderData.discountAmount || 0,
@@ -3282,14 +3343,14 @@ async function handleUnifiedPayment(paymentData, type) {
       case "express_deal":
         const validationCode = generateValidationCode();
         specificOrderData = {
-          postId: pendingOrderData.postId,
-          dealId: pendingOrderData.dealId,
-          companyId: pendingOrderData.companyId,
+          postId: pendingOrderData.postId || null,
+          dealId: pendingOrderData.dealId || null,
+          companyId: pendingOrderData.companyId || null,
           pickupDate: pendingOrderData.pickupDate ? 
             admin.firestore.Timestamp.fromDate(new Date(pendingOrderData.pickupDate)) : null,
-          basketType: pendingOrderData.basketType,
-          companyName: pendingOrderData.companyName,
-          pickupAddress: pendingOrderData.pickupAddress,
+          basketType: pendingOrderData.basketType || null,
+          companyName: pendingOrderData.companyName || null,
+          pickupAddress: pendingOrderData.pickupAddress || null,
           tva: pendingOrderData.tva || 0,
           validationCode: validationCode,
           isValidated: false,
@@ -3298,11 +3359,11 @@ async function handleUnifiedPayment(paymentData, type) {
         
       case "service":
         specificOrderData = {
-          serviceId: pendingOrderData.serviceId,
-          serviceName: pendingOrderData.serviceName,
+          serviceId: pendingOrderData.serviceId || null,
+          serviceName: pendingOrderData.serviceName || null,
           bookingDateTime: pendingOrderData.bookingDateTime ? 
             admin.firestore.Timestamp.fromDate(new Date(pendingOrderData.bookingDateTime)) : null,
-          professionalId: pendingOrderData.professionalId,
+          professionalId: pendingOrderData.professionalId || null,
           duration: pendingOrderData.duration || 0,
           tva: pendingOrderData.tva || 0,
           priceTTC: pendingOrderData.priceTTC || 0,
@@ -3317,7 +3378,27 @@ async function handleUnifiedPayment(paymentData, type) {
           promoDiscount: pendingOrderData.promoDiscount || null,
         };
         break;
+      case "restaurant_order":
+        specificOrderData = {
+          companyId: pendingOrderData.companyId || null,
+          restaurantName: pendingOrderData.restaurantName || null,
+          restaurantLogo: pendingOrderData.restaurantLogo || null,
+          items: pendingOrderData.items || [],
+          restaurantAddress: pendingOrderData.restaurantAddress || null,
+          distance: pendingOrderData.distance || null,
+          discountAmount: pendingOrderData.discountAmount || null,
+          promoCode: pendingOrderData.promoCode || null,
+          customerInfo: pendingOrderData.customerInfo || null,
+        };
+        break;
     }
+
+    // Nettoyer les valeurs undefined dans specificOrderData
+    Object.keys(specificOrderData).forEach(key => {
+      if (specificOrderData[key] === undefined) {
+        delete specificOrderData[key];
+      }
+    });
 
     // Combiner les données en filtrant les valeurs undefined
     const orderData = { ...baseOrderData, ...specificOrderData };
@@ -3461,22 +3542,37 @@ async function sendUnifiedNotifications(orderId, orderData, type) {
   let professionalId;
   let notificationTitle;
   let notificationMessage;
+  let notificationTitleParticular;
+  let notificationMessageParticular;
   
   switch (type) {
     case "order":
       professionalId = orderData.sellerId;
       notificationTitle = "🛍️ Nouvelle commande reçue";
       notificationMessage = `Un client vient de passer une commande d'un montant de ${(orderData.amount).toFixed(2)}€`;
+      notificationTitleParticular = "🛍️ Nouvelle commande reçue";
+      notificationMessageParticular = `Nous avons bien reçu votre commande d'un montant de ${(orderData.amount).toFixed(2)}€`;
       break;
     case "express_deal":
       professionalId = orderData.companyId;
       notificationTitle = `🌱 Nouveau ${orderData.basketType} réservé`;
       notificationMessage = `Un client vient de réserver un ${orderData.basketType}`;
+      notificationTitleParticular = "🌱 Nouveau deal réservé";
+      notificationMessageParticular = `Vous venez de réserver un ${orderData.basketType}`;
       break;
     case "service":
       professionalId = orderData.professionalId;
       notificationTitle = "✨ Nouvelle réservation";
       notificationMessage = `Un client vient de réserver le service "${orderData.serviceName}"`;
+      notificationTitleParticular = "✨ Nouvelle réservation";
+      notificationMessageParticular = `Pour le service "${orderData.serviceName}"`;
+      break;
+      case "restaurant_order" : 
+      professionalId = orderData.companyId;
+      notificationTitle = "🍽️ Nouvelle commande reçue";
+      notificationMessage = `Un client vient de passer une commande d'un montant de ${(orderData.amount).toFixed(2)}€`;
+      notificationTitleParticular = "🍽️ Nouvelle commande reçue";
+      notificationMessageParticular = `Nous avons bien reçu votre commande chez ${orderData.restaurantName}`;
       break;
   }
   
@@ -3497,8 +3593,8 @@ async function sendUnifiedNotifications(orderId, orderData, type) {
   batch.set(notificationClientRef, {
     userId: orderData.userId,
     type: type,
-    title: "🎉 Commande confirmée",
-    message: `Votre commande a été confirmée`,
+    title: notificationTitleParticular,
+    message: notificationMessageParticular,
     targetId: orderId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     isRead: false,
@@ -3519,6 +3615,7 @@ async function sendEmails(orderId, orderData, type) {
       admin.firestore().collection("companys").doc(
         type === "order" ? orderData.sellerId : 
         type === "express_deal" ? orderData.companyId : 
+        type === "restaurant_order" ? orderData.companyId :
         orderData.professionalId
       ).get(),
     ]);
@@ -3527,29 +3624,53 @@ async function sendEmails(orderId, orderData, type) {
     const companyData = companyDoc.data();
 
     // Envoyer les emails appropriés selon le type
-    let emailSubject, emailTemplate;
+    let customerEmailSubject, customerEmailTemplate;
+    let professionalEmailSubject, professionalEmailTemplate;
     
     switch (type) {
       case "order":
-        emailSubject = "🎉 Votre commande est confirmée";
-        emailTemplate = generateOrderCustomerEmail(orderData, userData, orderId);
+        customerEmailSubject = "🎉 Votre commande est confirmée";
+        customerEmailTemplate = generateOrderCustomerEmail(orderData, userData, orderId);
+        professionalEmailSubject = "🛍️ Nouvelle commande reçue";
+        professionalEmailTemplate = generateOrderProfessionalEmail(orderData, userData, orderId);
         break;
       case "express_deal":
-        emailSubject = `🎉 Votre ${orderData.basketType} est réservé !`;
-        emailTemplate = generateDealCustomerEmail(orderData, userData, orderId);
+        customerEmailSubject = `🎉 Votre ${orderData.basketType} est réservé !`;
+        customerEmailTemplate = generateDealCustomerEmail(orderData, userData, orderId);
+        professionalEmailSubject = "🌱 Nouvelle réservation reçue";
+        professionalEmailTemplate = generateDealProfessionalEmail(orderData, userData);
         break;
       case "service":
-        emailSubject = `✨ Votre réservation pour "${orderData.serviceName}" est confirmée`;
-        emailTemplate = generateServiceBookingCustomerEmail(orderData, userData, companyData);
+        customerEmailSubject = `✨ Votre réservation pour "${orderData.serviceName}" est confirmée`;
+        customerEmailTemplate = generateServiceBookingCustomerEmail(orderData, userData, companyData);
+        professionalEmailSubject = "📅 Nouvelle réservation reçue";
+        professionalEmailTemplate = generateServiceBookingProfessionalEmail(orderData, userData, companyData);
+        break;
+      case "restaurant_order":
+        customerEmailSubject = "🍽️ Votre commande restaurant est confirmée";
+        customerEmailTemplate = generateRestaurantOrderCustomerEmail(orderData, userData, orderId);
+        professionalEmailSubject = "🍽️ Nouvelle commande restaurant reçue";
+        professionalEmailTemplate = generateRestaurantOrderProfessionalEmail(orderData, userData, orderId);
         break;
     }
 
+    // Envoyer l'email au client
     await transporter.sendMail({
       from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
       to: userData.email,
-      subject: emailSubject,
-      html: emailTemplate,
+      subject: customerEmailSubject,
+      html: customerEmailTemplate,
     });
+
+    // Envoyer l'email au professionnel si l'email existe
+    if (companyData && companyData.email) {
+      await transporter.sendMail({
+        from: '"Up ! 🛍️" <happy.deals59@gmail.com>',
+        to: companyData.email,
+        subject: professionalEmailSubject,
+        html: professionalEmailTemplate,
+      });
+    }
 
     console.log("Emails envoyés avec succès");
   } catch (emailError) {
@@ -3680,6 +3801,9 @@ function getBaseEmailTemplate(content) {
   `;
 }
 
+// Template pour la commande restaurant (client)
+
+
 // Template pour la commande classique (client)
 function generateOrderCustomerEmail(orderData, customer, orderId) {
   const itemsList = orderData.items
@@ -3714,6 +3838,131 @@ function generateOrderCustomerEmail(orderData, customer, orderId) {
 
     <div class="highlight">
       <p>⏰ N'oubliez pas : Vous pouvez retirer votre commande aux horaires d'ouverture du commerce.</p>
+    </div>
+  `;
+
+  return getBaseEmailTemplate(content);
+}
+
+// Template pour la commande restaurant (client)
+function generateRestaurantOrderCustomerEmail(orderData, customer, orderId) {
+  const itemsList = orderData.items
+    .map(
+      (item) => `
+      <li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+        <div>
+          <span style="font-weight: 600;">${item.name}</span>
+          ${item.variants && item.variants.length > 0 ? `
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+              ${item.variants.map(variant => `${variant.name}: ${variant.selectedOption.name}`).join(', ')}
+            </div>
+          ` : ''}
+          ${item.options && item.options.length > 0 ? `
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+              ${item.options.map(option => `${option.templateName}: ${option.item.name}`).join(', ')}
+            </div>
+          ` : ''}
+        </div>
+        <div style="text-align: right;">
+          <span style="font-weight: 600;">${item.totalPrice.toFixed(2)}€</span>
+          <div style="font-size: 12px; color: #666;">x${item.quantity}</div>
+        </div>
+      </li>
+    `
+    )
+    .join("");
+
+  // Calculer les sous-totaux
+  const subtotal = orderData.items.reduce((sum, item) => sum + item.totalPrice, 0);
+  const deliveryFee = orderData.deliveryFee || 0;
+  const serviceFee = orderData.serviceFee || 0;
+  const discountAmount = orderData.discountAmount || 0;
+  const totalPrice = orderData.totalPrice || (subtotal + deliveryFee + serviceFee - discountAmount);
+
+  // Informations de livraison
+  const deliveryInfo = orderData.deliveryType === 'scheduled' && orderData.scheduledTime ? `
+    <div class="highlight">
+      <p>📅 Livraison planifiée :</p>
+      <p style="font-weight: 600;">${new Date(orderData.scheduledTime).toLocaleString('fr-FR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}</p>
+    </div>
+  ` : `
+    <div class="highlight">
+      <p>⚡ Livraison le plus tôt possible</p>
+      <p style="font-size: 14px; color: #666;">Votre commande sera préparée et livrée dans les plus brefs délais</p>
+    </div>
+  `;
+
+  // Message client
+  const customerMessage = orderData.customerMessage ? `
+    <div class="highlight">
+      <p>💬 Votre message :</p>
+      <p style="font-style: italic; background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 5px 0;">
+        "${orderData.customerMessage}"
+      </p>
+    </div>
+  ` : '';
+
+  // Code promo appliqué
+  const promoInfo = orderData.promoCode ? `
+    <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+      <span>Code promo (${orderData.promoCode})</span>
+      <span style="color: #28a745;">-${discountAmount.toFixed(2)}€</span>
+    </div>
+  ` : '';
+
+  const content = `
+    <h1>🍽️ Votre commande restaurant est confirmée !</h1>
+    <p>Bonjour ${customer.firstName},</p>
+    <p>Votre commande chez <strong>${orderData.restaurantName}</strong> a été confirmée avec succès. Bon appétit !</p>
+    
+    <div class="details-card">
+      <h2>🍕 Détails de votre commande</h2>
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        ${itemsList}
+      </ul>
+      
+      <div style="border-top: 2px solid #eee; margin-top: 20px; padding-top: 15px;">
+        <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+          <span>Sous-total</span>
+          <span>${subtotal.toFixed(2)}€</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+          <span>Frais de livraison</span>
+          <span>${deliveryFee.toFixed(2)}€</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+          <span>Frais de service</span>
+          <span>${serviceFee.toFixed(2)}€</span>
+        </div>
+        ${promoInfo}
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #eee; font-weight: 600; font-size: 18px;">
+          <span>Total</span>
+          <span>${totalPrice.toFixed(2)}€</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="details-card">
+      <h2>📍 Informations de livraison</h2>
+      <div class="highlight">
+        <p><strong>Restaurant :</strong> ${orderData.restaurantName}</p>
+        <p><strong>Adresse :</strong> ${orderData.restaurantAddress}</p>
+        ${orderData.distance ? `<p><strong>Distance :</strong> ${orderData.distance.toFixed(1)} km</p>` : ''}
+      </div>
+      ${deliveryInfo}
+      ${customerMessage}
+    </div>
+
+    <div class="highlight">
+      <p>⏰ Temps de préparation estimé : 25-35 minutes</p>
+      <p>📱 Vous recevrez une notification dès que votre commande sera prête !</p>
     </div>
   `;
 
@@ -3755,6 +4004,137 @@ function generateOrderProfessionalEmail(orderData, customer, orderId) {
       <div class="price">
         Total : ${orderData.totalPrice.toFixed(2)}€
       </div>
+    </div>
+
+    <a href="https://up-app.fr/dashboard/orders/${orderId}" class="button">
+      Gérer la commande
+    </a>
+  `;
+
+  return getBaseEmailTemplate(content);
+}
+
+// Template pour la commande restaurant (professionnel)
+function generateRestaurantOrderProfessionalEmail(orderData, customer, orderId) {
+  const itemsList = orderData.items
+    .map(
+      (item) => `
+      <li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+        <div>
+          <span style="font-weight: 600;">${item.name}</span>
+          ${item.variants && item.variants.length > 0 ? `
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+              ${item.variants.map(variant => `${variant.name}: ${variant.selectedOption.name}`).join(', ')}
+            </div>
+          ` : ''}
+          ${item.options && item.options.length > 0 ? `
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+              ${item.options.map(option => `${option.templateName}: ${option.item.name}`).join(', ')}
+            </div>
+          ` : ''}
+        </div>
+        <div style="text-align: right;">
+          <span style="font-weight: 600;">${item.totalPrice.toFixed(2)}€</span>
+          <div style="font-size: 12px; color: #666;">x${item.quantity}</div>
+        </div>
+      </li>
+    `
+    )
+    .join("");
+
+  // Calculer les sous-totaux
+  const subtotal = orderData.items.reduce((sum, item) => sum + item.totalPrice, 0);
+  const deliveryFee = orderData.deliveryFee || 0;
+  const serviceFee = orderData.serviceFee || 0;
+  const discountAmount = orderData.discountAmount || 0;
+  const totalPrice = orderData.totalPrice || (subtotal + deliveryFee + serviceFee - discountAmount);
+
+  // Informations de livraison
+  const deliveryInfo = orderData.deliveryType === 'scheduled' && orderData.scheduledTime ? `
+    <div class="highlight">
+      <p>📅 Livraison planifiée :</p>
+      <p style="font-weight: 600;">${new Date(orderData.scheduledTime).toLocaleString('fr-FR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}</p>
+    </div>
+  ` : `
+    <div class="highlight">
+      <p>⚡ Livraison le plus tôt possible</p>
+      <p style="font-size: 14px; color: #666;">À préparer immédiatement</p>
+    </div>
+  `;
+
+  // Message client
+  const customerMessage = orderData.customerMessage ? `
+    <div class="highlight">
+      <p>💬 Message du client :</p>
+      <p style="font-style: italic; background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 5px 0;">
+        "${orderData.customerMessage}"
+      </p>
+    </div>
+  ` : '';
+
+  // Code promo appliqué
+  const promoInfo = orderData.promoCode ? `
+    <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+      <span>Code promo (${orderData.promoCode})</span>
+      <span style="color: #28a745;">-${discountAmount.toFixed(2)}€</span>
+    </div>
+  ` : '';
+
+  const content = `
+    <h1>🍽️ Nouvelle commande restaurant reçue !</h1>
+    <p>Une nouvelle commande vient d'être passée sur votre restaurant.</p>
+    
+    <div class="details-card">
+      <h2>👤 Informations client</h2>
+      <ul>
+        <li><strong>Nom :</strong> ${customer.firstName} ${customer.lastName}</li>
+        <li><strong>Email :</strong> ${customer.email}</li>
+        <li><strong>ID Client :</strong> ${orderData.userId}</li>
+      </ul>
+    </div>
+
+    <div class="details-card">
+      <h2>🍕 Détails de la commande</h2>
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        ${itemsList}
+      </ul>
+      
+      <div style="border-top: 2px solid #eee; margin-top: 20px; padding-top: 15px;">
+        <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+          <span>Sous-total</span>
+          <span>${subtotal.toFixed(2)}€</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+          <span>Frais de livraison</span>
+          <span>${deliveryFee.toFixed(2)}€</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+          <span>Frais de service</span>
+          <span>${serviceFee.toFixed(2)}€</span>
+        </div>
+        ${promoInfo}
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #eee; font-weight: 600; font-size: 18px;">
+          <span>Total</span>
+          <span>${totalPrice.toFixed(2)}€</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="details-card">
+      <h2>📍 Informations de livraison</h2>
+      <div class="highlight">
+        <p><strong>Adresse de livraison :</strong> ${orderData.restaurantAddress}</p>
+        ${orderData.distance ? `<p><strong>Distance :</strong> ${orderData.distance.toFixed(1)} km</p>` : ''}
+      </div>
+      ${deliveryInfo}
+      ${customerMessage}
     </div>
 
     <a href="https://up-app.fr/dashboard/orders/${orderId}" class="button">

@@ -1,10 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/classes/menu_item.dart';
 import 'package:happy/classes/restaurant.dart';
 import 'package:happy/providers/restaurant_menu_provider.dart';
 import 'package:happy/screens/restaurants/menu_customization_page.dart';
+import 'package:happy/screens/unified_cart_page.dart';
+import 'package:happy/services/cart_restaurant_service.dart';
 import 'package:happy/widgets/cards/menu_item_card.dart';
+import 'package:happy/widgets/cart_snackbar.dart';
+import 'package:happy/widgets/floating_cart_button.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -95,6 +100,10 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
           ),
         ],
       ),
+      floatingActionButton: FloatingCartButton(
+        onPressed: () => _navigateToCart(context),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -152,14 +161,32 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                 decoration: BoxDecoration(
                   color: widget.restaurant.isOpen ? Colors.green : Colors.red,
                   borderRadius: BorderRadius.circular(16.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4.r,
+                      offset: Offset(0, 2.h),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  widget.restaurant.isOpen ? 'Ouvert' : 'Fermé',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.restaurant.isOpen ? Icons.check_circle : Icons.access_time,
+                      color: Colors.white,
+                      size: 16.sp,
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      widget.restaurant.isOpen ? 'Ouvert' : 'Fermé',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -258,7 +285,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
               _buildMetric(
                 icon: Icons.star,
                 iconColor: Colors.amber,
-                text: '${widget.restaurant.rating.toStringAsFixed(1)}',
+                text: widget.restaurant.rating.toStringAsFixed(1),
                 subtitle: '(${widget.restaurant.totalReviews} avis)',
               ),
               
@@ -282,6 +309,52 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                   subtitle: 'Distance',
                 ),
             ],
+          ),
+          
+          SizedBox(height: 16.h),
+          
+          // Statut d'ouverture
+          Container(
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: widget.restaurant.isOpen ? Colors.green[50] : Colors.red[50],
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: widget.restaurant.isOpen ? Colors.green[200]! : Colors.red[200]!,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  widget.restaurant.isOpen ? Icons.check_circle : Icons.access_time,
+                  color: widget.restaurant.isOpen ? Colors.green[600] : Colors.red[600],
+                  size: 20.sp,
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.restaurant.isOpen ? 'Ouvert maintenant' : 'Fermé',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: widget.restaurant.isOpen ? Colors.green[700] : Colors.red[700],
+                        ),
+                      ),
+                      Text(
+                        _getTodayHours(),
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: widget.restaurant.isOpen ? Colors.green[600] : Colors.red[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           
           SizedBox(height: 16.h),
@@ -643,7 +716,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
             ...menus.map((menu) => MenuCard(
               menu: menu,
               onTap: () => _showMenuDetail(menu),
-            )).toList(),
+            )),
             
             if (items.isNotEmpty) ...[
               SizedBox(height: 24.h),
@@ -663,7 +736,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
           ...items.map((item) => MenuItemCard(
             item: item,
             onTap: () => _showItemDetail(item),
-          )).toList(),
+          )),
         ],
       ),
     );
@@ -807,9 +880,9 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                           if (item.nutrition.calories > 0)
                             Text('${item.nutrition.calories} calories'),
                           if (item.nutrition.isVegetarian)
-                            Text('🌱 Végétarien'),
+                            const Text('🌱 Végétarien'),
                           if (item.nutrition.isVegan)
-                            Text('🌿 Vegan'),
+                            const Text('🌿 Vegan'),
                           if (item.nutrition.allergens.isNotEmpty)
                             Text('Allergènes: ${item.nutrition.allergens.join(', ')}'),
                         ],
@@ -864,15 +937,20 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                     SizedBox(width: 16.w),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          // Ajouter au panier
+                        onPressed: () async {
+                          // Vérifier si le restaurant est ouvert
+                          if (!widget.restaurant.isOpen) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Ce restaurant est actuellement fermé. Impossible de commander.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+                          
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${item.name} ajouté au panier'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
+                          await _addItemToCart(item);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).primaryColor,
@@ -1089,6 +1167,17 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
+                          // Vérifier si le restaurant est ouvert
+                          if (!widget.restaurant.isOpen) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Ce restaurant est actuellement fermé. Impossible de commander.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+                          
                           // Personnaliser le menu
                           Navigator.pop(context);
                           Navigator.push(
@@ -1097,6 +1186,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                               builder: (context) => MenuCustomizationPage(
                                 menu: menu,
                                 restaurantId: widget.restaurant.id,
+                                restaurantName: widget.restaurant.name,
+                                restaurantLogo: widget.restaurant.logo,
                               ),
                             ),
                           );
@@ -1381,6 +1472,113 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
     final url = 'mailto:${widget.restaurant.email}';
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url));
+    }
+  }
+
+  String _getTodayHours() {
+    final now = DateTime.now();
+    const daysOfWeek = [
+      'monday', 'tuesday', 'wednesday', 'thursday',
+      'friday', 'saturday', 'sunday'
+    ];
+    
+    final dayName = daysOfWeek[now.weekday - 1];
+    final hours = widget.restaurant.openingHours.schedule[dayName];
+    
+    if (hours == null || hours == 'fermé') {
+      return 'Fermé aujourd\'hui';
+    }
+    
+    // Formater les horaires pour l'affichage
+    return _formatHoursForDisplay(hours);
+  }
+
+  String _formatHoursForDisplay(String hours) {
+    // Remplacer les virgules par des retours à la ligne pour les plages multiples
+    return hours.replaceAll(',', '\n');
+  }
+
+  void _navigateToCart(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const UnifiedCartPage(),
+      ),
+    );
+  }
+
+  Future<void> _addItemToCart(MenuItem item) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      CartSnackBar.showError(
+        context: context,
+        message: 'Vous devez être connecté pour ajouter des articles au panier',
+      );
+      return;
+    }
+
+    // Vérifier si le restaurant est ouvert
+    if (!widget.restaurant.isOpen) {
+      CartSnackBar.showError(
+        context: context,
+        message: 'Ce restaurant est actuellement fermé. Impossible d\'ajouter des articles au panier.',
+      );
+      return;
+    }
+
+    try {
+      final cartService = Provider.of<CartRestaurantService>(context, listen: false);
+      final menuProvider = Provider.of<RestaurantMenuProvider>(context, listen: false);
+      
+      final price = menuProvider.calculateItemPrice(item);
+      
+      // Créer l'item pour le panier
+      final cartItem = CartItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        itemId: item.id,
+        name: item.name,
+        description: item.description,
+        unitPrice: price,
+        quantity: 1,
+        totalPrice: price,
+        images: item.images,
+        type: 'item',
+        addedAt: DateTime.now(),
+        variants: item.variants?.map((variant) {
+          final defaultOption = variant.options.firstWhere(
+            (option) => option.isDefault,
+            orElse: () => variant.options.first,
+          );
+          return CartItemVariant(
+            variantId: variant.id,
+            name: variant.name,
+            selectedOption: CartSelectedOption(
+              name: defaultOption.name,
+              priceModifier: defaultOption.priceModifier,
+            ),
+          );
+        }).toList(),
+      );
+
+      await cartService.addItemToCart(
+        userId: currentUser.uid,
+        restaurantId: widget.restaurant.id,
+        restaurantName: widget.restaurant.name,
+        restaurantLogo: widget.restaurant.logo,
+        item: cartItem,
+      );
+
+      CartSnackBar.showSuccess(
+        context: context,
+        itemName: item.name,
+        price: price,
+        onViewCart: () => _navigateToCart(context),
+      );
+    } catch (e) {
+      CartSnackBar.showError(
+        context: context,
+        message: 'Erreur lors de l\'ajout au panier: $e',
+      );
     }
   }
 }

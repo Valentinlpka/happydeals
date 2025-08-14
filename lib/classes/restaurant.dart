@@ -172,25 +172,63 @@ class OpeningHours {
   bool _isTimeInRange(DateTime time, String hoursString) {
     if (hoursString == "fermé") return false;
     
-    final ranges = hoursString.split(',');
+    // Essayer d'abord avec les virgules (format restaurant)
+    List<String> ranges = hoursString.split(',');
+    // Si pas de virgules, essayer avec " / " (format entreprise)
+    if (ranges.length == 1 && hoursString.contains(' / ')) {
+      ranges = hoursString.split(' / ');
+    }
+    
     final currentTime = time.hour * 60 + time.minute;
     
     for (final range in ranges) {
-      final parts = range.trim().split('-');
-      if (parts.length == 2) {
-        final startParts = parts[0].split(':');
-        final endParts = parts[1].split(':');
-        
-        final startTime = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-        final endTime = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
-        
-        if (currentTime >= startTime && currentTime <= endTime) {
-          return true;
+      try {
+        final parts = range.trim().split('-');
+        if (parts.length == 2) {
+          // Normaliser les formats d'heure
+          final normalizedStartTime = _normalizeTimeFormat(parts[0].trim());
+          final normalizedEndTime = _normalizeTimeFormat(parts[1].trim());
+          
+          final startParts = normalizedStartTime.split(':');
+          final endParts = normalizedEndTime.split(':');
+          
+          if (startParts.length == 2 && endParts.length == 2) {
+            final startTime = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+            final endTime = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+            
+            if (currentTime >= startTime && currentTime <= endTime) {
+              return true;
+            }
+          }
         }
+      } catch (e) {
+        // Ignorer les erreurs de parsing et continuer avec le range suivant
+        continue;
       }
     }
     
     return false;
+  }
+
+  String _normalizeTimeFormat(String timeStr) {
+    // Supprimer les espaces
+    timeStr = timeStr.replaceAll(' ', '');
+    
+    // Remplacer H et h par :
+    timeStr = timeStr.replaceAll('H', ':').replaceAll('h', ':');
+    
+    // S'assurer qu'il y a bien des deux-points
+    if (!timeStr.contains(':')) {
+      // Si pas de deux-points, essayer de les ajouter (ex: "1330" -> "13:30")
+      if (timeStr.length == 4) {
+        timeStr = '${timeStr.substring(0, 2)}:${timeStr.substring(2)}';
+      } else if (timeStr.length == 3) {
+        // Format comme "930" -> "9:30"
+        timeStr = '${timeStr.substring(0, 1)}:${timeStr.substring(1)}';
+      }
+    }
+    
+    return timeStr;
   }
 }
 

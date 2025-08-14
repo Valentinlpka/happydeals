@@ -18,12 +18,13 @@ import 'package:happy/screens/payment_cancel.dart';
 import 'package:happy/screens/payment_success.dart';
 import 'package:happy/screens/profile.dart';
 import 'package:happy/screens/promo_code_detail.dart';
+import 'package:happy/screens/restaurant_order_detail_page.dart';
 import 'package:happy/screens/restaurants/restaurant_detail_wrapper.dart';
 import 'package:happy/screens/restaurants/restaurant_test_page.dart';
 import 'package:happy/screens/restaurants/restaurants_page.dart';
-import 'package:happy/screens/shop/cart_page.dart';
 import 'package:happy/screens/shop/order_detail_page.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
+import 'package:happy/screens/unified_cart_page.dart';
 import 'package:universal_html/html.dart' as html;
 
 /// Classe qui gère le routage de l'application
@@ -58,6 +59,7 @@ class AppRouter {
   static const String restaurants = '/restaurants';
   static const String restaurantsTest = '/restaurants-test';
   static const String restaurantDetails = '/restaurant';
+  static const String restaurantOrderDetails = '/restaurant-order';
 
   /// Routes nommées statiques
   static Map<String, WidgetBuilder> get routes => {
@@ -65,7 +67,7 @@ class AppRouter {
         login: (context) => const Login(),
         signup: (context) => const SignUpPage(),
         profileCompletion: (context) => const ProfileCompletionPage(),
-        cart: (context) => const CartScreen(),
+        cart: (context) => const UnifiedCartPage(),
         paymentCancel: (context) => const PaymentCancel(),
         restaurants: (context) => const RestaurantsPage(),
         restaurantsTest: (context) => const RestaurantTestPage(),
@@ -80,8 +82,6 @@ class AppRouter {
       return UnifiedPaymentSuccessScreen(
         sessionId: params['session_id'],
         orderId: params['orderId'],
-        reservationId: params['reservationId'],
-        bookingId: params['bookingId'],
       );
     }
     return const AuthWrapper();
@@ -111,8 +111,6 @@ class AppRouter {
           return getRoute(UnifiedPaymentSuccessScreen(
             sessionId: params['session_id'],
             orderId: params['orderId'],
-            reservationId: params['reservationId'],
-            bookingId: params['bookingId'],
           ));
         }
         break;
@@ -146,6 +144,16 @@ class AppRouter {
           bookingId = args as String;
         }
         return getRoute(BookingDetailPage(bookingId: bookingId));
+
+      // Détails de restaurant order
+      case restaurantOrderDetails:
+        final String restaurantOrderId;
+        if (kIsWeb) {
+          restaurantOrderId = uri.pathSegments.last;
+        } else {
+          restaurantOrderId = args as String;
+        }
+        return getRoute(RestaurantOrderDetailPage(orderId: restaurantOrderId));
 
       // Détails de produit
       case productDetails:

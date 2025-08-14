@@ -4,6 +4,7 @@ enum NotificationType {
   order,
   dealExpress,
   service,
+  restaurantOrder,
 }
 
 class NotificationModel {
@@ -63,6 +64,8 @@ class NotificationModel {
         return NotificationType.dealExpress;
       case 'service':
         return NotificationType.service;
+      case 'restaurant_order':
+        return NotificationType.restaurantOrder;
       default:
         return NotificationType.order;
     }

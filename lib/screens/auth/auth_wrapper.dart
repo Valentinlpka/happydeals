@@ -90,24 +90,79 @@ class AuthWrapper extends StatelessWidget {
             if (onboardingSnapshot.hasError) {
               debugPrint('🔍 Erreur onboarding: ${onboardingSnapshot.error}');
               return Scaffold(
-                body: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error, color: Colors.red, size: 48),
-                      const SizedBox(height: 16),
-                      Text('Erreur onboarding: ${onboardingSnapshot.error}'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          // Forcer le rebuild
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(builder: (_) => const AuthWrapper()),
-                          );
-                        },
-                        child: const Text('Réessayer'),
+                body: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, 
+                              color: Colors.orange, size: 64),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Vérification du profil',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Problème lors de la vérification de votre profil.\nVeuillez patienter ou réessayer.',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 32),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () async {
+                                    try {
+                                      await FirebaseAuth.instance.signOut();
+                                    } catch (e) {
+                                      debugPrint('Erreur lors de la déconnexion: $e');
+                                    }
+                                  },
+                                  child: const Text('Se déconnecter'),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // Forcer le rebuild
+                                    Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                                    );
+                                  },
+                                  child: const Text('Réessayer'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: () {
+                              // En cas de problème persistant, permettre de continuer
+                              debugPrint('🔍 Forçage de l\'accès à l\'application');
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(builder: (_) => const MainContainer()),
+                              );
+                            },
+                            child: const Text(
+                              'Continuer quand même',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               );
@@ -142,29 +197,69 @@ class AuthWrapper extends StatelessWidget {
                   );
                 }
 
-                if (snapshot.hasError) {
-                  debugPrint('🔍 Erreur user data: ${snapshot.error}');
-                  return Scaffold(
-                    body: Center(
+                            if (snapshot.hasError) {
+              debugPrint('🔍 Erreur user data: ${snapshot.error}');
+              return Scaffold(
+                body: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.error_outline,
-                              size: 48, color: Colors.red),
-                          const SizedBox(height: 16),
-                          Text('Erreur: ${snapshot.error}'),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () => Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                              size: 64, color: Colors.red),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Problème de connexion',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                             ),
-                            child: const Text('Réessayer'),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Impossible de charger vos données.\nVérifiez votre connexion internet et réessayez.',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 32),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () async {
+                                    try {
+                                      await FirebaseAuth.instance.signOut();
+                                    } catch (e) {
+                                      debugPrint('Erreur lors de la déconnexion: $e');
+                                    }
+                                  },
+                                  child: const Text('Se déconnecter'),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                                  ),
+                                  child: const Text('Réessayer'),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  );
-                }
+                  ),
+                ),
+              );
+            }
 
                 debugPrint('🔍 Affichage: MainContainer');
                 return const MainContainer();
@@ -181,6 +276,12 @@ class AuthWrapper extends StatelessWidget {
     try {
       debugPrint('🔍 Début initialisation données utilisateur');
       
+      // Vérifier que le contexte est toujours valide
+      if (!context.mounted) {
+        debugPrint('🔍 ❌ Contexte non monté, abandon de l\'initialisation');
+        return;
+      }
+
       final userModel = Provider.of<UserModel>(context, listen: false);
       final conversationService = Provider.of<ConversationService>(context, listen: false);
       final homeProvider = Provider.of<HomeProvider>(context, listen: false);
@@ -188,42 +289,80 @@ class AuthWrapper extends StatelessWidget {
 
       debugPrint('🔍 Providers récupérés');
 
-      // Réinitialiser de manière asynchrone avec timeout
+      // Réinitialiser de manière asynchrone avec timeout plus long pour Android
       debugPrint('🔍 Réinitialisation des providers...');
-      await Future.wait([
-        Future(() => homeProvider.reset()),
-        Future(() => userModel.clearUserData()),
-        conversationService.cleanUp(),
-        Future(() => savedAdsProvider.reset()),
-      ]).timeout(const Duration(seconds: 10));
+      try {
+        await Future.wait([
+          Future(() => homeProvider.reset()),
+          Future(() => userModel.clearUserData()),
+          Future(() => conversationService.cleanUp()),
+          Future(() => savedAdsProvider.reset()),
+        ]).timeout(const Duration(seconds: 20)); // Timeout augmenté pour Android
+      } catch (e) {
+        debugPrint('🔍 ⚠️ Erreur lors du reset (non critique): $e');
+        // Continuer même si le reset échoue
+      }
 
       debugPrint('🔍 Reset terminé, chargement des données...');
 
-      // Charger les nouvelles données avec timeout
-      await userModel.loadUserData().timeout(const Duration(seconds: 15));
-      debugPrint('🔍 UserModel chargé');
+      // Charger les nouvelles données avec timeout plus long et gestion d'erreur
+      try {
+        await userModel.loadUserData().timeout(const Duration(seconds: 30)); // Timeout augmenté
+        debugPrint('🔍 UserModel chargé');
+      } catch (e) {
+        debugPrint('🔍 ❌ Erreur UserModel: $e');
+        throw Exception('Erreur lors du chargement du profil utilisateur');
+      }
       
-      await conversationService.initializeForUser(userModel.userId).timeout(const Duration(seconds: 10));
-      debugPrint('🔍 ConversationService initialisé');
-      
-      await savedAdsProvider.initializeSavedAds(userModel.userId).timeout(const Duration(seconds: 10));
-      debugPrint('🔍 SavedAdsProvider initialisé');
+      // Vérifier que le contexte est toujours valide avant de continuer
+      if (!context.mounted) {
+        debugPrint('🔍 ❌ Contexte non monté après loadUserData');
+        return;
+      }
 
-      // Charger le feed initial si nécessaire
+      // Initialiser les services de manière non-bloquante
+      try {
+        await Future.wait([
+          conversationService.initializeForUser(userModel.userId)
+              .timeout(const Duration(seconds: 15))
+              .catchError((e) {
+                debugPrint('🔍 ⚠️ Erreur ConversationService: $e');
+                return Future.value(); // Continuer même si ça échoue
+              }),
+          savedAdsProvider.initializeSavedAds(userModel.userId)
+              .timeout(const Duration(seconds: 15))
+              .catchError((e) {
+                debugPrint('🔍 ⚠️ Erreur SavedAdsProvider: $e');
+                return Future.value(); // Continuer même si ça échoue
+              }),
+        ]);
+        debugPrint('🔍 Services initialisés');
+      } catch (e) {
+        debugPrint('🔍 ⚠️ Erreur services (non critique): $e');
+        // Continuer même si les services échouent
+      }
+
+      // Charger le feed initial de manière optionnelle
       if (userModel.likedCompanies.isNotEmpty || userModel.followedUsers.isNotEmpty) {
         debugPrint('🔍 Chargement du feed...');
-        await homeProvider.loadUnifiedFeed(
-          userModel.likedCompanies,
-          userModel.followedUsers,
-          refresh: true,
-        ).timeout(const Duration(seconds: 15));
-        debugPrint('🔍 Feed chargé');
+        try {
+          await homeProvider.loadUnifiedFeed(
+            userModel.likedCompanies,
+            userModel.followedUsers,
+            refresh: true,
+          ).timeout(const Duration(seconds: 20));
+          debugPrint('🔍 Feed chargé');
+        } catch (e) {
+          debugPrint('🔍 ⚠️ Erreur feed (non critique): $e');
+          // Le feed peut être chargé plus tard
+        }
       }
 
       debugPrint('🔍 ✅ Initialisation terminée avec succès');
     } catch (e) {
       debugPrint('🔍 ❌ Erreur lors de l\'initialisation des données utilisateur: $e');
-      rethrow;
+      // Ne pas rethrow, mais retourner une erreur plus spécifique
+      throw Exception('Impossible de charger les données utilisateur. Veuillez réessayer.');
     }
   }
 
@@ -232,11 +371,18 @@ class AuthWrapper extends StatelessWidget {
     try {
       debugPrint('🔍 Vérification onboarding pour ${user.uid}');
       
+      // Timeout plus long pour Android et gestion d'erreur améliorée
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get()
-          .timeout(const Duration(seconds: 10));
+          .timeout(
+            const Duration(seconds: 20), // Timeout augmenté pour Android
+            onTimeout: () {
+              debugPrint('🔍 ⏰ Timeout lors de la récupération du document utilisateur');
+              throw Exception('Timeout lors de la vérification du profil');
+            },
+          );
       
       debugPrint('🔍 Document utilisateur récupéré: exists=${userDoc.exists}');
       
@@ -246,14 +392,24 @@ class AuthWrapper extends StatelessWidget {
         return false;
       }
       
-      final userData = userDoc.data() as Map<String, dynamic>;
+      final userData = userDoc.data();
+      if (userData == null) {
+        debugPrint('🔍 Données utilisateur nulles, onboarding non terminé');
+        return false;
+      }
+      
       final completed = userData['onboardingCompleted'] == true;
       debugPrint('🔍 onboardingCompleted: $completed');
       
       return completed;
     } catch (e) {
       debugPrint('🔍 ❌ Erreur vérification onboarding: $e');
-      // En cas d'erreur, on considère que l'onboarding n'est pas terminé
+      // En cas d'erreur réseau ou timeout, permettre à l'utilisateur de continuer
+      // mais loguer l'erreur pour investigation
+      if (e.toString().contains('timeout') || e.toString().contains('network')) {
+        debugPrint('🔍 ⚠️ Erreur réseau détectée, autorisation de continuer');
+        return true; // Laisser l'utilisateur continuer en cas de problème réseau
+      }
       return false;
     }
   }

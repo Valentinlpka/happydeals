@@ -1,17 +1,26 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/classes/menu_item.dart';
 import 'package:happy/providers/restaurant_menu_provider.dart';
+import 'package:happy/services/cart_restaurant_service.dart';
+import 'package:happy/widgets/cart_snackbar.dart';
 import 'package:provider/provider.dart';
 
 class MenuCustomizationPage extends StatefulWidget {
   final RestaurantMenu menu;
   final String restaurantId;
+  final CartItem? existingItem; // Pour le mode édition
+  final String? restaurantName; // Nécessaire pour l'édition
+  final String? restaurantLogo; // Nécessaire pour l'édition
 
   const MenuCustomizationPage({
     super.key,
     required this.menu,
     required this.restaurantId,
+    this.existingItem,
+    this.restaurantName,
+    this.restaurantLogo,
   });
 
   @override
@@ -118,7 +127,13 @@ class _MenuCustomizationPageState extends State<MenuCustomizationPage> {
   Future<void> _setupCustomizationData() async {
     final menuProvider = Provider.of<RestaurantMenuProvider>(context, listen: false);
     
-    // Initialiser avec le prix de base
+    // Mode édition : pré-remplir avec les données existantes
+    if (widget.existingItem != null) {
+      await _setupEditMode();
+      return;
+    }
+    
+    // Mode création : initialiser avec les valeurs par défaut
     totalPrice = widget.menu.basePrice;
 
     // Initialiser les variantes de l'article principal
@@ -197,6 +212,83 @@ class _MenuCustomizationPageState extends State<MenuCustomizationPage> {
     );
   }
 
+  Future<void> _setupEditMode() async {
+    final existingItem = widget.existingItem!;
+    totalPrice = existingItem.unitPrice; // Prix unitaire de l'article existant
+    
+    debugPrint('=== MODE ÉDITION ===');
+    debugPrint('Article existant: ${existingItem.name}');
+    debugPrint('Prix existant: ${existingItem.unitPrice}€');
+    
+    // Récupérer les variantes de l'article principal existant
+    final Map<String, String> mainVariants = {};
+    if (existingItem.mainItem?.variants != null) {
+      for (final variant in existingItem.mainItem!.variants!) {
+        // Retrouver l'ID de l'option à partir du nom
+        final menuProvider = Provider.of<RestaurantMenuProvider>(context, listen: false);
+        final mainItem = menuProvider.getItemById(existingItem.mainItem!.itemId);
+        
+        if (mainItem?.variants != null) {
+          for (final itemVariant in mainItem!.variants!) {
+            if (itemVariant.id == variant.variantId) {
+              final option = itemVariant.options.firstWhere(
+                (opt) => opt.name == variant.selectedOption.name,
+                orElse: () => itemVariant.options.first,
+              );
+              mainVariants[variant.variantId] = option.id;
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Récupérer les options existantes
+    final Map<String, OptionSelection> existingOptions = {};
+    if (existingItem.options != null) {
+      final menuProvider = Provider.of<RestaurantMenuProvider>(context, listen: false);
+      
+      for (final option in existingItem.options!) {
+        final Map<String, String> optionVariants = {};
+        
+        // Récupérer les variantes de l'option
+        if (option.item.variants != null) {
+          final optionItem = menuProvider.getItemById(option.item.itemId);
+          
+          if (optionItem?.variants != null) {
+            for (final variant in option.item.variants!) {
+              for (final itemVariant in optionItem!.variants!) {
+                if (itemVariant.id == variant.variantId) {
+                  final variantOption = itemVariant.options.firstWhere(
+                    (opt) => opt.name == variant.selectedOption.name,
+                    orElse: () => itemVariant.options.first,
+                  );
+                  optionVariants[variant.variantId] = '${variant.variantId}_${variantOption.name.toLowerCase().replaceAll(RegExp(r'\s+'), '')}';
+                  break;
+                }
+              }
+            }
+          }
+        }
+        
+        existingOptions[option.templateId] = OptionSelection(
+          itemId: option.item.itemId,
+          variants: optionVariants,
+        );
+      }
+    }
+    
+    customization = MenuCustomization(
+      mainItem: MainItemSelection(
+        itemId: existingItem.mainItem?.itemId ?? widget.menu.mainItem.itemId,
+        variants: mainVariants,
+      ),
+      options: existingOptions,
+    );
+    
+    debugPrint('Personnalisation restaurée depuis l\'article existant');
+  }
+
   double _getPriceOverride(String templateId, String itemId) {
     final templateOverrides = widget.menu.templateOverrides;
     if (templateOverrides.containsKey(templateId)) {
@@ -262,9 +354,11 @@ class _MenuCustomizationPageState extends State<MenuCustomizationPage> {
   }
 
   PreferredSizeWidget _buildAppBar() {
+    final isEditMode = widget.existingItem != null;
+    
     return AppBar(
       title: Text(
-        'Personnaliser',
+        isEditMode ? 'Modifier le menu' : 'Personnaliser',
         style: TextStyle(
           fontSize: 18.sp,
           fontWeight: FontWeight.w600,
@@ -987,7 +1081,9 @@ class _MenuCustomizationPageState extends State<MenuCustomizationPage> {
                   ),
                 ),
                 child: Text(
-                  'Ajouter au panier (${widget.menu.basePrice.toStringAsFixed(2)}€)',
+                  widget.existingItem != null 
+                      ? 'Modifier le menu (${widget.menu.basePrice.toStringAsFixed(2)}€)'
+                      : 'Ajouter au panier (${widget.menu.basePrice.toStringAsFixed(2)}€)',
                   style: TextStyle(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w600,
@@ -1087,7 +1183,9 @@ class _MenuCustomizationPageState extends State<MenuCustomizationPage> {
                             ),
                           )
                         : Text(
-                            _isLastStep ? 'Ajouter au panier' : 'Suivant',
+                            _isLastStep 
+                                ? (widget.existingItem != null ? 'Modifier le menu' : 'Ajouter au panier')
+                                : 'Suivant',
                             style: TextStyle(
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
@@ -1261,31 +1359,153 @@ class _MenuCustomizationPageState extends State<MenuCustomizationPage> {
   }
 
   Future<void> _addToCart() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      CartSnackBar.showError(
+        context: context,
+        message: 'Vous devez être connecté pour ajouter des articles au panier',
+      );
+      return;
+    }
+
     setState(() => isAddingToCart = true);
 
     try {
-      // Simulation d'ajout au panier
-      await Future.delayed(const Duration(milliseconds: 800));
+      final cartService = Provider.of<CartRestaurantService>(context, listen: false);
+      final menuProvider = Provider.of<RestaurantMenuProvider>(context, listen: false);
+      
+      // Créer l'article principal avec ses variantes
+      final mainItem = menuProvider.getItemById(customization.mainItem.itemId);
+      if (mainItem == null) {
+        throw Exception('Article principal non trouvé');
+      }
+
+      final List<CartItemVariant> mainItemVariants = [];
+      if (customization.mainItem.variants.isNotEmpty) {
+        for (final entry in customization.mainItem.variants.entries) {
+          final variantId = entry.key;
+          final optionId = entry.value;
+          
+          final variant = mainItem.variants?.firstWhere((v) => v.id == variantId);
+          if (variant != null) {
+            final option = variant.options.firstWhere((o) => o.id == optionId);
+            mainItemVariants.add(CartItemVariant(
+              variantId: variant.id,
+              name: variant.name,
+              selectedOption: CartSelectedOption(
+                name: option.name,
+                priceModifier: option.priceModifier,
+              ),
+            ));
+          }
+        }
+      }
+
+      // Créer les options du menu
+      final List<CartOption> menuOptions = [];
+      for (final entry in customization.options.entries) {
+        final templateId = entry.key;
+        final optionSelection = entry.value;
+        
+        final template = menuTemplate?.includedVariantTemplates
+            .firstWhere((t) => t.templateId == templateId);
+        
+        final optionItem = menuProvider.getItemById(optionSelection.itemId);
+        if (template != null && optionItem != null) {
+          final List<CartItemVariant> optionVariants = [];
+          
+          for (final variantEntry in optionSelection.variants.entries) {
+            final variantId = variantEntry.key;
+            final selectedOptionId = variantEntry.value;
+            
+            final variant = optionItem.variants?.firstWhere((v) => v.id == variantId);
+            if (variant != null) {
+              final option = variant.options.firstWhere((o) => 
+                  '${variant.id}_${o.name.toLowerCase().replaceAll(RegExp(r'\s+'), '')}' == selectedOptionId);
+              
+              optionVariants.add(CartItemVariant(
+                variantId: variant.id,
+                name: variant.name,
+                selectedOption: CartSelectedOption(
+                  name: option.name,
+                  priceModifier: option.priceModifier,
+                ),
+              ));
+            }
+          }
+
+          menuOptions.add(CartOption(
+            templateId: templateId,
+            templateName: template.label ?? 'Option',
+            item: CartOptionItem(
+              itemId: optionItem.id,
+              name: optionItem.name,
+              variants: optionVariants,
+            ),
+          ));
+        }
+      }
+
+      // Créer l'item de menu pour le panier
+      final cartItem = CartItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: 'menu',
+        itemId: widget.menu.id,
+        name: widget.menu.name,
+        description: widget.menu.description,
+        images: widget.menu.images,
+        quantity: 1,
+        unitPrice: totalPrice,
+        totalPrice: totalPrice,
+        addedAt: DateTime.now(),
+        mainItem: CartMainItem(
+          itemId: mainItem.id,
+          name: mainItem.name,
+          variants: mainItemVariants,
+        ),
+        options: menuOptions,
+      );
+
+      // Mode édition ou ajout
+      if (widget.existingItem != null) {
+        // Mode édition : mettre à jour l'article existant
+        await cartService.updateMenuItem(
+          restaurantId: widget.restaurantId,
+          itemId: widget.existingItem!.id,
+          updatedItem: cartItem.copyWith(
+            quantity: widget.existingItem!.quantity, // Conserver la quantité existante
+            totalPrice: totalPrice * widget.existingItem!.quantity,
+          ),
+        );
+      } else {
+        // Mode ajout : ajouter un nouvel article
+        await cartService.addItemToCart(
+          userId: currentUser.uid,
+          restaurantId: widget.restaurantId,
+          restaurantName: widget.restaurantName ?? '', 
+          restaurantLogo: widget.restaurantLogo ?? '',
+          item: cartItem,
+        );
+      }
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${widget.menu.name} personnalisé ajouté au panier (${totalPrice.toStringAsFixed(2)}€)',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
+        CartSnackBar.showSuccess(
+          context: context,
+          itemName: widget.existingItem != null 
+              ? '${widget.menu.name} modifié'
+              : '${widget.menu.name} personnalisé',
+          price: totalPrice,
+          onViewCart: () {
+            // Navigation vers le panier sera gérée par le parent
+          },
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
+        CartSnackBar.showError(
+          context: context,
+          message: 'Erreur lors de l\'ajout au panier: $e',
         );
       }
     } finally {
@@ -1296,15 +1516,71 @@ class _MenuCustomizationPageState extends State<MenuCustomizationPage> {
   }
 
   Future<void> _addToCartSimple() async {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${widget.menu.name} ajouté au panier (${widget.menu.basePrice.toStringAsFixed(2)}€)',
-        ),
-        backgroundColor: Colors.green,
-      ),
-    );
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      CartSnackBar.showError(
+        context: context,
+        message: 'Vous devez être connecté pour ajouter des articles au panier',
+      );
+      return;
+    }
+
+    try {
+      final cartService = Provider.of<CartRestaurantService>(context, listen: false);
+      
+      // Créer un menu simple sans personnalisation
+      final cartItem = CartItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: 'menu',
+        itemId: widget.menu.id,
+        name: widget.menu.name,
+        description: widget.menu.description,
+        images: widget.menu.images,
+        quantity: 1,
+        unitPrice: widget.menu.basePrice,
+        totalPrice: widget.menu.basePrice,
+        addedAt: DateTime.now(),
+      );
+
+      // Mode édition ou ajout
+      if (widget.existingItem != null) {
+        // Mode édition : mettre à jour l'article existant
+        await cartService.updateMenuItem(
+          restaurantId: widget.restaurantId,
+          itemId: widget.existingItem!.id,
+          updatedItem: cartItem.copyWith(
+            quantity: widget.existingItem!.quantity, // Conserver la quantité existante
+            totalPrice: widget.menu.basePrice * widget.existingItem!.quantity,
+          ),
+        );
+      } else {
+        // Mode ajout : ajouter un nouvel article
+        await cartService.addItemToCart(
+          userId: currentUser.uid,
+          restaurantId: widget.restaurantId,
+          restaurantName: widget.restaurantName ?? '',
+          restaurantLogo: widget.restaurantLogo ?? '',
+          item: cartItem,
+        );
+      }
+
+      Navigator.pop(context);
+      CartSnackBar.showSuccess(
+        context: context,
+        itemName: widget.existingItem != null 
+            ? '${widget.menu.name} modifié'
+            : widget.menu.name,
+        price: widget.menu.basePrice,
+        onViewCart: () {
+          // Navigation vers le panier sera gérée par le parent
+        },
+      );
+    } catch (e) {
+      CartSnackBar.showError(
+        context: context,
+        message: 'Erreur lors de l\'ajout au panier: $e',
+      );
+    }
   }
 }
 
