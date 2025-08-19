@@ -246,7 +246,7 @@ class Restaurant extends BaseEntity {
   final SocialMedia socialMedia;
   final List<String> tags;
   final double rating;
-  final int totalReviews;
+  final int numberOfReviews;
   final String category;
   final String subCategory;
   final double deliveryRange;
@@ -274,7 +274,7 @@ class Restaurant extends BaseEntity {
     required this.socialMedia,
     required this.tags,
     required this.rating,
-    required this.totalReviews,
+    required this.numberOfReviews,
     required this.category,
     required this.subCategory,
     required this.deliveryRange,
@@ -348,11 +348,11 @@ class Restaurant extends BaseEntity {
     }
 
     // Conversion sécurisée du nombre d'avis
-    int totalReviews = 0;
+    int numberOfReviews = 0;
     if (data['numberOfReviews'] != null) {
-      totalReviews = _parseInt(data['numberOfReviews']) ?? 0;
-    } else if (data['totalReviews'] != null) {
-      totalReviews = _parseInt(data['totalReviews']) ?? 0;
+      numberOfReviews = _parseInt(data['numberOfReviews']) ?? 0;
+    } else if (data['numberOfReviews'] != null) {
+      numberOfReviews = _parseInt(data['numberOfReviews']) ?? 0;
     }
 
     return Restaurant(
@@ -377,11 +377,11 @@ class Restaurant extends BaseEntity {
       gallery: gallery,
       openingHours: openingHours,
       socialMedia: SocialMedia(), // Pas de données sociales dans companys
-      tags: _parseTags(data['categorie']?.toString()),
+      tags: _parseTags(data['subCategory']?.toString()),
       rating: rating,
-      totalReviews: totalReviews,
+      numberOfReviews: numberOfReviews,
       category: data['categorie']?.toString() ?? '',
-      subCategory: data['type']?.toString() ?? '',
+      subCategory: data['subCategory']?.toString() ?? '',
       deliveryRange: _parseDouble(data['deliveryRange']) ?? 5.0,
       averageOrderValue: _parseDouble(data['averageOrderValue']) ?? 25.0,
       preparationTime: _parseInt(data['preparationTime']) ?? 30,
@@ -407,7 +407,7 @@ class Restaurant extends BaseEntity {
 
   static List<String> _parseTags(String? category) {
     if (category == null || category.isEmpty) return [];
-    return [category, 'Restauration'];
+    return [category,];
   }
 
   Map<String, dynamic> toMap() {
@@ -430,7 +430,7 @@ class Restaurant extends BaseEntity {
       'socialMedia': socialMedia.toMap(),
       'tags': tags,
       'rating': rating,
-      'totalReviews': totalReviews,
+      'numberOfReviews': numberOfReviews,
       'category': category,
       'subCategory': subCategory,
       'deliveryRange': deliveryRange,

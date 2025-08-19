@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Imports de vos classes
 import 'package:happy/classes/company.dart';
 import 'package:happy/classes/contest.dart';
@@ -82,6 +83,8 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
 
   // Ajoutez ces variables d'état
   String _selectedFilter = 'Tous';
+  bool _isDescriptionExpanded = false;
+  bool _isInitialized = false;
 
   // Cache pour les données company
   final Map<String, Map<String, dynamic>> _companyDataCache = {};
@@ -100,6 +103,18 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
 
     // Puis initialiser les tabs
     _initializeData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      ScreenUtil.init(
+        context,
+        designSize: const Size(375, 812),
+      );
+      _isInitialized = true;
+    }
   }
 
   void _initializeData() async {
@@ -301,15 +316,20 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                       titleSpacing: 0,
                       title: Text(
                         entreprise.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 20,
+                          fontSize: 18.sp,
                           color: Colors.black,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       leading: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new,
-                            color: Colors.black),
+                        icon: Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Colors.black,
+                          size: 20.sp,
+                        ),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
@@ -319,7 +339,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                           _buildCoverImage(entreprise),
                           _buildCompanyInfo(entreprise),
                           _buildActionButtons(entreprise),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16.h),
                         ],
                       ),
                     ),
@@ -336,12 +356,11 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                             tabs: _tabs.map((String tab) {
                               return Tab(
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16),
+                                  padding: EdgeInsets.symmetric(horizontal: 16.w),
                                   child: Text(
                                     tab,
-                                    style: const TextStyle(
-                                      fontSize: 14,
+                                    style: TextStyle(
+                                      fontSize: 14.sp,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -372,60 +391,98 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
 
   Widget _buildCoverImage(Company entreprise) {
     return SizedBox(
-      height: 200,
+      height: 200.h,
       width: double.infinity,
       child: Image.network(
         entreprise.cover,
         fit: BoxFit.cover,
         colorBlendMode: BlendMode.darken,
         color: Colors.black.withAlpha(52),
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[300],
+            child: Center(
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                size: 48.sp,
+                color: Colors.grey[600],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildCompanyInfo(Company entreprise) {
     return Padding(
-      padding: const EdgeInsets.all(15.0),
+      padding: EdgeInsets.all(16.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               CircleAvatar(
-                radius: 42,
+                radius: 42.r,
                 backgroundColor: Colors.blue,
                 child: CircleAvatar(
-                  radius: 40,
+                  radius: 40.r,
                   backgroundImage: NetworkImage(entreprise.logo),
+                  onBackgroundImageError: (exception, stackTrace) {
+                    // Gérer l'erreur d'image
+                  },
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       entreprise.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 28,
+                        fontSize: 24.sp,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      entreprise.categorie,
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.grey[600],
                       ),
                     ),
-                    Text(entreprise.categorie),
-                    Text('${entreprise.like} J\'aime'),
+                    SizedBox(height: 4.h),
+                    Text(
+                      '${entreprise.like} J\'aime',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.grey[600],
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(entreprise.description),
-          const SizedBox(height: 8),
-          _buildInfoTile(Icons.language, entreprise.website),
+          SizedBox(height: 16.h),
+          
+          // Description avec expansion
+          _buildExpandableDescription(entreprise.description),
+          
+          SizedBox(height: 16.h),
+          if (entreprise.website.isNotEmpty)
+            _buildInfoTile(Icons.language, entreprise.website),
+          if (entreprise.adress.adresse.isNotEmpty)
           _buildInfoTile(Icons.location_on,
               "${entreprise.adress.adresse} ${entreprise.adress.codePostal} ${entreprise.adress.ville}"),
-          _buildInfoTile(Icons.phone, entreprise.phone),
-          _buildInfoTile(Icons.email, entreprise.email),
+          if (entreprise.phone.isNotEmpty)
+            _buildInfoTile(Icons.phone, entreprise.phone),
+          if (entreprise.email.isNotEmpty)
+            _buildInfoTile(Icons.email, entreprise.email),
           _buildOpeningHoursTile(entreprise.openingHours),
 
           // Programme de fidélité
@@ -433,16 +490,39 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
             future: _loyaltyProgramFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const CircularProgressIndicator();
+                return Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20.w,
+                      height: 20.h,
+                      child: const CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
               }
               if (snapshot.hasData && snapshot.data != null) {
-                return InkWell(
-                  onTap: () => _showLoyaltyProgramDetails(snapshot.data!),
-                  child: const Text(
-                    "Programme de fidélité disponible",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
+                return Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: InkWell(
+                    onTap: () => _showLoyaltyProgramDetails(snapshot.data!),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.card_giftcard,
+                          size: 16.sp,
+                          color: Colors.green,
+                        ),
+                        SizedBox(width: 8.w),
+                        Text(
+                          "Programme de fidélité disponible",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -455,9 +535,46 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
     );
   }
 
+  Widget _buildExpandableDescription(String description) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          description,
+          style: TextStyle(
+            fontSize: 14.sp,
+            color: Colors.grey[700],
+            height: 1.4,
+          ),
+          maxLines: _isDescriptionExpanded ? null : 3,
+          overflow: _isDescriptionExpanded ? null : TextOverflow.ellipsis,
+        ),
+        if (description.length > 150) // Seulement si la description est longue
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isDescriptionExpanded = !_isDescriptionExpanded;
+              });
+            },
+            child: Padding(
+              padding: EdgeInsets.only(top: 8.h),
+              child: Text(
+                _isDescriptionExpanded ? 'Voir moins' : 'Voir plus',
+                style: TextStyle(
+                  color: const Color(0xFF0B7FE9),
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildInfoTile(IconData icon, String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: EdgeInsets.symmetric(vertical: 4.h),
       child: InkWell(
         onTap: () async {
           String url;
@@ -483,13 +600,16 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
         },
         child: Row(
           children: [
-            Icon(icon, size: 16, color: Colors.grey),
-            const SizedBox(width: 8),
+            Icon(icon, size: 16.sp, color: Colors.grey),
+            SizedBox(width: 8.w),
             Expanded(
               child: Text(
                 text,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.grey),
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14.sp,
+                ),
               ),
             ),
           ],
@@ -506,15 +626,15 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
     final isOpen = openingHours.isOpenNow();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: EdgeInsets.symmetric(vertical: 4.h),
       child: Row(
         children: [
           Icon(
             isOpen ? Icons.check_circle : Icons.access_time,
-            size: 16,
+            size: 16.sp,
             color: isOpen ? Colors.green : Colors.grey,
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,14 +644,15 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                   style: TextStyle(
                     color: isOpen ? Colors.green : Colors.grey,
                     fontWeight: FontWeight.w500,
+                    fontSize: 14.sp,
                   ),
                 ),
                 if (dayHours != "fermé")
                   Text(
                     dayHours,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.grey,
-                      fontSize: 13,
+                      fontSize: 13.sp,
                     ),
                   ),
               ],
@@ -863,38 +984,38 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
         if (type ==
             null) // N'afficher les filtres que si type n'est pas spécifié
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(16.w),
             child: Row(
               children: [
-                const Text(
+                Text(
                   'Filtrer par :',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: GestureDetector(
                     onTap: () => _showFilterBottomSheet(),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 12.w, vertical: 8.h),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8.r),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             _selectedFilter,
-                            style: const TextStyle(
-                              fontSize: 15,
+                            style: TextStyle(
+                              fontSize: 15.sp,
                               color: Colors.black87,
                             ),
                           ),
-                          const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                          Icon(Icons.arrow_drop_down, color: Colors.grey, size: 20.sp),
                         ],
                       ),
                     ),
@@ -908,12 +1029,33 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
             future: _postsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF0B7FE9),
+                  ),
+                );
               }
               if (snapshot.hasError || !snapshot.hasData) {
                 return Center(
-                  child:
-                      Text('Erreur: ${snapshot.error ?? "Aucun post trouvé"}'),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48.sp,
+                        color: Colors.grey[400],
+                      ),
+                      SizedBox(height: 16.h),
+                      Text(
+                        'Erreur: ${snapshot.error ?? "Aucun post trouvé"}',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 );
               }
 
@@ -932,30 +1074,45 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                           .toList();
 
               if (filteredPosts.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'Aucune publication trouvée pour ce type',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.article_outlined,
+                        size: 48.sp,
+                        color: Colors.grey[400],
+                      ),
+                      SizedBox(height: 16.h),
+                      Text(
+                        'Aucune publication trouvée pour ce type',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 );
               }
 
               return ListView.builder(
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(10.w),
                 itemCount: filteredPosts.length,
                 itemBuilder: (context, index) {
                   final postData = filteredPosts[index];
                   final post = postData['post'] as Post;
-                  return PostWidget(
-                    key: ValueKey(post.id),
-                    post: post,
-                    currentUserId: FirebaseAuth.instance.currentUser!.uid,
-                    currentProfileUserId:
-                        FirebaseAuth.instance.currentUser!.uid,
-                    onView: () {},
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: 8.h),
+                    child: PostWidget(
+                      key: ValueKey(post.id),
+                      post: post,
+                      currentUserId: FirebaseAuth.instance.currentUser!.uid,
+                      currentProfileUserId:
+                          FirebaseAuth.instance.currentUser!.uid,
+                      onView: () {},
+                    ),
                   );
                 },
               );
@@ -969,32 +1126,36 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   void _showFilterBottomSheet() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+          padding: EdgeInsets.only(
+            top: 20.h,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20.h,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40,
-                height: 4,
+                width: 40.w,
+                height: 4.h,
                 decoration: BoxDecoration(
                   color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(2.r),
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text(
+              SizedBox(height: 20.h),
+              Text(
                 'Filtrer les publications',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 18.sp,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16.h),
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -1010,9 +1171,9 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                         Navigator.pop(context);
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 20.w,
+                          vertical: 12.h,
                         ),
                         child: Row(
                           children: [
@@ -1023,13 +1184,13 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                               color: isSelected
                                   ? const Color(0xFF0B7FE9)
                                   : Colors.grey,
-                              size: 20,
+                              size: 20.sp,
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12.w),
                             Text(
                               filter,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 16.sp,
                                 color: isSelected
                                     ? const Color(0xFF0B7FE9)
                                     : Colors.black87,
@@ -1057,14 +1218,14 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
       builder: (context, companyLikeService, child) {
         final isFollowed = companyLikeService.isCompanyLiked(entreprise.id);
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
           child: Row(
             children: [
               Expanded(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
-                  height: 44,
+                  height: 48.h,
                   decoration: BoxDecoration(
                     gradient: isFollowed
                         ? null
@@ -1080,20 +1241,20 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                           : Colors.transparent,
                       width: 1.5,
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.r),
                     boxShadow: [
                       if (!isFollowed)
                         BoxShadow(
                           color: const Color(0xFF0B7FE9).withAlpha(24),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
+                          blurRadius: 8.r,
+                          offset: Offset(0, 4.h),
                         ),
                     ],
                   ),
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12.r),
                       onTap: () async {
                         final updatedCompany =
                             await companyLikeService.handleLike(entreprise);
@@ -1108,19 +1269,19 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                             isFollowed
                                 ? Icons.check_rounded
                                 : Icons.add_rounded,
-                            size: 20,
+                            size: 20.sp,
                             color: isFollowed
                                 ? const Color(0xFF0B7FE9)
                                 : Colors.white,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.w),
                           Text(
                             isFollowed ? 'Suivi' : 'Suivre',
                             style: TextStyle(
                               color: isFollowed
                                   ? const Color(0xFF0B7FE9)
                                   : Colors.white,
-                              fontSize: 15,
+                              fontSize: 15.sp,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.3,
                             ),
@@ -1131,39 +1292,39 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.w),
               Container(
-                height: 44,
-                width: 44,
+                height: 48.h,
+                width: 48.w,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF3476B2), Color(0xFF0B7FE9)],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.r),
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF0B7FE9).withAlpha(24),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
+                      blurRadius: 8.r,
+                      offset: Offset(0, 4.h),
                     ),
                   ],
                 ),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.r),
                     onTap: () => _startConversation(
                       context,
                       entreprise,
                       FirebaseAuth.instance.currentUser!.uid,
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Icon(
                         Icons.chat_bubble_outline_rounded,
                         color: Colors.white,
-                        size: 20,
+                        size: 20.sp,
                       ),
                     ),
                   ),
@@ -1177,49 +1338,63 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
   }
 
   Widget _buildAboutTab(Company entreprise) {
-    return ListView(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        Text('Description', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
-        Text(entreprise.description),
-        const SizedBox(height: 16),
-        Text('Horaires d\'ouverture',
-            style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
-        if (entreprise.openingHours.sameHoursAllDays)
-          _buildOpeningHoursTile(entreprise.openingHours)
-        else
-          ...[
-            'monday',
-            'tuesday',
-            'wednesday',
-            'thursday',
-            'friday',
-            'saturday',
-            'sunday'
-          ].map((day) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 100,
-                      child: Text(
-                        _getDayNameInFrench(day),
-                        style: const TextStyle(fontWeight: FontWeight.w500),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Description',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          _buildExpandableDescription(entreprise.description),
+          SizedBox(height: 24.h),
+          Text(
+            'Horaires d\'ouverture',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          if (entreprise.openingHours.sameHoursAllDays)
+            _buildOpeningHoursTile(entreprise.openingHours)
+          else
+            ...['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                .map((day) => Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4.h),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 100.w,
+                            child: Text(
+                              _getDayNameInFrench(day),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14.sp,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              entreprise.openingHours.hours[day] ?? "fermé",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14.sp,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        entreprise.openingHours.hours[day] ?? "fermé",
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-      ],
+                    )),
+          SizedBox(height: 100.h), // Espace en bas pour éviter le bottom overflow
+        ],
+      ),
     );
   }
 
@@ -1326,13 +1501,16 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.photo_library_outlined,
-                size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
+            Icon(
+              Icons.photo_library_outlined,
+              size: 64.sp,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: 16.h),
             Text(
               'Aucune photo dans la galerie',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 16.sp,
                 color: Colors.grey[600],
                 fontWeight: FontWeight.w500,
               ),
@@ -1343,11 +1521,11 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      padding: EdgeInsets.all(8.w),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
+        crossAxisSpacing: 4.w,
+        mainAxisSpacing: 4.h,
       ),
       itemCount: gallery.length,
       itemBuilder: (context, index) {
@@ -1358,7 +1536,7 @@ class _DetailsEntrepriseState extends State<DetailsEntreprise>
             tag: photo['id'],
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
                 image: DecorationImage(
                   image: NetworkImage(photo['url']),
                   fit: BoxFit.cover,

@@ -20,6 +20,7 @@ class RestaurantOrder {
   final double? serviceFee;
   final double subtotal;
   final String? pickupTime;
+  final String? pickupCode;
 
   RestaurantOrder({
     required this.id,
@@ -41,6 +42,7 @@ class RestaurantOrder {
     this.serviceFee,
     required this.subtotal,
     this.pickupTime,
+    this.pickupCode,
   });
 
   factory RestaurantOrder.fromFirestore(DocumentSnapshot doc) {
@@ -68,6 +70,7 @@ class RestaurantOrder {
       serviceFee: data['serviceFee']?.toDouble(),
       subtotal: (data['subtotal'] ?? 0.0).toDouble(),
       pickupTime: data['pickupTime'],
+      pickupCode: data['pickupCode'],
     );
   }
 
@@ -79,11 +82,11 @@ class RestaurantOrder {
         return 'En préparation'; // Affiché comme en préparation
       case 'preparing':
         return 'En préparation';
-      case 'ready':
+      case 'prête à être retirée':
         return 'Prête à retirer';
       case 'delivering':
         return 'Prête à retirer'; // Click & collect - pas de livraison
-      case 'delivered':
+      case 'completed':
         return 'Terminée'; // Click & collect - commande terminée
       case 'cancelled':
         return 'Annulée';
@@ -100,11 +103,11 @@ class RestaurantOrder {
         return '✅';
       case 'preparing':
         return '👨‍🍳';
-      case 'ready':
+      case 'prête à être retirée':
         return '📦';
       case 'delivering':
         return '🚗';
-      case 'delivered':
+      case 'completed':
         return '✅';
       case 'cancelled':
         return '❌';
@@ -113,7 +116,7 @@ class RestaurantOrder {
     }
   }
 
-  bool get isActive => !['delivered', 'cancelled'].contains(status);
+  bool get isActive => !['completed', 'cancelled'].contains(status);
 }
 
 class RestaurantOrderItem {

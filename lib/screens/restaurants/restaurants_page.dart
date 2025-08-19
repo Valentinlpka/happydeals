@@ -6,7 +6,9 @@ import 'package:happy/providers/restaurant_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/restaurants/restaurant_detail_page.dart';
 import 'package:happy/screens/restaurants/restaurant_filters_modal.dart';
+import 'package:happy/widgets/app_bar/custom_app_bar.dart';
 import 'package:happy/widgets/cards/restaurant_card.dart';
+import 'package:happy/widgets/current_location_display.dart';
 import 'package:happy/widgets/unified_location_filter.dart';
 import 'package:provider/provider.dart';
 
@@ -57,211 +59,145 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header avec recherche et filtres
-            _buildHeader(),
-            
-            // Catégories horizontales
-            _buildCategoriesSection(),
-            
-            // Informations de tri et nombre de résultats
-            _buildResultsInfo(),
-            
-            // Liste des restaurants
-            Expanded(
-              child: _buildRestaurantsList(),
-            ),
-          ],
-        ),
-      ),
+    return Consumer2<LocationProvider, RestaurantProvider>(
+      builder: (context, locationProvider, restaurantProvider, child) {
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: CustomAppBar(
+            title: 'Restaurants',
+            align: Alignment.center,
+            actions: [
+              Stack(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.location_on,
+                      color: locationProvider.hasLocation 
+                          ? const Color(0xFF4B88DA) 
+                          : null,
+                    ),
+                    onPressed: _showLocationFilterBottomSheet,
+                  ),
+                  if (locationProvider.hasLocation)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4B88DA),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              CurrentLocationDisplay(
+                onLocationChanged: () {
+                  setState(() {
+                    // La localisation a été mise à jour
+                  });
+                },
+              ),
+              
+              // Barre de recherche et filtres
+              _buildSearchAndFilters(),
+              
+              // Catégories horizontales
+              _buildCategoriesSection(),
+              
+              // Informations de tri et nombre de résultats
+              _buildResultsInfo(),
+              
+              // Liste des restaurants
+              Expanded(
+                child: _buildRestaurantsList(),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.all(16.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSearchAndFilters() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
         children: [
-          // Titre et localisation
-          Row(
-            children: [
-              // Bouton retour
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new),
-                onPressed: () => Navigator.pop(context),
-                color: Colors.grey[800],
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Restaurants',
-                      style: TextStyle(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Consumer2<LocationProvider, RestaurantProvider>(
-                      builder: (context, locationProvider, restaurantProvider, child) {
-                        if (locationProvider.isLoading) {
-                          return Row(
-                            children: [
-                              SizedBox(
-                                width: 12.w,
-                                height: 12.h,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              SizedBox(width: 8.w),
-                              Text(
-                                'Localisation...',
-                                style: TextStyle(
-                                  fontSize: 14.sp,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-                        
-                        if (locationProvider.hasLocation) {
-                          return GestureDetector(
-                            onTap: _showLocationFilterBottomSheet,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 16.sp,
-                                  color: Colors.green,
-                                ),
-                                SizedBox(width: 4.w),
-                                Expanded(
-                                  child: Text(
-                                    locationProvider.address.isNotEmpty 
-                                        ? locationProvider.address 
-                                        : 'Près de vous',
-                                    style: TextStyle(
-                                      fontSize: 14.sp,
-                                      color: Colors.grey[600],
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  size: 16.sp,
-                                  color: Colors.grey[600],
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        
-                        return GestureDetector(
-                          onTap: _showLocationFilterBottomSheet,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.location_off,
-                                size: 16.sp,
-                                color: Colors.orange,
-                              ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                'Définir ma localisation',
-                                style: TextStyle(
-                                  fontSize: 14.sp,
-                                  color: Colors.orange,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Rechercher un restaurant ou un plat...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                          });
+                          context.read<RestaurantProvider>().search('');
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF4B88DA)),
+                ),
+                filled: true,
+                fillColor: Colors.white,
               ),
-             
-            ],
+              onChanged: (value) {
+                context.read<RestaurantProvider>().search(value);
+              },
+            ),
           ),
           
-          SizedBox(height: 16.h),
+          const SizedBox(width: 12),
           
-          // Barre de recherche et filtres
-          Row(
-            children: [
-              Expanded(
+          // Bouton filtres
+          Consumer<RestaurantProvider>(
+            builder: (context, provider, child) {
+              return GestureDetector(
+                onTap: () => _showFiltersModal(context),
                 child: Container(
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher un restaurant ou un plat...',
-                      hintStyle: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 14.sp,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Colors.grey[500],
-                        size: 20.sp,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16.w,
-                        vertical: 12.h,
-                      ),
+                    color: provider.filters.hasActiveFilters
+                        ? const Color(0xFF4B88DA)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: provider.filters.hasActiveFilters
+                          ? const Color(0xFF4B88DA)
+                          : Colors.grey[300]!,
                     ),
-                    onChanged: (value) {
-                      context.read<RestaurantProvider>().search(value);
-                    },
+                  ),
+                  child: Icon(
+                    Icons.tune,
+                    color: provider.filters.hasActiveFilters
+                        ? Colors.white
+                        : Colors.grey[600],
+                    size: 20,
                   ),
                 ),
-              ),
-              
-              SizedBox(width: 12.w),
-              
-              // Bouton filtres
-              Consumer<RestaurantProvider>(
-                builder: (context, provider, child) {
-                  return GestureDetector(
-                    onTap: () => _showFiltersModal(context),
-                    child: Container(
-                      padding: EdgeInsets.all(12.w),
-                      decoration: BoxDecoration(
-                        color: provider.filters.hasActiveFilters
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Icon(
-                        Icons.tune,
-                        color: provider.filters.hasActiveFilters
-                            ? Colors.white
-                            : Colors.grey[600],
-                        size: 20.sp,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+              );
+            },
           ),
         ],
       ),
@@ -276,42 +212,51 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
         }
 
         return Container(
-          height: 50.h,
-          color: Colors.white,
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
             itemCount: provider.availableCategories.length,
             itemBuilder: (context, index) {
               final category = provider.availableCategories[index];
               final isSelected = provider.filters.categories.contains(category);
               
-              return GestureDetector(
-                onTap: () {
-                  final newCategories = List<String>.from(provider.filters.categories);
-                  if (isSelected) {
-                    newCategories.remove(category);
-                  } else {
-                    newCategories.add(category);
-                  }
-                  
-                  provider.updateFilters(
-                    provider.filters.copyWith(categories: newCategories),
-                  );
-                },
-                child: Container(
-                  margin: EdgeInsets.only(right: 12.w, top: 8.h, bottom: 8.h),
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Theme.of(context).primaryColor : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Text(
-                    category,
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      color: isSelected ? Colors.white : Colors.grey[700],
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: InkWell(
+                  onTap: () {
+                    final newCategories = List<String>.from(provider.filters.categories);
+                    if (isSelected) {
+                      newCategories.remove(category);
+                    } else {
+                      newCategories.add(category);
+                    }
+                    
+                    provider.updateFilters(
+                      provider.filters.copyWith(categories: newCategories),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF4B88DA) : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF4B88DA) : Colors.grey[300]!,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: isSelected ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -328,14 +273,14 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
       builder: (context, provider, child) {
         return Container(
           color: Colors.white,
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Text(
                 '${provider.restaurants.length} restaurant${provider.restaurants.length > 1 ? 's' : ''}',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: Colors.grey[600],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -348,17 +293,17 @@ class _RestaurantsPageState extends State<RestaurantsPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.sort,
-                      size: 16.sp,
-                      color: Colors.grey[600],
+                      size: 16,
+                      color: Colors.grey,
                     ),
-                    SizedBox(width: 4.w),
+                    const SizedBox(width: 4),
                     Text(
                       _getSortText(provider.sortBy),
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        color: Colors.grey[600],
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

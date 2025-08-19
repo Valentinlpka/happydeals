@@ -172,6 +172,7 @@ class MenuItem {
   final String description;
   final List<String> images;
   final double basePrice;
+  final double vatRate; // Taux de TVA en pourcentage (ex: 10.0 pour 10%)
   final int preparationTime;
   final MenuItemAvailability availability;
   final DisplaySettings displaySettings;
@@ -192,6 +193,7 @@ class MenuItem {
     required this.description,
     required this.images,
     required this.basePrice,
+    this.vatRate = 10.0, // TVA par défaut 10% pour l'alimentation
     required this.preparationTime,
     required this.availability,
     required this.displaySettings,
@@ -223,6 +225,7 @@ class MenuItem {
       description: data['description']?.toString() ?? '',
       images: List<String>.from(data['images'] ?? []),
       basePrice: _parseDouble(data['basePrice']) ?? 0.0,
+      vatRate: _parseDouble(data['vatRate']) ?? 10.0, // TVA par défaut 10%
       preparationTime: _parseInt(data['preparationTime']) ?? 0,
       availability: MenuItemAvailability.fromMap(data['availability'] ?? {}),
       displaySettings: DisplaySettings.fromMap(data['displaySettings'] ?? {}),
@@ -249,6 +252,7 @@ class MenuItem {
       'description': description,
       'images': images,
       'basePrice': basePrice,
+      'vatRate': vatRate,
       'preparationTime': preparationTime,
       'availability': availability.toMap(),
       'displaySettings': displaySettings.toMap(),

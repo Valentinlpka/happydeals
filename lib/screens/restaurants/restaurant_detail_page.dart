@@ -10,6 +10,7 @@ import 'package:happy/services/cart_restaurant_service.dart';
 import 'package:happy/widgets/cards/menu_item_card.dart';
 import 'package:happy/widgets/cart_snackbar.dart';
 import 'package:happy/widgets/floating_cart_button.dart';
+import 'package:happy/widgets/reviews_list.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -286,7 +287,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                 icon: Icons.star,
                 iconColor: Colors.amber,
                 text: widget.restaurant.rating.toStringAsFixed(1),
-                subtitle: '(${widget.restaurant.totalReviews} avis)',
+                subtitle: '(${widget.restaurant.numberOfReviews} avis)',
               ),
               
               SizedBox(width: 24.w),
@@ -357,31 +358,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
             ),
           ),
           
-          SizedBox(height: 16.h),
           
-          // Tags
-          if (widget.restaurant.tags.isNotEmpty)
-            Wrap(
-              spacing: 8.w,
-              runSpacing: 8.h,
-              children: widget.restaurant.tags.map((tag) {
-                return Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  child: Text(
-                    tag,
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+         
         ],
       ),
     );
@@ -1366,38 +1344,134 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
   }
 
   Widget _buildReviewsTab() {
-    return Container(
-      padding: EdgeInsets.all(20.w),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.rate_review_outlined,
-              size: 64.sp,
-              color: Colors.grey[400],
-            ),
-            SizedBox(height: 16.h),
-            Text(
-              'Avis à venir',
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
+    return Column(
+      children: [
+        // Résumé des avis
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(20.w),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.grey[200]!,
+                width: 1,
               ),
             ),
-            SizedBox(height: 8.h),
-            Text(
-              'Le système d\'avis sera implémenté prochainement',
-              style: TextStyle(
-                fontSize: 14.sp,
-                color: Colors.grey[500],
+          ),
+          child: Row(
+            children: [
+              // Note moyenne
+              Column(
+                children: [
+                  Text(
+                    widget.restaurant.rating.toStringAsFixed(1),
+                    style: TextStyle(
+                      fontSize: 36.sp,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber[700],
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(5, (index) {
+                      return Icon(
+                        index < widget.restaurant.rating.round() 
+                            ? Icons.star 
+                            : Icons.star_border,
+                        color: Colors.amber,
+                        size: 20.sp,
+                      );
+                    }),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    '${widget.restaurant.numberOfReviews} avis',
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              
+              SizedBox(width: 24.w),
+              
+              // Répartition des étoiles (placeholder)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Répartition des notes',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    ...List.generate(5, (index) {
+                      final stars = 5 - index;
+                      return Padding(
+                        padding: EdgeInsets.symmetric(vertical: 2.h),
+                        child: Row(
+                          children: [
+                            Text(
+                              '$stars',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            SizedBox(width: 4.w),
+                            Icon(
+                              Icons.star,
+                              size: 12.sp,
+                              color: Colors.amber,
+                            ),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: Container(
+                                height: 4.h,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(2.r),
+                                ),
+                                child: FractionallySizedBox(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: (stars == 5 ? 0.6 : 
+                                               stars == 4 ? 0.3 : 
+                                               stars == 3 ? 0.1 : 
+                                               stars == 2 ? 0.05 : 0.02),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber,
+                                      borderRadius: BorderRadius.circular(2.r),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        
+        // Liste des avis
+        Expanded(
+          child: ReviewsList(
+            companyId: widget.restaurant.id,
+            limit: 10,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1541,6 +1615,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
         unitPrice: price,
         quantity: 1,
         totalPrice: price,
+        vatRate: item.vatRate, // Utiliser le taux TVA de l'item
         images: item.images,
         type: 'item',
         addedAt: DateTime.now(),

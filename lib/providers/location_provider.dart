@@ -33,9 +33,19 @@ class LocationProvider with ChangeNotifier {
   /// Initialise la localisation en utilisant les données du profil utilisateur
   /// Ne fait rien si une localisation est déjà définie (pour préserver les changements utilisateur)
   Future<void> initializeLocation(UserModel userModel, {bool forceReload = false}) async {
+    debugPrint('📍 LocationProvider - DÉBUT initializeLocation');
+    debugPrint('📍 LocationProvider - forceReload: $forceReload');
+    debugPrint('📍 LocationProvider - hasLocation actuel: $hasLocation');
+    debugPrint('📍 LocationProvider - UserModel reçu:');
+    debugPrint('📍 LocationProvider - UserModel.city: "${userModel.city}"');
+    debugPrint('📍 LocationProvider - UserModel.zipCode: "${userModel.zipCode}"');
+    debugPrint('📍 LocationProvider - UserModel.latitude: ${userModel.latitude}');
+    debugPrint('📍 LocationProvider - UserModel.longitude: ${userModel.longitude}');
+    
     // Si une localisation est déjà définie et qu'on ne force pas le rechargement, ne rien faire
     if (hasLocation && !forceReload) {
-      debugPrint('Localisation déjà définie, initialisation ignorée');
+      debugPrint('📍 LocationProvider - Localisation déjà définie, initialisation ignorée');
+      debugPrint('📍 LocationProvider - Coordonnées actuelles: $_latitude, $_longitude');
       // Charger quand même le rayon et les villes françaises si pas encore fait
       await _loadFrenchCities();
       await _loadUserRadius();
@@ -52,28 +62,12 @@ class LocationProvider with ChangeNotifier {
       // Charger le rayon de recherche sauvegardé
       await _loadUserRadius();
       
-      // Si l'utilisateur a une ville et un code postal, essayer de géocoder
-      if (userModel.city.isNotEmpty && userModel.zipCode.isNotEmpty) {
-        try {
-          final addresses = await geocoding
-              .locationFromAddress('${userModel.city}, ${userModel.zipCode}');
-
-          if (addresses.isNotEmpty) {
-            _updateLocation(
-              latitude: addresses.first.latitude,
-              longitude: addresses.first.longitude,
-              address: '${userModel.city}, ${userModel.zipCode}',
-            );
-            debugPrint('Géocodage réussi: ${addresses.first.latitude}, ${addresses.first.longitude}');
-            return;
-          }
-        } catch (e) {
-          debugPrint('Erreur de géocodage: $e');
-        }
-      }
-      
-      // Si l'utilisateur a une localisation enregistrée, l'utiliser
+      // Priorité 1: Si l'utilisateur a une localisation GPS précise enregistrée, l'utiliser
       if (userModel.latitude != 0.0 && userModel.longitude != 0.0) {
+        debugPrint('📍 LocationProvider - SOURCE: Coordonnées GPS du profil utilisateur');
+        debugPrint('📍 LocationProvider - Latitude GPS: ${userModel.latitude}');
+        debugPrint('📍 LocationProvider - Longitude GPS: ${userModel.longitude}');
+        
         // Trouver la ville française la plus proche
         final nearestCity = _findNearestCity(userModel.latitude, userModel.longitude);
         
@@ -87,14 +81,42 @@ class LocationProvider with ChangeNotifier {
             longitude: userModel.longitude,
             address: address,
           );
-          debugPrint('Utilisation de la localisation du profil avec ville française: $address');
+          debugPrint('📍 LocationProvider - Ville française trouvée: $address');
+          debugPrint('📍 LocationProvider - ✅ Utilisation des coordonnées GPS du profil');
           return;
+        }
+      }
+      
+      // Priorité 2: Si l'utilisateur a une ville et un code postal, essayer de géocoder
+      if (userModel.city.isNotEmpty && userModel.zipCode.isNotEmpty) {
+        debugPrint('📍 LocationProvider - SOURCE: Géocodage d\'adresse textuelle');
+        debugPrint('📍 LocationProvider - Ville: "${userModel.city}"');
+        debugPrint('📍 LocationProvider - Code postal: "${userModel.zipCode}"');
+        
+        try {
+          final addresses = await geocoding
+              .locationFromAddress('${userModel.city}, ${userModel.zipCode}');
+
+          if (addresses.isNotEmpty) {
+            _updateLocation(
+              latitude: addresses.first.latitude,
+              longitude: addresses.first.longitude,
+              address: '${userModel.city}, ${userModel.zipCode}',
+            );
+            debugPrint('📍 LocationProvider - Latitude géocodée: ${addresses.first.latitude}');
+            debugPrint('📍 LocationProvider - Longitude géocodée: ${addresses.first.longitude}');
+            debugPrint('📍 LocationProvider - ✅ Utilisation du géocodage d\'adresse textuelle');
+            return;
+          }
+        } catch (e) {
+          debugPrint('📍 LocationProvider - ❌ Erreur de géocodage: $e');
         }
       }
 
       // Si aucune localisation n'est disponible, ne pas essayer la géolocalisation GPS automatiquement
       // L'utilisateur devra utiliser le bouton "Utiliser ma localisation" dans l'interface
-      debugPrint('Aucune localisation disponible, l\'utilisateur devra la définir manuellement');
+      debugPrint('📍 LocationProvider - ❌ Aucune source de localisation disponible');
+      debugPrint('📍 LocationProvider - L\'utilisateur devra définir sa localisation manuellement');
       _setLoading(false);
     } catch (e) {
       debugPrint('Erreur lors de l\'initialisation de la localisation: $e');

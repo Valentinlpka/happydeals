@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/providers/conversation_provider.dart';
 import 'package:happy/providers/users_provider.dart';
 import 'package:happy/screens/auth/auth_wrapper.dart';
+import 'package:happy/screens/auth/forgot_password_page.dart';
 import 'package:happy/screens/auth/phone_auth_page.dart';
 import 'package:happy/screens/auth/register_page.dart';
 import 'package:happy/screens/complete_profile_page.dart';
@@ -424,7 +425,12 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () {
-              // Logique mot de passe oublié
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ForgotPasswordPage(),
+                ),
+              );
             },
             child: Text(
               'Mot de passe oublié ?',

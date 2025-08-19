@@ -531,11 +531,11 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin {
     if (homeProvider.lastRefreshTime != null) {
       final timeSinceLastRefresh =
           DateTime.now().difference(homeProvider.lastRefreshTime!);
-      if (timeSinceLastRefresh < const Duration(minutes: 2)) {
+      if (timeSinceLastRefresh < const Duration(seconds: 10)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-                'Veuillez patienter quelques minutes avant de rafraîchir à nouveau'),
+                'Veuillez patienter quelques secondes avant de rafraîchir à nouveau'),
             duration: Duration(seconds: 2),
           ),
         );

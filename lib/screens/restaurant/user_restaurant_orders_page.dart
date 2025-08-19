@@ -332,7 +332,7 @@ class _UserRestaurantOrdersPageState extends State<UserRestaurantOrdersPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Livraison',
+                                'Retrait',
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 13.sp,
@@ -479,20 +479,20 @@ class _UserRestaurantOrdersPageState extends State<UserRestaurantOrdersPage> {
         textColor = Colors.orange[700]!;
         icon = Icons.restaurant;
         break;
-      case 'ready':
+      case 'prête à être retirée':
         text = "Prête";
         backgroundColor = Colors.green[50]!;
         textColor = Colors.green[700]!;
         icon = Icons.check_circle;
         break;
       case 'delivering':
-        text = "En livraison";
+        text = "En retrait";
         backgroundColor = Colors.purple[50]!;
         textColor = Colors.purple[700]!;
         icon = Icons.delivery_dining;
         break;
-      case 'delivered':
-        text = "Livrée";
+      case 'completed':
+        text = "Retirée";
         backgroundColor = Colors.green[50]!;
         textColor = Colors.green[700]!;
         icon = Icons.task_alt;
@@ -546,11 +546,11 @@ class _UserRestaurantOrdersPageState extends State<UserRestaurantOrdersPage> {
         return 0.3;
       case 'preparing':
         return 0.6;
-      case 'ready':
+      case 'prête à être retirée':
         return 0.8;
       case 'delivering':
         return 0.9;
-      case 'delivered':
+      case 'completed':
         return 1.0;
       default:
         return 0.0;
@@ -565,11 +565,11 @@ class _UserRestaurantOrdersPageState extends State<UserRestaurantOrdersPage> {
         return Colors.blue;
       case 'preparing':
         return Colors.orange;
-      case 'ready':
+      case 'prête à être retirée':
         return Colors.green;
       case 'delivering':
         return Colors.purple;
-      case 'delivered':
+      case 'completed':
         return Colors.green;
       default:
         return Colors.grey;
@@ -584,12 +584,12 @@ class _UserRestaurantOrdersPageState extends State<UserRestaurantOrdersPage> {
         return 'Votre commande a été confirmée par le restaurant';
       case 'preparing':
         return 'Votre commande est en cours de préparation';
-      case 'ready':
-        return 'Votre commande est prête pour la livraison';
+      case 'prête à être retirée':
+        return 'Votre commande est prête pour le retrait';
       case 'delivering':
-        return 'Votre commande est en cours de livraison';
-      case 'delivered':
-        return 'Votre commande a été livrée';
+        return 'Votre commande est en cours de retrait';
+      case 'completed':
+        return 'Votre commande a été retirée';
       default:
         return 'Statut de commande inconnu';
     }

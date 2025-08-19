@@ -352,6 +352,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'orderId': _orderId!,
                   'cartId': _cart.id,
                   'userId': _auth.currentUser?.uid,
+                  'companyId': _cart.sellerId,
                 },
                 orderData: {
                   'userId': _auth.currentUser?.uid,

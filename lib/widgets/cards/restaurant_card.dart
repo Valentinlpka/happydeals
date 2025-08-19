@@ -277,7 +277,7 @@ class RestaurantCard extends StatelessWidget {
         _buildMetricItem(
           icon: Icons.star,
           iconColor: Colors.amber,
-          text: '${restaurant.rating.toStringAsFixed(1)} (${restaurant.totalReviews})',
+          text: '${restaurant.rating.toStringAsFixed(1)} (${restaurant.numberOfReviews})',
         ),
         
         SizedBox(width: 16.w),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:happy/classes/restaurant.dart';
-import 'package:happy/widgets/cards/restaurant_card.dart';
 import 'package:happy/screens/restaurants/restaurant_detail_page.dart';
+import 'package:happy/widgets/cards/restaurant_card.dart';
 
 class RestaurantTestPage extends StatelessWidget {
   const RestaurantTestPage({super.key});
@@ -78,7 +78,7 @@ class RestaurantTestPage extends StatelessWidget {
         ),
         tags: ['Italien', 'Pizza', 'Livraison'],
         rating: 4.5,
-        totalReviews: 127,
+        numberOfReviews: 127,
         category: 'Italien',
         subCategory: 'Pizza',
         deliveryRange: 5.0,
@@ -124,7 +124,7 @@ class RestaurantTestPage extends StatelessWidget {
         ),
         tags: ['Japonais', 'Sushi', 'Poisson frais'],
         rating: 4.8,
-        totalReviews: 89,
+        numberOfReviews: 89,
         category: 'Japonais',
         subCategory: 'Sushi',
         deliveryRange: 3.0,
@@ -171,7 +171,7 @@ class RestaurantTestPage extends StatelessWidget {
         ),
         tags: ['Américain', 'Burger', 'Fait maison'],
         rating: 4.2,
-        totalReviews: 203,
+        numberOfReviews: 203,
         category: 'Américain',
         subCategory: 'Burger',
         deliveryRange: 4.0,

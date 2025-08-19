@@ -20,6 +20,16 @@ class CurrentLocationDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<LocationProvider>(
       builder: (context, locationProvider, child) {
+        // Debug: Afficher les informations de localisation
+        if (locationProvider.hasLocation) {
+          debugPrint('🌍 CurrentLocationDisplay - Latitude: ${locationProvider.latitude}');
+          debugPrint('🌍 CurrentLocationDisplay - Longitude: ${locationProvider.longitude}');
+          debugPrint('🌍 CurrentLocationDisplay - Adresse: ${locationProvider.address}');
+          debugPrint('🌍 CurrentLocationDisplay - Rayon: ${locationProvider.radius} km');
+        } else {
+          debugPrint('🌍 CurrentLocationDisplay - Aucune localisation définie');
+        }
+        
         if (!locationProvider.hasLocation) {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

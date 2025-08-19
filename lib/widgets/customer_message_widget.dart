@@ -100,11 +100,8 @@ class _CustomerMessageWidgetState extends State<CustomerMessageWidget> {
               spacing: 8.w,
               runSpacing: 8.h,
               children: [
-                _buildSuggestionChip('Sans oignons'),
                 _buildSuggestionChip('Bien cuit'),
-                _buildSuggestionChip('Sauce à part'),
                 _buildSuggestionChip('Allergies : gluten'),
-                _buildSuggestionChip('Livraison discrète'),
                 _buildSuggestionChip('Merci !'),
               ],
             ),
@@ -116,22 +113,28 @@ class _CustomerMessageWidgetState extends State<CustomerMessageWidget> {
               controller: _messageController,
               maxLines: 3,
               maxLength: 200,
+
               decoration: InputDecoration(
+                
                 hintText: 'Ajoutez un message pour le restaurant (optionnel)',
                 hintStyle: TextStyle(
-                  color: Colors.grey[500],
+                  color: Colors.grey[600],
                   fontSize: 14.sp,
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
                 border: OutlineInputBorder(
+
                   borderRadius: BorderRadius.circular(8.r),
                   borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.r),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
+borderSide: BorderSide(
+                          color: Theme.of(context).primaryColor,
+                        ),                ),
                 contentPadding: EdgeInsets.all(12.w),
                 counterStyle: TextStyle(
                   fontSize: 12.sp,

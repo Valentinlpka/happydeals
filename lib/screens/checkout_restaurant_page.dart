@@ -264,10 +264,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
     });
   }
 
-  double get finalTotal {
-    return (widget.cart.totalAmount + deliveryFee + serviceFee - promoDiscount)
-        .clamp(0.0, double.infinity);
-  }
+  // Calculs TVA avec remise
+  double get subtotalHT => widget.cart.totalAmountHT;
+  double get subtotalTTC => widget.cart.totalAmountTTC;
+  double get totalVatAmount => widget.cart.totalVatAmount;
+  
+  // La remise est appliquée sur le TTC, on recalcule HT et TVA proportionnellement
+  double get finalTotalTTC => (subtotalTTC - promoDiscount).clamp(0.0, double.infinity);
+  double get finalTotalHT => subtotalHT * (finalTotalTTC / subtotalTTC);
+  double get finalVatAmount => totalVatAmount * (finalTotalTTC / subtotalTTC);
+  double get finalTotal => finalTotalTTC;
 
   @override
   Widget build(BuildContext context) {
@@ -379,74 +385,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   SizedBox(height: 24.h),
                   
                   // Debug - Informations de localisation
-                  Consumer<LocationProvider>(
-                    builder: (context, locationProvider, child) {
-                      return Container(
-                        padding: EdgeInsets.all(12.w),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(color: Colors.blue[200]!),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Debug - Localisation:',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              'Provider: ${locationProvider.hasLocation ? "✅" : "❌"}',
-                              style: TextStyle(
-                                fontSize: 11.sp,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                            if (locationProvider.hasLocation) ...[
-                              Text(
-                                'Ville: ${locationProvider.address}',
-                                style: TextStyle(
-                                  fontSize: 11.sp,
-                                  color: Colors.blue[700],
-                                ),
-                              ),
-                              Text(
-                                'Coords: ${locationProvider.latitude?.toStringAsFixed(4)}, ${locationProvider.longitude?.toStringAsFixed(4)}',
-                                style: TextStyle(
-                                  fontSize: 11.sp,
-                                  color: Colors.blue[700],
-                                ),
-                              ),
-                            ],
-                            if (restaurant != null)
-                              Text(
-                                'Restaurant: ${restaurant!.address.latitude.toStringAsFixed(4)}, ${restaurant!.address.longitude.toStringAsFixed(4)}',
-                                style: TextStyle(
-                                  fontSize: 11.sp,
-                                  color: Colors.blue[700],
-                                ),
-                              ),
-                            if (distanceInKm != null)
-                              Text(
-                                'Distance calculée: ${distanceInKm!.toStringAsFixed(2)} km',
-                                style: TextStyle(
-                                  fontSize: 11.sp,
-                                  color: Colors.blue[700],
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  
-                  SizedBox(height: 24.h),
+ 
                   
                   // Récapitulatif des coûts
                   _buildCostSummary(),
@@ -644,7 +583,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
                 SizedBox(width: 8.w),
                 Text(
-                  'Livraison estimée: 25-35 min',
+                  'Temps de préparation estimé: ${restaurant!.preparationTime} min',
                   style: TextStyle(
                     fontSize: 14.sp,
                     color: Colors.green[700],
@@ -827,6 +766,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     controller: _promoCodeController,
                     decoration: InputDecoration(
                       hintText: 'Entrez votre code promo',
+                      hintStyle: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14.sp,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8.r),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8.r),
                         borderSide: BorderSide(color: Colors.grey[300]!),
@@ -924,22 +871,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
           
           SizedBox(height: 16.h),
           
-          // Sous-total
+          // Sous-total HT
           _buildSummaryRow(
-            'Sous-total',
-            '${widget.cart.totalAmount.toStringAsFixed(2)}€',
+            'Sous-total HT',
+            '${subtotalHT.toStringAsFixed(2)}€',
           ),
           
-          // Frais de livraison
+          // TVA
           _buildSummaryRow(
-            'Frais de livraison',
-            '${deliveryFee.toStringAsFixed(2)}€',
+            'TVA',
+            '${totalVatAmount.toStringAsFixed(2)}€',
+            color: Colors.grey[600],
           ),
           
-          // Frais de service
+          // Sous-total TTC
           _buildSummaryRow(
-            'Frais de service',
-            '${serviceFee.toStringAsFixed(2)}€',
+            'Sous-total TTC',
+            '${subtotalTTC.toStringAsFixed(2)}€',
+            fontWeight: FontWeight.w600,
           ),
           
           // Réduction promo
@@ -979,7 +928,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {Color? color}) {
+  Widget _buildSummaryRow(String label, String value, {Color? color, FontWeight? fontWeight}) {
     return Padding(
       padding: EdgeInsets.only(bottom: 8.h),
       child: Row(
@@ -990,13 +939,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
             style: TextStyle(
               fontSize: 14.sp,
               color: color ?? Colors.grey[600],
+              fontWeight: fontWeight,
             ),
           ),
           Text(
             value,
             style: TextStyle(
               fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
+              fontWeight: fontWeight ?? FontWeight.w500,
               color: color ?? Colors.black87,
             ),
           ),
@@ -1135,7 +1085,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             height: 48.h,
             child: Center(
               child: Text(
-                'Veuillez sélectionner une heure de livraison',
+                'Veuillez sélectionner une heure de retrait',
                 style: TextStyle(
                   color: Colors.orange,
                   fontSize: 16.sp,
@@ -1194,6 +1144,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 'name': item.name,
                 'unitPrice': item.unitPrice,
                 'totalPrice': item.totalPrice,
+                'totalPriceHT': item.totalPriceHT,
+                'vatRate': item.vatRate,
+                'vatAmount': item.vatAmount,
                 'quantity': item.quantity,
                 'type': item.type,
                 'menuId': item.menuId,
@@ -1213,11 +1166,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 }).toList(),
                 'updatedAt': item.updatedAt?.toIso8601String(),
               }).toList(),
-              'subtotal': widget.cart.totalAmount,
+              'subtotalHT': subtotalHT,
+              'subtotalTTC': subtotalTTC,
+              'vatAmount': totalVatAmount,
               'deliveryFee': deliveryFee,
               'serviceFee': serviceFee,
               'promoCode': appliedPromoCode,
               'discountAmount': promoDiscount,
+              'finalTotalHT': finalTotalHT,
+              'finalVatAmount': finalVatAmount,
               'totalPrice': finalTotal,
               'restaurantAddress': '${restaurant!.address.address} ${restaurant!.address.codePostal} ${restaurant!.address.ville}',
               'distance': distanceInKm,

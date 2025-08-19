@@ -512,6 +512,11 @@ class RestaurantCart {
   }
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
+
+  // Calculs TVA pour le panier complet
+  double get totalAmountHT => items.fold(0.0, (sum, item) => sum + item.totalPriceHT);
+  double get totalVatAmount => items.fold(0.0, (sum, item) => sum + item.vatAmount);
+  double get totalAmountTTC => totalAmount; // Le montant total est déjà TTC
 }
 
 class CartItem {
@@ -524,6 +529,7 @@ class CartItem {
   final int quantity;
   final double unitPrice;
   final double totalPrice;
+  final double vatRate; // Taux de TVA (ex: 10.0 pour 10%)
   final List<CartItemVariant>? variants;
   final String? menuId;
   final String? menuName;
@@ -542,6 +548,7 @@ class CartItem {
     required this.quantity,
     required this.unitPrice,
     required this.totalPrice,
+    this.vatRate = 10.0, // TVA par défaut pour l'alimentation en France
     this.variants,
     this.menuId,
     this.menuName,
@@ -562,6 +569,7 @@ class CartItem {
       quantity: (map['quantity'] ?? 1) is int ? map['quantity'] : int.tryParse(map['quantity'].toString()) ?? 1,
       unitPrice: (map['unitPrice'] ?? 0.0).toDouble(),
       totalPrice: (map['totalPrice'] ?? 0.0).toDouble(),
+      vatRate: (map['vatRate'] ?? 10.0).toDouble(), // TVA par défaut 10% alimentation
       variants: map['variants'] != null 
           ? (map['variants'] as List).map((v) => CartItemVariant.fromMap(v as Map<String, dynamic>)).toList()
           : null,
@@ -595,6 +603,7 @@ class CartItem {
       'quantity': quantity,
       'unitPrice': unitPrice,
       'totalPrice': totalPrice,
+      'vatRate': vatRate,
       'variants': variants?.map((v) => v.toMap()).toList(),
       'menuId': menuId,
       'menuName': menuName,
@@ -615,6 +624,7 @@ class CartItem {
     int? quantity,
     double? unitPrice,
     double? totalPrice,
+    double? vatRate,
     List<CartItemVariant>? variants,
     String? menuId,
     String? menuName,
@@ -633,6 +643,7 @@ class CartItem {
       quantity: quantity ?? this.quantity,
       unitPrice: unitPrice ?? this.unitPrice,
       totalPrice: totalPrice ?? this.totalPrice,
+      vatRate: vatRate ?? this.vatRate,
       variants: variants ?? this.variants,
       menuId: menuId ?? this.menuId,
       menuName: menuName ?? this.menuName,
@@ -642,6 +653,10 @@ class CartItem {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  // Méthodes pour calculer la TVA
+  double get totalPriceHT => totalPrice / (1 + vatRate / 100);
+  double get vatAmount => totalPrice - totalPriceHT;
 }
 
 class CartItemVariant {

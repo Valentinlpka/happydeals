@@ -353,7 +353,7 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
   @override
   void initState() {
     super.initState();
-    _rating = widget.existingReview?.rating ?? 0;
+    _rating = widget.existingReview?.rating.toDouble() ?? 0.0;
     _commentController =
         TextEditingController(text: widget.existingReview?.comment ?? '');
   }
@@ -457,7 +457,7 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
           id: '',
           userId: user.uid,
           companyId: widget.companyId,
-          rating: _rating,
+          rating: _rating.toInt(),
           comment: _commentController.text,
           createdAt: DateTime.now(),
           userName: '${userModel.firstName} ${userModel.lastName}',

@@ -479,7 +479,7 @@ class _RestaurantOrderWaitingPageState extends State<RestaurantOrderWaitingPage>
                 ),
                 SizedBox(width: 8.w),
                 Text(
-                  'Livraison programmée',
+                  'Heure de retrait souhaitée',
                   style: TextStyle(
                     fontSize: 14.sp,
                     color: Colors.grey[600],

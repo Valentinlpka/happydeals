@@ -1026,7 +1026,7 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { orderId, newStatus } = data;
+  const { orderId, newStatus, type, pickupTime } = data;
 
   try {
     const orderRef = admin.firestore().collection("orders").doc(orderId);
@@ -1040,6 +1040,8 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
 
     // Vérifier que le statut est valide
     const validStatuses = [
+      "confirmed",
+      "pending",
       "payée",
       "en préparation",
       "prête à être retirée",
@@ -1062,6 +1064,7 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
     await orderRef.update({
       status: newStatus,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      pickupTime: pickupTime,
       pickupCode: pickupCode,
     });
 
@@ -1071,6 +1074,7 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
       userId: orderData.userId,
       targetId: orderId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      type: type,
       read: false,
     };
 
@@ -1081,7 +1085,7 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
       case "prête à être retirée":
         notificationData = {
           ...notificationData,
-          type: "order",
+          type: type,
           title: "Commande prête",
           message: `Votre commande #${orderId} est prête à être retirée${
             pickupCode ? `. Code de retrait : ${pickupCode}` : ""
@@ -1094,7 +1098,7 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
       case "completed":
         notificationData = {
           ...notificationData,
-          type: "order",
+          type: type,
           title: "Commande terminée",
           message: `Votre commande #${orderId} est maintenant terminée`,
           targetId: orderId,
@@ -1126,7 +1130,7 @@ exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
             body: notificationBody,
           },
           data: {
-            type: "order",
+            type: type,
             targetId: orderId,
             click_action: "FLUTTER_NOTIFICATION_CLICK",
           },
@@ -5666,6 +5670,120 @@ exports.trackPromoCodeUsage = functions.firestore
       }
     });
 
+// Cloud Function: instantTransfer
+exports.instantTransfer = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be authenticated."
+    );
+  }
 
+  try {
+    const { amount, stripeAccountId, currency = "eur" } = data;
 
+    // Validation des données
+    if (!amount || amount <= 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Montant invalide"
+      );
+    }
+
+    if (!stripeAccountId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Stripe Account ID manquant"
+      );
+    }
+
+    // 1. Vérifier le solde disponible dans Firestore
+    const userSnapshot = await admin
+      .firestore()
+      .collection("users")
+      .doc(context.auth.uid)
+      .get();
     
+    if (!userSnapshot.exists) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Utilisateur non trouvé"
+      );
+    }
+
+    const userData = userSnapshot.data();
+    const currentBalance = userData?.cashback || 0;
+
+    if (amount > currentBalance) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Solde insuffisant pour ce virement"
+      );
+    }
+
+    // 2. Créer le transfert Stripe vers le compte Connect
+    const transfer = await stripe.transfers.create({
+      amount: Math.round(amount * 100), // Stripe utilise les centimes
+      currency: currency,
+      destination: stripeAccountId,
+      description: `Virement instantané Up-Wallet - ${context.auth.uid}`,
+      metadata: {
+        userId: context.auth.uid,
+        transferType: "instant_withdrawal"
+      }
+    });
+
+    // 3. Mettre à jour le solde dans Firestore
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(context.auth.uid)
+      .update({
+        cashback: admin.firestore.FieldValue.increment(-amount),
+        lastWithdrawal: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+    // 4. Enregistrer la transaction dans l'historique
+    await admin.firestore().collection("walletTransactions").add({
+      userId: context.auth.uid,
+      type: "withdrawal",
+      amount: amount,
+      currency: currency,
+      status: "completed",
+      stripeTransferId: transfer.id,
+      stripeAccountId: stripeAccountId,
+      method: "instant",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: {
+        transferType: "instant_withdrawal",
+        description: "Virement instantané via Stripe Connect"
+      }
+    });
+
+    // 5. Retourner le succès
+    return {
+      success: true,
+      transferId: transfer.id,
+      amount: amount,
+      newBalance: currentBalance - amount,
+      message: "Virement instantané effectué avec succès"
+    };
+
+  } catch (error) {
+    console.error("Erreur lors du virement instantané:", error);
+    
+    // Gérer les erreurs Stripe spécifiques
+    if (error) {
+      throw new functions.https.HttpsError(
+        "internal",
+        `Erreur Stripe: ${error.message}`
+      );
+    }
+
+    // Erreur générique
+    throw new functions.https.HttpsError(
+      "internal",
+      `Erreur lors du virement: ${error.message}`
+    );
+  }
+});

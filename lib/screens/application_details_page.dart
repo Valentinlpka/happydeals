@@ -91,8 +91,8 @@ class _ApplicationDetailsPageState extends State<ApplicationDetailsPage> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
-                      image:
-                          NetworkImage(widget.application['companyLogo'] ?? ''),
+                      image: 
+                          NetworkImage(widget.application['companyLogo']),
                       fit: BoxFit.cover,
                     ),
                     boxShadow: [

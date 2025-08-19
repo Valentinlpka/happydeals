@@ -195,8 +195,20 @@ class _UnifiedLocationFilterState extends State<UnifiedLocationFilter>
 
   void _useCurrentLocation() async {
     try {
+      debugPrint('🔄 UnifiedLocationFilter - Demande de géolocalisation GPS explicite');
       final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+      
+      debugPrint('🔄 UnifiedLocationFilter - Avant useCurrentLocation:');
+      debugPrint('🔄 UnifiedLocationFilter - hasLocation: ${locationProvider.hasLocation}');
+      debugPrint('🔄 UnifiedLocationFilter - Latitude actuelle: ${locationProvider.latitude}');
+      debugPrint('🔄 UnifiedLocationFilter - Longitude actuelle: ${locationProvider.longitude}');
+      
       await locationProvider.useCurrentLocation();
+      
+      debugPrint('🔄 UnifiedLocationFilter - Après useCurrentLocation:');
+      debugPrint('🔄 UnifiedLocationFilter - hasLocation: ${locationProvider.hasLocation}');
+      debugPrint('🔄 UnifiedLocationFilter - Latitude: ${locationProvider.latitude}');
+      debugPrint('🔄 UnifiedLocationFilter - Longitude: ${locationProvider.longitude}');
       
       if (locationProvider.hasLocation && !locationProvider.hasError) {
         // Mettre à jour le champ de recherche avec l'adresse obtenue
@@ -205,8 +217,8 @@ class _UnifiedLocationFilterState extends State<UnifiedLocationFilter>
           _predictions = [];
         });
         
-        debugPrint('Localisation actuelle utilisée et sauvegardée: ${locationProvider.address}');
-        debugPrint('Coordonnées: ${locationProvider.latitude}, ${locationProvider.longitude}');
+        debugPrint('🔄 UnifiedLocationFilter - ✅ Géolocalisation GPS réussie: ${locationProvider.address}');
+        debugPrint('🔄 UnifiedLocationFilter - Coordonnées GPS: ${locationProvider.latitude}, ${locationProvider.longitude}');
         
         // Ne pas fermer le bottom sheet, laisser l'utilisateur ajuster le rayon
       } else if (locationProvider.hasError) {
@@ -361,9 +373,9 @@ class _UnifiedLocationFilterState extends State<UnifiedLocationFilter>
                           ],
                         ),
                         child: IconButton(
-                          onPressed: locationProvider.hasLocation ? _useCurrentLocation : null,
+                          onPressed: _useCurrentLocation, // Toujours permettre l'utilisation du GPS
                           icon: const Icon(Icons.my_location, color: Colors.white),
-                          tooltip: 'Utiliser ma position',
+                          tooltip: 'Utiliser ma position actuelle (GPS)',
                           style: IconButton.styleFrom(
                             padding: const EdgeInsets.all(15),
                           ),

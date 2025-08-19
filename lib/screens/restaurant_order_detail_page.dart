@@ -72,7 +72,6 @@ class _RestaurantOrderDetailPageState extends State<RestaurantOrderDetailPage> {
             )
           else if (order != null) ...[
             SliverToBoxAdapter(child: _buildOrderHeader()),
-            SliverToBoxAdapter(child: SizedBox(height: 16.h)),
             SliverToBoxAdapter(child: _buildOrderStatus()),
             SliverToBoxAdapter(child: SizedBox(height: 16.h)),
             SliverToBoxAdapter(child: _buildRestaurantInfo()),
@@ -246,6 +245,138 @@ class _RestaurantOrderDetailPageState extends State<RestaurantOrderDetailPage> {
               ),
             ),
           ],
+          
+          // Code de retrait (affiché uniquement quand la commande est prête)
+          if (order!.pickupCode != null && order!.status == 'prête à être retirée') ...[
+            SizedBox(height: 12.h),
+            Container(
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.purple[400]!, Colors.purple[600]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.purple.withOpacity(0.3),
+                    blurRadius: 8.r,
+                    offset: Offset(0, 4.h),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8.w),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Icon(
+                          Icons.qr_code,
+                          size: 24.sp,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Code de retrait',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                            ),
+                            Text(
+                              'Présentez ce code au commerçant',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16.h),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          order!.pickupCode!,
+                          style: TextStyle(
+                            fontSize: 32.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple[700],
+                            letterSpacing: 4.w,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        SizedBox(height: 8.h),
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: order!.pickupCode!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Code copié dans le presse-papier'),
+                                backgroundColor: Colors.green[600],
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                            decoration: BoxDecoration(
+                              color: Colors.purple[50],
+                              borderRadius: BorderRadius.circular(20.r),
+                              border: Border.all(color: Colors.purple[200]!),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.copy,
+                                  size: 14.sp,
+                                  color: Colors.purple[600],
+                                ),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  'Copier le code',
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    color: Colors.purple[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -254,7 +385,7 @@ class _RestaurantOrderDetailPageState extends State<RestaurantOrderDetailPage> {
   Widget _buildOrderStatus() {
     final statusSteps = [
       {'key': 'preparing', 'label': 'Préparation', 'icon': Icons.restaurant},
-      {'key': 'ready', 'label': 'Prête à retirer', 'icon': Icons.inventory_2},
+      {'key': 'prête à être retirée', 'label': 'Prête à retirer', 'icon': Icons.inventory_2},
       {'key': 'completed', 'label': 'Terminée', 'icon': Icons.done_all},
     ];
 
@@ -741,11 +872,11 @@ class _RestaurantOrderDetailPageState extends State<RestaurantOrderDetailPage> {
         return Colors.orange; // Même couleur que preparing car c'est affiché comme tel
       case 'preparing':
         return Colors.orange;
-      case 'ready':
+      case 'prête à être retirée':
         return Colors.purple;
       case 'delivering':
         return Colors.purple; // Click & collect - même couleur que ready
-      case 'delivered':
+      case 'completed':
         return Colors.green; // Terminée
       case 'cancelled':
         return Colors.red;
@@ -839,6 +970,53 @@ class _RestaurantOrderDetailPageState extends State<RestaurantOrderDetailPage> {
                           fontWeight: FontWeight.w600,
                           color: Colors.green[700],
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
+            // Code de retrait dans la dialog
+            if (order!.pickupCode != null && order!.status == 'prête à être retirée') ...[
+              SizedBox(height: 16.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: Colors.purple[50],
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(color: Colors.purple[200]!),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.qr_code,
+                          size: 16.sp,
+                          color: Colors.purple[600],
+                        ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            'Code de retrait: ${order!.pickupCode}',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.purple[700],
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8.h),
+                    Text(
+                      'Présentez ce code au commerçant',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: Colors.purple[600],
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],

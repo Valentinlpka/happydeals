@@ -174,4 +174,13 @@ class AuthService {
   }
 
   User? get currentUser => _auth.currentUser;
+
+  /// Envoie un e-mail de réinitialisation de mot de passe
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      throw Exception(e.message ?? 'Erreur lors de l\'envoi de l\'e-mail de réinitialisation');
+    }
+  }
 }

@@ -109,9 +109,7 @@ class RestaurantProvider extends ChangeNotifier {
           final restaurant = Restaurant.fromFirestore(doc);
           restaurants.add(restaurant);
           
-          if (restaurant.category.isNotEmpty) {
-            categories.add(restaurant.category);
-          }
+   
           if (restaurant.subCategory.isNotEmpty) {
             categories.add(restaurant.subCategory);
           }
@@ -121,7 +119,7 @@ class RestaurantProvider extends ChangeNotifier {
       }
 
       _restaurants = restaurants;
-      _availableCategories = categories.toList()..sort();
+      _availableCategories = categories.toList();
       
       _applySortingAndFilters(null);
       
@@ -234,7 +232,7 @@ class RestaurantProvider extends ChangeNotifier {
         filtered.sort((a, b) => a.averageOrderValue.compareTo(b.averageOrderValue));
         break;
       case RestaurantSortBy.popularity:
-        filtered.sort((a, b) => b.totalReviews.compareTo(a.totalReviews));
+        filtered.sort((a, b) => b.numberOfReviews.compareTo(a.numberOfReviews));
         break;
     }
 

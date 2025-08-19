@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:happy/classes/product.dart';
 import 'package:happy/screens/shop/product_detail_page.dart';
 import 'package:happy/services/like_service.dart';
+import 'package:happy/utils/image_utils.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -23,45 +24,17 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildImageWithError(String? imageUrl, {bool isSmallScreen = false}) {
-    if (!_isValidImageUrl(imageUrl)) {
-      return Container(
+    return ImageUtils.safeNetworkImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.cover,
+      errorWidget: Container(
         color: Colors.grey[100],
         child: Icon(
           Icons.image_outlined,
           size: isSmallScreen ? 32 : 40,
           color: Colors.grey[400],
         ),
-      );
-    }
-
-    return Image.network(
-      imageUrl!,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        debugPrint('Erreur de chargement de l\'image: $error');
-        return Container(
-          color: Colors.grey[100],
-          child: Icon(
-            Icons.image_outlined,
-            size: isSmallScreen ? 32 : 40,
-            color: Colors.grey[400],
-          ),
-        );
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          color: Colors.grey[100],
-          child: Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-            ),
-          ),
-        );
-      },
+      ),
     );
   }
 

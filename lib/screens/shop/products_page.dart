@@ -138,7 +138,29 @@ class _ProductsPageState extends State<ProductsPage> {
     final userModel = Provider.of<UserModel>(context, listen: false);
     final locationProvider = Provider.of<LocationProvider>(context, listen: false);
     
-    await locationProvider.initializeLocation(userModel);
+    debugPrint('🏪 ProductsPage - Début initialisation localisation');
+    debugPrint('🏪 ProductsPage - LocationProvider.hasLocation: ${locationProvider.hasLocation}');
+    
+    // Ne pas initialiser si la localisation est déjà définie
+    if (!locationProvider.hasLocation) {
+      debugPrint('🏪 ProductsPage - Aucune localisation, initialisation en cours...');
+      debugPrint('🏪 ProductsPage - UserModel.city: "${userModel.city}"');
+      debugPrint('🏪 ProductsPage - UserModel.zipCode: "${userModel.zipCode}"');
+      debugPrint('🏪 ProductsPage - UserModel.latitude: ${userModel.latitude}');
+      debugPrint('🏪 ProductsPage - UserModel.longitude: ${userModel.longitude}');
+      
+      await locationProvider.initializeLocation(userModel);
+      
+      debugPrint('🏪 ProductsPage - Après initialisation:');
+      debugPrint('🏪 ProductsPage - Latitude: ${locationProvider.latitude}');
+      debugPrint('🏪 ProductsPage - Longitude: ${locationProvider.longitude}');
+      debugPrint('🏪 ProductsPage - Adresse: "${locationProvider.address}"');
+    } else {
+      debugPrint('🏪 ProductsPage - Localisation déjà définie, pas d\'initialisation');
+      debugPrint('🏪 ProductsPage - Latitude actuelle: ${locationProvider.latitude}');
+      debugPrint('🏪 ProductsPage - Longitude actuelle: ${locationProvider.longitude}');
+      debugPrint('🏪 ProductsPage - Adresse actuelle: "${locationProvider.address}"');
+    }
   }
 
   @override

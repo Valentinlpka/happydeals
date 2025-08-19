@@ -291,7 +291,7 @@ class _ModernProductDetailPageState extends State<ModernProductDetailPage> {
               ],
               const SizedBox(height: 16),
               const Text(
-                'Informations de livraison',
+                'Informations de retrait',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,

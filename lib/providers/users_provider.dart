@@ -276,7 +276,7 @@ class UserModel with ChangeNotifier {
       _workingHours = data['workingHours'] ?? '';
       _industrySector = data['industrySector'] ?? '';
       _city = data['city'] ?? '';
-      _zipCode = data['postalCode'] ?? '';
+      _zipCode = data['zipCode'] ?? '';
       _latitude = (data['latitude'] ?? 0.0).toDouble();
       _longitude = (data['longitude'] ?? 0.0).toDouble();
 

@@ -24,126 +24,194 @@ class DeliveryTimeSelector extends StatefulWidget {
 }
 
 class _DeliveryTimeSelectorState extends State<DeliveryTimeSelector> {
-  late DateTime _selectedDate;
-  late TimeOfDay _selectedTime;
   final List<DateTime> _availableSlots = [];
 
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime.now();
-    _selectedTime = TimeOfDay.now();
     _generateAvailableSlots();
   }
 
   void _generateAvailableSlots() {
+    debugPrint('🕐 DeliveryTimeSelector - DÉBUT génération des créneaux disponibles');
     _availableSlots.clear();
     final now = DateTime.now();
     
-    // Générer des créneaux pour les 7 prochains jours
-    for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
-      final date = DateTime(now.year, now.month, now.day + dayOffset);
-      final slots = _getAvailableSlotsForDate(date);
-      _availableSlots.addAll(slots);
-    }
+    // Générer des créneaux SEULEMENT pour aujourd'hui
+    final today = DateTime(now.year, now.month, now.day);
+    debugPrint('🕐 DeliveryTimeSelector - Traitement d\'aujourd\'hui uniquement: ${today.day}/${today.month}/${today.year}');
+    debugPrint('🕐 DeliveryTimeSelector - Heure actuelle: ${now.hour}h${now.minute.toString().padLeft(2, '0')}');
+    
+    final slots = _getAvailableSlotsForDate(today, currentTime: now);
+    _availableSlots.addAll(slots);
+    
+    debugPrint('🕐 DeliveryTimeSelector - FIN génération: ${_availableSlots.length} créneaux au total');
   }
 
-  List<DateTime> _getAvailableSlotsForDate(DateTime date) {
+  List<DateTime> _getAvailableSlotsForDate(DateTime date, {DateTime? currentTime}) {
     final slots = <DateTime>[];
     final dayName = _getDayName(date.weekday);
     final hours = widget.restaurant.openingHours.schedule[dayName];
+    final now = currentTime ?? DateTime.now();
+    
+    debugPrint('🕐 DeliveryTimeSelector - Jour: $dayName, Horaires: "$hours"');
     
     if (hours == null || hours == 'fermé') {
+      debugPrint('🕐 DeliveryTimeSelector - Restaurant fermé le $dayName');
       return slots;
     }
 
-    // Essayer d'abord le format avec virgules (format standard)
-    if (hours.contains(',')) {
-      final timeRanges = hours.split(',');
+    // Format avec "/" pour séparer les plages (ex: "09:00 - 13:30 / 14:00 - 18:00")
+    if (hours.contains('/')) {
+      debugPrint('🕐 DeliveryTimeSelector - Format avec "/" détecté');
+      final timeRanges = hours.split('/');
       for (final range in timeRanges) {
-        _addSlotsForRange(range.trim(), date, slots);
-      }
-    } else {
-      // Format avec espaces et tirets multiples (ex: "9h 13H30 - 15h15 - 18h00")
-      final parts = hours.split(' ');
-      final timeRanges = <String>[];
-      
-      for (int i = 0; i < parts.length - 1; i++) {
-        if (parts[i + 1].contains('-')) {
-          // Trouver la fin de cette plage
-          int endIndex = i + 1;
-          while (endIndex < parts.length && parts[endIndex].contains('-')) {
-            endIndex++;
-          }
-          
-          // Construire la plage complète
-          final range = parts.sublist(i, endIndex).join(' ');
-          timeRanges.add(range);
-          i = endIndex - 1; // Sauter les parties déjà traitées
+        final trimmedRange = range.trim();
+        debugPrint('🕐 DeliveryTimeSelector - Évaluation de la plage: "$trimmedRange"');
+        
+        // Vérifier si cette plage est la plage actuelle
+        if (_isCurrentTimeRange(trimmedRange, now)) {
+          debugPrint('🕐 DeliveryTimeSelector - ✅ Plage actuelle trouvée: "$trimmedRange"');
+          _addSlotsForRange(trimmedRange, date, slots, currentTime: now);
+          break; // Ne traiter que la plage actuelle
+        } else {
+          debugPrint('🕐 DeliveryTimeSelector - ❌ Plage non actuelle: "$trimmedRange"');
         }
       }
-      
-      // Traiter chaque plage trouvée
+    }
+    // Format avec virgules (format alternatif)
+    else if (hours.contains(',')) {
+      debugPrint('🕐 DeliveryTimeSelector - Format avec "," détecté');
+      final timeRanges = hours.split(',');
       for (final range in timeRanges) {
-        _addSlotsForRange(range, date, slots);
+        final trimmedRange = range.trim();
+        debugPrint('🕐 DeliveryTimeSelector - Évaluation de la plage: "$trimmedRange"');
+        
+        if (_isCurrentTimeRange(trimmedRange, now)) {
+          debugPrint('🕐 DeliveryTimeSelector - ✅ Plage actuelle trouvée: "$trimmedRange"');
+          _addSlotsForRange(trimmedRange, date, slots, currentTime: now);
+          break;
+        } else {
+          debugPrint('🕐 DeliveryTimeSelector - ❌ Plage non actuelle: "$trimmedRange"');
+        }
       }
     }
+    // Format simple avec un seul tiret (ex: "09:00 - 18:00")
+    else if (hours.contains('-')) {
+      debugPrint('🕐 DeliveryTimeSelector - Format simple avec "-" détecté');
+      _addSlotsForRange(hours.trim(), date, slots, currentTime: now);
+    }
+    else {
+      debugPrint('🕐 DeliveryTimeSelector - ⚠️ Format d\'horaires non reconnu: "$hours"');
+    }
     
+    debugPrint('🕐 DeliveryTimeSelector - ${slots.length} créneaux générés pour le $dayName');
     return slots;
   }
 
-  void _addSlotsForRange(String range, DateTime date, List<DateTime> slots) {
+  /// Vérifie si l'heure actuelle est dans la plage horaire donnée
+  bool _isCurrentTimeRange(String range, DateTime now) {
     final parts = range.trim().split('-');
-    if (parts.length == 2) {
-      final startTime = _parseTime(parts[0].trim());
-      final endTime = _parseTime(parts[1].trim());
-      
-      if (startTime != null && endTime != null) {
-        // Créer des créneaux toutes les 30 minutes
-        DateTime currentSlot = DateTime(
-          date.year,
-          date.month,
-          date.day,
-          startTime.hour,
-          startTime.minute,
-        );
-        
-        final endDateTime = DateTime(
-          date.year,
-          date.month,
-          date.day,
-          endTime.hour,
-          endTime.minute,
-        );
-        
-        // Ajouter le temps de préparation (minimum 30 minutes)
-        final minDeliveryTime = DateTime.now().add(const Duration(minutes: 30));
-        
-        while (currentSlot.isBefore(endDateTime)) {
-          // Vérifier que le créneau est dans le futur et respecte le temps de préparation
-          if (currentSlot.isAfter(minDeliveryTime)) {
-            slots.add(currentSlot);
-          }
-          currentSlot = currentSlot.add(const Duration(minutes: 30));
-        }
-      }
+    if (parts.length != 2) {
+      debugPrint('🕐 DeliveryTimeSelector - _isCurrentTimeRange: Format invalide "$range"');
+      return false;
     }
+    
+    final startTime = _parseTime(parts[0].trim());
+    final endTime = _parseTime(parts[1].trim());
+    
+    if (startTime == null || endTime == null) {
+      debugPrint('🕐 DeliveryTimeSelector - _isCurrentTimeRange: Erreur parsing "$range"');
+      return false;
+    }
+    
+    final currentMinutes = now.hour * 60 + now.minute;
+    final startMinutes = startTime.hour * 60 + startTime.minute;
+    final endMinutes = endTime.hour * 60 + endTime.minute;
+    
+    final isInRange = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+    
+    debugPrint('🕐 DeliveryTimeSelector - _isCurrentTimeRange: ${now.hour}h${now.minute.toString().padLeft(2, '0')} dans "$range" = $isInRange');
+    debugPrint('🕐 DeliveryTimeSelector - Détail: $currentMinutes min >= $startMinutes min && <= $endMinutes min');
+    
+    return isInRange;
+  }
+
+  void _addSlotsForRange(String range, DateTime date, List<DateTime> slots, {DateTime? currentTime}) {
+    debugPrint('🕐 DeliveryTimeSelector - _addSlotsForRange: "$range"');
+    
+    final parts = range.trim().split('-');
+    if (parts.length != 2) {
+      debugPrint('🕐 DeliveryTimeSelector - ⚠️ Format de plage invalide: "$range" (${parts.length} parties)');
+      return;
+    }
+    
+    final startTime = _parseTime(parts[0].trim());
+    final endTime = _parseTime(parts[1].trim());
+    
+    debugPrint('🕐 DeliveryTimeSelector - Heure début: ${parts[0].trim()} -> $startTime');
+    debugPrint('🕐 DeliveryTimeSelector - Heure fin: ${parts[1].trim()} -> $endTime');
+    
+    if (startTime == null || endTime == null) {
+      debugPrint('🕐 DeliveryTimeSelector - ⚠️ Erreur parsing des heures pour "$range"');
+      return;
+    }
+    
+    // Créer des créneaux toutes les 30 minutes
+    DateTime currentSlot = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      startTime.hour,
+      startTime.minute,
+    );
+    
+    final endDateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      endTime.hour,
+      endTime.minute,
+    );
+    
+    // Ajouter le temps de préparation (minimum 30 minutes)
+    final now = currentTime ?? DateTime.now();
+    final minDeliveryTime = now.add(const Duration(minutes: 30));
+    
+    debugPrint('🕐 DeliveryTimeSelector - Génération créneaux de $currentSlot à $endDateTime');
+    debugPrint('🕐 DeliveryTimeSelector - Temps minimum de livraison: $minDeliveryTime');
+    
+    int slotsAdded = 0;
+    while (currentSlot.isBefore(endDateTime)) {
+      // Vérifier que le créneau est dans le futur et respecte le temps de préparation
+      if (currentSlot.isAfter(minDeliveryTime)) {
+        slots.add(currentSlot);
+        slotsAdded++;
+      }
+      currentSlot = currentSlot.add(const Duration(minutes: 30));
+    }
+    
+    debugPrint('🕐 DeliveryTimeSelector - $slotsAdded créneaux ajoutés pour la plage "$range"');
   }
 
   TimeOfDay? _parseTime(String timeStr) {
+    final originalTimeStr = timeStr;
     try {
       // Nettoyer et normaliser le format d'heure
       timeStr = _normalizeTimeFormat(timeStr);
+      debugPrint('🕐 DeliveryTimeSelector - _parseTime: "$originalTimeStr" -> "$timeStr"');
       
       final parts = timeStr.split(':');
       if (parts.length == 2) {
-        return TimeOfDay(
-          hour: int.parse(parts[0]),
-          minute: int.parse(parts[1]),
-        );
+        final hour = int.parse(parts[0]);
+        final minute = int.parse(parts[1]);
+        debugPrint('🕐 DeliveryTimeSelector - Parsed: ${hour}h${minute.toString().padLeft(2, '0')}');
+        return TimeOfDay(hour: hour, minute: minute);
+      } else {
+        debugPrint('🕐 DeliveryTimeSelector - ⚠️ Format invalide après normalisation: "$timeStr" (${parts.length} parties)');
       }
     } catch (e) {
-      debugPrint('Erreur parsing time: $e pour $timeStr');
+      debugPrint('🕐 DeliveryTimeSelector - ⚠️ Erreur parsing time: $e pour "$originalTimeStr" -> "$timeStr"');
     }
     return null;
   }
@@ -193,7 +261,7 @@ class _DeliveryTimeSelectorState extends State<DeliveryTimeSelector> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Heure de livraison',
+            'Heure de retrait',
             style: TextStyle(
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
